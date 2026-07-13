@@ -27,9 +27,10 @@ const monthOf = (date: IsoDate): Month => date.slice(0, 7);
 /**
  * Le bilan d'un mois, dérivé des faits.
  *
- * Les faits passés peuvent couvrir toute la vie de l'utilisateur (le moteur
- * filtre lui-même sur le mois) — mais pour l'annulation du malus, les lectures
- * des AUTRES mois comptent aussi : ne pas pré-filtrer les lectures avant l'appel.
+ * Contrat d'appel : passer toutes les lectures TERMINÉES de l'utilisateur,
+ * TOUS MOIS CONFONDUS (l'annulation du malus regarde les mois précédents —
+ * la couche d'accès peut donc filtrer `status = 'finished'`, jamais par mois).
+ * Les lectures en cours ou abandonnées sont acceptées mais n'influent sur rien.
  */
 export function computeMonthlyReport(
   month: Month,
@@ -77,6 +78,9 @@ export function computeMonthlyReport(
     if (monthOf(purchase.purchasedAt) !== month) return false;
     const finishedMonths = monthsFinishedByBook.get(purchase.bookId) ?? [];
     // La comparaison lexicographique de `YYYY-MM` est chronologique.
+    // Assumé (review #4) : l'annulation est PAR LIVRE, pas par achat — acheter
+    // deux exemplaires du même livre le même mois et en lire un annule les deux
+    // malus. Cas hors du geste réel de l'app ; à reconsidérer s'il se présente.
     return !finishedMonths.some((finishedMonth) => finishedMonth <= month);
   });
 

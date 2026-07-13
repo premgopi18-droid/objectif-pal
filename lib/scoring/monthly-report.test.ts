@@ -131,6 +131,18 @@ describe("règle 3 — le malus d'achat", () => {
     expect(result.total).toBe(0);
   });
 
+  it("une lecture abandonnée n'annule pas le malus de l'achat", () => {
+    // Une lecture lâchée ne sort pas le livre de la pile à lire (§4.5) : seul
+    // `finished` efface le malus. Ce test verrouille le filtre sur le statut.
+    const reading = abandoned("bd", "2026-07-03");
+    const result = report("2026-07", {
+      readings: [reading],
+      purchases: [purchase(reading.bookId, "2026-07-01")],
+    });
+    expect(result.unreadPurchaseCount).toBe(1);
+    expect(result.total).toBe(-1);
+  });
+
   it("deux achats non lus le même mois : −2", () => {
     const result = report("2026-07", {
       purchases: [purchase("book-a", "2026-07-01"), purchase("book-b", "2026-07-30")],
