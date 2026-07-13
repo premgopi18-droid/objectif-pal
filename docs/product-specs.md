@@ -153,6 +153,38 @@ manga français, les romans**.
 identifiant chez elle, catégorie. Le reste de l'app (lectures, achats, bilan) ne voit qu'un livre avec une
 catégorie — **il ignore d'où viennent ses métadonnées**.
 
+#### Les couvertures — pas d'API miracle, la photo est la vraie réponse
+
+**Constat, après vérification** : il n'existe **aucune source de couvertures VO à la fois gratuite, fiable et
+utilisable commercialement**. C'est logique : une couverture est une **œuvre sous copyright de l'éditeur**, donc
+personne ne peut la redistribuer librement.
+
+| Source | Verdict |
+|---|---|
+| **Comic Vine** | La plus grosse base d'images, indé compris — mais **usage commercial explicitement interdit** (clé révoquée), 200 req/h. |
+| **GCD** | Les scans existent sur le site mais **pas dans le dump** (images sous copyright, non redistribuées). Hotlinker leurs fichiers = fragile et discourtois. |
+| **Google Books / Open Library** | Couvertures **par ISBN seulement** → parfait pour BD, manga, roman, TPB, omnibus. **Inutile pour les fascicules.** |
+| **Marvel API** | Officielle et gratuite, mais **Marvel uniquement** → ne résout pas l'indé. |
+| **Metron** | Héberge des couvertures, gratuit, CC BY-SA — mais CGU « usage personnel », donc même limite qu'ailleurs. |
+
+**Décision : cascade automatique, puis la photo.**
+
+1. **Tentative automatique** : Metron (VO) puis Google Books (VF) → couvre la majorité des lectures sans rien
+   demander.
+2. **Sinon, l'app propose de photographier la couverture** — la caméra est **déjà ouverte pour le scan** et le
+   livre est **déjà dans la main**. Un tap.
+
+Pourquoi c'est meilleur qu'une API, et pas un pis-aller :
+
+- **100 % de couverture** — y compris le Kickstarter tiré à 500 exemplaires qu'aucune base ne connaîtra jamais.
+- **Zéro problème juridique, même en commercialisant** : chaque utilisateur photographie *sa* pile, aucune
+  redistribution de fichiers.
+- **Zéro quota, zéro clé, zéro dépendance.**
+- C'est **l'exemplaire réel**, avec sa vraie variante de couverture — ce qu'aucune base ne sait donner.
+
+**Stockage** : Supabase Storage, **1 Go gratuit**. Compression WebP côté client (~150 Ko/couverture) → **~6 000
+bouquins**. Largement au-delà de l'horizon.
+
 #### Résolution = une interface de providers
 
 **Contrainte d'architecture, décidée pour ne pas se marier à une source.** La résolution des métadonnées vit
@@ -228,12 +260,23 @@ Metron donne la catégorie pour la VO. Pour la VF, et en dernier recours :
 ### 2. Mes lectures — le journal (P0)
 
 La liste de tout ce que je lis et ai lu, avec :
-- l'état : **en cours** / **terminé** (et **abandonné**, cf. TBD),
+- l'état : **en cours** / **terminé** / **abandonné**,
 - la **date de début** et la **date de fin**,
 - la catégorie, la série et le numéro de tome,
 - filtres par état, catégorie, série, mois.
 
 Une lecture est une **entrée distincte du livre** : relire un bouquin crée une nouvelle lecture.
+
+**L'abandon est un état à part entière, et il est réversible.** Une lecture abandonnée n'est **pas** supprimée :
+elle garde sa date de début, reçoit une date d'abandon, et rapporte **0 point**. Surtout, elle peut **repasser en
+cours** — une reprise de lecture est un cas normal, pas une exception. Concrètement :
+
+- `reading` → `abandoned` : on note la date d'abandon.
+- `abandoned` → `reading` : **reprise** — la date d'abandon est effacée, la lecture repart.
+- `abandoned` ou `reading` → `finished` : les points tombent normalement, à la date de fin.
+
+Ça ouvre deux stats que l'émission adorera : **le nombre d'abandons** et **le nombre de reprises** (les bouquins
+qu'on a réussi à finir après les avoir lâchés).
 
 C'est la table qui alimente tout le reste — les stats comme le score. Sa complétude prime sur tout : il doit
 toujours être possible d'**ajouter une lecture à la main** (bouquin non scannable, typiquement une issue VO) et
@@ -344,7 +387,6 @@ RLS activée partout, `user_id` sur chaque table.
 
 ## TBD
 
-- **Abandon d'une lecture** : est-ce un état à part (`abandoned`, 0 point) ou on supprime la ligne ?
 - **Bonus objectif** : confirmé all-or-nothing (+3 si toutes les cibles sont atteintes) — à retester à l'usage,
   l'alternative étant +3 par catégorie remplie.
 - **Frontière comics / omnibus** : le seuil de pages est arbitraire, à caler sur des vrais bouquins.
