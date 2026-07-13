@@ -29,7 +29,7 @@ bonne catégorie. À la fin du mois, l'app me sort le bilan que je lis à l'ante
 Ce n'est pas une phrase de brochure : elle **contraint la conception**, et voici comment.
 
 **1. Les données doivent survivre à l'app.** Dans cinq ans, le journal contiendra des années de lecture — il
-devient irremplaçable, et le lock-in devient inacceptable. D'où l'export (§4.8) et la portabilité (§10), qui ne
+devient irremplaçable, et le lock-in devient inacceptable. D'où l'export (§4.10) et la portabilité (§10), qui ne
 sont pas du confort mais une **exigence de premier rang**. Corollaire : **rien n'est jamais supprimé en dur**.
 Un livre retiré, une lecture effacée : on **marque**, on ne détruit pas.
 
@@ -215,7 +215,44 @@ scannable) et de **corriger les dates après coup**.
 le modèle de données : **aucune date n'est jamais forcée à « maintenant »** — `started_at` et `finished_at` sont
 toujours librement saisissables, sinon l'import rétroactif deviendra impossible.
 
-### 4.3 Statistiques & analyses (P0)
+### 4.3 Note et avis (P0 pour la donnée)
+
+Sans ça, l'app sait **ce que** je lis, **quand** et **combien** — mais pas **ce que j'en ai pensé**. Or c'est la
+matière même de l'émission.
+
+- **Note sur 5 étoiles**, **demi-étoiles permises** (donc 0,5 → 5). Le standard Babelio / SensCritique : assez
+  fin pour classer, assez grossier pour ne pas se torturer sur 200 bouquins par an.
+- **Commentaire libre** — la vraie matière : *« lâché deux fois avant de m'accrocher »*, *« le dessin sauve un
+  scénario mou »*.
+- Les deux sont **facultatifs** et **modifiables à tout moment**. Une lecture terminée sans note reste une
+  lecture valide (elle rapporte ses points normalement).
+
+> **La donnée entre dès le jour un, l'écran peut attendre.** Une note non capturée est **perdue pour toujours** —
+> personne ne se souvient dans six mois de ce qu'il pensait du tome 4. Les champs existent donc dès la première
+> version, même si l'interface qui les exploite arrive plus tard.
+
+Ce que ça ouvre côté stats : **note moyenne** (par mois, par catégorie, par série, par éditeur), **mes meilleures
+séries**, **les éditeurs qui me déçoivent**, et le classement de mes lectures.
+
+### 4.4 Les distinctions du mois (P1)
+
+Trois choix, **à la main**, dans le bilan mensuel — parce que ce sont des **choix éditoriaux**, pas des calculs :
+
+| Distinction | Ce que c'est |
+|---|---|
+| **L'œuvre préférée du mois** | Pas forcément la meilleure note : celle qui a marqué. |
+| **La bonne surprise** | Ce qu'on n'attendait pas et qui a retourné. |
+| **La mauvaise surprise** | La déception, l'attente trahie. |
+
+Chacune pointe une **lecture du mois** et accepte un **commentaire**. Elles s'affichent dans le bilan, à côté des
+chiffres : ce qu'on lit à l'antenne, ce n'est pas qu'un décompte.
+
+> **Pourquoi ça ne peut pas être automatique** : une base de données ne sait pas ce qu'est une *surprise*. Une
+> surprise, c'est **l'écart entre ce qu'on attendait et ce qu'on a eu** — et l'attente n'est enregistrée nulle
+> part. Un chef-d'œuvre attendu comme un chef-d'œuvre n'est pas une surprise. (Une piste pour plus tard existe,
+> cf. backlog : déclarer sa « hype » au scan rendrait la surprise **calculable**.)
+
+### 4.5 Statistiques & analyses (P0)
 
 #### Le bilan du mois au barème — **l'écran principal, le livrable**
 
@@ -271,7 +308,12 @@ Les points ne sont qu'une multiplication de ces comptes par le barème : **le bi
 - Par catégorie, par éditeur, par série.
 - Séries en cours : combien de tomes lus, quel est le suivant.
 
-### 4.4 Achats (P0)
+**Goûts** (à partir des notes, §4.3)
+- Note moyenne : du mois, de l'année, par catégorie.
+- **Mes meilleures séries**, mes meilleurs éditeurs — et ceux qui me déçoivent.
+- Classement de mes lectures.
+
+### 4.6 Achats (P0)
 
 Enregistrer un achat (scan ou saisie) avec sa date. Il sert deux fois :
 - il alimente la **PAL** (« acheté pas lu »), le solde entrées/sorties et **la ligne « achats non lus » du
@@ -280,13 +322,13 @@ Enregistrer un achat (scan ou saisie) avec sa date. Il sert deux fois :
 
 Un achat se « convertit » en lecture quand on commence le livre.
 
-### 4.5 Score du mois (P0 — c'est le bilan)
+### 4.7 Score du mois (P0 — c'est le bilan)
 
 Pas un écran à part : le score **est** le total du bilan. Décomposition visible (points de lecture, malus achats,
 et plus tard bonus objectif) + historique des mois précédents. **Entièrement dérivé** du journal et des achats :
 aucune saisie spécifique, aucun stockage de score.
 
-### 4.6 Authentification (P0)
+### 4.8 Authentification (P0)
 
 **Connexion Google (OAuth), via Supabase Auth.** Un bouton, un tap, pas de mot de passe à retenir.
 
@@ -295,7 +337,7 @@ aucune saisie spécifique, aucun stockage de score.
 > construire le `redirectTo` à partir de l'**origine réelle de la requête**, pas d'une constante — sinon on ne
 > peut plus tester un flux authentifié ailleurs qu'en production.
 
-### 4.7 L'app est une PWA (P0)
+### 4.9 L'app est une PWA (P0)
 
 Ce n'est pas cosmétique : sans ça, pas d'icône sur l'écran d'accueil et un accès caméra bancal.
 
@@ -305,7 +347,7 @@ Ce n'est pas cosmétique : sans ça, pas d'icône sur l'écran d'accueil et un a
 - Icônes et splash, `theme-color`.
 - HTTPS obligatoire pour la caméra — fourni par l'hébergeur.
 
-### 4.8 Export de mes données (P0)
+### 4.10 Export de mes données (P0)
 
 Un bouton « exporter » qui sort **tout** : livres, lectures, achats, objectifs, en **JSON et CSV**.
 
@@ -314,7 +356,7 @@ Deux raisons, et la seconde est la vraie :
 2. **Ne jamais être prisonnier de l'app.** Mes données sont à moi et je peux partir avec — c'est la même
    exigence que la portabilité de l'infra (§10).
 
-### 4.9 Objectif du mois (P1)
+### 4.11 Objectif du mois (P1)
 
 - Un objectif par mois : une **cible chiffrée par catégorie** (0 = catégorie non visée).
 - Jauge de progression par catégorie + état global.
@@ -549,6 +591,11 @@ un second (cf. §4.2).
 | `status` | **enum** : `reading` / `finished` / `abandoned` — l'état **courant** |
 | `started_at` | date, **librement saisissable** |
 | `finished_at` | date, nullable — **c'est elle qui date les points** |
+| `rating` | note sur **5**, demi-étoiles permises (`numeric(2,1)`, 0,5 → 5), **nullable** |
+| `comment` | avis libre, **nullable** |
+
+> `rating` et `comment` sont **facultatifs** : une lecture terminée sans note rapporte ses points normalement.
+> Mais les **colonnes existent dès la première version** — une note non capturée est perdue pour toujours.
 
 **`reading_events`** — le **journal d'états, en append-only** : `reading_id`, `status`, `occurred_at`. Une ligne
 à chaque changement, **jamais d'effacement**. C'est lui qui permet de compter les **abandons** et les
@@ -556,6 +603,10 @@ un second (cf. §4.2).
 état connu** — une commodité de lecture, pas la vérité historique.
 
 **`purchases`** — un achat : `user_id`, `book_id`, `purchased_at` (date).
+
+**`monthly_picks`** (P1) — les **distinctions du mois** : `user_id`, `month` (1er du mois), `kind` (**enum** :
+`favorite` / `good_surprise` / `bad_surprise`), `reading_id`, `comment`. Une distinction de chaque type par mois
+au maximum (unicité sur `(user_id, month, kind)`).
 
 **`monthly_objectives`** (P1) — `user_id`, `month` (1er du mois).
 **`objective_targets`** (P1) — `objective_id`, `category`, `target_count`.
@@ -630,7 +681,7 @@ Go gratuit et la bande passante mobile.
 | Front | Next.js 16 (App Router) + Tailwind 4 |
 | Back | Server Actions + Route Handlers |
 | Base | PostgreSQL via Supabase |
-| Auth | Supabase Auth — **Google OAuth** (⚠️ `redirectTo` sur l'origine réelle, cf. §4.6) |
+| Auth | Supabase Auth — **Google OAuth** (⚠️ `redirectTo` sur l'origine réelle, cf. §4.8) |
 | Stockage images | Supabase Storage (1 Go gratuit) |
 | **Identification d'un scan** | **GCD importé chez nous** — table `barcode → issue`, match exact **et par préfixe** |
 | Métadonnées VF | Google Books (primaire) + Open Library (fallback) |
@@ -669,7 +720,7 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
   un confort, pas une dépendance.
 - **Stockage des couvertures derrière une interface** : Supabase Storage aujourd'hui, S3 / R2 / MinIO demain,
   sans toucher au reste.
-- **Export utilisateur** (§4.8) : les données sortent de l'app en un clic.
+- **Export utilisateur** (§4.10) : les données sortent de l'app en un clic.
 
 ### Coûts — tout est gratuit, avec un seul astérisque
 
@@ -707,10 +758,11 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
 - **« Je possède »** — l'action qui manque pour que l'app devienne vraiment le reflet de la bibliothèque (cf. la
   vision, §1) : scanner une étagère déjà là, **sans malus d'achat**. Sans elle, l'app ne connaîtra que les livres
   entrés après son installation.
-- **Note et avis par lecture** *(la première chose à ajouter après le MVP)* : l'app saura **ce que** je lis,
-  **quand** et **combien** — mais pas **ce que j'en ai pensé**. Or c'est la matière même de l'émission (« mes
-  coups de cœur du mois », « pourquoi j'ai lâché celui-là »). Une note et un commentaire sur `readings`, ça ne
-  coûte presque rien et ça transforme un tableur en **journal de lecteur**.
+- **La « hype » déclarée au scan** — la piste qui rendrait **la surprise calculable** (§4.4). Si au moment du
+  scan on déclare ce qu'on attend du bouquin (1 à 3), alors `note − attente` = la surprise : le plus gros écart
+  positif du mois est **la bonne surprise**, le plus gros écart négatif **la déception**. L'app les proposerait
+  toute seule, on n'aurait qu'à valider. **Prix à payer : un tap de plus à chaque scan** — à tester seulement si
+  le choix manuel devient pénible.
 - **Wishlist et favoris** : scanner en librairie un bouquin qu'on ne prend pas (wishlist), marquer ses coups de
   cœur (favoris). **L'architecture les accueille déjà** — ce sera un bouton de plus sur la feuille du scan et une
   table par action. Et la wishlist nourrit la santé de la PAL : *ce que je convoite* vs *ce que j'achète* vs *ce
