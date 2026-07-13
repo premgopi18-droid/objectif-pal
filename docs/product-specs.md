@@ -127,6 +127,32 @@ moment-là, le **dump GCD auto-hébergé n'est plus une optimisation mais la seu
 Ni League of Comic Geeks (pas d'API publique) ni CLZ (base propriétaire) ne sont exploitables : tous deux
 maintiennent leur propre base, ils ne « trouvent » pas les UPC ailleurs — ils font exactement ce qu'on fait ici.
 
+#### Un seul point d'entrée : le code scanné dit lui-même ce qu'il est
+
+Pas besoin de deux parcours (« je scanne un comic » / « je scanne une BD ») : **le code-barres se route tout
+seul**, sur ses premiers chiffres.
+
+| Code scanné | Ce que c'est | Sources, dans l'ordre |
+|---|---|---|
+| EAN-13 préfixé **978 / 979** | Un **ISBN** — BD, manga, roman, **et les TPB / omnibus VO** | GCD (par ISBN) → Google Books → Open Library |
+| **UPC-A** 12 chiffres (le reste) | Un **fascicule VO** | GCD (code exact, sinon **préfixe**) |
+
+**Le supplément de 5 chiffres n'a pas le même sens selon le cas** : sur un ISBN c'est **le prix** → on le jette ;
+sur un UPC c'est **le numéro d'issue** → on le garde.
+
+**GCD couvre les deux mondes** : 423 907 issues code-barrées **et** 231 792 avec ISBN (donc les recueils, TPB et
+omnibus VO y sont déjà). Google Books prend le relais sur ce que GCD ignore par nature : **la BD franco-belge, le
+manga français, les romans**.
+
+**Cascade unique** :
+
+`GCD` (identifie — les deux types) → `Google Books` (la VF) → `Open Library` (filet) → `Metron` (enrichit :
+**couverture** + `series_type`) → **saisie manuelle**.
+
+**Une seule table `books`** : code brut, type (`isbn` | `upc`), préfixe indexé, source ayant répondu +
+identifiant chez elle, catégorie. Le reste de l'app (lectures, achats, bilan) ne voit qu'un livre avec une
+catégorie — **il ignore d'où viennent ses métadonnées**.
+
 #### Résolution = une interface de providers
 
 **Contrainte d'architecture, décidée pour ne pas se marier à une source.** La résolution des métadonnées vit
