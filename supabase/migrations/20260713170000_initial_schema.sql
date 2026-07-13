@@ -43,7 +43,8 @@ begin
   insert into public.profiles (id, display_name)
   values (
     new.id,
-    coalesce(new.raw_user_meta_data ->> 'full_name', split_part(new.email, '@', 1))
+    -- Triple filet : un trigger qui échoue annulerait l'inscription entière.
+    coalesce(new.raw_user_meta_data ->> 'full_name', split_part(new.email, '@', 1), 'lecteur')
   );
   return new;
 end;
@@ -133,10 +134,18 @@ alter table readings enable row level security;
 
 create policy "readings_select_own" on readings
   for select to authenticated using ((select auth.uid()) = user_id);
+-- Le with check vérifie aussi que le book_id référencé APPARTIENT à l'utilisateur :
+-- sans ça, n'importe quel authentifié connaissant un UUID d'autrui pourrait s'y accrocher.
 create policy "readings_insert_own" on readings
-  for insert to authenticated with check ((select auth.uid()) = user_id);
+  for insert to authenticated with check (
+    (select auth.uid()) = user_id
+    and exists (select 1 from books b where b.id = book_id and b.user_id = (select auth.uid()))
+  );
 create policy "readings_update_own" on readings
-  for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+  for update to authenticated using ((select auth.uid()) = user_id) with check (
+    (select auth.uid()) = user_id
+    and exists (select 1 from books b where b.id = book_id and b.user_id = (select auth.uid()))
+  );
 -- Pas de policy DELETE : suppression douce uniquement.
 
 -- ---------------------------------------------------------------------------
@@ -157,8 +166,13 @@ alter table reading_events enable row level security;
 
 create policy "reading_events_select_own" on reading_events
   for select to authenticated using ((select auth.uid()) = user_id);
+-- Propriété de la lecture vérifiée : la table est append-only, un événement injecté
+-- sur la lecture d'autrui serait impossible à nettoyer.
 create policy "reading_events_insert_own" on reading_events
-  for insert to authenticated with check ((select auth.uid()) = user_id);
+  for insert to authenticated with check (
+    (select auth.uid()) = user_id
+    and exists (select 1 from readings r where r.id = reading_id and r.user_id = (select auth.uid()))
+  );
 -- Ni UPDATE ni DELETE : append-only, c'est ce qui garantit les stats d'abandons et de reprises.
 
 -- ---------------------------------------------------------------------------
@@ -183,9 +197,15 @@ alter table purchases enable row level security;
 create policy "purchases_select_own" on purchases
   for select to authenticated using ((select auth.uid()) = user_id);
 create policy "purchases_insert_own" on purchases
-  for insert to authenticated with check ((select auth.uid()) = user_id);
+  for insert to authenticated with check (
+    (select auth.uid()) = user_id
+    and exists (select 1 from books b where b.id = book_id and b.user_id = (select auth.uid()))
+  );
 create policy "purchases_update_own" on purchases
-  for update to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+  for update to authenticated using ((select auth.uid()) = user_id) with check (
+    (select auth.uid()) = user_id
+    and exists (select 1 from books b where b.id = book_id and b.user_id = (select auth.uid()))
+  );
 -- Pas de policy DELETE : suppression douce uniquement.
 
 -- ---------------------------------------------------------------------------
@@ -208,7 +228,10 @@ create table monthly_picks (
 alter table monthly_picks enable row level security;
 
 create policy "monthly_picks_all_own" on monthly_picks
-  for all to authenticated using ((select auth.uid()) = user_id) with check ((select auth.uid()) = user_id);
+  for all to authenticated using ((select auth.uid()) = user_id) with check (
+    (select auth.uid()) = user_id
+    and exists (select 1 from readings r where r.id = reading_id and r.user_id = (select auth.uid()))
+  );
 
 create table monthly_objectives (
   id uuid primary key default gen_random_uuid(),

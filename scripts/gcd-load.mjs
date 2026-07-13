@@ -45,8 +45,10 @@ const TABLES = [
 
 const client = new pg.Client({
   connectionString: env.SUPABASE_DB_URL,
-  // Le pooler Supabase présente un certificat que Node ne relie pas toujours à une CA
-  // connue ; la connexion reste chiffrée.
+  // Vérification du certificat désactivée : le TLS local est intercepté par l'antivirus,
+  // et le pooler Supabase n'est pas toujours relié à une CA connue de Node. Acceptable
+  // pour CE script batch local uniquement — ne jamais recopier dans du code serveur de
+  // l'app (les Route Handlers passent par @supabase/ssr, jamais par une connexion pg).
   ssl: { rejectUnauthorized: false },
 });
 
@@ -70,7 +72,9 @@ try {
   await client.query("commit");
   console.log("Chargement terminé.");
 } catch (error) {
-  await client.query("rollback");
+  // Si la connexion est morte, le rollback échoue aussi : on ne masque pas l'erreur
+  // d'origine (la transaction non commitée meurt de toute façon avec la connexion).
+  await client.query("rollback").catch(() => {});
   throw error;
 } finally {
   await client.end();
