@@ -34,8 +34,8 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 | Back | Server Actions + Route Handlers |
 | Base | PostgreSQL via Supabase |
 | Auth | Supabase Auth — **Google OAuth** (⚠️ `redirectTo` construit sur l'origine réelle, pas une constante) |
-| **Identification d'un scan** | **GCD (Grand Comics Database), importé chez nous** — table barcode → issue (~56 Mo), match exact **et par préfixe** |
-| Métadonnées VF | Google Books (sans clé) |
+| **Identification d'un scan** | **GCD (Grand Comics Database), importé chez nous** — 559 516 lignes (~75 Mo) : comics VO **et BD franco-belge**. Match par code-barres, par préfixe, ou par ISBN |
+| Métadonnées VF | Google Books (clé gratuite, côté serveur) — **seulement le manga VF et les romans** |
 | Enrichissement VO | Metron — **couverture** + `series_type` (Basic Auth, **côté serveur**) |
 | Scan | BarcodeDetector API + ZXing |
 | Hébergement | Vercel |
@@ -47,7 +47,7 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 
 - Dump source : `C:\Users\premg\Downloads\current\2026-07-01.sql` (3,76 Go, régénéré tous les 15 jours sur
   comics.org).
-- `scripts/gcd-export.mjs` → `data/gcd_issues.csv` (425 077 lignes) + `data/gcd_series.csv` (73 116 séries).
+- `scripts/gcd-export.mjs` → `data/gcd_issues.csv` (559 516 lignes) + `data/gcd_series.csv` (121 308 séries).
   **`data/` est gitignoré** : les CSV se régénèrent depuis le dump en ~3 min.
 - `scripts/gcd-inspect.mjs` et `scripts/gcd-barcodes.mjs` : les parseurs en flux qui ont produit les mesures
   citées dans les specs. À rejouer à chaque nouveau dump.

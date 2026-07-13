@@ -161,24 +161,40 @@ for await (const line of stream) {
     if (row[at("deleted")] === "1") continue;
 
     const rawBarcode = (row[at("barcode")] ?? "").trim();
-    if (!rawBarcode) continue;
+    const isbn = (row[at("valid_isbn")] || row[at("isbn")] || "").replace(/[^\dX]/gi, "");
+
+    // On garde tout ce qui est SCANNABLE : un code-barres OU un ISBN.
+    // Ne garder que les code-barres nous ferait rater la BD franco-belge, que GCD indexe
+    // massivement (89 314 issues en français) mais le plus souvent par ISBN seul — alors
+    // qu'un code-barres de BD EST son ISBN (EAN-13). On les jetterait pour rien.
+    if (!rawBarcode && !isbn) continue;
+
+    const shared = {
+      gcdId: row[at("id")],
+      seriesId: row[at("series_id")],
+      number: row[at("number")],
+      pageCount: row[at("page_count")] === "NULL" ? "" : row[at("page_count")],
+      keyDate: row[at("key_date")],
+      isbn,
+      title: row[at("title")],
+    };
 
     // GCD sépare parfois plusieurs codes (variantes) par ';' ou espace : une ligne par code.
     const codes = rawBarcode.split(/[;\s]+/).filter((code) => /^\d{8,}$/.test(code));
 
+    if (codes.length === 0) {
+      // Pas de code-barres, mais un ISBN : la ligne reste scannable via l'EAN-13.
+      issues.push({ ...shared, barcode: "", prefix: "" });
+      continue;
+    }
+
     for (const barcode of codes) {
       issues.push({
-        gcdId: row[at("id")],
+        ...shared,
         barcode,
         // Les 12 premiers chiffres identifient le TITRE : c'est ce qui permet de retrouver
         // la série quand le scan rate le supplément de 5 chiffres.
         prefix: barcode.slice(0, 12),
-        seriesId: row[at("series_id")],
-        number: row[at("number")],
-        pageCount: row[at("page_count")] === "NULL" ? "" : row[at("page_count")],
-        keyDate: row[at("key_date")],
-        isbn: row[at("valid_isbn")] || row[at("isbn")] || "",
-        title: row[at("title")],
       });
     }
   }

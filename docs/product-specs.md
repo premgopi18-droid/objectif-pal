@@ -404,9 +404,10 @@ Books couvre déjà la VF, et un troisième fournisseur pour un gain marginal, c
 
 **Décision, prise sur mesures (§6) : GCD identifie, Metron habille.**
 
-- **GCD, importé chez nous** (table réduite, ~56 Mo) → **identifier** : match exact sur le code complet, **et
-  recherche par préfixe** quand le scan rate le supplément. Aucun quota, aucune latence réseau, indé couvert.
-- **Google Books** → la **VF**, que GCD ignore par nature (BD franco-belge, manga français, romans).
+- **GCD, importé chez nous** (table réduite, ~75 Mo) → **identifier** : match exact sur le code complet, **et
+  recherche par préfixe** quand le scan rate le supplément, **et par ISBN**. Aucun quota, aucune latence réseau,
+  indé couvert — **et la BD franco-belge aussi** (89 314 issues FR indexées, cf. §6).
+- **Google Books** → ce que GCD ignore vraiment : **le manga VF et les romans**.
 - **Metron** (API) → **enrichir** : la **couverture** et le `series_type`, qui donne la catégorie du barème
   proprement.
 
@@ -489,8 +490,28 @@ Mesures réelles sur le dump du **2026-07-01** (3,76 Go), via `scripts/gcd-inspe
 | Issues au total | 2 585 543 |
 | Séries / éditeurs | 231 107 / 17 619 |
 | **Issues avec un code-barres** | **423 907** |
-| Issues avec un ISBN | 231 792 |
-| **Poids de la table réduite, index compris** | **~56 Mo** (1/9 du plafond gratuit Supabase) |
+| **Issues avec un ISBN** | **231 792** |
+| **Lignes exportées (code-barres OU ISBN)** | **559 516** |
+| **Poids de la table réduite, index compris** | **~75 Mo** (1/6 du plafond gratuit Supabase) |
+
+**0. GCD n'est pas qu'américain — et ça change tout pour la VF.** Répartition des issues identifiables (ISBN ou
+code-barres) **par langue de la série** :
+
+| Langue | Avec ISBN | Avec code-barres |
+|---|---|---|
+| Anglais | 75 039 | 340 733 |
+| **Français** | **89 314** | 8 162 |
+| Néerlandais | 21 077 | 21 395 |
+| Allemand | 15 830 | 12 705 |
+
+**Il y a plus d'issues françaises avec ISBN que d'anglaises** : GCD indexe massivement la **BD franco-belge**
+(Dargaud, Dupuis, Le Lombard, Casterman…). Conséquence directe : **la BD se résout en base, sans appel réseau**,
+au même titre que les comics VO.
+
+> **Piège évité de justesse** : le premier export ne gardait que les issues **avec un code-barres** — or la BD
+> française est le plus souvent indexée **par ISBN seul**. On jetait **134 439 lignes**, dont l'essentiel de la
+> BD. Or **un code-barres de BD *est* son ISBN** (EAN-13) : ces lignes sont parfaitement scannables. L'export
+> garde désormais tout ce qui a **un code-barres OU un ISBN**.
 
 **1. Le supplément est présent dans 67 % des codes stockés** (17-18 chiffres). Donc GCD connaît les codes
 complets → une **recherche par préfixe sur les 12 premiers chiffres** retrouve la série même quand le scan rate
@@ -514,8 +535,8 @@ propre.**
   régénéré **toutes les 2 semaines**, **compte gratuit requis**. Pas d'API, donc **pas de quota**.
 - **Téléchargement** : `scripts/gcd-download.mjs` — rejoue le **cookie de session** d'un compte comics.org
   (`GCD_SESSION_COOKIE`), lit la page et y **cherche le lien du `.zip`** (donc résistant à un renommage).
-- **Export** : `scripts/gcd-export.mjs` → `data/gcd_issues.csv` (425 077 lignes, 30 Mo) et `data/gcd_series.csv`
-  (73 116 séries, 3,7 Mo). `data/` est **gitignoré** (régénérable en ~3 min).
+- **Export** : `scripts/gcd-export.mjs` → `data/gcd_issues.csv` (559 516 lignes, 38 Mo) et `data/gcd_series.csv`
+  (121 308 séries, 6,2 Mo). `data/` est **gitignoré** (régénérable en ~3 min).
 - **Chargement** : `COPY` vers Supabase, **dans une transaction** : on vide et on recharge `gcd_issues` d'un
   bloc. C'est une **table jetable**, entièrement reconstructible depuis le dump.
 
@@ -529,7 +550,7 @@ les **nouveautés** — ~1 500 issues par mois. Or les nouveautés, c'est exacte
 
 | Source | Rôle |
 |---|---|
-| **GCD** (import massif) | Le **fonds historique** : 425 000 issues, l'indé, le rétro |
+| **GCD** (import massif) | Le **fonds historique** : 559 000 lignes — comics VO, indé, rétro **et BD franco-belge** |
 | **Metron** (à la demande) | Les **nouveautés** que GCD n'a pas encore, résolues au moment du scan |
 | **Notre cache** | Chaque résolution réussie **enrichit notre base pour toujours** |
 
@@ -623,9 +644,10 @@ au maximum (unicité sur `(user_id, month, kind)`).
 ### Tables de référence (GCD, en lecture seule)
 
 **`gcd_issues`** — **`gcd_id`**, `barcode` *(indexé)*, `barcode_prefix` *(indexé)*, `series_id`, `number`,
-`page_count`, `key_date`, `isbn`, `title`. 425 077 lignes.
+`isbn` *(indexé)*, `page_count`, `key_date`, `title`. **559 516 lignes** — tout ce qui a **un code-barres OU un
+ISBN** (donc la BD franco-belge, indexée par ISBN).
 
-**`gcd_series`** — `id`, `name`, `format`, `year_began`, `publisher`, `language_id`. 73 116 lignes.
+**`gcd_series`** — `id`, `name`, `format`, `year_began`, `publisher`, `language_id`. 121 308 lignes.
 
 Ces deux tables sont **jetables** : écrasées à chaque rafraîchissement du dump, entièrement reconstructibles.
 
@@ -656,14 +678,35 @@ Ce qui rend cette app fiable n'est pas une optimisation exotique, c'est une poig
 **faits** (lectures, achats, objectifs). Conséquences : testable au **Vitest** (une fonction pure, des cas
 d'entrée, des points attendus), modifiable sans migration, et impossible à désynchroniser.
 
-**Les lookups GCD sont instantanés.** 425 077 lignes, c'est petit pour Postgres. Deux index (`barcode`,
-`barcode_prefix`) → une recherche en quelques millisecondes, **sans appel réseau externe**. Le scan ne dépend
-d'aucune API tierce pour identifier un bouquin : Metron n'intervient qu'ensuite, pour la couverture, et **son
-absence ne casse rien**.
+**Combien d'appels réseau pour identifier un bouquin ? Ça dépend du bouquin — et il faut être précis.**
 
-**Toute résolution externe est mise en cache.** Un bouquin n'est jamais résolu deux fois auprès de Metron ou
-Google Books. Avec 4-5 utilisateurs, on parle de quelques dizaines d'appels par mois — les quotas (20 req/min,
-5 000/jour chez Metron) sont hors d'atteinte.
+| Ce que je scanne | Résolu où | Appels réseau | Latence |
+|---|---|---|---|
+| **Comic VO** (fascicule, TPB, omnibus) | **GCD, en base** | **0** | quelques **ms** |
+| **BD franco-belge** | **GCD, en base** (par ISBN — 89 314 issues FR y sont indexées) | **0** | quelques **ms** |
+| **Manga VF, roman** | **Google Books** | **1** | ~300-800 ms |
+| **Nouveauté que GCD n'a pas encore** | Metron, puis cache | **1** | ~300-800 ms |
+| **Déjà scanné une fois** (n'importe quoi) | **notre cache** | **0** | quelques **ms** |
+
+**L'essentiel se résout donc en base, sans réseau** : les 559 516 lignes de `gcd_issues`, c'est petit pour
+Postgres — trois index (`barcode`, `barcode_prefix`, `isbn`) et la recherche prend quelques millisecondes.
+
+**Pour le reste — manga VF, romans — il y a bien un appel à Google Books.** ~300-800 ms, ce qui est imperceptible
+au milieu du geste de scan (on est en train de cadrer un code-barres). Et **une seule fois par bouquin** : la
+résolution part ensuite dans `barcode_cache`, définitivement.
+
+**Si Google Books tombe, le scan ne casse pas** : on retombe sur la saisie manuelle. Aucune étape n'est un
+point de rupture.
+
+> **Utiliser une clé Google Books (gratuite), même si l'API marche sans.** Sans clé, le quota est **par IP** — et
+> sur Vercel les IP sont **partagées entre projets et clients**. On peut donc se prendre un `429` à cause de
+> quelqu'un d'autre. Avec une clé (gratuite, 1 000 req/jour), le quota devient **le nôtre**, et 1 000 req/jour
+> pour 4-5 lecteurs, c'est deux ordres de grandeur au-dessus du besoin. Clé **côté serveur**, comme les
+> identifiants Metron.
+
+**Toute résolution externe est mise en cache.** Un bouquin n'est jamais résolu deux fois. Avec 4-5 utilisateurs,
+on parle de quelques dizaines d'appels par mois — les quotas (20 req/min chez Metron, 1 000/jour chez Google)
+sont hors d'atteinte.
 
 **Les secrets ne quittent pas le serveur.** Metron s'authentifie en **HTTP Basic Auth** (pas de clé API : les
 identifiants d'un **compte de service** dédié). Ils vivent en variables d'environnement serveur, **jamais
@@ -699,7 +742,7 @@ Go gratuit et la bande passante mobile.
 | Hébergement | Vercel |
 | Tests | Vitest (logique de scoring) |
 
-**Plan gratuit Supabase** : 500 Mo de base (on en utilise ~56), 1 Go de stockage, **2 projets** (BoxBox +
+**Plan gratuit Supabase** : 500 Mo de base (on en utilise ~75), 1 Go de stockage, **2 projets** (BoxBox +
 celui-ci), pause après 7 jours d'inactivité (sans conséquence : l'app est utilisée).
 
 ---
@@ -735,7 +778,7 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
 
 | Poste | Coût | Plafond |
 |---|---|---|
-| Supabase | **0 €** | 500 Mo de base (on en utilise ~56), 1 Go de stockage, 2 projets |
+| Supabase | **0 €** | 500 Mo de base (on en utilise ~75), 1 Go de stockage, 2 projets |
 | Vercel | **0 €** | Plan Hobby |
 | GCD | **0 €** | Dump libre (CC BY-SA) |
 | Metron | **0 €** | 20 req/min — hors d'atteinte avec le cache |
