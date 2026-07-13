@@ -1,8 +1,13 @@
 /**
- * Mesure le taux de couverture de Metron sur un échantillon réel de l'étagère.
+ * Mesure ce que Metron sait rendre sur un échantillon réel de l'étagère.
  *
- * But : savoir si Metron suffit pour la VO — surtout pour l'indé — avant de décider
- * d'importer le dump GCD (cf. docs/product-specs.md).
+ * ATTENTION — le rôle de Metron a changé : il n'identifie PLUS les bouquins (c'est GCD
+ * qui le fait, importé chez nous, cf. docs/product-specs.md §5). Metron ne sert plus
+ * qu'à ENRICHIR : la couverture et le `series_type`.
+ *
+ * Ce script sert donc à savoir combien de tes comics Metron sait habiller — pas à
+ * décider d'une source. Si le taux est faible, ce n'est pas grave : l'app bascule sur
+ * la photo de la couverture, prise au moment du scan.
  *
  * Usage :
  *   1. Créer un compte gratuit sur https://metron.cloud

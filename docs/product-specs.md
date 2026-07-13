@@ -1,49 +1,55 @@
 # Objectif PAL — Specs produit
 
-> Source de vérité du produit. Toute décision prise en conversation atterrit ici.
+> **Source de vérité du produit.** Toute décision prise en conversation atterrit ici.
+> Dernière révision : 13/07/2026 — document réécrit à plat après arbitrage des sources de métadonnées.
 
-## Le produit
+---
 
-PWA mobile-first adossée à l'émission **Objectif PAL** (Prem & Léna), dont le sujet est la réduction de la
-PAL (pile à lire).
+## 1. Le produit
 
-**Objectif principal : répertorier mes lectures et en tirer des statistiques et des analyses**, suffisamment
-propres et lisibles pour que je puisse **donner mes chiffres à Léna pour l'émission**. Tout le reste est au
-service de ça.
+PWA mobile-first adossée à l'émission **Objectif PAL** (Prem & Léna), dont le sujet est la réduction de la PAL
+(pile à lire).
 
-On scanne un bouquin quand on le commence, l'app le classe dans la bonne catégorie, suit son état de lecture
-avec ses dates, et en déduit des stats.
+**Objectif principal : répertorier mes lectures et en tirer des statistiques**, assez propres pour que je puisse
+**donner mes chiffres à Léna pour l'émission**. Tout le reste est au service de ça.
 
-- Langue UI : français. Langue du code : anglais.
-- Solo au lancement, **modèle de données multi-utilisateur dès le départ** (`user_id` partout) pour brancher
-  la comparaison Prem vs Léna plus tard sans migration douloureuse.
+Le geste central : je commence un livre → je scanne son code-barres → il entre dans mes lectures, classé dans la
+bonne catégorie. À la fin du mois, l'app me sort le bilan que je lis à l'antenne.
+
+- Langue UI : **français**. Langue du code : **anglais**.
+- **Solo au lancement**, mais **modèle de données multi-utilisateur dès le départ** (`user_id` partout, RLS
+  activée) : brancher la comparaison Prem vs Léna plus tard ne doit demander aucune migration douloureuse.
+  Horizon connu : **4-5 utilisateurs**.
 
 ### Priorités
 
 | Rang | Bloc | Pourquoi |
 |---|---|---|
-| **P0** | **Journal de lecture** (scan, catégorie, états, dates) + **achats** + **bilan mensuel au barème** (le décompte par catégorie que je donne à Léna, score inclus) + analyses | C'est le produit. Le bilan est le livrable ; le score n'est qu'une multiplication du décompte, il vient gratuitement avec. |
-| **P1** | Objectifs mensuels (cible par catégorie, jauge, bonus +3) | Le jeu de l'émission. Ne sert à rien sans données : on le branche quand P0 tourne. |
-| **P2** | Compétition Prem vs Léna (comparaison mensuelle, « meilleur paliste » +5) | Plus tard. Le modèle de données est prêt à l'accueillir. |
+| **P0** | **Journal de lecture** (scan, catégorie, états, dates) + **achats** + **bilan mensuel au barème** + analyses | C'est le produit. Le bilan est le livrable ; le score n'est qu'une multiplication du décompte, il vient gratuitement avec. |
+| **P1** | **Objectifs mensuels** (cible par catégorie, jauge, bonus +3) | Le jeu de l'émission. Ne sert à rien sans données : on le branche quand P0 tourne. |
+| **P2** | **Compétition** Prem vs Léna (comparaison mensuelle, « meilleur paliste » +5) | Plus tard. Le modèle de données est prêt à l'accueillir. |
 
-La conséquence concrète : **la saisie doit être irréprochable avant tout le reste**. Une stat n'est bonne que
-si le journal est complet, donc scanner/classer/dater un bouquin doit être rapide et sans friction — c'est là
-qu'on met l'effort.
+**Conséquence : la saisie doit être irréprochable avant tout le reste.** Une stat ne vaut que ce que vaut le
+journal. Scanner, classer et dater un bouquin doit être rapide et sans friction — c'est là qu'on met l'effort.
 
-## Catégories
+---
+
+## 2. Catégories
 
 Six catégories, exclusives. C'est la catégorie qui détermine les points.
 
 | Catégorie | Code | Ce que c'est |
 |---|---|---|
-| Issue | `issue` | Un fascicule VO à l'unité (~20-30 pages, pas d'ISBN, code-barres UPC) |
+| Issue | `issue` | Un fascicule VO à l'unité (~20-30 p., pas d'ISBN, code-barres UPC-A) |
 | Manga | `manga` | Un tome de manga |
 | BD | `bd` | Un album franco-belge |
-| Comics | `comics` | Un recueil VO (TPB / trade paperback) qui compile plusieurs issues |
-| Omnibus | `omnibus` | Un gros volume compilant plusieurs tomes/arcs |
+| Comics | `comics` | Un recueil VO (TPB) compilant plusieurs issues |
+| Omnibus | `omnibus` | Un gros volume compilant plusieurs tomes ou arcs |
 | Roman | `roman` | Un roman (texte, sans images) |
 
-## Barème
+---
+
+## 3. Barème
 
 | Événement | Points |
 |---|---|
@@ -55,356 +61,245 @@ Six catégories, exclusives. C'est la catégorie qui détermine les points.
 | Roman terminé | **+5** |
 | Livre acheté et pas lu | **−1** |
 | Objectif du mois atteint | **+3** |
-| _Meilleur paliste du mois_ | _+5 — **parqué**, arrivera avec le mode multi_ |
+| _Meilleur paliste du mois_ | _+5 — **parqué**, arrivera avec le mode multi (P2)_ |
+
+> Le barème vit dans **une constante unique** (`lib/scoring/scale.ts`). Jamais recopié en dur ailleurs.
 
 ### Règles de calcul
 
-1. **Les points de lecture sont crédités à la date de fin de lecture.** Un bouquin commencé en mars et terminé
-   en avril rapporte ses points **en avril**. Commencer une lecture ne rapporte rien — c'est ce qui empêche de
-   gonfler son score en ouvrant dix bouquins.
-2. **Malus achat : −1 immédiat, effaçable.** Tout livre acheté dans le mois retire 1 point dès l'enregistrement
-   de l'achat. Si ce livre est **terminé avant la fin du même mois**, le malus est annulé (et les points de
-   lecture s'ajoutent normalement). À la clôture du mois, il reste donc −1 par livre acheté ce mois-là et non
-   terminé.
-   - Un livre acheté en mars et terminé en avril : le −1 de mars **reste acquis** en mars (le mois est clos),
-     et les points de lecture tombent en avril.
-3. **Objectif mensuel = un nombre de bouquins par catégorie.** Ex : « 3 mangas + 1 BD + 2 issues ». Le bonus
-   **+3 est all-or-nothing** : il faut atteindre *toutes* les cibles déclarées pour l'empocher.
-   Seules les lectures **terminées dans le mois** comptent pour l'objectif.
-4. **Score du mois** = somme des points des lectures terminées dans le mois
-   − nombre d'achats du mois non terminés à la clôture
-   + 3 si l'objectif du mois est atteint.
-5. Les demi-points existent (issue = 0,5) → le score est un **décimal**, jamais un entier.
+1. **Les points sont crédités à la date de fin de lecture.** Un bouquin commencé en mars et terminé en avril
+   rapporte ses points **en avril**. Commencer une lecture ne rapporte rien — c'est ce qui empêche de gonfler
+   son score en ouvrant dix bouquins.
+2. **Une lecture abandonnée rapporte 0 point.** Si elle est reprise et terminée plus tard, elle rapporte
+   normalement, à sa date de fin.
+3. **Malus achat : −1 immédiat, effaçable.** Tout livre acheté dans le mois retire 1 point dès l'enregistrement
+   de l'achat. S'il est **terminé avant la fin du même mois**, le malus est annulé (et les points de lecture
+   s'ajoutent normalement). À la clôture, il reste donc **−1 par livre acheté ce mois-là et non terminé**.
+   - Acheté en mars, terminé en avril : le −1 de mars **reste acquis** (le mois est clos), et les points de
+     lecture tombent en avril.
+4. **Objectif mensuel = un nombre de bouquins par catégorie.** Ex. « 3 mangas + 1 BD + 2 issues ». Le bonus
+   **+3 est all-or-nothing** : toutes les cibles déclarées doivent être atteintes. Seules les lectures
+   **terminées dans le mois** comptent.
+5. **Score du mois** = points des lectures terminées dans le mois − achats du mois non terminés à la clôture
+   + 3 si l'objectif est atteint.
+6. **Les demi-points existent** (issue = 0,5) → le score est un **décimal**, jamais un entier. Tous les points
+   sont des multiples de 0,5, donc exactement représentables en flottant : pas de piège d'arrondi.
 
-## Fonctionnalités
+---
 
-### 1. Scanner un bouquin
+## 4. Fonctionnalités
 
-Le geste central : je commence un livre, je scanne son code-barres, il entre dans mes lectures.
+### 4.1 Scanner un bouquin (P0)
 
-- Scan via la caméra (BarcodeDetector natif quand dispo, **ZXing** sinon — cf. le point sur le supplément
-  ci-dessous).
-- **Classement automatique** de la catégorie, **proposé et corrigeable en un tap**. La correction de
-  l'utilisateur fait foi, toujours.
+Détaillé en §5. En deux mots : un seul bouton, la caméra, et l'app se débrouille — le code-barres dit lui-même
+s'il s'agit d'un ISBN ou d'un fascicule VO.
 
-#### Sources de métadonnées
+La **catégorie est proposée automatiquement** et reste **corrigeable en un tap**. La correction de l'utilisateur
+fait foi, toujours.
 
-| Source | Rôle | Ce qu'elle apporte |
-|---|---|---|
-| **Metron** ([metron.cloud](https://metron.cloud)) | Primaire pour la **VO** | Le seul à indexer l'**UPC** des comics (`/issue/?upc=…`) **et** à exposer un `series_type` : *Single Issue, Trade Paperback, Hardcover, Omnibus, Graphic Novel, Annual, One-Shot*. Donne donc **la catégorie du barème directement**, sans heuristique. |
-| **Google Books** | Primaire pour la **VF** (BD, manga, roman) | Titre, auteurs, éditeur, pages, couverture, langue, via ISBN. |
-| **Open Library** | Fallback | Idem, quand Google Books est muet. |
+### 4.2 Mes lectures — le journal (P0)
 
-#### Authentification et secrets
+La liste de tout ce que je lis et ai lu :
 
-**Metron n'a pas de clé API** : c'est du **HTTP Basic Auth avec les identifiants d'un compte Metron**. Le couple
-identifiant / mot de passe joue le rôle de clé.
+- l'**état** : `reading` / `finished` / `abandoned` ;
+- la **date de début** et la **date de fin** ;
+- la catégorie, la série, le numéro de tome ;
+- filtres par état, catégorie, série, mois.
 
-- On utilise un **compte de service dédié au projet** (pas un compte perso).
-- Identifiants en **variables d'environnement serveur** : `.env.local` en local, variables Vercel en prod.
-  **Jamais de préfixe `NEXT_PUBLIC_`** — ça partirait dans le bundle client, lisible dans les DevTools.
-- Le client **n'appelle jamais Metron directement** : le scan envoie le code-barres à un **Route Handler**
-  (`/api/lookup/[barcode]`) qui interroge Metron côté serveur et renvoie un résultat normalisé.
-- **Chaque résolution réussie est mise en cache en base** : un bouquin n'est jamais résolu deux fois.
+Une lecture est une **entrée distincte du livre** : relire un bouquin crée une nouvelle lecture (et rapporte à
+nouveau ses points).
 
-Google Books fonctionne **sans clé** (quota par IP ; une clé gratuite le relève si besoin). Open Library n'en
-demande aucune.
+**L'abandon est un état à part entière, et il est réversible.** Une lecture abandonnée n'est **jamais
+supprimée** : elle garde sa date de début, reçoit une date d'abandon, et rapporte 0 point.
 
-**Throttle Metron : 20 req/min, 5 000 req/jour — par compte authentifié.** En solo (ou à deux), le cache rend
-ces limites inatteignables. **Mais en cas de commercialisation, tous les utilisateurs partageraient ce compte
-unique**, et leurs CGU parlent d'un « usage personnel normal » — ce qu'une app publique n'est plus. À ce
-moment-là, le **dump GCD auto-hébergé n'est plus une optimisation mais la seule sortie propre** (cf. backlog).
+| Transition | Effet |
+|---|---|
+| `reading` → `abandoned` | On note `abandoned_at`. 0 point. |
+| `abandoned` → `reading` | **Reprise** : `abandoned_at` est effacé, la lecture repart. |
+| `reading` ou `abandoned` → `finished` | Points crédités à `finished_at`. |
 
-**Décision (prise sur mesures, cf. plus bas) : GCD identifie, Metron habille.**
+Ça ouvre deux stats que l'émission adorera : **le nombre d'abandons** et **le nombre de reprises** (les bouquins
+finis après avoir été lâchés).
 
-- **GCD, importé chez nous** (table réduite, ~56 Mo) → **identifier** le bouquin scanné : match exact sur le
-  code complet, **et recherche par préfixe** quand le scan rate le supplément. Aucun quota, hors ligne, indé
-  couvert.
-- **Metron** (API) → **enrichir** : la **couverture** (GCD ne fournit pas les images) et le `series_type`, qui
-  donne la catégorie du barème proprement.
-- **Google Books / Open Library** → la VF (BD, manga, roman), par ISBN.
+**Complétude avant tout** : il doit toujours être possible d'**ajouter une lecture à la main** (bouquin non
+scannable) et de **corriger les dates après coup**.
 
-Ni League of Comic Geeks (pas d'API publique) ni CLZ (base propriétaire) ne sont exploitables : tous deux
-maintiennent leur propre base, ils ne « trouvent » pas les UPC ailleurs — ils font exactement ce qu'on fait ici.
+**On démarre le journal à zéro** : pas de reprise des lectures antérieures à l'app (cf. backlog). Corollaire pour
+le modèle de données : **aucune date n'est jamais forcée à « maintenant »** — `started_at` et `finished_at` sont
+toujours librement saisissables, sinon l'import rétroactif deviendra impossible.
 
-#### Un seul point d'entrée : le code scanné dit lui-même ce qu'il est
+### 4.3 Statistiques & analyses (P0)
 
-Pas besoin de deux parcours (« je scanne un comic » / « je scanne une BD ») : **le code-barres se route tout
-seul**, sur ses premiers chiffres.
+#### Le bilan du mois au barème — **l'écran principal, le livrable**
 
-| Code scanné | Ce que c'est | Sources, dans l'ordre |
+C'est **exactement ce que je donne à Léna**. Rien d'autre n'a cette priorité.
+
+| Ligne | Contenu |
+|---|---|
+| Une ligne par catégorie | Nombre de bouquins **terminés** dans le mois |
+| Achats non lus | Nombre de livres **achetés dans le mois et pas terminés** (le malus) |
+| Total | Le score du mois, dérivé des lignes ci-dessus |
+
+Les points ne sont qu'une multiplication de ces comptes par le barème : **le bilan et le score sont le même
+écran.** Il doit être **copiable en un tap** (texte propre, lisible tel quel à l'antenne) et consultable pour
+**n'importe quel mois passé**.
+
+#### Les analyses (second rideau)
+
+**Santé de la PAL** — *la stat centrale de l'émission*
+- Entrées vs sorties : achats du mois contre lectures terminées du mois.
+- **Solde de PAL** : elle fond ou elle grossit ? Courbe cumulée dans le temps.
+- Taille de la PAL à date (achats non lus).
+
+**Volume**
+- Lectures terminées : ce mois-ci, cette année, au total — et le détail par catégorie.
+- Pages lues (via le nombre de pages des métadonnées).
+- Moyenne par mois, meilleur mois.
+
+**Rythme**
+- Durée moyenne d'une lecture (`finished_at − started_at`), par catégorie.
+- Lectures en cours et depuis combien de temps (celles qui traînent).
+- Abandons et reprises.
+
+**Répartition**
+- Par catégorie, par éditeur, par série.
+- Séries en cours : combien de tomes lus, quel est le suivant.
+
+### 4.4 Achats (P0)
+
+Enregistrer un achat (scan ou saisie) avec sa date. Il sert deux fois :
+- il alimente la **PAL** (« acheté pas lu »), le solde entrées/sorties et **la ligne « achats non lus » du
+  bilan** ;
+- il déclenche le **malus −1**.
+
+Un achat se « convertit » en lecture quand on commence le livre.
+
+### 4.5 Score du mois (P0 — c'est le bilan)
+
+Pas un écran à part : le score **est** le total du bilan. Décomposition visible (points de lecture, malus achats,
+et plus tard bonus objectif) + historique des mois précédents. **Entièrement dérivé** du journal et des achats :
+aucune saisie spécifique, aucun stockage de score.
+
+### 4.6 Objectif du mois (P1)
+
+- Un objectif par mois : une **cible chiffrée par catégorie** (0 = catégorie non visée).
+- Jauge de progression par catégorie + état global.
+- Modifiable tant que le mois est en cours.
+- Bonus **+3 all-or-nothing**, ajouté au total du bilan.
+
+---
+
+## 5. Le scan — architecture
+
+### 5.1 Un seul point d'entrée : le code se route lui-même
+
+Pas de parcours séparés (« je scanne un comic » / « je scanne une BD ») : **les premiers chiffres du code disent
+ce que c'est.**
+
+| Code scanné | Ce que c'est | Où on cherche |
 |---|---|---|
 | EAN-13 préfixé **978 / 979** | Un **ISBN** — BD, manga, roman, **et les TPB / omnibus VO** | GCD (par ISBN) → Google Books → Open Library |
-| **UPC-A** 12 chiffres (le reste) | Un **fascicule VO** | GCD (code exact, sinon **préfixe**) |
+| **UPC-A** 12 chiffres (tout le reste) | Un **fascicule VO** | GCD (code exact, sinon **par préfixe**) |
 
-**Le supplément de 5 chiffres n'a pas le même sens selon le cas** : sur un ISBN c'est **le prix** → on le jette ;
-sur un UPC c'est **le numéro d'issue** → on le garde.
+**Le supplément de 5 chiffres n'a pas le même sens selon le support** — piège classique :
 
-**GCD couvre les deux mondes** : 423 907 issues code-barrées **et** 231 792 avec ISBN (donc les recueils, TPB et
-omnibus VO y sont déjà). Google Books prend le relais sur ce que GCD ignore par nature : **la BD franco-belge, le
-manga français, les romans**.
+| Support | Code | Sens des 5 chiffres |
+|---|---|---|
+| Fascicule (issue) | UPC-A 12 + 5 | **numéro d'issue, couverture, tirage** → on le garde |
+| TPB / omnibus / roman | EAN-13 (`978…`) + 5 | **le prix** (`51095` = 10,95 $) → on le jette |
 
-**Cascade unique** :
+### 5.2 La cascade de résolution
 
-`GCD` (identifie — les deux types) → `Google Books` (la VF) → `Open Library` (filet) → `Metron` (enrichit :
-**couverture** + `series_type`) → **saisie manuelle**.
+```
+GCD (identifie, les deux types)
+  → Google Books (la VF : BD, manga, roman)
+    → Open Library (filet)
+      → Metron (enrichit : couverture + series_type)
+        → saisie manuelle (le filet ultime, toujours disponible)
+```
 
-**Une seule table `books`** : code brut, type (`isbn` | `upc`), préfixe indexé, source ayant répondu +
-identifiant chez elle, catégorie. Le reste de l'app (lectures, achats, bilan) ne voit qu'un livre avec une
-catégorie — **il ignore d'où viennent ses métadonnées**.
+**Décision, prise sur mesures (§6) : GCD identifie, Metron habille.**
 
-#### Les couvertures — pas d'API miracle, la photo est la vraie réponse
+- **GCD, importé chez nous** (table réduite, ~56 Mo) → **identifier** : match exact sur le code complet, **et
+  recherche par préfixe** quand le scan rate le supplément. Aucun quota, aucune latence réseau, indé couvert.
+- **Google Books / Open Library** → la **VF**, que GCD ignore par nature (BD franco-belge, manga français,
+  romans).
+- **Metron** (API) → **enrichir** : la **couverture** et le `series_type`, qui donne la catégorie du barème
+  proprement.
 
-**Constat, après vérification** : il n'existe **aucune source de couvertures VO à la fois gratuite, fiable et
-utilisable commercialement**. C'est logique : une couverture est une **œuvre sous copyright de l'éditeur**, donc
-personne ne peut la redistribuer librement.
+**Contrainte d'architecture** : la résolution vit derrière une **interface de providers**
+(`resolveByBarcode`, `resolveByIsbn`), implémentations interchangeables essayées en cascade. Changer ou ajouter
+une source = un branchement, pas une réécriture.
+
+Ni **League of Comic Geeks** (aucune API publique) ni **CLZ** (base propriétaire) ne sont exploitables : tous deux
+maintiennent leur propre base — ils font exactement ce qu'on fait ici.
+
+### 5.3 Ce que le scan capte, et ce que l'app en fait
+
+Dégradation douce : **jamais d'échec sec**.
+
+| Ce que le scan capte | Ce que fait l'app |
+|---|---|
+| Code complet (UPC + supplément) | **Issue exacte, zéro question** |
+| 12 chiffres, préfixe net (**81,7 %** des cas) | Série connue → *« quel numéro ? »*, **un tap** (liste des numéros de la série, pas de clavier) |
+| 12 chiffres, préfixe partagé (18,3 %) | **Liste courte** des séries possibles → **deux taps** |
+| ISBN | Résolution directe (GCD, puis Google Books) |
+| Rien / inconnu | **Saisie manuelle** série + numéro, série **mémorisée** (la 2ᵉ issue prend 3 secondes) |
+
+Rappel technique : **`BarcodeDetector` natif ne renvoie pas le supplément de 5 chiffres.** Seul **ZXing** sait le
+décoder, et seulement s'il est net et cadré. On ne peut donc jamais compter dessus — d'où cette cascade.
+
+### 5.4 Les couvertures — la photo est la vraie réponse
+
+**Constat vérifié : il n'existe aucune source de couvertures VO à la fois gratuite, fiable et utilisable
+commercialement.** C'est logique — une couverture est une **œuvre sous copyright de l'éditeur**.
 
 | Source | Verdict |
 |---|---|
 | **Comic Vine** | La plus grosse base d'images, indé compris — mais **usage commercial explicitement interdit** (clé révoquée), 200 req/h. |
-| **GCD** | Les scans existent sur le site mais **pas dans le dump** (images sous copyright, non redistribuées). Hotlinker leurs fichiers = fragile et discourtois. |
+| **GCD** | Les scans existent sur le site mais **pas dans le dump** (vérifié : aucune table `cover`). Hotlinker = fragile et discourtois. |
 | **Google Books / Open Library** | Couvertures **par ISBN seulement** → parfait pour BD, manga, roman, TPB, omnibus. **Inutile pour les fascicules.** |
-| **Marvel API** | Officielle et gratuite, mais **Marvel uniquement** → ne résout pas l'indé. |
-| **Metron** | Héberge des couvertures, gratuit, CC BY-SA — mais CGU « usage personnel », donc même limite qu'ailleurs. |
+| **Marvel API** | Gratuite et officielle, mais **Marvel uniquement** → ne résout pas l'indé. |
+| **Metron** | Héberge des couvertures, gratuit — mais CGU « usage personnel », même limite qu'ailleurs. |
 
 **Décision : cascade automatique, puis la photo.**
 
 1. **Tentative automatique** : Metron (VO) puis Google Books (VF) → couvre la majorité des lectures sans rien
    demander.
-2. **Sinon, l'app propose de photographier la couverture** — la caméra est **déjà ouverte pour le scan** et le
+2. **Sinon, l'app propose de photographier la couverture** — la caméra est **déjà ouverte** pour le scan et le
    livre est **déjà dans la main**. Un tap.
 
-Pourquoi c'est meilleur qu'une API, et pas un pis-aller :
+Ce n'est pas un pis-aller, c'est meilleur qu'une API : **100 % de couverture** (y compris le Kickstarter tiré à
+500 exemplaires), **zéro risque juridique même en commercialisant** (chacun photographie *sa* pile, aucune
+redistribution), **zéro quota**, et c'est **l'exemplaire réel** avec sa vraie variante.
 
-- **100 % de couverture** — y compris le Kickstarter tiré à 500 exemplaires qu'aucune base ne connaîtra jamais.
-- **Zéro problème juridique, même en commercialisant** : chaque utilisateur photographie *sa* pile, aucune
-  redistribution de fichiers.
-- **Zéro quota, zéro clé, zéro dépendance.**
-- C'est **l'exemplaire réel**, avec sa vraie variante de couverture — ce qu'aucune base ne sait donner.
+**Stockage** : Supabase Storage, **1 Go gratuit**. Compression **WebP côté client** (~150 Ko/couverture) →
+**~6 000 bouquins**. Hors d'atteinte.
 
-**Stockage** : Supabase Storage, **1 Go gratuit**. Compression WebP côté client (~150 Ko/couverture) → **~6 000
-bouquins**. Largement au-delà de l'horizon.
+### 5.5 Deviner la catégorie du barème
 
-#### Résolution = une interface de providers
-
-**Contrainte d'architecture, décidée pour ne pas se marier à une source.** La résolution des métadonnées vit
-derrière une interface (`resolveByBarcode(barcode)`, `resolveByIsbn(isbn)`), avec des implémentations
-interchangeables essayées **en cascade** :
-
-`Metron` → `Google Books` → `Open Library` → (plus tard) `GCD local` → saisie manuelle.
-
-Ajouter ou remplacer une source devient un branchement, pas une réécriture. C'est ce qui rend le débat
-« Metron ou GCD » peu risqué.
-
-#### Couverture de l'indé — question ouverte, à mesurer
-
-La collection contient **du Marvel/DC mais aussi de l'indé**, et l'indé doit marcher. Or la couverture réelle de
-Metron par éditeur n'est **pas vérifiable publiquement** (leur site bloque les bots). Ce qu'on peut raisonner :
-
-- Metron est alimenté à partir des **sorties hebdo (NCBD)** → l'indé distribué en librairie (Image, IDW, Dark
-  Horse, BOOM!, Vault, Oni, Titan) a de bonnes chances d'y être, comme Marvel et DC.
-- Le trou probable : **small press, auto-édition, Kickstarter, vieux fascicules indé**. Et pour ceux-là,
-  **aucune base ne sauve** (ni GCD, ni CLZ) : un tirage à 500 exemplaires n'est dans aucun catalogue. **La saisie
-  manuelle reste le filet, quelle que soit la source.**
-- GCD couvre nettement mieux le rétro et l'indé distribué (2 M+ issues, tous éditeurs, non-US inclus).
-
-**Action décidée : mesurer avant de choisir.** Script `scripts/metron-coverage.mjs` → on interroge Metron avec
-~15 comics réels de l'étagère, **indés obscurs inclus**, et on regarde le taux de réussite. Si le taux est mauvais
-sur l'indé, on attaque le dump GCD immédiatement (l'interface de providers rend la bascule indolore).
-
-**Deux contraintes de conception qui découlent de ce choix** — elles comptent plus que le choix lui-même :
-
-1. **On stocke le code-barres brut** (les 12 chiffres **et** le supplément de 5) sur chaque livre, tel que scanné.
-   Si on change de source demain, on **re-résout tout l'historique sans re-scanner un seul bouquin**.
-2. **Toute résolution réussie est mise en cache dans notre base.** Au fil des mois on se constitue notre propre
-   table `barcode → livre`, gratuitement. C'est un actif, et ça nous rend progressivement indépendants de la
-   source externe.
-
-**Licence** : les données Metron et GCD sont en **CC BY-SA 4.0** → commercialisation possible, à condition de
-**créditer la source** dans l'app (et de repartager les données dérivées si on les redistribue — ce qui ne
-touche pas le code applicatif).
-
-#### Le cas des issues VO — le point dur
-
-Un fascicule VO n'a **pas d'ISBN** : il porte un **UPC-A 12 chiffres + un supplément de 5 chiffres** collé à
-droite. Ce supplément encode le **numéro d'issue, la variante de couverture et le tirage** — les 12 chiffres
-seuls n'identifient que le *titre*, pas le numéro.
-
-Problème : ce supplément est imprimé petit, et **l'API native `BarcodeDetector` ne le renvoie pas**. ZXing sait
-le décoder, mais il faut qu'il soit net et cadré. **On ne peut donc pas compter dessus systématiquement.**
-
-Parcours, avec dégradation propre :
-
-1. **Supplément capturé** → `GET /issue/?upc=<12+5 chiffres>` sur Metron → tout est rempli, catégorie incluse.
-   Zéro saisie.
-2. **Supplément raté** (12 chiffres seuls) → on bascule sur la **saisie rapide série + numéro**, avec
-   mémorisation de la série (la 2ᵉ issue de la même série prend trois secondes). Metron complète ensuite
-   couverture / date / éditeur / pages à partir de série + numéro.
-3. **TPB, omnibus, hardcover** → ils **ont un ISBN** : le scan classique marche, et Metron comme Google Books
-   les retrouvent. Aucune difficulté.
-
-#### Heuristique de classement (uniquement quand aucune source ne tranche)
-
-Metron donne la catégorie pour la VO. Pour la VF, et en dernier recours :
+La catégorie est **proposée**, jamais imposée. Ordre des signaux, du plus fiable au moins fiable :
 
 | Signal | Catégorie proposée |
 |---|---|
 | `series_type` Metron = Single Issue / One-Shot / Annual | `issue` |
 | `series_type` Metron = Trade Paperback / Hardcover / Graphic Novel | `comics` |
 | `series_type` Metron = Omnibus | `omnibus` |
-| Langue `ja` ou éditeur manga FR (Glénat, Kana, Pika, Kurokawa, Ki-oon, Tonkam…) + ~180-220 p | `manga` |
-| Éditeur franco-belge (Dargaud, Dupuis, Le Lombard, Casterman, Delcourt…) + ~46-72 p | `bd` |
+| Code **UPC-A** (donc fascicule VO) sans autre signal | `issue` |
+| Langue `ja` ou éditeur manga FR (Glénat, Kana, Pika, Kurokawa, Ki-oon, Tonkam…), ~180-220 p. | `manga` |
+| Éditeur franco-belge (Dargaud, Dupuis, Le Lombard, Casterman, Delcourt…), ~46-72 p. | `bd` |
 | Éditeur comics VF (Panini, Urban Comics…) | `comics` |
-| Pas de signal illustré, catégorie « Fiction » / « Literary » | `roman` |
+| Aucun signal illustré, catégorie Google Books « Fiction » / « Literary » | `roman` |
 
-### 2. Mes lectures — le journal (P0)
+**Point faible connu et assumé** : pour la **VF**, on n'a que des indices (éditeur, pages, langue). Ça se
+trompera parfois. **C'est pour ça que la correction en un tap n'est pas une option mais une exigence.**
 
-La liste de tout ce que je lis et ai lu, avec :
-- l'état : **en cours** / **terminé** / **abandonné**,
-- la **date de début** et la **date de fin**,
-- la catégorie, la série et le numéro de tome,
-- filtres par état, catégorie, série, mois.
+---
 
-Une lecture est une **entrée distincte du livre** : relire un bouquin crée une nouvelle lecture.
+## 6. Les données GCD — mesuré, pas supposé
 
-**L'abandon est un état à part entière, et il est réversible.** Une lecture abandonnée n'est **pas** supprimée :
-elle garde sa date de début, reçoit une date d'abandon, et rapporte **0 point**. Surtout, elle peut **repasser en
-cours** — une reprise de lecture est un cas normal, pas une exception. Concrètement :
-
-- `reading` → `abandoned` : on note la date d'abandon.
-- `abandoned` → `reading` : **reprise** — la date d'abandon est effacée, la lecture repart.
-- `abandoned` ou `reading` → `finished` : les points tombent normalement, à la date de fin.
-
-Ça ouvre deux stats que l'émission adorera : **le nombre d'abandons** et **le nombre de reprises** (les bouquins
-qu'on a réussi à finir après les avoir lâchés).
-
-C'est la table qui alimente tout le reste — les stats comme le score. Sa complétude prime sur tout : il doit
-toujours être possible d'**ajouter une lecture à la main** (bouquin non scannable, typiquement une issue VO) et
-de **corriger les dates après coup**.
-
-**On démarre le journal à zéro** : pas de reprise des lectures antérieures à l'app. Les stats commencent au
-premier mois d'usage. Une feature d'import rétroactif des mois passés reste possible plus tard (cf. backlog) —
-le modèle de données ne doit rien faire qui l'empêche (aucune date ne doit être forcée à « maintenant » :
-`started_at` et `finished_at` sont toujours librement saisissables).
-
-### 3. Statistiques & analyses (P0)
-
-Le livrable de l'app : des chiffres que je peux sortir tels quels pour l'émission.
-
-#### 3.a Le bilan du mois au barème — **l'écran principal**
-
-C'est **exactement ce que je donne à Léna** : le décompte du mois, ligne par ligne, dans les catégories du
-barème. Rien d'autre n'a cette priorité.
-
-| Ligne | Contenu |
-|---|---|
-| Une ligne par catégorie | Nombre de bouquins **terminés** dans le mois (issue, manga, BD, comics, omnibus, roman) |
-| Achats non lus | Nombre de livres **achetés dans le mois et pas terminés** — ils comptent, c'est le malus |
-| Total | Le score du mois, dérivé des lignes ci-dessus |
-
-Les points sont une simple multiplication de ces comptes par le barème : dès qu'on a le décompte, on a le
-score. **Le bilan et le score sont le même écran.** Il doit être copiable en un tap (texte propre, lisible tel
-quel à l'antenne) et consultable pour n'importe quel mois passé.
-
-#### 3.b Les analyses (second rideau)
-
-Utiles pour moi et pour meubler l'émission, mais secondaires par rapport au bilan.
-
-**Volume**
-- Lectures terminées : ce mois-ci, cette année, au total — et le détail par catégorie.
-- Pages lues (à partir du nombre de pages des métadonnées).
-- Moyenne de lectures par mois, meilleur mois.
-
-**Rythme**
-- Durée moyenne d'une lecture (`finished_at − started_at`), par catégorie.
-- Lectures en cours en ce moment (et depuis combien de temps — les lectures qui traînent).
-
-**Santé de la PAL** — *la stat centrale de l'émission*
-- Entrées vs sorties : achats du mois contre lectures terminées du mois.
-- **Solde de PAL** : est-ce qu'elle fond ou est-ce qu'elle grossit ? Courbe cumulée dans le temps.
-- Taille de la PAL à date (achats non lus).
-
-**Répartition**
-- Par catégorie, par éditeur, par série.
-- Séries en cours (combien de tomes lus, quel est le suivant).
-
-Les quatre familles (bilan, volume, rythme, santé de la PAL, répartition) sont toutes retenues — mais dans cet
-ordre.
-
-### 4. Achats (P0)
-
-Enregistrer un achat (scan ou saisie) avec sa date. Il sert deux fois :
-- il alimente la **PAL** (« acheté pas lu »), le solde entrées/sorties et **la ligne « achats non lus » du
-  bilan** ;
-- il déclenche le **malus −1** du barème.
-
-Un achat se « convertit » en lecture quand on commence le livre.
-
-### 5. Score du mois (P0 — c'est le bilan)
-
-Pas un écran à part : le score **est** le total du bilan (§3.a). Décomposition visible (points de lecture,
-malus achats, et plus tard bonus objectif), historique des mois précédents. Entièrement dérivé du journal de
-lecture et des achats — aucune saisie spécifique.
-
-### 6. Objectif du mois (P1)
-
-Le seul vrai morceau repoussé.
-- Un objectif par mois : une cible chiffrée par catégorie (0 = catégorie non visée).
-- Jauge de progression par catégorie + état global (atteint / pas encore).
-- Modifiable tant que le mois est en cours.
-- Bonus **+3** all-or-nothing, qui vient s'ajouter au total du bilan.
-
-## Stack
-
-Identique à BoxBox — on sait qu'elle marche.
-
-| Couche | Tech |
-|---|---|
-| Front | Next.js 16 (App Router) + Tailwind 4 |
-| Back | Server Actions + Route Handlers |
-| Base | PostgreSQL via Supabase |
-| Auth | Supabase Auth |
-| Métadonnées VO (comics) | **Metron** — UPC + `series_type` (Basic Auth, côté serveur) |
-| Métadonnées VF (BD, manga, roman) | Google Books API (primaire) + Open Library (fallback) |
-| Scan | BarcodeDetector API + ZXing (seul à décoder le supplément 5 chiffres des issues) |
-| Hébergement | Vercel |
-| Tests | Vitest (logique de scoring) |
-
-Le **calcul du score vit en TypeScript** (`lib/scoring/`), pas en SQL : la base ne stocke que des faits
-(lectures, achats, objectifs), le score est dérivé. Testable au Vitest, modifiable sans migration.
-
-## Modèle de données (esquisse)
-
-- `profiles` — un par utilisateur.
-- `books` — le bouquin en tant qu'objet : titre, série, numéro, auteurs, éditeur, pages, couverture, ISBN,
-  **`barcode_raw` (UPC 12 + supplément 5, tel que scanné)**, `category`, provenance (scan / manuel), source des
-  métadonnées (metron / google_books / manuel) + identifiant chez la source.
-- `readings` — une lecture : `book_id`, `status` (`reading` | `finished`), `started_at`, `finished_at`.
-- `purchases` — un achat : `book_id`, `purchased_at`.
-- `monthly_objectives` + `objective_targets` — l'objectif du mois et ses cibles par catégorie.
-
-RLS activée partout, `user_id` sur chaque table.
-
-## TBD
-
-- **Bonus objectif** : confirmé all-or-nothing (+3 si toutes les cibles sont atteintes) — à retester à l'usage,
-  l'alternative étant +3 par catégorie remplie.
-- **Frontière comics / omnibus** : le seuil de pages est arbitraire, à caler sur des vrais bouquins.
-- Mode multi (Prem vs Léna) : comparaison mensuelle + « meilleur paliste du mois » (+5).
-- Notifications (rappel de fin de mois, objectif presque atteint).
-
-## Backlog (gardé en tête, pas construit maintenant)
-
-- **Import rétroactif** : ressaisir les lectures des mois déjà passés à l'antenne pour avoir des courbes
-  historiques. Écarté au lancement (on démarre à zéro), mais le modèle de données doit rester compatible :
-  dates de lecture toujours libres, jamais figées à la date de saisie.
-- **Instance Metron auto-hébergée** : leur code est en GPL, leurs données en CC BY-SA — possible si le volume
-  d'appels dépasse leur usage « personnel normal ».
-
-### Le dump GCD — mesuré, pas supposé
-
-**Mesures réelles sur le dump du 2026-07-01** (3,76 Go), via `scripts/gcd-inspect.mjs` et
-`scripts/gcd-barcodes.mjs` — qui lisent le dump **en flux**, sans le charger.
+Mesures réelles sur le dump du **2026-07-01** (3,76 Go), via `scripts/gcd-inspect.mjs` et
+`scripts/gcd-barcodes.mjs`, qui lisent le dump **en flux** sans jamais le charger en mémoire.
 
 | Mesure | Valeur |
 |---|---|
@@ -412,113 +307,169 @@ RLS activée partout, `user_id` sur chaque table.
 | Séries / éditeurs | 231 107 / 17 619 |
 | **Issues avec un code-barres** | **423 907** |
 | Issues avec un ISBN | 231 792 |
-| **Poids de la table réduite (index compris)** | **~56 Mo** — soit 1/9 du plafond gratuit Supabase |
+| **Poids de la table réduite, index compris** | **~56 Mo** (1/9 du plafond gratuit Supabase) |
 
-**1. Le supplément de 5 chiffres est présent dans 67 % des codes** (17-18 chiffres = UPC + supplément, donc
-**numéro d'issue inclus**). Conséquence décisive : une **recherche par préfixe sur les 12 premiers chiffres**
-retrouve la série même quand le scan rate le supplément. **C'est le problème que l'API Metron ne sait pas
-résoudre** (son filtre `?upc=` est un match exact).
+**1. Le supplément est présent dans 67 % des codes stockés** (17-18 chiffres). Donc GCD connaît les codes
+complets → une **recherche par préfixe sur les 12 premiers chiffres** retrouve la série même quand le scan rate
+le supplément. **C'est ce que l'API Metron ne sait pas faire** (son filtre `?upc=` est un match exact).
 
 **2. L'indé est massivement couvert.** Marvel (95 288) et DC (74 119) ne pèsent que **40 %** des issues
 code-barrées. Le reste : Image (20 850), IDW (18 543), Dynamite (18 201), Boom! (12 896), Dark Horse (11 984),
 Titan, Zenescope, Valiant, Avatar Press, Action Lab… **6 issues sur 10 ne sont ni Marvel ni DC.**
 
-**3. La base est vivante** : 15 000 à 20 000 issues indexées par an sans discontinuer depuis 2015, dont déjà
-8 614 pour 2026.
+**3. La base est vivante** : 15 000 à 20 000 issues indexées par an depuis 2015, dont déjà 8 614 pour 2026.
 
-**4. Attention au sens du supplément de 5 chiffres** — il n'encode pas la même chose selon le support :
+**4. Le préfixe UPC-A identifie bien la série.** Sur 41 425 préfixes distincts : **93,9 % ne pointent que vers
+une seule série** (81,7 % si on raisonne en issues). Les 6 % ambigus sont **structurels** — les éditeurs
+recyclent un code fourre-tout pour les promos, le Free Comic Book Day, les one-shots (`Rick and Morty
+Presents: …` = 22 séries sous un code), les collections scolaires. **Les séries régulières ont un préfixe
+propre.**
 
-| Support | Code | Ce que disent les 5 chiffres |
-|---|---|---|
-| Fascicule (issue) | UPC-A 12 chiffres + 5 | **numéro d'issue, couverture, tirage** |
-| TPB / omnibus / roman | EAN-13 (préfixe `978…`) + 5 | **le prix** (ex. `51095` = 10,95 $) |
+### Import et rafraîchissement
 
-Ne pas confondre les deux au décodage. Dans les deux cas le **match exact sur le code complet** fonctionne ;
-c'est seulement l'interprétation du suffixe qui diffère.
+- **Source** : `current.zip` sur [comics.org/download](https://www.comics.org/download/) — dump **MySQL**,
+  régénéré **toutes les 2 semaines**, compte gratuit requis. Pas d'API, donc **pas de quota**.
+- **Export** : `scripts/gcd-export.mjs` → `data/gcd_issues.csv` (425 077 lignes, 27 Mo) et `data/gcd_series.csv`
+  (73 116 séries, 3,7 Mo). `data/` est **gitignoré** (régénérable en ~3 min).
+- **Chargement** : `COPY` vers Supabase.
+- **Rafraîchissement** : rejouer l'export sur le nouveau dump, recharger. Mensuel suffit largement.
 
-**Export** : `scripts/gcd-export.mjs` produit `data/gcd_issues.csv` (425 077 lignes, 27 Mo) et
-`data/gcd_series.csv` (73 116 séries, 3,7 Mo), prêts pour un `COPY` Supabase. Chaque ligne porte le **code
-complet** *et* son **préfixe sur 12 chiffres** (colonne indexée → recherche par préfixe).
+### Licence — obligation, pas option
 
-**5. Le préfixe UPC-A identifie-t-il la série ? Oui — mesuré.**
+Données **GCD** et **Metron** en **CC BY-SA 4.0** → l'app **doit créditer les deux bases** (mention visible +
+lien). Commercialisation possible à cette condition.
 
-Sur les 41 425 préfixes UPC-A distincts (hors EAN-13 de livres) :
+---
 
-| | |
+## 7. Modèle de données
+
+RLS activée **partout**, `user_id` sur **chaque** table utilisateur.
+
+### Tables utilisateur
+
+**`profiles`** — un par utilisateur (`id` = `auth.users.id`, `display_name`).
+
+**`books`** — le bouquin en tant qu'objet, tel que l'utilisateur l'a enregistré.
+
+| Colonne | Rôle |
 |---|---|
-| Préfixes pointant vers **une seule série** | **93,9 %** (38 892) |
-| En raisonnant en **issues** (les codes fourre-tout en portent beaucoup) | **81,7 %** sans ambiguïté |
+| `user_id` | RLS |
+| `title`, `series_name`, `issue_number`, `authors`, `publisher`, `page_count` | Métadonnées d'affichage |
+| `category` | **enum** : `issue` / `manga` / `bd` / `comics` / `omnibus` / `roman` |
+| `barcode_raw` | Le code **tel que scanné**, supplément inclus |
+| `barcode_type` | `isbn` / `upc` |
+| `barcode_prefix` | Les 12 premiers chiffres — **indexé** |
+| `isbn` | Si applicable |
+| `cover_url` | Couverture distante (Metron / Google Books) **ou** chemin Supabase Storage si photo |
+| `metadata_source` | `gcd` / `google_books` / `open_library` / `metron` / `manual` |
+| `metadata_source_id` | L'identifiant chez la source — permet de re-résoudre plus tard |
 
-Les 6 % de préfixes ambigus sont **structurels, pas aléatoires** : les éditeurs recyclent un code produit
-« fourre-tout » pour tout ce qui n'est pas une série régulière — promos Marvel, Free Comic Book Day, one-shots
-(`Rick and Morty Presents: …` = 22 séries sous un code), collections scolaires (74 pièces de Shakespeare).
-**Les séries régulières, elles, ont un préfixe propre.**
+> **Pourquoi stocker `barcode_raw` et `barcode_prefix` :** si on change de source demain, on **re-résout tout
+> l'historique sans re-scanner un seul bouquin**. C'est le pont qui rend toute décision de source réversible.
 
-**Parcours de scan qui en découle** (dégradation douce, jamais d'échec) :
+**`readings`** — une lecture.
 
-| Ce que le scan capte | Ce que fait l'app |
+| Colonne | Rôle |
 |---|---|
-| Code complet (UPC + supplément) | Issue exacte, **zéro question** |
-| 12 chiffres, préfixe net (**81,7 %**) | Série connue → *« quel numéro ? »*, **un tap** |
-| 12 chiffres, préfixe partagé (18,3 %) | Liste courte des séries possibles → **deux taps** |
-| Rien / inconnu | Saisie manuelle série + numéro (mémorisée) |
+| `user_id`, `book_id` | |
+| `status` | **enum** : `reading` / `finished` / `abandoned` |
+| `started_at` | date, **librement saisissable** |
+| `finished_at` | date, nullable — **c'est elle qui date les points** |
+| `abandoned_at` | date, nullable — **effacée en cas de reprise** |
 
-**Obligation légale** : données GCD en **CC BY-SA 4.0** → l'app **doit créditer la Grand Comics Database**
-(mention visible + lien). Idem pour Metron.
+**`purchases`** — un achat : `user_id`, `book_id`, `purchased_at` (date).
 
-**Conclusion : GCD identifie mieux que Metron, pour 56 Mo et quelques heures d'import** (le parseur en flux est
-déjà écrit). Metron reste nécessaire pour ce que GCD n'a pas : **les couvertures** et le `series_type`.
+**`monthly_objectives`** (P1) — `user_id`, `month` (1er du mois).
+**`objective_targets`** (P1) — `objective_id`, `category`, `target_count`.
 
-### Détail de la faisabilité gratuite
+### Tables de référence (GCD, en lecture seule)
 
-- **GCD n'a pas d'API, donc pas de quota.** On télécharge un **dump MySQL compressé** (`current.zip`, régénéré
-  **toutes les 2 semaines**, compte comics.org gratuit requis, CC BY-SA 4.0). Une fois importé, c'est **notre
-  base** : requêtes illimitées, instantanées, sans réseau.
-- **Le plafond, c'est Supabase : 500 Mo sur le plan gratuit.** Le dump complet (plusieurs Go décompressé) ne
-  rentre pas — mais on n'importe **pas** tout GCD :
-  - uniquement les issues **qui ont un code-barres** (l'après-1980) : ~700 k à 1 M lignes sur les ~2,1 M ;
-  - uniquement les colonnes utiles (`barcode`, série, numéro, année, pages, format) ;
-  - séries **normalisées** dans une table à part (~230 k lignes) ;
-  - filtrage possible par **langue** (anglais + français) si besoin de resserrer.
-- **Estimation : ~200 Mo index compris** (~100-150 Mo d'issues, ~15 Mo de séries, 40-60 Mo d'index sur le
-  barcode). Tient sous les 500 Mo, avec de la marge — les lectures et achats ne pèsent rien à côté.
-- **À vérifier avant de s'engager** : le nombre réel d'issues portant un barcode ne se trouve nulle part en
-  ligne, il faut le compter dans le dump. **C'est la première étape de l'ETL** (charger le dump dans un MySQL
-  local, compter) — ~1 h. Si ça déborde, on resserre les filtres.
-- ETL : dump **MySQL** → notre base **PostgreSQL**. Chargement local, export CSV des colonnes utiles, `COPY`
-  vers Supabase. À rejouer à chaque rafraîchissement.
+**`gcd_issues`** — `barcode`, `barcode_prefix` *(indexé)*, `series_id`, `number`, `page_count`, `key_date`,
+`isbn`, `title`. 425 077 lignes.
 
-**Plan gratuit Supabase** : 2 projets (BoxBox + celui-ci = pile poil), pause après 7 jours d'inactivité (sans
-conséquence ici, l'app est utilisée).
+**`gcd_series`** — `id`, `name`, `format`, `year_began`, `publisher`, `language_id`. 73 116 lignes.
 
-### GCD et Metron sont complémentaires, pas concurrents
+Pas de `user_id` : **données publiques**, lisibles par tous, **écrites uniquement par l'import** (aucune écriture
+depuis le client).
 
-**GCD ne fournit pas les couvertures** — les images sont hébergées à part sur comics.org, elles ne sont pas dans
-le dump. Or la couverture n'est pas cosmétique : c'est ce qui rend la liste de lectures lisible d'un coup d'œil.
+### Ce qu'on ne stocke pas
 
-D'où l'état final naturel, que l'interface de providers permet directement :
+**Le score.** Il est **toujours dérivé** des lectures, des achats et du barème. Aucune colonne `points`, aucune
+table `scores`. Changer le barème ne demandera **aucune migration** — juste une constante et un redéploiement.
 
-- **GCD** pour **identifier** (barcode, y compris **par préfixe**, avec l'indé et le rétro) ;
-- **Metron / Google Books** pour **enrichir** (couverture, `series_type`).
+---
 
-### Le dump GCD — trajectoire assumée, pas un « peut-être »
+## 8. Fiabilité & performance
 
-Importer la base `barcode → issue` de la **Grand Comics Database** dans Supabase est la **direction prévue à
-terme**. On ne le fait pas maintenant (une journée d'ETL + un refresh mensuel du dump, avant même d'avoir scanné
-le premier bouquin), mais on construit en sachant qu'on ira.
+Ce qui rend cette app fiable n'est pas une optimisation exotique, c'est une poignée de choix structurels :
 
-Pourquoi c'est la bonne fin de partie :
+**Le calcul du score vit en TypeScript** (`lib/scoring/`), pas en SQL, pas en base. La base ne stocke que des
+**faits** (lectures, achats, objectifs). Conséquences : testable au **Vitest** (une fonction pure, des cas
+d'entrée, des points attendus), modifiable sans migration, et impossible à désynchroniser.
 
-- **Ça rend le scan dégradé utile.** Le filtre `?upc=` de Metron est un **match exact** : avec seulement les 12
-  chiffres (supplément raté — le cas le plus fréquent), il ne peut rien répondre. Une table locale, elle, retrouve
-  le **titre par préfixe** : il ne reste qu'à demander le numéro. C'est l'argument décisif, plus encore que le quota.
-- Pas de quota, pas de dépendance réseau, réponse instantanée.
-- Meilleure couverture des vieux fascicules et de l'indé.
-- Licence saine pour commercialiser (CC BY-SA 4.0 + attribution).
+**Les lookups GCD sont instantanés.** 425 077 lignes, c'est petit pour Postgres. Deux index (`barcode`,
+`barcode_prefix`) → une recherche en quelques millisecondes, **sans appel réseau externe**. Le scan ne dépend
+d'aucune API tierce pour identifier un bouquin : Metron n'intervient qu'ensuite, pour la couverture, et **son
+absence ne casse rien**.
 
-**Déclencheurs** : Metron rate trop de scans, ou les quotas / CGU deviennent contraignants, **ou on
-commercialise** — le compte de service Metron unique ne tient pas la charge d'une base d'utilisateurs, et sort
-du cadre de leurs CGU.
+**Toute résolution externe est mise en cache.** Un bouquin n'est jamais résolu deux fois auprès de Metron ou
+Google Books. Avec 4-5 utilisateurs, on parle de quelques dizaines d'appels par mois — les quotas (20 req/min,
+5 000/jour chez Metron) sont hors d'atteinte.
 
-**Le pont est déjà construit** : `barcode_raw` stocké sur chaque livre + cache local de chaque résolution → le
-jour de la bascule, on rejoue tout l'historique, aucun bouquin n'est re-scanné.
+**Les secrets ne quittent pas le serveur.** Metron s'authentifie en **HTTP Basic Auth** (pas de clé API : les
+identifiants d'un **compte de service** dédié). Ils vivent en variables d'environnement serveur, **jamais
+préfixées `NEXT_PUBLIC_`**. Le client n'appelle jamais Metron : il passe par un **Route Handler**
+(`/api/lookup/[barcode]`) qui interroge et renvoie un résultat normalisé.
+
+**Le scan ne peut pas échouer.** Chaque étape a une porte de sortie, jusqu'à la saisie manuelle. L'utilisateur
+n'est jamais bloqué devant un « livre introuvable ».
+
+**Les index qui comptent** : `readings (user_id, finished_at)` et `purchases (user_id, purchased_at)` — le bilan
+mensuel est une requête par mois, sur ces deux tables, et rien d'autre.
+
+**Les images sont compressées côté client** (WebP, ~150 Ko) avant l'upload : pas de photo de 5 Mo qui plombe le
+Go gratuit et la bande passante mobile.
+
+**Mobile-first, a11y, pas de valeur magique.** Le barème dans une constante unique. Les composants réutilisables.
+
+---
+
+## 9. Stack
+
+| Couche | Tech |
+|---|---|
+| Front | Next.js 16 (App Router) + Tailwind 4 |
+| Back | Server Actions + Route Handlers |
+| Base | PostgreSQL via Supabase |
+| Auth | Supabase Auth |
+| Stockage images | Supabase Storage (1 Go gratuit) |
+| **Identification d'un scan** | **GCD importé chez nous** — table `barcode → issue`, match exact **et par préfixe** |
+| Métadonnées VF | Google Books (primaire) + Open Library (fallback) |
+| Enrichissement VO | Metron — **couverture** + `series_type` (Basic Auth, **côté serveur**) |
+| Scan | BarcodeDetector API + **ZXing** (seul à décoder le supplément 5 chiffres) |
+| Hébergement | Vercel |
+| Tests | Vitest (logique de scoring) |
+
+**Plan gratuit Supabase** : 500 Mo de base (on en utilise ~56), 1 Go de stockage, **2 projets** (BoxBox +
+celui-ci), pause après 7 jours d'inactivité (sans conséquence : l'app est utilisée).
+
+---
+
+## 10. TBD
+
+- **Bonus objectif** : all-or-nothing (+3 si toutes les cibles sont atteintes) — à retester à l'usage,
+  l'alternative étant +3 par catégorie remplie.
+- **Frontière comics / omnibus** pour la VF : le seuil de pages est arbitraire, à caler sur de vrais bouquins.
+- **Fonctionnement hors ligne** : jusqu'où ? Enregistrer une lecture sans réseau et synchroniser ensuite serait
+  confortable (métro, librairie) mais demande une file d'attente locale. À trancher quand le scan tournera.
+
+## 11. Backlog — gardé en tête, pas construit
+
+- **Import rétroactif** : ressaisir les lectures des mois déjà passés à l'antenne pour avoir des courbes
+  historiques. Écarté au lancement (on démarre à zéro), mais le modèle de données **doit rester compatible** :
+  dates de lecture toujours libres, jamais figées à la date de saisie.
+- **Mode multi** (P2) : comparaison mensuelle Prem vs Léna + « meilleur paliste du mois » (+5).
+- **Notifications** : rappel de fin de mois, objectif presque atteint.
+- **Instance Metron auto-hébergée** : leur code est en GPL, leurs données en CC BY-SA — une option si le volume
+  d'appels dépassait un jour leur usage « personnel normal ». Peu probable : GCD fait déjà l'identification, et
+  Metron ne sert qu'aux couvertures.
