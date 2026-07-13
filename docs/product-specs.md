@@ -48,9 +48,15 @@ plus large :
 | **Posséder sans avoir acheté dans l'app** (les étagères d'avant) | ❌ **manquant** |
 
 Ce dernier cas, c'est **l'essentiel d'une vraie biblio**. Il faudra une action « **je possède** » — scanner une
-étagère entière **sans que ça compte comme un achat du mois** (pas de −1, sinon le score explose). C'est du
-backlog, pas du MVP. **L'architecture l'accueille déjà** : un bouton de plus sur la feuille du scan, une table de
-plus.
+étagère entière **sans que ça compte comme un achat du mois** (pas de −1, sinon le score plonge à −80). C'est du
+**backlog, pas du MVP**, et ça se rajoutera en une migration : **une table de plus, un bouton de plus.** Rien à
+réécrire, parce que `books` existe **indépendamment** de ce qu'on fait du livre.
+
+> **La seule précaution à prendre dès maintenant, et elle est gratuite — une question de vocabulaire.**
+> La PAL, c'est **« ce que je possède et que je n'ai pas lu »**. Aujourd'hui on la calcule à partir des
+> **achats**, faute de mieux. Le jour où la possession existera, **la définition ne changera pas** — seule la
+> source s'élargira. Si on écrivait partout « la PAL = les achats non lus », il faudrait corriger **la stat
+> centrale de l'émission dans six écrans**.
 
 ### Priorités
 
