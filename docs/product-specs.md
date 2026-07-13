@@ -461,12 +461,40 @@ propre.**
 
 ### Import et rafraîchissement
 
-- **Source** : `current.zip` sur [comics.org/download](https://www.comics.org/download/) — dump **MySQL**,
-  régénéré **toutes les 2 semaines**, compte gratuit requis. Pas d'API, donc **pas de quota**.
+- **Source** : le dump sur [comics.org/download](https://www.comics.org/download/) — **MySQL compressé**,
+  régénéré **toutes les 2 semaines**, **compte gratuit requis**. Pas d'API, donc **pas de quota**.
+- **Téléchargement** : `scripts/gcd-download.mjs` — rejoue le **cookie de session** d'un compte comics.org
+  (`GCD_SESSION_COOKIE`), lit la page et y **cherche le lien du `.zip`** (donc résistant à un renommage).
 - **Export** : `scripts/gcd-export.mjs` → `data/gcd_issues.csv` (425 077 lignes, 30 Mo) et `data/gcd_series.csv`
   (73 116 séries, 3,7 Mo). `data/` est **gitignoré** (régénérable en ~3 min).
-- **Chargement** : `COPY` vers Supabase.
-- **Rafraîchissement** : rejouer l'export sur le nouveau dump, recharger. Mensuel suffit largement.
+- **Chargement** : `COPY` vers Supabase, **dans une transaction** : on vide et on recharge `gcd_issues` d'un
+  bloc. C'est une **table jetable**, entièrement reconstructible depuis le dump.
+
+### Le rafraîchissement n'est pas un problème — et voici pourquoi
+
+**On n'aura presque jamais besoin de le refaire.** Ce qui manque dans une base GCD vieille de trois mois, ce sont
+les **nouveautés** — ~1 500 issues par mois. Or les nouveautés, c'est exactement ce que **Metron** couvre le mieux
+(il est alimenté chaque semaine sur les sorties).
+
+**Donc la base se complète toute seule à l'usage :**
+
+| Source | Rôle |
+|---|---|
+| **GCD** (import massif) | Le **fonds historique** : 425 000 issues, l'indé, le rétro |
+| **Metron** (à la demande) | Les **nouveautés** que GCD n'a pas encore, résolues au moment du scan |
+| **Notre cache** | Chaque résolution réussie **enrichit notre base pour toujours** |
+
+Le rafraîchissement du dump devient un **confort, pas une nécessité** : **trimestriel suffit**.
+
+> **⚠️ Conséquence structurelle : deux tables, jamais une seule.**
+> `gcd_issues` est un **pur import**, écrasé à chaque refresh. Notre **cache de résolutions** (les comics
+> découverts via Metron) est une **table séparée, jamais écrasée**. Si on écrivait les résolutions Metron dans
+> `gcd_issues`, **chaque rafraîchissement les détruirait** — et on perdrait du terrain à chaque fois qu'on croit
+> en gagner.
+
+**Automatisation** : une **commande locale** (`npm run gcd:refresh`), lancée quand ça arrange. Pas de GitHub
+Action : monter une CI pour un job qu'on fait **quatre fois par an**, avec un cookie de session qui **expirera**,
+c'est de l'ingénierie pour l'ingénierie — et une CI cassée est plus pénible qu'un clic trimestriel.
 
 ### Licence — obligation, pas option
 
@@ -539,9 +567,19 @@ un second (cf. §4.2).
 
 **`gcd_series`** — `id`, `name`, `format`, `year_began`, `publisher`, `language_id`. 73 116 lignes.
 
-Pas de `user_id` : **données publiques**. **RLS activée quand même**, avec une politique **lecture seule pour les
-utilisateurs authentifiés** et **aucune écriture depuis le client** — l'import est la seule source d'écriture (via
-la clé de service).
+Ces deux tables sont **jetables** : écrasées à chaque rafraîchissement du dump, entièrement reconstructibles.
+
+**`barcode_cache`** — **notre** table, celle qui grossit toute seule : les résolutions obtenues **auprès de
+Metron ou Google Books** (les nouveautés que GCD n'a pas encore). `barcode`, métadonnées normalisées, source,
+`resolved_at`.
+
+> **⚠️ Elle est séparée de `gcd_issues`, et ce n'est pas un détail** : si on écrivait les résolutions Metron dans
+> la table d'import, **chaque rafraîchissement du dump les effacerait**. Séparées, la table jetable reste jetable
+> et notre cache est **définitif**.
+
+Pas de `user_id` sur ces trois tables : **données publiques**. **RLS activée quand même**, avec une politique
+**lecture seule pour les utilisateurs authentifiés** et **aucune écriture depuis le client** — seul le serveur
+écrit (import et cache).
 
 ### Ce qu'on ne stocke pas
 
