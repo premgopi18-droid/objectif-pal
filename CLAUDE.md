@@ -22,8 +22,9 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 
 ## Statut
 
-> **Squelette initialisé (Next.js + Tailwind + TS, dépendances installées). Specs écrites. Rien de construit :
-> prochaine étape = projet Supabase + schéma de base.**
+> **Squelette initialisé (Next.js + Tailwind + TS, dépendances installées). Specs écrites. Source de
+> métadonnées tranchée sur mesures : GCD identifie, Metron habille. Les CSV GCD sont extraits et prêts.
+> Rien d'applicatif construit — prochaine étape = projet Supabase + schéma + chargement des CSV.**
 
 ## Stack
 
@@ -33,11 +34,23 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 | Back | Server Actions + Route Handlers |
 | Base | PostgreSQL via Supabase |
 | Auth | Supabase Auth |
-| Métadonnées VO | Metron (UPC + `series_type`, Basic Auth **côté serveur**) |
+| **Identification d'un scan** | **GCD (Grand Comics Database), importé chez nous** — table barcode → issue (~56 Mo), match exact **et par préfixe** |
 | Métadonnées VF | Google Books (primaire) + Open Library (fallback) |
+| Enrichissement VO | Metron — **couverture** + `series_type` (Basic Auth, **côté serveur**) |
 | Scan | BarcodeDetector API + ZXing |
 | Hébergement | Vercel |
 | Tests | Vitest (logique de scoring) |
+
+**Attribution obligatoire** : données GCD et Metron en CC BY-SA 4.0 → l'app doit créditer les deux bases.
+
+## Les données GCD
+
+- Dump source : `C:\Users\premg\Downloads\current\2026-07-01.sql` (3,76 Go, régénéré tous les 15 jours sur
+  comics.org).
+- `scripts/gcd-export.mjs` → `data/gcd_issues.csv` (425 077 lignes) + `data/gcd_series.csv` (73 116 séries).
+  **`data/` est gitignoré** : les CSV se régénèrent depuis le dump en ~3 min.
+- `scripts/gcd-inspect.mjs` et `scripts/gcd-barcodes.mjs` : les parseurs en flux qui ont produit les mesures
+  citées dans les specs. À rejouer à chaque nouveau dump.
 
 Le **calcul du score vit en TypeScript** (`lib/scoring/`), pas en SQL : la base ne stocke que des faits
 (lectures, achats, objectifs), le score est dérivé. Testable, modifiable sans migration.
@@ -58,7 +71,13 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. Créer le projet Supabase dédié + le schéma (`books`, `readings`, `purchases`, `monthly_objectives`).
-2. Le moteur de scoring en TS + ses tests Vitest.
-3. Le scan (Metron / Google Books) et la saisie manuelle.
-4. Le bilan mensuel au barème — l'écran qui est le livrable.
+1. **Créer le projet Supabase dédié** (2ᵉ projet du plan gratuit) + le schéma : `books`, `readings`,
+   `purchases`, `monthly_objectives`, et les deux tables GCD (`gcd_issues`, `gcd_series`).
+2. **Charger les CSV GCD** (`COPY`) et indexer `barcode` **et** `barcode_prefix`.
+3. Le **moteur de scoring** en TS + ses tests Vitest (le barème vit dans une constante unique).
+4. Le **scan** : routage ISBN / UPC, cascade de providers, saisie manuelle en filet.
+5. Le **bilan mensuel au barème** — l'écran qui est le livrable de l'app.
+
+**Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs
+roman) à partir de Google Books — on n'a que des indices (éditeur, pages, langue). La catégorie proposée doit
+rester **corrigeable en un tap**.
