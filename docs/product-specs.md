@@ -358,6 +358,23 @@ Titan, Zenescope, Valiant, Avatar Press, Action Lab… **6 issues sur 10 ne sont
 **3. La base est vivante** : 15 000 à 20 000 issues indexées par an sans discontinuer depuis 2015, dont déjà
 8 614 pour 2026.
 
+**4. Attention au sens du supplément de 5 chiffres** — il n'encode pas la même chose selon le support :
+
+| Support | Code | Ce que disent les 5 chiffres |
+|---|---|---|
+| Fascicule (issue) | UPC-A 12 chiffres + 5 | **numéro d'issue, couverture, tirage** |
+| TPB / omnibus / roman | EAN-13 (préfixe `978…`) + 5 | **le prix** (ex. `51095` = 10,95 $) |
+
+Ne pas confondre les deux au décodage. Dans les deux cas le **match exact sur le code complet** fonctionne ;
+c'est seulement l'interprétation du suffixe qui diffère.
+
+**Export** : `scripts/gcd-export.mjs` produit `data/gcd_issues.csv` (425 077 lignes, 27 Mo) et
+`data/gcd_series.csv` (73 116 séries, 3,7 Mo), prêts pour un `COPY` Supabase. Chaque ligne porte le **code
+complet** *et* son **préfixe sur 12 chiffres** (colonne indexée → recherche par préfixe).
+
+**Obligation légale** : données GCD en **CC BY-SA 4.0** → l'app **doit créditer la Grand Comics Database**
+(mention visible + lien). Idem pour Metron.
+
 **Conclusion : GCD identifie mieux que Metron, pour 56 Mo et quelques heures d'import** (le parseur en flux est
 déjà écrit). Metron reste nécessaire pour ce que GCD n'a pas : **les couvertures** et le `series_type`.
 
