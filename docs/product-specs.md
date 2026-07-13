@@ -593,6 +593,12 @@ RLS activée **partout**, `user_id` sur **chaque** table utilisateur.
 > personne ne comprendrait pourquoi. Une lecture se termine **un jour**, pas à un instant : `date` est le bon
 > type, et il supprime la classe de bugs entière.
 
+> **⚠️ Suppression douce partout — la vision (§1) l'exige, le schéma doit le fournir.**
+> `books`, `readings` et `purchases` portent un **`deleted_at`** (timestamptz, nullable). « Supprimer » = le
+> renseigner ; toutes les requêtes de l'app filtrent `deleted_at IS NULL`. **Aucun `DELETE` SQL sur les données
+> utilisateur, jamais** — une lecture enregistrée par erreur se marque, elle ne se détruit pas. L'export (§4.10)
+> inclut aussi les lignes supprimées : ce sont les données de l'utilisateur, toutes.
+
 ### Tables utilisateur
 
 **`profiles`** — un par utilisateur (`id` = `auth.users.id`, `display_name`).
@@ -609,7 +615,7 @@ RLS activée **partout**, `user_id` sur **chaque** table utilisateur.
 | `barcode_prefix` | Les 12 premiers chiffres — **indexé** |
 | `isbn` | Si applicable |
 | `cover_url` | Couverture distante (Metron / Google Books) **ou** chemin Supabase Storage si photo |
-| `metadata_source` | `gcd` / `google_books` / `metron` / `manual` |
+| `metadata_source` | `gcd` / `bnf` / `google_books` / `metron` / `manual` |
 | `metadata_source_id` | L'identifiant chez la source (dont le **`gcd_id`**) — permet de re-résoudre plus tard |
 
 **Contrainte d'unicité : `(user_id, barcode_raw)`.** Un rescan réutilise le livre existant, il n'en crée jamais
@@ -661,9 +667,9 @@ ISBN** (donc la BD franco-belge, indexée par ISBN).
 
 Ces deux tables sont **jetables** : écrasées à chaque rafraîchissement du dump, entièrement reconstructibles.
 
-**`barcode_cache`** — **notre** table, celle qui grossit toute seule : les résolutions obtenues **auprès de
-Metron ou Google Books** (les nouveautés que GCD n'a pas encore). `barcode`, métadonnées normalisées, source,
-`resolved_at`.
+**`barcode_cache`** — **notre** table, celle qui grossit toute seule : les résolutions obtenues **auprès de la
+BnF, de Metron ou de Google Books** (tout ce que GCD n'a pas). `barcode` (UPC ou ISBN), métadonnées normalisées,
+source, `resolved_at`.
 
 > **⚠️ Elle est séparée de `gcd_issues`, et ce n'est pas un détail** : si on écrivait les résolutions Metron dans
 > la table d'import, **chaque rafraîchissement du dump les effacerait**. Séparées, la table jetable reste jetable
@@ -738,7 +744,7 @@ Go gratuit et la bande passante mobile.
 | Base | PostgreSQL via Supabase |
 | Auth | Supabase Auth — **Google OAuth** (⚠️ `redirectTo` sur l'origine réelle, cf. §4.8) |
 | Stockage images | Supabase Storage (1 Go gratuit) |
-| **Identification d'un scan** | **GCD importé chez nous** — table `barcode → issue`, match exact **et par préfixe** |
+| **Identification d'un scan** | **GCD importé chez nous** — 559 516 lignes, match par code complet, **par préfixe**, ou **par ISBN** |
 | **Identification VF** | **BnF** — API SRU, gratuite, sans clé, **dépôt légal** (95 % mesuré) |
 | Couvertures VF, romans étrangers | Google Books — **clé obligatoire** (429 sans clé depuis un datacenter) |
 | Enrichissement VO | Metron — **couverture** + `series_type` (Basic Auth, **côté serveur**) |

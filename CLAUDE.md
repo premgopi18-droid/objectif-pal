@@ -22,9 +22,9 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 
 ## Statut
 
-> **Squelette initialisé (Next.js + Tailwind + TS, dépendances installées). Specs écrites. Source de
-> métadonnées tranchée sur mesures : GCD identifie, Metron habille. Les CSV GCD sont extraits et prêts.
-> Rien d'applicatif construit — prochaine étape = projet Supabase + schéma + chargement des CSV.**
+> **Squelette initialisé (Next.js + Tailwind + TS, dépendances installées). Specs écrites. Sources tranchées
+> sur mesures : GCD (en base) + BnF identifient, Metron + Google Books habillent. Les CSV GCD sont extraits et
+> prêts. Rien d'applicatif construit — prochaine étape = projet Supabase + schéma + chargement des CSV.**
 
 ## Stack
 
@@ -74,7 +74,7 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 1. **Créer le projet Supabase dédié** (2ᵉ projet du plan gratuit) + le schéma — **la liste exacte des tables et
    des colonnes est dans `docs/product-specs.md` §7**, ne pas la recopier ici (elle dériverait).
-2. **Charger les CSV GCD** (`COPY`) et indexer `barcode` **et** `barcode_prefix`.
+2. **Charger les CSV GCD** (`COPY`) et indexer `barcode`, `barcode_prefix` **et** `isbn`.
 3. Le **moteur de scoring** en TS + ses tests Vitest (le barème vit dans une constante unique).
 4. Le **scan** : routage ISBN / UPC, cascade de providers, saisie manuelle en filet.
 5. Le **bilan mensuel au barème** — l'écran qui est le livrable de l'app.
