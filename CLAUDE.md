@@ -35,7 +35,7 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 | Base | PostgreSQL via Supabase |
 | Auth | Supabase Auth — **Google OAuth** (⚠️ `redirectTo` construit sur l'origine réelle, pas une constante) |
 | **Identification d'un scan** | **GCD (Grand Comics Database), importé chez nous** — table barcode → issue (~56 Mo), match exact **et par préfixe** |
-| Métadonnées VF | Google Books (primaire) + Open Library (fallback) |
+| Métadonnées VF | Google Books (sans clé) |
 | Enrichissement VO | Metron — **couverture** + `series_type` (Basic Auth, **côté serveur**) |
 | Scan | BarcodeDetector API + ZXing |
 | Hébergement | Vercel |
@@ -71,8 +71,8 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **Créer le projet Supabase dédié** (2ᵉ projet du plan gratuit) + le schéma : `books`, `readings`,
-   `purchases`, `monthly_objectives`, et les deux tables GCD (`gcd_issues`, `gcd_series`).
+1. **Créer le projet Supabase dédié** (2ᵉ projet du plan gratuit) + le schéma — **la liste exacte des tables et
+   des colonnes est dans `docs/product-specs.md` §7**, ne pas la recopier ici (elle dériverait).
 2. **Charger les CSV GCD** (`COPY`) et indexer `barcode` **et** `barcode_prefix`.
 3. Le **moteur de scoring** en TS + ses tests Vitest (le barème vit dans une constante unique).
 4. Le **scan** : routage ISBN / UPC, cascade de providers, saisie manuelle en filet.

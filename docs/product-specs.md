@@ -62,8 +62,8 @@ réécrire, parce que `books` existe **indépendamment** de ce qu'on fait du liv
 
 | Rang | Bloc | Pourquoi |
 |---|---|---|
-| **P0** | **Journal de lecture** (scan, catégorie, états, dates) + **achats** + **bilan mensuel au barème** + analyses | C'est le produit. Le bilan est le livrable ; le score n'est qu'une multiplication du décompte, il vient gratuitement avec. |
-| **P1** | **Objectifs mensuels** (cible par catégorie, jauge, bonus +3) | Le jeu de l'émission. Ne sert à rien sans données : on le branche quand P0 tourne. |
+| **P0** | **Journal de lecture** (scan, catégorie, états, dates) + **achats** + **note et avis** + **bilan mensuel au barème** + analyses + **auth**, **PWA**, **export** | C'est le produit. Le bilan est le livrable ; le score n'est qu'une multiplication du décompte, il vient gratuitement avec. |
+| **P1** | **Objectifs mensuels** (cible par catégorie, jauge, bonus +3) + **distinctions du mois** | Le jeu de l'émission, et l'habillage éditorial du bilan. Ne servent à rien sans données : on les branche quand P0 tourne. |
 | **P2** | **Compétition** Prem vs Léna (comparaison mensuelle, « meilleur paliste » +5) | Plus tard. Le modèle de données est prêt à l'accueillir. |
 
 **Conséquence : la saisie doit être irréprochable avant tout le reste.** Une stat ne vaut que ce que vaut le
@@ -319,7 +319,12 @@ Enregistrer un achat (scan ou saisie) avec sa date. Il sert deux fois :
   bilan** ;
 - il déclenche le **malus −1**.
 
-Un achat se « convertit » en lecture quand on commence le livre.
+**Un achat ne se transforme jamais en lecture.** Quand on commence un livre acheté, on **crée une lecture** qui
+pointe le **même `book_id`** — l'achat reste, la lecture s'ajoute. C'est ce qui permet de dire *« acheté le 3,
+commencé le 17, fini le 24 »*, et de garder la PAL exacte : un livre acheté puis lu **sort** de la pile sans que
+son achat disparaisse de l'historique.
+
+Depuis la vue PAL, un tap sur un livre non lu = *« je le commence »*.
 
 ### 4.7 Score du mois (P0 — c'est le bilan)
 
@@ -348,7 +353,8 @@ Ce n'est pas cosmétique : sans ça, pas d'icône sur l'écran d'accueil et un a
 
 ### 4.10 Export de mes données (P0)
 
-Un bouton « exporter » qui sort **tout** : livres, lectures, achats, objectifs, en **JSON et CSV**.
+Un bouton « exporter » qui sort **tout** — livres, lectures (**notes et commentaires compris**), historique des
+changements d'état, achats, objectifs, distinctions — en **JSON et CSV**.
 
 Deux raisons, et la seconde est la vraie :
 1. Sortir des chiffres pour l'émission dans un tableur si l'envie prend.
@@ -373,7 +379,7 @@ ce que c'est.**
 
 | Code scanné | Ce que c'est | Où on cherche |
 |---|---|---|
-| EAN-13 préfixé **978 / 979** | Un **ISBN** — BD, manga, roman, **et les TPB / omnibus VO** | GCD (par ISBN) → Google Books → Open Library |
+| EAN-13 préfixé **978 / 979** | Un **ISBN** — BD, manga, roman, **et les TPB / omnibus VO** | GCD (par ISBN) → Google Books |
 | **UPC-A** 12 chiffres (tout le reste) | Un **fascicule VO** | GCD (code exact, sinon **par préfixe**) |
 
 **Le supplément de 5 chiffres n'a pas le même sens selon le support** — piège classique :
@@ -388,17 +394,19 @@ ce que c'est.**
 ```
 GCD (identifie, les deux types)
   → Google Books (la VF : BD, manga, roman)
-    → Open Library (filet)
-      → Metron (enrichit : couverture + series_type)
-        → saisie manuelle (le filet ultime, toujours disponible)
+    → Metron (enrichit : couverture + series_type)
+      → saisie manuelle (le filet ultime, toujours disponible)
 ```
+
+**Trois sources, pas une de plus.** Chaque source ajoutée coûte une implémentation, un cas d'erreur et un test —
+on n'en met que si elle apporte quelque chose que les autres n'ont pas. **Open Library a été écartée** : Google
+Books couvre déjà la VF, et un troisième fournisseur pour un gain marginal, c'est une usine à gaz (cf. §13).
 
 **Décision, prise sur mesures (§6) : GCD identifie, Metron habille.**
 
 - **GCD, importé chez nous** (table réduite, ~56 Mo) → **identifier** : match exact sur le code complet, **et
   recherche par préfixe** quand le scan rate le supplément. Aucun quota, aucune latence réseau, indé couvert.
-- **Google Books / Open Library** → la **VF**, que GCD ignore par nature (BD franco-belge, manga français,
-  romans).
+- **Google Books** → la **VF**, que GCD ignore par nature (BD franco-belge, manga français, romans).
 - **Metron** (API) → **enrichir** : la **couverture** et le `series_type`, qui donne la catégorie du barème
   proprement.
 
@@ -433,7 +441,7 @@ commercialement.** C'est logique — une couverture est une **œuvre sous copyri
 |---|---|
 | **Comic Vine** | La plus grosse base d'images, indé compris — mais **usage commercial explicitement interdit** (clé révoquée), 200 req/h. |
 | **GCD** | Les scans existent sur le site mais **pas dans le dump** (vérifié : aucune table `cover`). Hotlinker = fragile et discourtois. |
-| **Google Books / Open Library** | Couvertures **par ISBN seulement** → parfait pour BD, manga, roman, TPB, omnibus. **Inutile pour les fascicules.** |
+| **Google Books** | Couvertures **par ISBN seulement** → parfait pour BD, manga, roman, TPB, omnibus. **Inutile pour les fascicules.** |
 | **Marvel API** | Gratuite et officielle, mais **Marvel uniquement** → ne résout pas l'indé. |
 | **Metron** | Héberge des couvertures, gratuit — mais CGU « usage personnel », même limite qu'ailleurs. |
 
@@ -570,11 +578,13 @@ RLS activée **partout**, `user_id` sur **chaque** table utilisateur.
 | `barcode_prefix` | Les 12 premiers chiffres — **indexé** |
 | `isbn` | Si applicable |
 | `cover_url` | Couverture distante (Metron / Google Books) **ou** chemin Supabase Storage si photo |
-| `metadata_source` | `gcd` / `google_books` / `open_library` / `metron` / `manual` |
+| `metadata_source` | `gcd` / `google_books` / `metron` / `manual` |
 | `metadata_source_id` | L'identifiant chez la source (dont le **`gcd_id`**) — permet de re-résoudre plus tard |
 
 **Contrainte d'unicité : `(user_id, barcode_raw)`.** Un rescan réutilise le livre existant, il n'en crée jamais
-un second (cf. §4.2).
+un second (cf. §4.2). Les livres **saisis à la main** ont un `barcode_raw` **nul** : en PostgreSQL les `NULL` ne
+s'égalent pas, donc la contrainte **ne les bloque pas** — deux saisies manuelles restent possibles, ce qui est le
+comportement voulu (on ne peut pas dédupliquer ce qui n'a pas de code).
 
 > **Pourquoi stocker `barcode_raw` et `barcode_prefix` :** si on change de source demain, on **re-résout tout
 > l'historique sans re-scanner un seul bouquin**. C'est le pont qui rend toute décision de source réversible.
@@ -683,7 +693,7 @@ Go gratuit et la bande passante mobile.
 | Auth | Supabase Auth — **Google OAuth** (⚠️ `redirectTo` sur l'origine réelle, cf. §4.8) |
 | Stockage images | Supabase Storage (1 Go gratuit) |
 | **Identification d'un scan** | **GCD importé chez nous** — table `barcode → issue`, match exact **et par préfixe** |
-| Métadonnées VF | Google Books (primaire) + Open Library (fallback) |
+| Métadonnées VF | Google Books (sans clé) |
 | Enrichissement VO | Metron — **couverture** + `series_type` (Basic Auth, **côté serveur**) |
 | Scan | BarcodeDetector API + **ZXing** (seul à décoder le supplément 5 chiffres) |
 | Hébergement | Vercel |
@@ -729,7 +739,7 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
 | Vercel | **0 €** | Plan Hobby |
 | GCD | **0 €** | Dump libre (CC BY-SA) |
 | Metron | **0 €** | 20 req/min — hors d'atteinte avec le cache |
-| Google Books / Open Library | **0 €** | Quota par IP |
+| Google Books | **0 €** | Quota par IP |
 
 > **⚠️ L'astérisque : le plan Vercel Hobby interdit l'usage commercial.** Le jour où l'app rapporte un euro, il
 > faut passer à **Vercel Pro (20 $/mois)** ou **s'auto-héberger** (VPS + Coolify, ~5 €/mois). À savoir
@@ -771,6 +781,11 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
 
 > À lire avant de reproposer quoi que ce soit d'ici. Une idée écartée avec son motif vaut mieux qu'une idée
 > qu'on redécouvre tous les six mois.
+
+**Open Library comme troisième source.** Google Books couvre déjà la VF (BD, manga, roman). Ajouter un
+fournisseur, c'est une implémentation, un cas d'erreur et un test de plus **pour un gain marginal**. **Écartée** —
+à rebrancher (en une heure, l'interface de providers est là pour ça) **si et seulement si** Google Books s'avère
+trouer sur la BD franco-belge. On ne construit pas contre un problème hypothétique.
 
 **La « hype » déclarée au scan** *(pour rendre les surprises calculables — cf. §4.4)*. L'idée : noter de 1 à 3 ce
 qu'on attend d'un bouquin au moment du scan ; à la fin, `note − attente` donnerait automatiquement la bonne
