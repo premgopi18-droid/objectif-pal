@@ -327,9 +327,35 @@ RLS activée partout, `user_id` sur chaque table.
 - **Instance Metron auto-hébergée** : leur code est en GPL, leurs données en CC BY-SA — possible si le volume
   d'appels dépasse leur usage « personnel normal ».
 
-### Le dump GCD — est-ce que ça tient gratuitement ?
+### Le dump GCD — mesuré, pas supposé
 
-**Réponse courte : très probablement oui, sous réserve de compter une fois sur le vrai dump.**
+**Mesures réelles sur le dump du 2026-07-01** (3,76 Go), via `scripts/gcd-inspect.mjs` et
+`scripts/gcd-barcodes.mjs` — qui lisent le dump **en flux**, sans le charger.
+
+| Mesure | Valeur |
+|---|---|
+| Issues au total | 2 585 543 |
+| Séries / éditeurs | 231 107 / 17 619 |
+| **Issues avec un code-barres** | **423 907** |
+| Issues avec un ISBN | 231 792 |
+| **Poids de la table réduite (index compris)** | **~56 Mo** — soit 1/9 du plafond gratuit Supabase |
+
+**1. Le supplément de 5 chiffres est présent dans 67 % des codes** (17-18 chiffres = UPC + supplément, donc
+**numéro d'issue inclus**). Conséquence décisive : une **recherche par préfixe sur les 12 premiers chiffres**
+retrouve la série même quand le scan rate le supplément. **C'est le problème que l'API Metron ne sait pas
+résoudre** (son filtre `?upc=` est un match exact).
+
+**2. L'indé est massivement couvert.** Marvel (95 288) et DC (74 119) ne pèsent que **40 %** des issues
+code-barrées. Le reste : Image (20 850), IDW (18 543), Dynamite (18 201), Boom! (12 896), Dark Horse (11 984),
+Titan, Zenescope, Valiant, Avatar Press, Action Lab… **6 issues sur 10 ne sont ni Marvel ni DC.**
+
+**3. La base est vivante** : 15 000 à 20 000 issues indexées par an sans discontinuer depuis 2015, dont déjà
+8 614 pour 2026.
+
+**Conclusion : GCD identifie mieux que Metron, pour 56 Mo et quelques heures d'import** (le parseur en flux est
+déjà écrit). Metron reste nécessaire pour ce que GCD n'a pas : **les couvertures** et le `series_type`.
+
+### Détail de la faisabilité gratuite
 
 - **GCD n'a pas d'API, donc pas de quota.** On télécharge un **dump MySQL compressé** (`current.zip`, régénéré
   **toutes les 2 semaines**, compte comics.org gratuit requis, CC BY-SA 4.0). Une fois importé, c'est **notre
