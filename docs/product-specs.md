@@ -372,6 +372,29 @@ c'est seulement l'interprétation du suffixe qui diffère.
 `data/gcd_series.csv` (73 116 séries, 3,7 Mo), prêts pour un `COPY` Supabase. Chaque ligne porte le **code
 complet** *et* son **préfixe sur 12 chiffres** (colonne indexée → recherche par préfixe).
 
+**5. Le préfixe UPC-A identifie-t-il la série ? Oui — mesuré.**
+
+Sur les 41 425 préfixes UPC-A distincts (hors EAN-13 de livres) :
+
+| | |
+|---|---|
+| Préfixes pointant vers **une seule série** | **93,9 %** (38 892) |
+| En raisonnant en **issues** (les codes fourre-tout en portent beaucoup) | **81,7 %** sans ambiguïté |
+
+Les 6 % de préfixes ambigus sont **structurels, pas aléatoires** : les éditeurs recyclent un code produit
+« fourre-tout » pour tout ce qui n'est pas une série régulière — promos Marvel, Free Comic Book Day, one-shots
+(`Rick and Morty Presents: …` = 22 séries sous un code), collections scolaires (74 pièces de Shakespeare).
+**Les séries régulières, elles, ont un préfixe propre.**
+
+**Parcours de scan qui en découle** (dégradation douce, jamais d'échec) :
+
+| Ce que le scan capte | Ce que fait l'app |
+|---|---|
+| Code complet (UPC + supplément) | Issue exacte, **zéro question** |
+| 12 chiffres, préfixe net (**81,7 %**) | Série connue → *« quel numéro ? »*, **un tap** |
+| 12 chiffres, préfixe partagé (18,3 %) | Liste courte des séries possibles → **deux taps** |
+| Rien / inconnu | Saisie manuelle série + numéro (mémorisée) |
+
 **Obligation légale** : données GCD en **CC BY-SA 4.0** → l'app **doit créditer la Grand Comics Database**
 (mention visible + lien). Idem pour Metron.
 
