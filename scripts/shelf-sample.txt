@@ -1,0 +1,15 @@
+# Échantillon de test pour la couverture Metron.
+#
+# Une entrée par ligne, deux formats acceptés :
+#   - un code-barres, tel que lu sur la couverture (UPC complet avec le supplément
+#     de 5 chiffres si tu arrives à le lire, sinon les 12 chiffres) :
+#         75960609558200111
+#   - ou "Série|numéro" quand tu n'as pas le code sous la main :
+#         Saga|60
+#
+# MET DEDANS TES INDÉS LES PLUS OBSCURS — c'est tout l'intérêt du test.
+# Vise ~15 entrées : quelques Marvel/DC (le cas facile), et surtout de l'indé,
+# du small press, du vieux fascicule. C'est là qu'on saura si Metron tient.
+#
+# Puis :
+#   METRON_USERNAME=... METRON_PASSWORD=... node scripts/metron-coverage.mjs

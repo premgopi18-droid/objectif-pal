@@ -104,6 +104,33 @@ attribution) reste le plan de repli si la couverture ou les CGU coincent — c'e
 « Core ». Ni League of Comic Geeks (pas d'API publique) ni CLZ (base propriétaire) ne sont exploitables : tous
 deux maintiennent leur propre base, ils ne « trouvent » pas les UPC ailleurs.
 
+#### Résolution = une interface de providers
+
+**Contrainte d'architecture, décidée pour ne pas se marier à une source.** La résolution des métadonnées vit
+derrière une interface (`resolveByBarcode(barcode)`, `resolveByIsbn(isbn)`), avec des implémentations
+interchangeables essayées **en cascade** :
+
+`Metron` → `Google Books` → `Open Library` → (plus tard) `GCD local` → saisie manuelle.
+
+Ajouter ou remplacer une source devient un branchement, pas une réécriture. C'est ce qui rend le débat
+« Metron ou GCD » peu risqué.
+
+#### Couverture de l'indé — question ouverte, à mesurer
+
+La collection contient **du Marvel/DC mais aussi de l'indé**, et l'indé doit marcher. Or la couverture réelle de
+Metron par éditeur n'est **pas vérifiable publiquement** (leur site bloque les bots). Ce qu'on peut raisonner :
+
+- Metron est alimenté à partir des **sorties hebdo (NCBD)** → l'indé distribué en librairie (Image, IDW, Dark
+  Horse, BOOM!, Vault, Oni, Titan) a de bonnes chances d'y être, comme Marvel et DC.
+- Le trou probable : **small press, auto-édition, Kickstarter, vieux fascicules indé**. Et pour ceux-là,
+  **aucune base ne sauve** (ni GCD, ni CLZ) : un tirage à 500 exemplaires n'est dans aucun catalogue. **La saisie
+  manuelle reste le filet, quelle que soit la source.**
+- GCD couvre nettement mieux le rétro et l'indé distribué (2 M+ issues, tous éditeurs, non-US inclus).
+
+**Action décidée : mesurer avant de choisir.** Script `scripts/metron-coverage.mjs` → on interroge Metron avec
+~15 comics réels de l'étagère, **indés obscurs inclus**, et on regarde le taux de réussite. Si le taux est mauvais
+sur l'indé, on attaque le dump GCD immédiatement (l'interface de providers rend la bascule indolore).
+
 **Deux contraintes de conception qui découlent de ce choix** — elles comptent plus que le choix lui-même :
 
 1. **On stocke le code-barres brut** (les 12 chiffres **et** le supplément de 5) sur chaque livre, tel que scanné.
