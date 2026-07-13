@@ -21,6 +21,37 @@ bonne catégorie. À la fin du mois, l'app me sort le bilan que je lis à l'ante
   activée) : brancher la comparaison Prem vs Léna plus tard ne doit demander aucune migration douloureuse.
   Horizon connu : **4-5 utilisateurs**.
 
+### La vision, à terme
+
+> **« Cette app sera le reflet de notre bibliothèque, de notre PAL et de nos stats de lecteurs — clairement,
+> notre vie en tant que lecteurs. »**
+
+Ce n'est pas une phrase de brochure : elle **contraint la conception**, et voici comment.
+
+**1. Les données doivent survivre à l'app.** Dans cinq ans, le journal contiendra des années de lecture — il
+devient irremplaçable, et le lock-in devient inacceptable. D'où l'export (§4.8) et la portabilité (§10), qui ne
+sont pas du confort mais une **exigence de premier rang**. Corollaire : **rien n'est jamais supprimé en dur**.
+Un livre retiré, une lecture effacée : on **marque**, on ne détruit pas.
+
+**2. Le journal doit survivre au barème.** Le barème est une règle de jeu de l'émission — il changera peut-être.
+Les lectures, elles, sont des **faits**, et ne doivent jamais être polluées par la façon dont on les compte.
+C'est pour ça que **le score est toujours dérivé** et qu'aucune colonne `points` n'existe en base : le jour où le
+barème change, **des années de lectures restent intactes**.
+
+**3. Il manquera la possession.** On modélise « ce que j'achète » et « ce que je lis ». Une bibliothèque, c'est
+plus large :
+
+| Cas | Aujourd'hui |
+|---|---|
+| Posséder sans avoir lu | ✅ la PAL (`purchases` sans `readings`) |
+| Avoir lu sans posséder (emprunt, médiathèque) | ✅ une lecture sans achat |
+| **Posséder sans avoir acheté dans l'app** (les étagères d'avant) | ❌ **manquant** |
+
+Ce dernier cas, c'est **l'essentiel d'une vraie biblio**. Il faudra une action « **je possède** » — scanner une
+étagère entière **sans que ça compte comme un achat du mois** (pas de −1, sinon le score explose). C'est du
+backlog, pas du MVP. **L'architecture l'accueille déjà** : un bouton de plus sur la feuille du scan, une table de
+plus.
+
 ### Priorités
 
 | Rang | Bloc | Pourquoi |
@@ -574,6 +605,9 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
 - **Import rétroactif** : ressaisir les lectures des mois déjà passés à l'antenne pour avoir des courbes
   historiques. Écarté au lancement (on démarre à zéro), mais le modèle de données **doit rester compatible** :
   dates de lecture toujours libres, jamais figées à la date de saisie.
+- **« Je possède »** — l'action qui manque pour que l'app devienne vraiment le reflet de la bibliothèque (cf. la
+  vision, §1) : scanner une étagère déjà là, **sans malus d'achat**. Sans elle, l'app ne connaîtra que les livres
+  entrés après son installation.
 - **Wishlist et favoris** : scanner en librairie un bouquin qu'on ne prend pas (wishlist), marquer ses coups de
   cœur (favoris). **L'architecture les accueille déjà** — ce sera un bouton de plus sur la feuille du scan et une
   table par action. Et la wishlist nourrit la santé de la PAL : *ce que je convoite* vs *ce que j'achète* vs *ce
