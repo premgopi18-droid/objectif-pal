@@ -37,7 +37,7 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 | Auth | Supabase Auth — **Google OAuth** (⚠️ `redirectTo` construit sur l'origine réelle, pas une constante) |
 | **Identification d'un scan** | **GCD (Grand Comics Database), importé chez nous** — 559 516 lignes (~75 Mo) : comics VO **et BD franco-belge**. Match par code-barres, par préfixe, ou par ISBN |
 | **Identification VF** | **BnF** (API SRU, gratuite, sans clé) — dépôt légal : BD, manga VF, romans. 95 % mesuré |
-| Couvertures VF | Google Books — **clé obligatoire** (429 systématique sans clé depuis une IP Vercel) |
+| Couvertures VF | Google Books — **clé obligatoire** (429 systématique sans clé, même en résidentiel) |
 | Enrichissement VO | Metron — **couverture** + `series_type` (Basic Auth, **côté serveur**) |
 | Scan | BarcodeDetector API + ZXing |
 | Hébergement | Vercel |

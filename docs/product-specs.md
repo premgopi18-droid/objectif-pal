@@ -410,8 +410,9 @@ implémentation, un cas d'erreur et un test.
 | **Metron** | Enrichit la **VO** : couverture + `series_type`. | — |
 
 > **⚠️ Google Books EXIGE une clé — ce n'est pas une optimisation.** Testé : **429 sur tous les appels** depuis
-> une IP de datacenter, systématiquement. Or **Vercel est un datacenter**. Sans clé, Google Books est
-> **inutilisable en production**. La clé est gratuite (1 000 req/jour), et **côté serveur** comme le reste.
+> une IP de datacenter, et **re-mesuré le 13/07/2026 : 429 aussi depuis une IP résidentielle**. Sans clé,
+> Google Books est inutilisable **partout, même en dev local**. La clé est gratuite (1 000 req/jour), et
+> **côté serveur** comme le reste. Clé créée et vérifiée le 13/07/2026.
 
 **Open Library a été écartée** (cf. §13) : testée sur de la BD française, elle trouve **0 sur 6**. Elle n'apporte
 rien que la BnF ne fasse mieux.
@@ -451,7 +452,7 @@ commercialement.** C'est logique — une couverture est une **œuvre sous copyri
 |---|---|
 | **Comic Vine** | La plus grosse base d'images, indé compris — mais **usage commercial explicitement interdit** (clé révoquée), 200 req/h. |
 | **GCD** | Les scans existent sur le site mais **pas dans le dump** (vérifié : aucune table `cover`). Hotlinker = fragile et discourtois. |
-| **Google Books** | Couvertures **par ISBN seulement** → parfait pour BD, manga, roman, TPB, omnibus. **Inutile pour les fascicules**, et **exige une clé** (429 systématique depuis une IP de datacenter). |
+| **Google Books** | Couvertures **par ISBN seulement** → parfait pour BD, manga, roman, TPB, omnibus. **Inutile pour les fascicules**, et **exige une clé** (429 systématique sans clé, même en résidentiel). |
 | **BnF** | Identifie très bien (95 %) mais **ne fournit aucune couverture** — c’est un catalogue, pas une librairie. |
 | **Marvel API** | Gratuite et officielle, mais **Marvel uniquement** → ne résout pas l'indé. |
 | **Metron** | Héberge des couvertures, gratuit — mais CGU « usage personnel », même limite qu'ailleurs. |
@@ -460,6 +461,16 @@ commercialement.** C'est logique — une couverture est une **œuvre sous copyri
 
 1. **Tentative automatique** : Metron (VO) puis Google Books (VF, **avec clé**) → couvre la majorité des
    lectures sans rien demander. **La BnF identifie mais n’illustre pas** : elle ne remplace pas cette étape.
+   Mesuré le 13/07/2026 sur un petit échantillon VF : Google Books a la **fiche** (pages, éditeur — utile pour
+   deviner la catégorie) mais souvent **pas d'`imageLinks`** → en VF, la photo servira plus qu'espéré.
+
+> **Découverte mesurée (13/07/2026) : Metron ne référence que la couverture PRINCIPALE d'une issue.**
+> GCD indexe chaque variante (Nightwing #123 = 6 codes-barres), Metron une seule — donc le `gcd_id` **d'une
+> variante** ne matche pas chez Metron, et son `?upc=` (match exact) non plus. Le supplément UPC encode la
+> couverture en **4ᵉ position** (`…123`**`2`**`1` = cover B) : pour retrouver l'issue chez Metron, **normaliser
+> le supplément (4ᵉ chiffre → 1)**, sinon retomber sur série + numéro. La couverture récupérée sera celle de la
+> cover A ; pour la variante exacte, c'est la photo. Vérifié aussi : le filtre `?gcd_id=` **fonctionne** avec le
+> gcd_id de la couverture principale, et compte Metron créé + testé le 13/07/2026.
 2. **Sinon, l'app propose de photographier la couverture** — la caméra est **déjà ouverte** pour le scan et le
    livre est **déjà dans la main**. Un tap.
 
@@ -746,7 +757,7 @@ Go gratuit et la bande passante mobile.
 | Stockage images | Supabase Storage (1 Go gratuit) |
 | **Identification d'un scan** | **GCD importé chez nous** — 559 516 lignes, match par code complet, **par préfixe**, ou **par ISBN** |
 | **Identification VF** | **BnF** — API SRU, gratuite, sans clé, **dépôt légal** (95 % mesuré) |
-| Couvertures VF, romans étrangers | Google Books — **clé obligatoire** (429 sans clé depuis un datacenter) |
+| Couvertures VF, romans étrangers | Google Books — **clé obligatoire** (429 sans clé, partout) |
 | Enrichissement VO | Metron — **couverture** + `series_type` (Basic Auth, **côté serveur**) |
 | Scan | BarcodeDetector API + **ZXing** (seul à décoder le supplément 5 chiffres) |
 | Hébergement | Vercel |
@@ -793,7 +804,7 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
 | GCD | **0 €** | Dump libre (CC BY-SA) |
 | Metron | **0 €** | 20 req/min — hors d'atteinte avec le cache |
 | BnF | **0 €** | API SRU publique, sans clé |
-| Google Books | **0 €** | 1 000 req/jour **avec clé** (sans clé : 429 depuis Vercel) |
+| Google Books | **0 €** | 1 000 req/jour **avec clé** (sans clé : 429, partout) |
 
 > **⚠️ L'astérisque : le plan Vercel Hobby interdit l'usage commercial.** Le jour où l'app rapporte un euro, il
 > faut passer à **Vercel Pro (20 $/mois)** ou **s'auto-héberger** (VPS + Coolify, ~5 €/mois). À savoir
