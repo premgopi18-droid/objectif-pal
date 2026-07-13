@@ -22,10 +22,11 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 
 ## Statut
 
-> **Squelette initialisé (Next.js + Tailwind + TS, dépendances installées). Specs écrites. Sources tranchées
-> sur mesures : GCD (en base) + BnF identifient, Metron + Google Books habillent. Les CSV GCD sont extraits et
-> prêts. Projet Supabase créé (`objectif-pal`, ref `reqtckmawllprisvrzlb`, région eu-west-3) et lié à la CLI ;
-> clés dans `.env.local`. Rien d'applicatif construit — prochaine étape = schéma + chargement des CSV.**
+> **Fondations posées : projet Supabase (`objectif-pal`, ref `reqtckmawllprisvrzlb`, eu-west-3) avec le schéma
+> §7 appliqué et les 559 516 lignes GCD chargées et indexées ; les quatre connexions externes (BnF, Google
+> Books, Metron, Google OAuth) créées et vérifiées, secrets dans `.env.local` ; moteur de scoring
+> (`lib/scoring/`) écrit et testé (26 tests Vitest). Prochaine étape = le scan (routage ISBN/UPC, cascade de
+> providers), puis l'écran du bilan.**
 
 ## Stack
 
@@ -73,12 +74,10 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **Le schéma** (le projet Supabase existe, cf. Statut) — **la liste exacte des tables et des colonnes est
-   dans `docs/product-specs.md` §7**, ne pas la recopier ici (elle dériverait).
-2. **Charger les CSV GCD** (`COPY`) et indexer `barcode`, `barcode_prefix` **et** `isbn`.
-3. Le **moteur de scoring** en TS + ses tests Vitest (le barème vit dans une constante unique).
-4. Le **scan** : routage ISBN / UPC, cascade de providers, saisie manuelle en filet.
-5. Le **bilan mensuel au barème** — l'écran qui est le livrable de l'app.
+1. Le **scan** : routage ISBN / UPC, cascade de providers (interface `resolveByBarcode` / `resolveByIsbn`),
+   saisie manuelle en filet.
+2. Le **bilan mensuel au barème** — l'écran qui est le livrable de l'app (le moteur existe : `lib/scoring/`).
+3. **Auth Google + PWA + export** — le reste du P0.
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs
 roman) à partir de Google Books — on n'a que des indices (éditeur, pages, langue). La catégorie proposée doit
