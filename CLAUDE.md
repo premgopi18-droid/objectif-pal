@@ -33,7 +33,7 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 | Front | Next.js 16 (App Router) + Tailwind 4 |
 | Back | Server Actions + Route Handlers |
 | Base | PostgreSQL via Supabase |
-| Auth | Supabase Auth |
+| Auth | Supabase Auth — **Google OAuth** (⚠️ `redirectTo` construit sur l'origine réelle, pas une constante) |
 | **Identification d'un scan** | **GCD (Grand Comics Database), importé chez nous** — table barcode → issue (~56 Mo), match exact **et par préfixe** |
 | Métadonnées VF | Google Books (primaire) + Open Library (fallback) |
 | Enrichissement VO | Metron — **couverture** + `series_type` (Basic Auth, **côté serveur**) |

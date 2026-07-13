@@ -97,6 +97,42 @@ s'il s'agit d'un ISBN ou d'un fascicule VO.
 La **catégorie est proposée automatiquement** et reste **corrigeable en un tap**. La correction de l'utilisateur
 fait foi, toujours.
 
+#### L'intention du scan : « je commence » ou « j'achète » ?
+
+Un scan ne veut pas dire la même chose selon le moment — et les deux gestes n'ont **pas le même effet sur le
+score**. Donc **l'app demande**, une fois le livre résolu : deux gros boutons.
+
+| Bouton | Effet |
+|---|---|
+| **Je commence** | Crée une **lecture** (`reading`, `started_at` = aujourd'hui, modifiable). 0 point pour l'instant. |
+| **Je l'achète** | Crée un **achat** (`purchased_at` = aujourd'hui). **−1 point** immédiat, effaçable si terminé dans le mois. |
+
+Explicite, impossible de se tromper, et ça couvre le cas réel : acheter trois bouquins en librairie sans en
+commencer aucun. Deviner à la place de l'utilisateur fausserait **la stat la plus importante de l'émission** (la
+santé de la PAL).
+
+Un livre acheté puis commencé plus tard : on rescanne, ou on le sort de la PAL en un tap — l'achat et la lecture
+pointent le **même `book_id`**.
+
+> **Ce choix n'est pas qu'ergonomique, c'est le découpage de l'app.**
+> **Le scan ne fait qu'une chose : résoudre un livre.** Ce qu'on en fait est une **action**, choisie après.
+> Aujourd'hui il y en a deux ; demain la **wishlist** (scanner en librairie ce qu'on ne prend pas), les
+> **favoris**, « je l'ai revendu »… **ne seront qu'un bouton de plus sur la même feuille** — aucune refonte,
+> parce que résolution et intention sont déjà séparées.
+> Si le scan signifiait « commencer une lecture », l'intention serait **codée en dur dedans**, et chaque nouvelle
+> action demanderait de tout redécouper.
+>
+> **Règle qui va avec : une table par action** (`readings`, `purchases`, puis `wishlist_items`, `favorites`) —
+> **pas** de table `events` générique. Plus verbeux, mais chaque action a ses propres champs (une lecture a des
+> dates, un achat aura un prix, une wishlist une priorité) et une table fourre-tout finit toujours en sac de
+> nœuds.
+
+#### Terminer une lecture
+
+C'est **le geste qui rapporte les points**, il doit être trivial : depuis la liste des lectures en cours, **un
+tap** → `finished`, avec `finished_at` **pré-rempli à aujourd'hui mais modifiable** (on finit souvent un livre le
+soir et on le déclare le lendemain).
+
 ### 4.2 Mes lectures — le journal (P0)
 
 La liste de tout ce que je lis et ai lu :
@@ -180,7 +216,35 @@ Pas un écran à part : le score **est** le total du bilan. Décomposition visib
 et plus tard bonus objectif) + historique des mois précédents. **Entièrement dérivé** du journal et des achats :
 aucune saisie spécifique, aucun stockage de score.
 
-### 4.6 Objectif du mois (P1)
+### 4.6 Authentification (P0)
+
+**Connexion Google (OAuth), via Supabase Auth.** Un bouton, un tap, pas de mot de passe à retenir.
+
+> **Piège vécu sur BoxBox, à ne pas remanger** : si l'URL de redirection est figée dans une variable
+> d'environnement (`NEXT_PUBLIC_SITE_URL`), **le login depuis une preview renvoie sur la prod**. Il faut
+> construire le `redirectTo` à partir de l'**origine réelle de la requête**, pas d'une constante — sinon on ne
+> peut plus tester un flux authentifié ailleurs qu'en production.
+
+### 4.7 L'app est une PWA (P0)
+
+Ce n'est pas cosmétique : sans ça, pas d'icône sur l'écran d'accueil et un accès caméra bancal.
+
+- `manifest.json` (nom, icônes, `display: standalone`, thème).
+- Service worker minimal (coquille applicative en cache — **pas** de synchronisation hors ligne au lancement,
+  cf. TBD).
+- Icônes et splash, `theme-color`.
+- HTTPS obligatoire pour la caméra — fourni par l'hébergeur.
+
+### 4.8 Export de mes données (P0)
+
+Un bouton « exporter » qui sort **tout** : livres, lectures, achats, objectifs, en **JSON et CSV**.
+
+Deux raisons, et la seconde est la vraie :
+1. Sortir des chiffres pour l'émission dans un tableur si l'envie prend.
+2. **Ne jamais être prisonnier de l'app.** Mes données sont à moi et je peux partir avec — c'est la même
+   exigence que la portabilité de l'infra (§10).
+
+### 4.9 Objectif du mois (P1)
 
 - Un objectif par mois : une **cible chiffrée par catégorie** (0 = catégorie non visée).
 - Jauge de progression par catégorie + état global.
@@ -455,7 +519,49 @@ celui-ci), pause après 7 jours d'inactivité (sans conséquence : l'app est uti
 
 ---
 
-## 10. TBD
+## 10. Portabilité & coûts — pouvoir partir quand on veut
+
+**Exigence de premier rang, au même titre qu'une feature** : on doit pouvoir **changer d'hébergeur et de base
+sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses **fonctionnalités propriétaires**.
+
+### Interdits (chacun est un clou dans le cercueil)
+
+| Interdit | Pourquoi | Ce qu'on fait à la place |
+|---|---|---|
+| **Vercel Cron** | Ne tourne que chez Vercel | **Aucun besoin** : le score et le malus se recalculent à la volée pour n'importe quel mois passé. **L'app n'a aucune tâche planifiée.** |
+| **Vercel Blob / KV / Edge Config** | Stockage propriétaire | Supabase Storage (S3-compatible) et Postgres |
+| Paquets **`@vercel/*`** | Adhérence directe | Rien, ou un équivalent standard |
+| **Supabase Edge Functions** | Runtime Deno propriétaire | **Route Handlers Next.js** — ils tournent partout |
+| Extensions Postgres exotiques | Bloquent la migration vers un autre Postgres | SQL standard |
+
+### Ce qui garantit la sortie
+
+- **Base** : PostgreSQL **standard**. Un `pg_dump` et on part chez Neon, Railway, ou son propre serveur. Les
+  migrations sont des **fichiers SQL bruts** (`supabase/migrations/`), pas des clics dans une console.
+- **Supabase est open source et auto-hébergeable** (Docker) — auth, storage et RLS compris. On peut emporter la
+  stack entière.
+- **Next.js tourne partout où Node tourne** : `next start`, Docker, Coolify sur un VPS, Railway, Fly. Vercel est
+  un confort, pas une dépendance.
+- **Stockage des couvertures derrière une interface** : Supabase Storage aujourd'hui, S3 / R2 / MinIO demain,
+  sans toucher au reste.
+- **Export utilisateur** (§4.8) : les données sortent de l'app en un clic.
+
+### Coûts — tout est gratuit, avec un seul astérisque
+
+| Poste | Coût | Plafond |
+|---|---|---|
+| Supabase | **0 €** | 500 Mo de base (on en utilise ~56), 1 Go de stockage, 2 projets |
+| Vercel | **0 €** | Plan Hobby |
+| GCD | **0 €** | Dump libre (CC BY-SA) |
+| Metron | **0 €** | 20 req/min — hors d'atteinte avec le cache |
+| Google Books / Open Library | **0 €** | Quota par IP |
+
+> **⚠️ L'astérisque : le plan Vercel Hobby interdit l'usage commercial.** Le jour où l'app rapporte un euro, il
+> faut passer à **Vercel Pro (20 $/mois)** ou **s'auto-héberger** (VPS + Coolify, ~5 €/mois). À savoir
+> **avant** de monétiser, pas après. Rien dans le code n'empêchera cette bascule — c'est tout l'objet de cette
+> section.
+
+## 11. TBD
 
 - **Bonus objectif** : all-or-nothing (+3 si toutes les cibles sont atteintes) — à retester à l'usage,
   l'alternative étant +3 par catégorie remplie.
@@ -463,11 +569,15 @@ celui-ci), pause après 7 jours d'inactivité (sans conséquence : l'app est uti
 - **Fonctionnement hors ligne** : jusqu'où ? Enregistrer une lecture sans réseau et synchroniser ensuite serait
   confortable (métro, librairie) mais demande une file d'attente locale. À trancher quand le scan tournera.
 
-## 11. Backlog — gardé en tête, pas construit
+## 12. Backlog — gardé en tête, pas construit
 
 - **Import rétroactif** : ressaisir les lectures des mois déjà passés à l'antenne pour avoir des courbes
   historiques. Écarté au lancement (on démarre à zéro), mais le modèle de données **doit rester compatible** :
   dates de lecture toujours libres, jamais figées à la date de saisie.
+- **Wishlist et favoris** : scanner en librairie un bouquin qu'on ne prend pas (wishlist), marquer ses coups de
+  cœur (favoris). **L'architecture les accueille déjà** — ce sera un bouton de plus sur la feuille du scan et une
+  table par action. Et la wishlist nourrit la santé de la PAL : *ce que je convoite* vs *ce que j'achète* vs *ce
+  que je lis*, c'est le récit complet de l'émission.
 - **Mode multi** (P2) : comparaison mensuelle Prem vs Léna + « meilleur paliste du mois » (+5).
 - **Notifications** : rappel de fin de mois, objectif presque atteint.
 - **Instance Metron auto-hébergée** : leur code est en GPL, leurs données en CC BY-SA — une option si le volume
