@@ -327,6 +327,40 @@ RLS activée partout, `user_id` sur chaque table.
 - **Instance Metron auto-hébergée** : leur code est en GPL, leurs données en CC BY-SA — possible si le volume
   d'appels dépasse leur usage « personnel normal ».
 
+### Le dump GCD — est-ce que ça tient gratuitement ?
+
+**Réponse courte : très probablement oui, sous réserve de compter une fois sur le vrai dump.**
+
+- **GCD n'a pas d'API, donc pas de quota.** On télécharge un **dump MySQL compressé** (`current.zip`, régénéré
+  **toutes les 2 semaines**, compte comics.org gratuit requis, CC BY-SA 4.0). Une fois importé, c'est **notre
+  base** : requêtes illimitées, instantanées, sans réseau.
+- **Le plafond, c'est Supabase : 500 Mo sur le plan gratuit.** Le dump complet (plusieurs Go décompressé) ne
+  rentre pas — mais on n'importe **pas** tout GCD :
+  - uniquement les issues **qui ont un code-barres** (l'après-1980) : ~700 k à 1 M lignes sur les ~2,1 M ;
+  - uniquement les colonnes utiles (`barcode`, série, numéro, année, pages, format) ;
+  - séries **normalisées** dans une table à part (~230 k lignes) ;
+  - filtrage possible par **langue** (anglais + français) si besoin de resserrer.
+- **Estimation : ~200 Mo index compris** (~100-150 Mo d'issues, ~15 Mo de séries, 40-60 Mo d'index sur le
+  barcode). Tient sous les 500 Mo, avec de la marge — les lectures et achats ne pèsent rien à côté.
+- **À vérifier avant de s'engager** : le nombre réel d'issues portant un barcode ne se trouve nulle part en
+  ligne, il faut le compter dans le dump. **C'est la première étape de l'ETL** (charger le dump dans un MySQL
+  local, compter) — ~1 h. Si ça déborde, on resserre les filtres.
+- ETL : dump **MySQL** → notre base **PostgreSQL**. Chargement local, export CSV des colonnes utiles, `COPY`
+  vers Supabase. À rejouer à chaque rafraîchissement.
+
+**Plan gratuit Supabase** : 2 projets (BoxBox + celui-ci = pile poil), pause après 7 jours d'inactivité (sans
+conséquence ici, l'app est utilisée).
+
+### GCD et Metron sont complémentaires, pas concurrents
+
+**GCD ne fournit pas les couvertures** — les images sont hébergées à part sur comics.org, elles ne sont pas dans
+le dump. Or la couverture n'est pas cosmétique : c'est ce qui rend la liste de lectures lisible d'un coup d'œil.
+
+D'où l'état final naturel, que l'interface de providers permet directement :
+
+- **GCD** pour **identifier** (barcode, y compris **par préfixe**, avec l'indé et le rétro) ;
+- **Metron / Google Books** pour **enrichir** (couverture, `series_type`).
+
 ### Le dump GCD — trajectoire assumée, pas un « peut-être »
 
 Importer la base `barcode → issue` de la **Grand Comics Database** dans Supabase est la **direction prévue à
