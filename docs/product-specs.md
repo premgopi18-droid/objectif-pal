@@ -95,8 +95,25 @@ Le geste central : je commence un livre, je scanne son code-barres, il entre dan
 | **Google Books** | Primaire pour la **VF** (BD, manga, roman) | Titre, auteurs, éditeur, pages, couverture, langue, via ISBN. |
 | **Open Library** | Fallback | Idem, quand Google Books est muet. |
 
-Metron : gratuit, **HTTP Basic Auth** (compte à créer), throttle **20 req/min et 5 000 req/jour**. Les
-identifiants restent **côté serveur** — l'appel passe par un Route Handler, jamais depuis le client.
+#### Authentification et secrets
+
+**Metron n'a pas de clé API** : c'est du **HTTP Basic Auth avec les identifiants d'un compte Metron**. Le couple
+identifiant / mot de passe joue le rôle de clé.
+
+- On utilise un **compte de service dédié au projet** (pas un compte perso).
+- Identifiants en **variables d'environnement serveur** : `.env.local` en local, variables Vercel en prod.
+  **Jamais de préfixe `NEXT_PUBLIC_`** — ça partirait dans le bundle client, lisible dans les DevTools.
+- Le client **n'appelle jamais Metron directement** : le scan envoie le code-barres à un **Route Handler**
+  (`/api/lookup/[barcode]`) qui interroge Metron côté serveur et renvoie un résultat normalisé.
+- **Chaque résolution réussie est mise en cache en base** : un bouquin n'est jamais résolu deux fois.
+
+Google Books fonctionne **sans clé** (quota par IP ; une clé gratuite le relève si besoin). Open Library n'en
+demande aucune.
+
+**Throttle Metron : 20 req/min, 5 000 req/jour — par compte authentifié.** En solo (ou à deux), le cache rend
+ces limites inatteignables. **Mais en cas de commercialisation, tous les utilisateurs partageraient ce compte
+unique**, et leurs CGU parlent d'un « usage personnel normal » — ce qu'une app publique n'est plus. À ce
+moment-là, le **dump GCD auto-hébergé n'est plus une optimisation mais la seule sortie propre** (cf. backlog).
 
 **Décision : Metron d'abord, GCD en réserve.** On démarre sur l'API Metron (rien à héberger). Le dump de la
 **Grand Comics Database** (2 M+ d'issues, champ `barcode`, CC BY-SA 4.0, usage commercial autorisé avec
@@ -325,7 +342,9 @@ Pourquoi c'est la bonne fin de partie :
 - Meilleure couverture des vieux fascicules et de l'indé.
 - Licence saine pour commercialiser (CC BY-SA 4.0 + attribution).
 
-**Déclencheurs** : Metron rate trop de scans, ou les quotas / CGU deviennent contraignants, ou on commercialise.
+**Déclencheurs** : Metron rate trop de scans, ou les quotas / CGU deviennent contraignants, **ou on
+commercialise** — le compte de service Metron unique ne tient pas la charge d'une base d'utilisateurs, et sort
+du cadre de leurs CGU.
 
 **Le pont est déjà construit** : `barcode_raw` stocké sur chaque livre + cache local de chaque résolution → le
 jour de la bascule, on rejoue tout l'historique, aucun bouquin n'est re-scanné.
