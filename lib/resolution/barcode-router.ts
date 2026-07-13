@@ -47,13 +47,14 @@ export function classifyScannedCode(input: string): ScannedCode {
   if (BOOKLAND_PREFIXES.test(digits) && digits.length >= EAN13_LENGTH) {
     const ean13 = digits.slice(0, EAN13_LENGTH);
     const isbn10 = isbn13ToIsbn10(ean13);
-    return {
-      type: "isbn",
-      raw: digits,
-      ean13,
-      // GCD stocke indifféremment des ISBN-10 et des ISBN-13 : on cherche les deux.
-      isbnCandidates: isbn10 ? [ean13, isbn10] : [ean13],
-    };
+    // GCD stocke indifféremment des ISBN-10 et des ISBN-13 — et la casse du X
+    // final dépend du dump : on cherche toutes les formes (match exact en base).
+    const isbnCandidates = [ean13];
+    if (isbn10) {
+      isbnCandidates.push(isbn10);
+      if (isbn10.endsWith("X")) isbnCandidates.push(isbn10.slice(0, -1) + "x");
+    }
+    return { type: "isbn", raw: digits, ean13, isbnCandidates };
   }
 
   return {

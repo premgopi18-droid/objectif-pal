@@ -24,6 +24,14 @@ describe("le routage du code scanné (specs §5.1)", () => {
     if (code.type === "isbn") expect(code.isbnCandidates).toEqual(["9780671724405", "0671724401"]);
   });
 
+  it("un ISBN-10 en X produit les deux casses (la casse du dump GCD n'est pas garantie)", () => {
+    const code = classifyScannedCode("9780439420891");
+    expect(code.type).toBe("isbn");
+    if (code.type === "isbn") {
+      expect(code.isbnCandidates).toEqual(["9780439420891", "043942089X", "043942089x"]);
+    }
+  });
+
   it("un UPC-A 12 chiffres est un fascicule, sans supplément", () => {
     expect(classifyScannedCode("761941341743")).toEqual({
       type: "upc",

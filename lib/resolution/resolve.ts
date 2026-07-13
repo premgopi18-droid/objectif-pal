@@ -50,7 +50,10 @@ async function attempt<T>(operation: () => Promise<T>): Promise<T | null> {
   try {
     return await operation();
   } catch (error) {
-    console.error("[resolution] source en échec, on descend d'un cran :", error);
+    // Jamais l'erreur brute : la cause d'une TypeError de fetch peut porter
+    // l'URL complète — clé Google Books comprise (elle voyage en query param).
+    const message = error instanceof Error ? error.message : String(error);
+    console.error(`[resolution] source en échec, on descend d'un cran : ${message}`);
     return null;
   }
 }
