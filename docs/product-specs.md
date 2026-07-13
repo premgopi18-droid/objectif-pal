@@ -179,11 +179,17 @@ La liste de tout ce que je lis et ai lu :
 - la catégorie, la série, le numéro de tome ;
 - filtres par état, catégorie, série, mois.
 
-Une lecture est une **entrée distincte du livre** : relire un bouquin crée une nouvelle lecture (et rapporte à
-nouveau ses points).
+Une lecture est une **entrée distincte du livre** : relire un bouquin crée une **nouvelle lecture** (et rapporte
+à nouveau ses points), **sans créer un second livre**.
+
+> **Règle d'unicité — un livre par code-barres et par utilisateur.** Rescanner un bouquin déjà connu ne crée
+> **jamais** une deuxième entrée `books` : on réutilise l'existante (contrainte d'unicité sur
+> `(user_id, barcode_raw)`). Sans cette règle, une relecture ou un double scan **dédoublerait silencieusement**
+> la bibliothèque et fausserait toutes les stats par série et par éditeur.
+> L'app doit d'ailleurs le **dire** : « tu l'as déjà — tu le relis ? »
 
 **L'abandon est un état à part entière, et il est réversible.** Une lecture abandonnée n'est **jamais
-supprimée** : elle garde sa date de début, reçoit une date d'abandon, et rapporte 0 point.
+supprimée** : elle garde sa date de début, passe en `abandoned`, et rapporte 0 point.
 
 | Transition | Effet |
 |---|---|
@@ -243,6 +249,10 @@ Les points ne sont qu'une multiplication de ces comptes par le barème : **le bi
 > |---|---|
 > | Points, volume, rythme | **Toutes** les lectures |
 > | Santé de la PAL (solde, courbe) | **Uniquement** les lectures de livres possédés |
+>
+> **Implémentation aujourd'hui** : « possédé » = le livre a un `purchase`. Quand l'action « je possède »
+> arrivera (§12), la source s'élargira **sans changer la définition** — c'est tout l'objet de la précaution de
+> vocabulaire du §1.
 >
 > Bénéfice : ça fait apparaître **« combien je lis en dehors de ma pile »** — précisément le comportement qui
 > fait grossir une PAL au lieu de la vider.
@@ -453,7 +463,7 @@ propre.**
 
 - **Source** : `current.zip` sur [comics.org/download](https://www.comics.org/download/) — dump **MySQL**,
   régénéré **toutes les 2 semaines**, compte gratuit requis. Pas d'API, donc **pas de quota**.
-- **Export** : `scripts/gcd-export.mjs` → `data/gcd_issues.csv` (425 077 lignes, 27 Mo) et `data/gcd_series.csv`
+- **Export** : `scripts/gcd-export.mjs` → `data/gcd_issues.csv` (425 077 lignes, 30 Mo) et `data/gcd_series.csv`
   (73 116 séries, 3,7 Mo). `data/` est **gitignoré** (régénérable en ~3 min).
 - **Chargement** : `COPY` vers Supabase.
 - **Rafraîchissement** : rejouer l'export sur le nouveau dump, recharger. Mensuel suffit largement.
@@ -468,6 +478,12 @@ lien). Commercialisation possible à cette condition.
 ## 7. Modèle de données
 
 RLS activée **partout**, `user_id` sur **chaque** table utilisateur.
+
+> **⚠️ Toutes les dates de lecture et d'achat sont des `date`, jamais des `timestamptz`.**
+> Le bilan est **mensuel**. Avec un timestamp, une lecture terminée le **31 juillet à 23 h** en France bascule
+> **en août** une fois convertie en UTC — le bilan qu'on lit à l'antenne serait faux d'un ou deux bouquins, et
+> personne ne comprendrait pourquoi. Une lecture se termine **un jour**, pas à un instant : `date` est le bon
+> type, et il supprime la classe de bugs entière.
 
 ### Tables utilisateur
 
@@ -486,10 +502,16 @@ RLS activée **partout**, `user_id` sur **chaque** table utilisateur.
 | `isbn` | Si applicable |
 | `cover_url` | Couverture distante (Metron / Google Books) **ou** chemin Supabase Storage si photo |
 | `metadata_source` | `gcd` / `google_books` / `open_library` / `metron` / `manual` |
-| `metadata_source_id` | L'identifiant chez la source — permet de re-résoudre plus tard |
+| `metadata_source_id` | L'identifiant chez la source (dont le **`gcd_id`**) — permet de re-résoudre plus tard |
+
+**Contrainte d'unicité : `(user_id, barcode_raw)`.** Un rescan réutilise le livre existant, il n'en crée jamais
+un second (cf. §4.2).
 
 > **Pourquoi stocker `barcode_raw` et `barcode_prefix` :** si on change de source demain, on **re-résout tout
 > l'historique sans re-scanner un seul bouquin**. C'est le pont qui rend toute décision de source réversible.
+>
+> **Pourquoi stocker le `gcd_id`** : c'est le filtre le plus précis pour aller chercher **la bonne couverture**
+> chez Metron (`?gcd_id=`) — bien plus fiable qu'une recherche par titre, qui confond les variantes de couverture.
 
 **`readings`** — une lecture.
 
@@ -512,13 +534,14 @@ RLS activée **partout**, `user_id` sur **chaque** table utilisateur.
 
 ### Tables de référence (GCD, en lecture seule)
 
-**`gcd_issues`** — `barcode`, `barcode_prefix` *(indexé)*, `series_id`, `number`, `page_count`, `key_date`,
-`isbn`, `title`. 425 077 lignes.
+**`gcd_issues`** — **`gcd_id`**, `barcode` *(indexé)*, `barcode_prefix` *(indexé)*, `series_id`, `number`,
+`page_count`, `key_date`, `isbn`, `title`. 425 077 lignes.
 
 **`gcd_series`** — `id`, `name`, `format`, `year_began`, `publisher`, `language_id`. 73 116 lignes.
 
-Pas de `user_id` : **données publiques**, lisibles par tous, **écrites uniquement par l'import** (aucune écriture
-depuis le client).
+Pas de `user_id` : **données publiques**. **RLS activée quand même**, avec une politique **lecture seule pour les
+utilisateurs authentifiés** et **aucune écriture depuis le client** — l'import est la seule source d'écriture (via
+la clé de service).
 
 ### Ce qu'on ne stocke pas
 
@@ -569,7 +592,7 @@ Go gratuit et la bande passante mobile.
 | Front | Next.js 16 (App Router) + Tailwind 4 |
 | Back | Server Actions + Route Handlers |
 | Base | PostgreSQL via Supabase |
-| Auth | Supabase Auth |
+| Auth | Supabase Auth — **Google OAuth** (⚠️ `redirectTo` sur l'origine réelle, cf. §4.6) |
 | Stockage images | Supabase Storage (1 Go gratuit) |
 | **Identification d'un scan** | **GCD importé chez nous** — table `barcode → issue`, match exact **et par préfixe** |
 | Métadonnées VF | Google Books (primaire) + Open Library (fallback) |
@@ -646,6 +669,10 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
 - **« Je possède »** — l'action qui manque pour que l'app devienne vraiment le reflet de la bibliothèque (cf. la
   vision, §1) : scanner une étagère déjà là, **sans malus d'achat**. Sans elle, l'app ne connaîtra que les livres
   entrés après son installation.
+- **Note et avis par lecture** *(la première chose à ajouter après le MVP)* : l'app saura **ce que** je lis,
+  **quand** et **combien** — mais pas **ce que j'en ai pensé**. Or c'est la matière même de l'émission (« mes
+  coups de cœur du mois », « pourquoi j'ai lâché celui-là »). Une note et un commentaire sur `readings`, ça ne
+  coûte presque rien et ça transforme un tableur en **journal de lecteur**.
 - **Wishlist et favoris** : scanner en librairie un bouquin qu'on ne prend pas (wishlist), marquer ses coups de
   cœur (favoris). **L'architecture les accueille déjà** — ce sera un bouton de plus sur la feuille du scan et une
   table par action. Et la wishlist nourrit la santé de la PAL : *ce que je convoite* vs *ce que j'achète* vs *ce

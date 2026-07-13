@@ -13,8 +13,12 @@
  *   node scripts/gcd-export.mjs "C:/Users/premg/Downloads/current/2026-07-01.sql"
  *
  * Produit dans data/ :
- *   gcd_issues.csv     barcode, barcode_prefix, series_id, number, page_count, key_date, isbn, title
+ *   gcd_issues.csv     gcd_id, barcode, barcode_prefix, series_id, number, page_count, key_date, isbn, title
  *   gcd_series.csv     id, name, format, year_began, publisher_name, language_id
+ *
+ * `gcd_id` n'est pas cosmétique : c'est lui qui permettra d'interroger Metron par `?gcd_id=`,
+ * le filtre le plus précis pour récupérer LA bonne couverture (bien mieux qu'une recherche
+ * par titre, qui confond les variantes).
  *
  * Licence : données GCD en CC BY-SA 4.0 → l'app DOIT créditer la Grand Comics Database.
  */
@@ -164,6 +168,7 @@ for await (const line of stream) {
 
     for (const barcode of codes) {
       issues.push({
+        gcdId: row[at("id")],
         barcode,
         // Les 12 premiers chiffres identifient le TITRE : c'est ce qui permet de retrouver
         // la série quand le scan rate le supplément de 5 chiffres.
@@ -184,7 +189,7 @@ console.log(`\n${issues.length.toLocaleString("fr-FR")} lignes barcode retenues.
 await mkdir(OUTPUT_DIRECTORY, { recursive: true });
 
 const issuesFile = createWriteStream(new URL("gcd_issues.csv", OUTPUT_DIRECTORY));
-issuesFile.write("barcode,barcode_prefix,series_id,number,page_count,key_date,isbn,title\n");
+issuesFile.write("gcd_id,barcode,barcode_prefix,series_id,number,page_count,key_date,isbn,title\n");
 
 // On ne garde que les séries réellement référencées par une issue code-barrée.
 const usedSeriesIds = new Set();
@@ -193,6 +198,7 @@ for (const issue of issues) {
   usedSeriesIds.add(issue.seriesId);
   issuesFile.write(
     toCsvLine([
+      issue.gcdId,
       issue.barcode,
       issue.prefix,
       issue.seriesId,
