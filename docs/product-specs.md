@@ -379,7 +379,7 @@ ce que c'est.**
 
 | Code scanné | Ce que c'est | Où on cherche |
 |---|---|---|
-| EAN-13 préfixé **978 / 979** | Un **ISBN** — BD, manga, roman, **et les TPB / omnibus VO** | GCD (par ISBN) → Google Books |
+| EAN-13 préfixé **978 / 979** | Un **ISBN** — BD, manga, roman, **et les TPB / omnibus VO** | GCD (par ISBN) → **BnF** → Google Books |
 | **UPC-A** 12 chiffres (tout le reste) | Un **fascicule VO** | GCD (code exact, sinon **par préfixe**) |
 
 **Le supplément de 5 chiffres n'a pas le même sens selon le support** — piège classique :
@@ -392,24 +392,33 @@ ce que c'est.**
 ### 5.2 La cascade de résolution
 
 ```
-GCD (identifie, les deux types)
-  → Google Books (la VF : BD, manga, roman)
-    → Metron (enrichit : couverture + series_type)
-      → saisie manuelle (le filet ultime, toujours disponible)
+GCD, en base (identifie : comics VO + BD franco-belge)
+  → BnF (identifie : tout ce qui est publié en France — BD, manga VF, romans)
+    → Google Books (complète : couvertures + romans étrangers) — CLÉ OBLIGATOIRE
+      → Metron (enrichit la VO : couverture + series_type)
+        → saisie manuelle + photo (le filet ultime, toujours disponible)
 ```
 
-**Trois sources, pas une de plus.** Chaque source ajoutée coûte une implémentation, un cas d'erreur et un test —
-on n'en met que si elle apporte quelque chose que les autres n'ont pas. **Open Library a été écartée** : Google
-Books couvre déjà la VF, et un troisième fournisseur pour un gain marginal, c'est une usine à gaz (cf. §13).
+**Chaque source apporte ce qu'aucune autre n'a.** On n'en ajoute pas une de plus : chacune coûte une
+implémentation, un cas d'erreur et un test.
 
-**Décision, prise sur mesures (§6) : GCD identifie, Metron habille.**
+| Source | Ce qu'elle identifie | Mesuré |
+|---|---|---|
+| **GCD**, importé chez nous (~75 Mo) | Comics VO **et BD franco-belge** — match par code complet, **par préfixe**, ou **par ISBN**. Zéro réseau, zéro quota. | 559 516 lignes, dont **89 314 FR** |
+| **BnF** (API SRU, **gratuite, sans clé**) | **Tout ce qui est publié en France** : BD, **manga VF**, romans. C'est le **dépôt légal** — la couverture est exhaustive **par obligation légale**. | **95 %** (19/20 sur des ISBN réels de BD et manga : Dargaud, Delcourt, Ki-oon, Kana, Kazé, Ankama…) |
+| **Google Books** (**clé obligatoire**) | Les **couvertures** (la BnF n'en fournit pas) et les **romans étrangers**. | cf. l'avertissement ci-dessous |
+| **Metron** | Enrichit la **VO** : couverture + `series_type`. | — |
 
-- **GCD, importé chez nous** (table réduite, ~75 Mo) → **identifier** : match exact sur le code complet, **et
-  recherche par préfixe** quand le scan rate le supplément, **et par ISBN**. Aucun quota, aucune latence réseau,
-  indé couvert — **et la BD franco-belge aussi** (89 314 issues FR indexées, cf. §6).
-- **Google Books** → ce que GCD ignore vraiment : **le manga VF et les romans**.
-- **Metron** (API) → **enrichir** : la **couverture** et le `series_type`, qui donne la catégorie du barème
-  proprement.
+> **⚠️ Google Books EXIGE une clé — ce n'est pas une optimisation.** Testé : **429 sur tous les appels** depuis
+> une IP de datacenter, systématiquement. Or **Vercel est un datacenter**. Sans clé, Google Books est
+> **inutilisable en production**. La clé est gratuite (1 000 req/jour), et **côté serveur** comme le reste.
+
+**Open Library a été écartée** (cf. §13) : testée sur de la BD française, elle trouve **0 sur 6**. Elle n'apporte
+rien que la BnF ne fasse mieux.
+
+**Le principe reste le même que pour la VO : une source identifie, une autre habille.**
+GCD et la BnF **identifient** ; Metron, Google Books et — en dernier recours — **la photo** fournissent la
+**couverture**.
 
 **Contrainte d'architecture** : la résolution vit derrière une **interface de providers**
 (`resolveByBarcode`, `resolveByIsbn`), implémentations interchangeables essayées en cascade. Changer ou ajouter
@@ -427,7 +436,7 @@ Dégradation douce : **jamais d'échec sec**.
 | Code complet (UPC + supplément) | **Issue exacte, zéro question** |
 | 12 chiffres, préfixe net (**81,7 %** des cas) | Série connue → *« quel numéro ? »*, **un tap** (liste des numéros de la série, pas de clavier) |
 | 12 chiffres, préfixe partagé (18,3 %) | **Liste courte** des séries possibles → **deux taps** |
-| ISBN | Résolution directe (GCD, puis Google Books) |
+| ISBN | Résolution directe : GCD, puis **BnF** (dépôt légal français) |
 | Rien / inconnu | **Saisie manuelle** série + numéro, série **mémorisée** (la 2ᵉ issue prend 3 secondes) |
 
 Rappel technique : **`BarcodeDetector` natif ne renvoie pas le supplément de 5 chiffres.** Seul **ZXing** sait le
@@ -442,14 +451,15 @@ commercialement.** C'est logique — une couverture est une **œuvre sous copyri
 |---|---|
 | **Comic Vine** | La plus grosse base d'images, indé compris — mais **usage commercial explicitement interdit** (clé révoquée), 200 req/h. |
 | **GCD** | Les scans existent sur le site mais **pas dans le dump** (vérifié : aucune table `cover`). Hotlinker = fragile et discourtois. |
-| **Google Books** | Couvertures **par ISBN seulement** → parfait pour BD, manga, roman, TPB, omnibus. **Inutile pour les fascicules.** |
+| **Google Books** | Couvertures **par ISBN seulement** → parfait pour BD, manga, roman, TPB, omnibus. **Inutile pour les fascicules**, et **exige une clé** (429 systématique depuis une IP de datacenter). |
+| **BnF** | Identifie très bien (95 %) mais **ne fournit aucune couverture** — c’est un catalogue, pas une librairie. |
 | **Marvel API** | Gratuite et officielle, mais **Marvel uniquement** → ne résout pas l'indé. |
 | **Metron** | Héberge des couvertures, gratuit — mais CGU « usage personnel », même limite qu'ailleurs. |
 
 **Décision : cascade automatique, puis la photo.**
 
-1. **Tentative automatique** : Metron (VO) puis Google Books (VF) → couvre la majorité des lectures sans rien
-   demander.
+1. **Tentative automatique** : Metron (VO) puis Google Books (VF, **avec clé**) → couvre la majorité des
+   lectures sans rien demander. **La BnF identifie mais n’illustre pas** : elle ne remplace pas cette étape.
 2. **Sinon, l'app propose de photographier la couverture** — la caméra est **déjà ouverte** pour le scan et le
    livre est **déjà dans la main**. Un tap.
 
@@ -470,8 +480,8 @@ La catégorie est **proposée**, jamais imposée. Ordre des signaux, du plus fia
 | `series_type` Metron = Trade Paperback / Hardcover / Graphic Novel | `comics` |
 | `series_type` Metron = Omnibus | `omnibus` |
 | Code **UPC-A** (donc fascicule VO) sans autre signal | `issue` |
-| Langue `ja` ou éditeur manga FR (Glénat, Kana, Pika, Kurokawa, Ki-oon, Tonkam…), ~180-220 p. | `manga` |
-| Éditeur franco-belge (Dargaud, Dupuis, Le Lombard, Casterman, Delcourt…), ~46-72 p. | `bd` |
+| Éditeur manga FR renvoyé par la BnF (Glénat, Kana, Pika, Kurokawa, Ki-oon, Kazé, Ankama…) | `manga` |
+| Éditeur franco-belge renvoyé par la BnF (Dargaud, Dupuis, Le Lombard, Casterman, Delcourt, Bamboo…) | `bd` |
 | Éditeur comics VF (Panini, Urban Comics…) | `comics` |
 | Aucun signal illustré, catégorie Google Books « Fiction » / « Literary » | `roman` |
 
@@ -683,30 +693,23 @@ d'entrée, des points attendus), modifiable sans migration, et impossible à dé
 | Ce que je scanne | Résolu où | Appels réseau | Latence |
 |---|---|---|---|
 | **Comic VO** (fascicule, TPB, omnibus) | **GCD, en base** | **0** | quelques **ms** |
-| **BD franco-belge** | **GCD, en base** (par ISBN — 89 314 issues FR y sont indexées) | **0** | quelques **ms** |
-| **Manga VF, roman** | **Google Books** | **1** | ~300-800 ms |
-| **Nouveauté que GCD n'a pas encore** | Metron, puis cache | **1** | ~300-800 ms |
+| **BD franco-belge** | **GCD, en base** (par ISBN — 89 314 issues FR indexées) | **0** | quelques **ms** |
+| **Manga VF, roman FR, BD absente de GCD** | **BnF** (dépôt légal, 95 %) | **1** | ~300-800 ms |
+| **Nouveauté / roman étranger** | Metron ou Google Books, puis cache | **1** | ~300-800 ms |
 | **Déjà scanné une fois** (n'importe quoi) | **notre cache** | **0** | quelques **ms** |
 
-**L'essentiel se résout donc en base, sans réseau** : les 559 516 lignes de `gcd_issues`, c'est petit pour
-Postgres — trois index (`barcode`, `barcode_prefix`, `isbn`) et la recherche prend quelques millisecondes.
+**L'essentiel se résout en base, sans réseau** : 559 516 lignes, c'est petit pour Postgres — trois index
+(`barcode`, `barcode_prefix`, `isbn`) et la recherche prend quelques millisecondes.
 
-**Pour le reste — manga VF, romans — il y a bien un appel à Google Books.** ~300-800 ms, ce qui est imperceptible
-au milieu du geste de scan (on est en train de cadrer un code-barres). Et **une seule fois par bouquin** : la
-résolution part ensuite dans `barcode_cache`, définitivement.
+**Quand il y a un appel réseau, il coûte ~300-800 ms** — imperceptible au milieu du geste de scan (on est en
+train de cadrer un code-barres) — et il n'a lieu **qu'une seule fois par bouquin** : la résolution part ensuite
+dans `barcode_cache`, définitivement.
 
-**Si Google Books tombe, le scan ne casse pas** : on retombe sur la saisie manuelle. Aucune étape n'est un
-point de rupture.
-
-> **Utiliser une clé Google Books (gratuite), même si l'API marche sans.** Sans clé, le quota est **par IP** — et
-> sur Vercel les IP sont **partagées entre projets et clients**. On peut donc se prendre un `429` à cause de
-> quelqu'un d'autre. Avec une clé (gratuite, 1 000 req/jour), le quota devient **le nôtre**, et 1 000 req/jour
-> pour 4-5 lecteurs, c'est deux ordres de grandeur au-dessus du besoin. Clé **côté serveur**, comme les
-> identifiants Metron.
+**Aucune source n'est un point de rupture.** Si la BnF ou Google Books tombent, on descend d'un cran dans la
+cascade, jusqu'à la saisie manuelle. Le scan ne peut pas échouer.
 
 **Toute résolution externe est mise en cache.** Un bouquin n'est jamais résolu deux fois. Avec 4-5 utilisateurs,
-on parle de quelques dizaines d'appels par mois — les quotas (20 req/min chez Metron, 1 000/jour chez Google)
-sont hors d'atteinte.
+on parle de quelques dizaines d'appels par mois — tous les quotas sont hors d'atteinte.
 
 **Les secrets ne quittent pas le serveur.** Metron s'authentifie en **HTTP Basic Auth** (pas de clé API : les
 identifiants d'un **compte de service** dédié). Ils vivent en variables d'environnement serveur, **jamais
@@ -736,7 +739,8 @@ Go gratuit et la bande passante mobile.
 | Auth | Supabase Auth — **Google OAuth** (⚠️ `redirectTo` sur l'origine réelle, cf. §4.8) |
 | Stockage images | Supabase Storage (1 Go gratuit) |
 | **Identification d'un scan** | **GCD importé chez nous** — table `barcode → issue`, match exact **et par préfixe** |
-| Métadonnées VF | Google Books (sans clé) |
+| **Identification VF** | **BnF** — API SRU, gratuite, sans clé, **dépôt légal** (95 % mesuré) |
+| Couvertures VF, romans étrangers | Google Books — **clé obligatoire** (429 sans clé depuis un datacenter) |
 | Enrichissement VO | Metron — **couverture** + `series_type` (Basic Auth, **côté serveur**) |
 | Scan | BarcodeDetector API + **ZXing** (seul à décoder le supplément 5 chiffres) |
 | Hébergement | Vercel |
@@ -782,7 +786,8 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
 | Vercel | **0 €** | Plan Hobby |
 | GCD | **0 €** | Dump libre (CC BY-SA) |
 | Metron | **0 €** | 20 req/min — hors d'atteinte avec le cache |
-| Google Books | **0 €** | Quota par IP |
+| BnF | **0 €** | API SRU publique, sans clé |
+| Google Books | **0 €** | 1 000 req/jour **avec clé** (sans clé : 429 depuis Vercel) |
 
 > **⚠️ L'astérisque : le plan Vercel Hobby interdit l'usage commercial.** Le jour où l'app rapporte un euro, il
 > faut passer à **Vercel Pro (20 $/mois)** ou **s'auto-héberger** (VPS + Coolify, ~5 €/mois). À savoir
