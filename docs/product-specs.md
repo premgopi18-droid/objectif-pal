@@ -187,12 +187,20 @@ supprimée** : elle garde sa date de début, reçoit une date d'abandon, et rapp
 
 | Transition | Effet |
 |---|---|
-| `reading` → `abandoned` | On note `abandoned_at`. 0 point. |
-| `abandoned` → `reading` | **Reprise** : `abandoned_at` est effacé, la lecture repart. |
+| `reading` → `abandoned` | 0 point. |
+| `abandoned` → `reading` | **Reprise** : la lecture repart. |
 | `reading` ou `abandoned` → `finished` | Points crédités à `finished_at`. |
 
-Ça ouvre deux stats que l'émission adorera : **le nombre d'abandons** et **le nombre de reprises** (les bouquins
-finis après avoir été lâchés).
+**Chaque changement d'état écrit une ligne datée dans un journal en append-only** (`reading_events`), et **rien
+n'est jamais effacé**. C'est la seule façon de tenir la promesse des stats : si la reprise effaçait la date
+d'abandon, **on effacerait la preuve qu'il y a eu abandon** — et le « nombre de reprises » vaudrait
+éternellement zéro.
+
+Ce journal permet aussi les **cycles multiples** (lâcher un bouquin deux fois avant de le finir, ça arrive) et
+donc de raconter : *« celui-là, je l'ai abandonné deux fois avant d'en venir à bout »*.
+
+Deux stats en sortent : **le nombre d'abandons** et **le nombre de reprises** (les bouquins finis après avoir
+été lâchés).
 
 **Complétude avant tout** : il doit toujours être possible d'**ajouter une lecture à la main** (bouquin non
 scannable) et de **corriger les dates après coup**.
@@ -222,7 +230,22 @@ Les points ne sont qu'une multiplication de ces comptes par le barème : **le bi
 **Santé de la PAL** — *la stat centrale de l'émission*
 - Entrées vs sorties : achats du mois contre lectures terminées du mois.
 - **Solde de PAL** : elle fond ou elle grossit ? Courbe cumulée dans le temps.
-- Taille de la PAL à date (achats non lus).
+- Taille de la PAL à date (possédés non lus).
+- **Lectures hors PAL** : ce que j'ai lu sans le posséder (emprunts, médiathèque).
+
+> **⚠️ Deux dénominateurs différents, à ne jamais confondre.**
+> Un livre **lu mais non possédé** (emprunté à un pote, pris à la médiathèque) **compte pour les points, le
+> volume et le rythme** — le barème récompense le fait de **finir** un bouquin, pas de le posséder.
+> **Mais il ne compte PAS comme une sortie de PAL** : il n'y a jamais été. Le compter ferait dire à la courbe
+> qu'on vide sa pile alors qu'elle n'a pas bougé — **on mentirait à l'antenne**.
+>
+> | Stat | Périmètre |
+> |---|---|
+> | Points, volume, rythme | **Toutes** les lectures |
+> | Santé de la PAL (solde, courbe) | **Uniquement** les lectures de livres possédés |
+>
+> Bénéfice : ça fait apparaître **« combien je lis en dehors de ma pile »** — précisément le comportement qui
+> fait grossir une PAL au lieu de la vider.
 
 **Volume**
 - Lectures terminées : ce mois-ci, cette année, au total — et le détail par catégorie.
@@ -473,10 +496,14 @@ RLS activée **partout**, `user_id` sur **chaque** table utilisateur.
 | Colonne | Rôle |
 |---|---|
 | `user_id`, `book_id` | |
-| `status` | **enum** : `reading` / `finished` / `abandoned` |
+| `status` | **enum** : `reading` / `finished` / `abandoned` — l'état **courant** |
 | `started_at` | date, **librement saisissable** |
 | `finished_at` | date, nullable — **c'est elle qui date les points** |
-| `abandoned_at` | date, nullable — **effacée en cas de reprise** |
+
+**`reading_events`** — le **journal d'états, en append-only** : `reading_id`, `status`, `occurred_at`. Une ligne
+à chaque changement, **jamais d'effacement**. C'est lui qui permet de compter les **abandons** et les
+**reprises**, et de supporter plusieurs cycles sur un même bouquin. `readings.status` n'est que le **dernier
+état connu** — une commodité de lecture, pas la vérité historique.
 
 **`purchases`** — un achat : `user_id`, `book_id`, `purchased_at` (date).
 
@@ -605,6 +632,11 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
 - **Frontière comics / omnibus** pour la VF : le seuil de pages est arbitraire, à caler sur de vrais bouquins.
 - **Fonctionnement hors ligne** : jusqu'où ? Enregistrer une lecture sans réseau et synchroniser ensuite serait
   confortable (métro, librairie) mais demande une file d'attente locale. À trancher quand le scan tournera.
+- **L'affichage des stats** (graphes, mise en page, quoi met-on en avant) : à décider **en voyant les premières
+  vraies données**, pas avant. Ça ne coûte rien de changer, puisque tout est **dérivé**.
+  ⚠️ En revanche **ce que la base capte n'est pas rattrapable** : une donnée non enregistrée est perdue pour
+  toujours. Revue faite — volume, pages, rythme, PAL, éditeurs, séries, abandons et reprises sont tous couverts
+  par le schéma. **Refaire cette vérification avant d'ajouter une stat.**
 
 ## 12. Backlog — gardé en tête, pas construit
 
