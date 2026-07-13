@@ -249,8 +249,7 @@ chiffres : ce qu'on lit à l'antenne, ce n'est pas qu'un décompte.
 
 > **Pourquoi ça ne peut pas être automatique** : une base de données ne sait pas ce qu'est une *surprise*. Une
 > surprise, c'est **l'écart entre ce qu'on attendait et ce qu'on a eu** — et l'attente n'est enregistrée nulle
-> part. Un chef-d'œuvre attendu comme un chef-d'œuvre n'est pas une surprise. (Une piste pour plus tard existe,
-> cf. backlog : déclarer sa « hype » au scan rendrait la surprise **calculable**.)
+> part. Un chef-d'œuvre attendu comme un chef-d'œuvre n'est pas une surprise.
 
 ### 4.5 Statistiques & analyses (P0)
 
@@ -758,11 +757,6 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
 - **« Je possède »** — l'action qui manque pour que l'app devienne vraiment le reflet de la bibliothèque (cf. la
   vision, §1) : scanner une étagère déjà là, **sans malus d'achat**. Sans elle, l'app ne connaîtra que les livres
   entrés après son installation.
-- **La « hype » déclarée au scan** — la piste qui rendrait **la surprise calculable** (§4.4). Si au moment du
-  scan on déclare ce qu'on attend du bouquin (1 à 3), alors `note − attente` = la surprise : le plus gros écart
-  positif du mois est **la bonne surprise**, le plus gros écart négatif **la déception**. L'app les proposerait
-  toute seule, on n'aurait qu'à valider. **Prix à payer : un tap de plus à chaque scan** — à tester seulement si
-  le choix manuel devient pénible.
 - **Wishlist et favoris** : scanner en librairie un bouquin qu'on ne prend pas (wishlist), marquer ses coups de
   cœur (favoris). **L'architecture les accueille déjà** — ce sera un bouton de plus sur la feuille du scan et une
   table par action. Et la wishlist nourrit la santé de la PAL : *ce que je convoite* vs *ce que j'achète* vs *ce
@@ -772,3 +766,21 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
 - **Instance Metron auto-hébergée** : leur code est en GPL, leurs données en CC BY-SA — une option si le volume
   d'appels dépassait un jour leur usage « personnel normal ». Peu probable : GCD fait déjà l'identification, et
   Metron ne sert qu'aux couvertures.
+
+## 13. Idées écartées — et pourquoi
+
+> À lire avant de reproposer quoi que ce soit d'ici. Une idée écartée avec son motif vaut mieux qu'une idée
+> qu'on redécouvre tous les six mois.
+
+**La « hype » déclarée au scan** *(pour rendre les surprises calculables — cf. §4.4)*. L'idée : noter de 1 à 3 ce
+qu'on attend d'un bouquin au moment du scan ; à la fin, `note − attente` donnerait automatiquement la bonne
+surprise et la déception du mois. **Écartée**, pour trois raisons :
+
+1. **Ça met de la friction au pire endroit.** Le scan est le geste qu'on répète des centaines de fois, et sa
+   fluidité conditionne **toutes** les stats. Le charger pour alimenter une feature utilisée **trois fois par
+   mois**, c'est le mauvais échange.
+2. **Ça résout un problème inexistant.** Choisir trois distinctions en fin de mois prend trente secondes — et on
+   les connaît déjà sans qu'un algorithme nous les souffle.
+3. **La donnée serait mauvaise.** Au moment du scan, on ne sait souvent pas ce qu'on attend d'un livre. Une hype
+   déclarée à l'arrache produirait des « bonnes surprises » calculées sur du bruit : **un chiffre, pas une
+   vérité**.
