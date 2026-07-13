@@ -115,11 +115,17 @@ ces limites inatteignables. **Mais en cas de commercialisation, tous les utilisa
 unique**, et leurs CGU parlent d'un « usage personnel normal » — ce qu'une app publique n'est plus. À ce
 moment-là, le **dump GCD auto-hébergé n'est plus une optimisation mais la seule sortie propre** (cf. backlog).
 
-**Décision : Metron d'abord, GCD en réserve.** On démarre sur l'API Metron (rien à héberger). Le dump de la
-**Grand Comics Database** (2 M+ d'issues, champ `barcode`, CC BY-SA 4.0, usage commercial autorisé avec
-attribution) reste le plan de repli si la couverture ou les CGU coincent — c'est ce que fait CLZ avec sa base
-« Core ». Ni League of Comic Geeks (pas d'API publique) ni CLZ (base propriétaire) ne sont exploitables : tous
-deux maintiennent leur propre base, ils ne « trouvent » pas les UPC ailleurs.
+**Décision (prise sur mesures, cf. plus bas) : GCD identifie, Metron habille.**
+
+- **GCD, importé chez nous** (table réduite, ~56 Mo) → **identifier** le bouquin scanné : match exact sur le
+  code complet, **et recherche par préfixe** quand le scan rate le supplément. Aucun quota, hors ligne, indé
+  couvert.
+- **Metron** (API) → **enrichir** : la **couverture** (GCD ne fournit pas les images) et le `series_type`, qui
+  donne la catégorie du barème proprement.
+- **Google Books / Open Library** → la VF (BD, manga, roman), par ISBN.
+
+Ni League of Comic Geeks (pas d'API publique) ni CLZ (base propriétaire) ne sont exploitables : tous deux
+maintiennent leur propre base, ils ne « trouvent » pas les UPC ailleurs — ils font exactement ce qu'on fait ici.
 
 #### Résolution = une interface de providers
 

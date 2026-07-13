@@ -39,3 +39,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Donnees GCD generees depuis le dump (regenerables via scripts/gcd-export.mjs)
+/data
