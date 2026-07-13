@@ -114,6 +114,9 @@ Six catégories, exclusives. C'est la catégorie qui détermine les points.
    s'ajoutent normalement). À la clôture, il reste donc **−1 par livre acheté ce mois-là et non terminé**.
    - Acheté en mars, terminé en avril : le −1 de mars **reste acquis** (le mois est clos), et les points de
      lecture tombent en avril.
+   - **Acheté alors qu'il a déjà été terminé un mois précédent** (racheter sa propre copie d'un livre lu en
+     médiathèque…) : **pas de malus** — le malus punit ce qui fait grossir la pile à lire, et un livre déjà lu
+     n'y entre pas. (Décision prise à l'implémentation du moteur, 13/07/2026.)
 4. **Objectif mensuel = un nombre de bouquins par catégorie.** Ex. « 3 mangas + 1 BD + 2 issues ». Le bonus
    **+3 est all-or-nothing** : toutes les cibles déclarées doivent être atteintes. Seules les lectures
    **terminées dans le mois** comptent.
