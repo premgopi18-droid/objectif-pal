@@ -24,7 +24,8 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 
 > **Squelette initialisé (Next.js + Tailwind + TS, dépendances installées). Specs écrites. Sources tranchées
 > sur mesures : GCD (en base) + BnF identifient, Metron + Google Books habillent. Les CSV GCD sont extraits et
-> prêts. Rien d'applicatif construit — prochaine étape = projet Supabase + schéma + chargement des CSV.**
+> prêts. Projet Supabase créé (`objectif-pal`, ref `reqtckmawllprisvrzlb`, région eu-west-3) et lié à la CLI ;
+> clés dans `.env.local`. Rien d'applicatif construit — prochaine étape = schéma + chargement des CSV.**
 
 ## Stack
 
@@ -72,8 +73,8 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **Créer le projet Supabase dédié** (2ᵉ projet du plan gratuit) + le schéma — **la liste exacte des tables et
-   des colonnes est dans `docs/product-specs.md` §7**, ne pas la recopier ici (elle dériverait).
+1. **Le schéma** (le projet Supabase existe, cf. Statut) — **la liste exacte des tables et des colonnes est
+   dans `docs/product-specs.md` §7**, ne pas la recopier ici (elle dériverait).
 2. **Charger les CSV GCD** (`COPY`) et indexer `barcode`, `barcode_prefix` **et** `isbn`.
 3. Le **moteur de scoring** en TS + ses tests Vitest (le barème vit dans une constante unique).
 4. Le **scan** : routage ISBN / UPC, cascade de providers, saisie manuelle en filet.
