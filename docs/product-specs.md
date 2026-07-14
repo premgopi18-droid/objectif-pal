@@ -202,6 +202,7 @@ supprimée** : elle garde sa date de début, passe en `abandoned`, et rapporte 0
 | `reading` → `abandoned` | 0 point. |
 | `abandoned` → `reading` | **Reprise** : la lecture repart. |
 | `reading` ou `abandoned` → `finished` | Points crédités à `finished_at`. |
+| `finished` → `reading` | **Correction d'une mauvaise manip** : la fin s'annule, `finished_at` s'efface (les points repartent avec elle), et l'événement reste journalisé comme les autres. (Ajoutée le 14/07/2026, vécue au premier test du journal.) |
 
 **Chaque changement d'état écrit une ligne datée dans un journal en append-only** (`reading_events`), et **rien
 n'est jamais effacé**. C'est la seule façon de tenir la promesse des stats : si la reprise effaçait la date

@@ -93,6 +93,30 @@ export async function resumeReading(readingId: string): Promise<JournalActionRes
 }
 
 /**
+ * Repasser en cours une lecture terminée — la correction d'une mauvaise
+ * manip sur « Terminé ». La date de fin s'efface (les points repartent avec
+ * elle), et l'événement reste journalisé : rien n'est réécrit, on ajoute.
+ */
+export async function reopenReading(readingId: string): Promise<JournalActionResult> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+
+  const { error, count } = await session.supabase
+    .from("readings")
+    .update({ status: "reading", finished_at: null }, { count: "exact" })
+    .eq("id", readingId)
+    .eq("user_id", session.user.id)
+    .eq("status", "finished")
+    .is("deleted_at", null);
+  if (error) return { ok: false, error: error.message };
+  if (!count) return { ok: false, error: "Seule une lecture terminée peut repasser en cours." };
+
+  revalidatePath("/journal");
+  revalidatePath("/bilan");
+  return { ok: true };
+}
+
+/**
  * Corriger les détails après coup — dates librement saisissables (import
  * rétroactif possible, specs §4.2), note et avis modifiables à tout moment.
  */

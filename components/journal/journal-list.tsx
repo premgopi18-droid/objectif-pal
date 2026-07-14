@@ -5,6 +5,7 @@ import { useState, useTransition } from "react";
 import {
   abandonReading,
   finishReading,
+  reopenReading,
   resumeReading,
   softDeleteReading,
   updateReadingDetails,
@@ -183,6 +184,16 @@ function JournalItem({
             className="rounded-full border border-foreground/20 px-4 py-1.5 text-sm disabled:opacity-50"
           >
             Reprendre
+          </button>
+        )}
+        {entry.status === "finished" && (
+          <button
+            type="button"
+            disabled={isPending}
+            onClick={() => run(() => reopenReading(entry.id))}
+            className="rounded-full border border-foreground/20 px-4 py-1.5 text-sm disabled:opacity-50"
+          >
+            Repasser en cours
           </button>
         )}
         <button type="button" onClick={() => setIsEditing((value) => !value)} className="ml-auto px-2 py-1.5 text-sm underline opacity-60">
