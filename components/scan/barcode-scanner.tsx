@@ -63,8 +63,19 @@ export function BarcodeScanner({ onCode }: BarcodeScannerProps) {
     const reader = new BrowserMultiFormatReader(hints);
     let controls: IScannerControls | undefined;
 
+    // Résolution élevée exigée : par défaut ZXing ouvre la caméra en ~640×480,
+    // et à cette définition les barres du supplément (déjà minuscules) sont
+    // illisibles. En 1080p, elles ont une vraie chance.
+    const videoConstraints: MediaStreamConstraints = {
+      video: {
+        facingMode: "environment",
+        width: { ideal: 1920 },
+        height: { ideal: 1080 },
+      },
+    };
+
     reader
-      .decodeFromVideoDevice(undefined, videoRef.current, (result) => {
+      .decodeFromConstraints(videoConstraints, videoRef.current, (result) => {
         if (!result || hasEmittedRef.current) return;
 
         const mainCode = result.getText();
