@@ -32,6 +32,7 @@
     "eslint-config-next": "16.2.9",
     "pg": "^8.22.0",
     "pg-copy-streams": "^7.0.0",
+    "pngjs": "^7.0.0",
     "supabase": "^2.109.1",
     "tailwindcss": "^4",
     "typescript": "^5",
