@@ -14,3 +14,37 @@ export function formatDateFrench(isoDate: string): string {
   const [year, month, day] = isoDate.split("-");
   return `${day}/${month}/${year}`;
 }
+
+const FRENCH_MONTHS = [
+  "janvier",
+  "février",
+  "mars",
+  "avril",
+  "mai",
+  "juin",
+  "juillet",
+  "août",
+  "septembre",
+  "octobre",
+  "novembre",
+  "décembre",
+] as const;
+
+/** `2026-07` → `juillet 2026`. */
+export function formatMonthFrench(month: string): string {
+  const [year, monthNumber] = month.split("-");
+  return `${FRENCH_MONTHS[Number(monthNumber) - 1]} ${year}`;
+}
+
+/** Le mois calendaire local de l'appareil, `YYYY-MM`. */
+export function localCurrentMonth(): string {
+  return localToday().slice(0, 7);
+}
+
+/** `2026-07` ± n mois, en pure arithmétique de chaînes. */
+export function addMonths(month: string, offset: number): string {
+  const [year, monthNumber] = month.split("-").map(Number);
+  const total = year * 12 + (monthNumber - 1) + offset;
+  // Le double modulo protège des totaux négatifs (théorique, mais gratuit).
+  return `${Math.floor(total / 12)}-${String((((total % 12) + 12) % 12) + 1).padStart(2, "0")}`;
+}
