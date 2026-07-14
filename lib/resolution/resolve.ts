@@ -72,6 +72,8 @@ const fromCache = (entry: CacheEntry, barcodeType: "isbn" | "upc"): ResolvedBook
   source: entry.source,
   sourceId: entry.sourceId,
   barcodeType,
+  barcode: entry.barcode,
+  isbn: barcodeType === "isbn" ? entry.barcode.slice(0, 13) : null,
 });
 
 /** Construit un livre depuis une issue GCD (avec sa série si connue). */
@@ -92,6 +94,8 @@ function fromGcdIssue(issue: GcdIssue, series: GcdSeries | undefined, barcodeTyp
     source: "gcd",
     sourceId: String(issue.gcdId),
     barcodeType,
+    barcode: issue.barcode,
+    isbn: issue.isbn,
   };
 }
 
@@ -155,6 +159,8 @@ async function resolveIsbn(raw: string, ean13: string, isbnCandidates: string[],
       source: "bnf",
       sourceId: ean13,
       barcodeType: "isbn",
+      barcode: raw,
+      isbn: ean13,
     };
     book = await enrichCoverWithGoogleBooks(book, deps, ean13);
     await attempt(() => deps.cache.set(toCacheEntry(raw, book, "bnf")));
@@ -179,6 +185,8 @@ async function resolveIsbn(raw: string, ean13: string, isbnCandidates: string[],
       source: "google_books",
       sourceId: googleRecord.volumeId,
       barcodeType: "isbn",
+      barcode: raw,
+      isbn: ean13,
     };
     await attempt(() => deps.cache.set(toCacheEntry(raw, book, "google_books")));
     return { kind: "resolved", book };
@@ -230,7 +238,7 @@ async function resolveUpc(raw: string, base: string, deps: ResolutionDeps): Prom
           seriesId,
           seriesName: series?.name ?? "Série inconnue",
           publisher: series?.publisher ?? null,
-          issueCount: prefixMatches.filter((issue) => issue.seriesId === seriesId).length,
+          issues: sortIssueCandidates(prefixMatches.filter((issue) => issue.seriesId === seriesId)),
         };
       }),
     };
@@ -252,6 +260,8 @@ async function resolveUpc(raw: string, base: string, deps: ResolutionDeps): Prom
       source: "metron",
       sourceId: String(metronIssue.metronId),
       barcodeType: "upc",
+      barcode: raw,
+      isbn: null,
     };
     await attempt(() => deps.cache.set(toCacheEntry(raw, book, "metron")));
     return { kind: "resolved", book };

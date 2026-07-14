@@ -252,7 +252,11 @@ describe("la cascade UPC (GCD exact → préfixe → Metron)", () => {
     const result = await resolveScannedCode("761941341743", deps);
 
     expect(result.kind).toBe("pick-series");
-    if (result.kind === "pick-series") expect(result.candidates).toHaveLength(2);
+    if (result.kind === "pick-series") {
+      expect(result.candidates).toHaveLength(2);
+      // Chaque candidate embarque ses issues : le second tap n'appelle personne.
+      expect(result.candidates[0].issues).toHaveLength(1);
+    }
   });
 
   it("une nouveauté absente du dump est identifiée par Metron et mise en cache pour toujours", async () => {
