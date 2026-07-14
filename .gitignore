@@ -42,3 +42,6 @@ next-env.d.ts
 
 # Donnees GCD generees depuis le dump (regenerables via scripts/gcd-export.mjs)
 /data
+
+.vercel
+.env*

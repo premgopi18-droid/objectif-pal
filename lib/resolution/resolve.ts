@@ -14,7 +14,7 @@ import {
   type GcdSeries,
 } from "./providers/gcd";
 import { createGoogleBooksProvider, type GoogleBooksProvider } from "./providers/google-books";
-import { createMetronProvider, type MetronProvider } from "./providers/metron";
+import { createMetronProvider, type MetronIssue, type MetronProvider } from "./providers/metron";
 import type { CacheEntry, ResolvedBook, ScanLookupResult } from "./types";
 
 /**
@@ -72,6 +72,8 @@ const fromCache = (entry: CacheEntry, barcodeType: "isbn" | "upc"): ResolvedBook
   source: entry.source,
   sourceId: entry.sourceId,
   barcodeType,
+  barcode: entry.barcode,
+  isbn: barcodeType === "isbn" ? entry.barcode.slice(0, 13) : null,
 });
 
 /** Construit un livre depuis une issue GCD (avec sa série si connue). */
@@ -92,6 +94,8 @@ function fromGcdIssue(issue: GcdIssue, series: GcdSeries | undefined, barcodeTyp
     source: "gcd",
     sourceId: String(issue.gcdId),
     barcodeType,
+    barcode: issue.barcode,
+    isbn: issue.isbn,
   };
 }
 
@@ -155,6 +159,8 @@ async function resolveIsbn(raw: string, ean13: string, isbnCandidates: string[],
       source: "bnf",
       sourceId: ean13,
       barcodeType: "isbn",
+      barcode: raw,
+      isbn: ean13,
     };
     book = await enrichCoverWithGoogleBooks(book, deps, ean13);
     await attempt(() => deps.cache.set(toCacheEntry(raw, book, "bnf")));
@@ -179,6 +185,8 @@ async function resolveIsbn(raw: string, ean13: string, isbnCandidates: string[],
       source: "google_books",
       sourceId: googleRecord.volumeId,
       barcodeType: "isbn",
+      barcode: raw,
+      isbn: ean13,
     };
     await attempt(() => deps.cache.set(toCacheEntry(raw, book, "google_books")));
     return { kind: "resolved", book };
@@ -202,7 +210,22 @@ async function resolveUpc(raw: string, base: string, deps: ResolutionDeps): Prom
     return { kind: "resolved", book: await enrichWithMetron(book, deps, raw) };
   }
 
-  // 2. Par préfixe : les 12 premiers chiffres identifient le titre (93,9 % des
+  // 2. Metron par code COMPLET : quand le supplément a été scanné, un match
+  //    exact identifie l'issue précisément — GCD n'a pas toujours la ligne
+  //    (vécu : It's In Your Skin #1, préfixe partagé chez GCD mais code complet
+  //    chez Metron). À tenter AVANT les listes par préfixe : elles sont le
+  //    pis-aller des scans incomplets, pas des codes précis.
+  const hasSupplement = raw !== base;
+  if (hasSupplement) {
+    const metronExact = await attempt(() => deps.metron.findIssueByUpc(raw));
+    if (metronExact) {
+      const book = fromMetronIssue(metronExact, raw);
+      await attempt(() => deps.cache.set(toCacheEntry(raw, book, "metron")));
+      return { kind: "resolved", book };
+    }
+  }
+
+  // 3. Par préfixe : les 12 premiers chiffres identifient le titre (93,9 % des
   //    préfixes ne pointent qu'une série — specs §6).
   const prefixMatches = await attempt(() => deps.gcd.findIssuesByPrefix(base));
   if (prefixMatches && prefixMatches.length > 0) {
@@ -230,34 +253,43 @@ async function resolveUpc(raw: string, base: string, deps: ResolutionDeps): Prom
           seriesId,
           seriesName: series?.name ?? "Série inconnue",
           publisher: series?.publisher ?? null,
-          issueCount: prefixMatches.filter((issue) => issue.seriesId === seriesId).length,
+          issues: sortIssueCandidates(prefixMatches.filter((issue) => issue.seriesId === seriesId)),
         };
       }),
     };
   }
 
-  // 3. Metron : les nouveautés que le dump n'a pas encore (specs §6) —
-  //    et chaque succès enrichit notre base pour toujours.
-  const metronIssue = await attempt(() => deps.metron.findIssueByUpc(raw));
-  if (metronIssue) {
-    const book: ResolvedBook = {
-      title: metronIssue.issueName,
-      seriesName: metronIssue.seriesName,
-      issueNumber: metronIssue.number,
-      authors: null,
-      publisher: metronIssue.publisher,
-      pageCount: metronIssue.pageCount,
-      coverUrl: metronIssue.coverUrl,
-      suggestedCategory: guessCategoryFromMetronSeriesType(metronIssue.seriesType) ?? "issue",
-      source: "metron",
-      sourceId: String(metronIssue.metronId),
-      barcodeType: "upc",
-    };
-    await attempt(() => deps.cache.set(toCacheEntry(raw, book, "metron")));
-    return { kind: "resolved", book };
+  // 4. Metron en dernier recours pour les scans SANS supplément (avec, il a
+  //    déjà été tenté à l'étape 2) : couvre les nouveautés du dump (specs §6).
+  if (!hasSupplement) {
+    const metronIssue = await attempt(() => deps.metron.findIssueByUpc(raw));
+    if (metronIssue) {
+      const book = fromMetronIssue(metronIssue, raw);
+      await attempt(() => deps.cache.set(toCacheEntry(raw, book, "metron")));
+      return { kind: "resolved", book };
+    }
   }
 
   return { kind: "not-found" };
+}
+
+/** Construit un livre depuis une issue Metron (identification directe). */
+function fromMetronIssue(metronIssue: MetronIssue, raw: string): ResolvedBook {
+  return {
+    title: metronIssue.issueName,
+    seriesName: metronIssue.seriesName,
+    issueNumber: metronIssue.number,
+    authors: null,
+    publisher: metronIssue.publisher,
+    pageCount: metronIssue.pageCount,
+    coverUrl: metronIssue.coverUrl,
+    suggestedCategory: guessCategoryFromMetronSeriesType(metronIssue.seriesType) ?? "issue",
+    source: "metron",
+    sourceId: String(metronIssue.metronId),
+    barcodeType: "upc",
+    barcode: raw,
+    isbn: null,
+  };
 }
 
 const toCacheEntry = (barcode: string, book: ResolvedBook, source: CacheEntry["source"]): CacheEntry => ({
@@ -273,8 +305,35 @@ const toCacheEntry = (barcode: string, book: ResolvedBook, source: CacheEntry["s
   sourceId: book.sourceId,
 });
 
+/** Le 4ᵉ chiffre du supplément UPC encode la couverture : 1 = la principale. */
+const UPC_COVER_DIGIT_INDEX = 15;
+const isMainCover = (barcode: string | null) =>
+  !barcode || barcode.length <= UPC_COVER_DIGIT_INDEX || barcode[UPC_COVER_DIGIT_INDEX] === "1";
+
+/**
+ * GCD indexe chaque VARIANTE de couverture (et chaque retirage) comme une
+ * ligne à part : sans déduplication, « quel numéro ? » afficherait six fois
+ * le #1. Or la variante n'a aucune importance au barème — un numéro, une
+ * ligne. On garde comme représentant la couverture principale (c'est aussi
+ * celle que Metron référence, donc la bonne pour aller chercher la couverture).
+ */
+function dedupeIssuesByNumber(issues: GcdIssue[]): GcdIssue[] {
+  const representativeByNumber = new Map<string, GcdIssue>();
+  for (const issue of issues) {
+    const current = representativeByNumber.get(issue.number);
+    if (
+      !current ||
+      (isMainCover(issue.barcode) && !isMainCover(current.barcode)) ||
+      (isMainCover(issue.barcode) === isMainCover(current.barcode) && issue.gcdId < current.gcdId)
+    ) {
+      representativeByNumber.set(issue.number, issue);
+    }
+  }
+  return [...representativeByNumber.values()];
+}
+
 const sortIssueCandidates = (issues: GcdIssue[]) =>
-  issues
+  dedupeIssuesByNumber(issues)
     .map((issue) => ({ gcdId: issue.gcdId, number: issue.number, title: issue.title || null }))
     .sort((left, right) => {
       const leftNumber = Number(left.number);

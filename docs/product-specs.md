@@ -440,14 +440,20 @@ Dégradation douce : **jamais d'échec sec**.
 
 | Ce que le scan capte | Ce que fait l'app |
 |---|---|
-| Code complet (UPC + supplément) | **Issue exacte, zéro question** |
-| 12 chiffres, préfixe net (**81,7 %** des cas) | Série connue → *« quel numéro ? »*, **un tap** (liste des numéros de la série, pas de clavier) |
+| Code complet (UPC + supplément) | **Issue exacte, zéro question** — GCD, sinon **Metron par code exact AVANT les listes par préfixe** (vécu : un indé absent de GCD dont le préfixe, partagé, aurait affiché des listes sans rapport — 14/07/2026) |
+| 12 chiffres, préfixe net (**81,7 %** des cas) | Série connue → *« quel numéro ? »*, **un tap** (liste des numéros de la série, pas de clavier). **Dédupliquée par numéro** : GCD indexe chaque variante de couverture comme une ligne, or la variante n'a aucune importance au barème — le représentant gardé est la couverture principale (celle que Metron référence). Vécu sur Alias: Red Band, 14/07/2026. |
 | 12 chiffres, préfixe partagé (18,3 %) | **Liste courte** des séries possibles → **deux taps** |
 | ISBN | Résolution directe : GCD, puis **BnF** (dépôt légal français) |
 | Rien / inconnu | **Saisie manuelle** série + numéro, série **mémorisée** (la 2ᵉ issue prend 3 secondes) |
 
-Rappel technique : **`BarcodeDetector` natif ne renvoie pas le supplément de 5 chiffres.** Seul **ZXing** sait le
-décoder, et seulement s'il est net et cadré. On ne peut donc jamais compter dessus — d'où cette cascade.
+Rappel technique : **`BarcodeDetector` natif ne renvoie pas le supplément de 5 chiffres.** Et **mesuré le
+14/07/2026 : le port JavaScript de ZXing (`@zxing/library`) non plus** — son décodeur d'extensions est cassé
+(testé sur image synthétique parfaite, à tous les offsets : `NotFoundException` systématique). C'est
+**zxing-wasm** (le ZXing C++ compilé en WebAssembly, maintenu) qui lit le supplément (`eanAddOnSymbol: Read`),
+avec deux particularités mesurées : il rend l'UPC-A sous forme EAN-13 (zéro de tête, retiré par le routeur) et
+ne cherche le supplément que dans une fenêtre d'écart stricte (~9-10 modules — les codes réels sont conformes).
+Un test de non-régression sur codes synthétiques verrouille tout ça. Le supplément reste une lecture
+opportuniste (fenêtre de grâce d'1,5 s au scan) : on ne peut jamais compter dessus — d'où cette cascade.
 
 ### 5.4 Les couvertures — la photo est la vraie réponse
 
@@ -765,7 +771,7 @@ Go gratuit et la bande passante mobile.
 | **Identification VF** | **BnF** — API SRU, gratuite, sans clé, **dépôt légal** (95 % mesuré) |
 | Couvertures VF, romans étrangers | Google Books — **clé obligatoire** (429 sans clé, partout) |
 | Enrichissement VO | Metron — **couverture** + `series_type` (Basic Auth, **côté serveur**) |
-| Scan | BarcodeDetector API + **ZXing** (seul à décoder le supplément 5 chiffres) |
+| Scan | **zxing-wasm** (ZXing C++ en WebAssembly — seul à décoder le supplément 5 chiffres ; le port JS de ZXing a un décodeur d'extensions cassé, mesuré) |
 | Hébergement | Vercel |
 | Tests | Vitest (logique de scoring) |
 

@@ -23,6 +23,14 @@ export type ResolvedBook = {
   /** L'identifiant chez la source (dont le gcd_id) — permet de re-résoudre. */
   sourceId: string | null;
   barcodeType: "isbn" | "upc";
+  /**
+   * Le code-barres connu pour ce livre. Sur un scan direct, l'UI préférera le
+   * code réellement scanné ; sur un parcours pick (préfixe partagé), c'est LUI
+   * qui doit entrer dans `books.barcode_raw` — jamais le préfixe, qui
+   * identifierait la série entière et dédoublonnerait à tort.
+   */
+  barcode: string | null;
+  isbn: string | null;
 };
 
 /** Une issue candidate quand la série est connue mais pas le numéro. */
@@ -37,7 +45,8 @@ export type SeriesCandidate = {
   seriesId: number;
   seriesName: string;
   publisher: string | null;
-  issueCount: number;
+  /** Ses issues sous ce préfixe : le second tap se fait sans nouvel appel. */
+  issues: IssueCandidate[];
 };
 
 export type ScanLookupResult =

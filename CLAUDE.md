@@ -40,7 +40,7 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 | **Identification VF** | **BnF** (API SRU, gratuite, sans clé) — dépôt légal : BD, manga VF, romans. 95 % mesuré |
 | Couvertures VF | Google Books — **clé obligatoire** (429 systématique sans clé, même en résidentiel) |
 | Enrichissement VO | Metron — **couverture** + `series_type` (Basic Auth, **côté serveur**) |
-| Scan | BarcodeDetector API + ZXing |
+| Scan | **zxing-wasm** (ZXing C++ en WASM — le port JS de ZXing ne décode pas les suppléments, mesuré) |
 | Hébergement | Vercel |
 | Tests | Vitest (logique de scoring) |
 
