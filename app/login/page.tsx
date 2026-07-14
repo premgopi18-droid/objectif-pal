@@ -13,7 +13,10 @@ import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 function LoginContent() {
   const searchParams = useSearchParams();
   const [isSigningIn, setIsSigningIn] = useState(false);
-  const hasOauthError = searchParams.get("error") === "oauth";
+  const errorMessage = {
+    oauth: "La connexion a échoué — réessaie.",
+    cancelled: "Connexion annulée.",
+  }[searchParams.get("error") ?? ""];
 
   async function signInWithGoogle() {
     setIsSigningIn(true);
@@ -44,9 +47,9 @@ function LoginContent() {
         {isSigningIn ? "Redirection…" : "Continuer avec Google"}
       </button>
 
-      {hasOauthError && (
+      {errorMessage && (
         <p role="alert" className="text-sm text-red-500">
-          La connexion a échoué — réessaie.
+          {errorMessage}
         </p>
       )}
     </main>

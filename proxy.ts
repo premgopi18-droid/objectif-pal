@@ -50,11 +50,22 @@ export async function proxy(request: NextRequest) {
   // Les APIs se gardent elles-mêmes (401) : on ne les redirige jamais.
   if (path.startsWith("/api")) return supabaseResponse;
 
+  // Les redirections repartent d'une réponse neuve : on y recopie les cookies
+  // de session que getUser() vient éventuellement de rafraîchir, sinon le
+  // refresh serait jeté (pattern canonique Supabase SSR).
+  const redirectPreservingSession = (destination: string) => {
+    const response = NextResponse.redirect(new URL(destination, request.url));
+    supabaseResponse.cookies.getAll().forEach(({ name, value, ...options }) => {
+      response.cookies.set(name, value, options as Parameters<typeof response.cookies.set>[2]);
+    });
+    return response;
+  };
+
   if (!user && !isPublicPath) {
-    return NextResponse.redirect(new URL("/login", request.url));
+    return redirectPreservingSession("/login");
   }
   if (user && path.startsWith("/login")) {
-    return NextResponse.redirect(new URL("/", request.url));
+    return redirectPreservingSession("/");
   }
 
   return supabaseResponse;

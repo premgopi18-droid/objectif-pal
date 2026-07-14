@@ -31,17 +31,12 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.pathname.startsWith("/api/")) return;
 
-  // Navigations : réseau d'abord, coquille en secours.
+  // Navigations : réseau d'abord, la COQUILLE en secours — on ne met jamais en
+  // cache les pages naviguées elles-mêmes : elles contiennent du HTML
+  // authentifié (le profil, demain le journal), et l'app est multi-utilisateur
+  // par conception. Hors ligne, toute navigation retombe sur "/".
   if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
-          return response;
-        })
-        .catch(() => caches.match(request).then((cached) => cached ?? caches.match("/"))),
-    );
+    event.respondWith(fetch(request).catch(() => caches.match("/")));
     return;
   }
 

@@ -20,5 +20,7 @@ export async function GET(request: NextRequest) {
     }
   }
 
-  return NextResponse.redirect(new URL("/login?error=oauth", request.url));
+  // Refus du consentement Google : pas un échec technique, un choix.
+  const wasCancelled = request.nextUrl.searchParams.get("error") === "access_denied";
+  return NextResponse.redirect(new URL(`/login?error=${wasCancelled ? "cancelled" : "oauth"}`, request.url));
 }
