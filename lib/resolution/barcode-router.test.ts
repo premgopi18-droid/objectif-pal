@@ -50,6 +50,23 @@ describe("le routage du code scanné (specs §5.1)", () => {
     });
   });
 
+  it("le zéro de tête EAN-13 d'un UPC-A est retiré (la forme que rend zxing-cpp)", () => {
+    // zxing-wasm rend « 0761941341743 » pour un UPC-A : le préfixe GCD attend
+    // les 12 chiffres imprimés, pas la forme EAN-13.
+    expect(classifyScannedCode("0761941341743")).toEqual({
+      type: "upc",
+      raw: "761941341743",
+      base: "761941341743",
+      supplement: null,
+    });
+    expect(classifyScannedCode("076194134174312321")).toEqual({
+      type: "upc",
+      raw: "76194134174312321",
+      base: "761941341743",
+      supplement: "12321",
+    });
+  });
+
   it("les séparateurs et espaces du scan sont nettoyés", () => {
     expect(classifyScannedCode("978-2-344-03695-2")).toMatchObject({ type: "isbn", ean13: "9782344036952" });
   });

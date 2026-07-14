@@ -1,22 +1,24 @@
 "use client";
 
-import { BrowserMultiFormatReader, type IScannerControls } from "@zxing/browser";
-import { BarcodeFormat, DecodeHintType, ResultMetadataType } from "@zxing/library";
 import { useEffect, useRef, useState } from "react";
+import { readBarcodes } from "zxing-wasm/reader";
 
 /**
- * La caméra qui lit les codes-barres — ZXing, parce que `BarcodeDetector`
- * natif ne renvoie JAMAIS le supplément de 5 chiffres (specs §5.3), et que le
- * supplément d'un fascicule contient le numéro d'issue.
+ * La caméra qui lit les codes-barres — zxing-wasm (le ZXing C++ compilé en
+ * WebAssembly), parce que ni `BarcodeDetector` natif ni le port JS de ZXing
+ * ne savent lire le supplément de 5 chiffres — le port JS le tente mais son
+ * décodeur d'extensions est cassé (prouvé sur image synthétique parfaite,
+ * cf. barcode-decoding.test.ts). Or le supplément d'un fascicule contient le
+ * numéro d'issue (specs §5.3).
  *
- * Le supplément est minuscule et rarement décodé sur la même frame que le
- * code principal : quand un code arrive SANS supplément, on n'émet pas tout
- * de suite — on laisse une fenêtre de grâce pour qu'une frame suivante
- * l'attrape. S'il n'arrive pas, les 12 chiffres partent seuls et la cascade
- * par préfixe prend le relais (on ne peut jamais compter sur le supplément).
+ * Le supplément reste rarement lisible sur la même frame que le code
+ * principal : quand un code arrive SANS supplément, on n'émet pas tout de
+ * suite — fenêtre de grâce, puis les 12 chiffres partent seuls et la cascade
+ * par préfixe prend le relais.
  */
 
 const SUPPLEMENT_GRACE_MILLISECONDS = 1500;
+const DECODE_INTERVAL_MILLISECONDS = 180;
 
 type BarcodeScannerProps = {
   onCode: (code: string) => void;
@@ -30,16 +32,22 @@ export function BarcodeScanner({ onCode }: BarcodeScannerProps) {
 
   const hasEmittedRef = useRef(false);
   const pendingRef = useRef<{ code: string; timer: ReturnType<typeof setTimeout> } | null>(null);
-  // onCode dans une ref : le redémarrage de la caméra à chaque render serait
-  // bien plus coûteux qu'une callback fraîche.
+  // onCode dans une ref : redémarrer la caméra à chaque render serait bien
+  // plus coûteux qu'une callback fraîche.
   const onCodeRef = useRef(onCode);
   useEffect(() => {
     onCodeRef.current = onCode;
   }, [onCode]);
 
   useEffect(() => {
-    if (!videoRef.current) return;
+    const video = videoRef.current;
+    if (!video) return;
     hasEmittedRef.current = false;
+
+    let stream: MediaStream | undefined;
+    let intervalId: ReturnType<typeof setInterval> | undefined;
+    let isDecoding = false;
+    const canvas = document.createElement("canvas");
 
     const emit = (code: string) => {
       if (hasEmittedRef.current) return;
@@ -49,65 +57,70 @@ export function BarcodeScanner({ onCode }: BarcodeScannerProps) {
       onCodeRef.current(code);
     };
 
-    const hints = new Map();
-    hints.set(DecodeHintType.POSSIBLE_FORMATS, [
-      BarcodeFormat.EAN_13,
-      BarcodeFormat.UPC_A,
-      BarcodeFormat.EAN_8,
-      BarcodeFormat.UPC_E,
-    ]);
-    // Le supplément de 2 ou 5 chiffres, si ZXing arrive à le cadrer.
-    hints.set(DecodeHintType.ALLOWED_EAN_EXTENSIONS, [5, 2]);
-    hints.set(DecodeHintType.TRY_HARDER, true);
+    const decodeFrame = async () => {
+      if (isDecoding || hasEmittedRef.current || video.readyState < video.HAVE_CURRENT_DATA) return;
+      isDecoding = true;
+      try {
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
+        const context = canvas.getContext("2d", { willReadFrequently: true });
+        if (!context) return;
+        context.drawImage(video, 0, 0);
+        const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-    const reader = new BrowserMultiFormatReader(hints);
-    let controls: IScannerControls | undefined;
+        const results = await readBarcodes(imageData, {
+          formats: ["EAN-13", "UPC-A", "EAN-8", "UPC-E"],
+          // « Read » : le supplément est lu quand il est là, jamais exigé.
+          eanAddOnSymbol: "Read",
+          tryHarder: true,
+          maxNumberOfSymbols: 1,
+        });
+        const result = results[0];
+        if (!result?.isValid) return;
 
-    // Résolution élevée exigée : par défaut ZXing ouvre la caméra en ~640×480,
-    // et à cette définition les barres du supplément (déjà minuscules) sont
-    // illisibles. En 1080p, elles ont une vraie chance.
-    const videoConstraints: MediaStreamConstraints = {
-      video: {
-        facingMode: "environment",
-        width: { ideal: 1920 },
-        height: { ideal: 1080 },
-      },
-    };
+        // zxing-cpp renvoie « principal<sep>supplément » : on ne garde que les chiffres.
+        const digits = result.text.replace(/\D/g, "");
+        const hasSupplement = digits.length >= 14;
 
-    reader
-      .decodeFromConstraints(videoConstraints, videoRef.current, (result) => {
-        if (!result || hasEmittedRef.current) return;
-
-        const mainCode = result.getText();
-        const extension = result.getResultMetadata()?.get(ResultMetadataType.UPC_EAN_EXTENSION);
-
-        // Supplément décodé : c'est la lecture parfaite, on part tout de suite.
-        if (typeof extension === "string" && extension.length > 0) {
-          emit(`${mainCode}${extension}`);
-          return;
-        }
-
-        // Sans supplément : fenêtre de grâce. Une frame suivante l'aura peut-être.
-        if (!pendingRef.current) {
-          setPendingDisplay(mainCode);
+        if (hasSupplement) {
+          emit(digits);
+        } else if (!pendingRef.current) {
+          setPendingDisplay(digits);
           pendingRef.current = {
-            code: mainCode,
+            code: digits,
             timer: setTimeout(() => pendingRef.current && emit(pendingRef.current.code), SUPPLEMENT_GRACE_MILLISECONDS),
           };
         } else {
           // On suit le dernier code vu (l'utilisateur a pu changer de bouquin).
-          pendingRef.current.code = mainCode;
+          pendingRef.current.code = digits;
         }
+      } catch {
+        // Une frame qui ne décode pas n'est pas une erreur : la suivante arrive.
+      } finally {
+        isDecoding = false;
+      }
+    };
+
+    navigator.mediaDevices
+      .getUserMedia({
+        // Résolution élevée exigée : les barres du supplément sont minuscules.
+        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
       })
-      .then((scannerControls) => {
-        controls = scannerControls;
+      .then((mediaStream) => {
+        stream = mediaStream;
+        video.srcObject = mediaStream;
+        return video.play();
+      })
+      .then(() => {
+        intervalId = setInterval(decodeFrame, DECODE_INTERVAL_MILLISECONDS);
       })
       .catch(() => setCameraError(true));
 
     return () => {
+      if (intervalId) clearInterval(intervalId);
       if (pendingRef.current) clearTimeout(pendingRef.current.timer);
       pendingRef.current = null;
-      controls?.stop();
+      stream?.getTracks().forEach((track) => track.stop());
     };
   }, []);
 

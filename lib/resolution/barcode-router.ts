@@ -38,7 +38,13 @@ export type ScannedCode =
 
 /** Classe un code scanné : ISBN (livre) ou UPC (fascicule VO). */
 export function classifyScannedCode(input: string): ScannedCode {
-  const digits = input.replace(/\D/g, "");
+  let digits = input.replace(/\D/g, "");
+
+  // zxing-cpp rend l'UPC-A sous sa forme EAN-13 (un zéro de tête) : on le
+  // retire pour retrouver le code tel qu'imprimé — et tel que GCD l'indexe.
+  if (digits.length >= EAN13_LENGTH && digits.startsWith("0") && !BOOKLAND_PREFIXES.test(digits)) {
+    digits = digits.slice(1);
+  }
 
   if (digits.length < MINIMUM_BARCODE_LENGTH) {
     return { type: "invalid", raw: digits };
