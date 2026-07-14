@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { readBarcodes } from "zxing-wasm/reader";
+import { prepareZXingModule, readBarcodes } from "zxing-wasm/reader";
 
 /**
  * La caméra qui lit les codes-barres — zxing-wasm (le ZXing C++ compilé en
@@ -17,8 +17,20 @@ import { readBarcodes } from "zxing-wasm/reader";
  * par préfixe prend le relais.
  */
 
+// Le binaire WASM est servi par NOUS (copié dans public/wasm/ par postinstall,
+// cf. scripts/copy-zxing-wasm.mjs), plus par le CDN jsDelivr : un CDN bloqué
+// rendait le scanner muet, sans aucun message. Une seule fois au niveau module —
+// prepareZXingModule ne fetch rien ici, le binaire ne part qu'au premier readBarcodes.
+prepareZXingModule({
+  overrides: {
+    locateFile: (path: string, prefix: string) => (path.endsWith(".wasm") ? "/wasm/zxing_reader.wasm" : prefix + path),
+  },
+});
+
 const SUPPLEMENT_GRACE_MILLISECONDS = 1500;
 const DECODE_INTERVAL_MILLISECONDS = 180;
+/** Autant de rejets de readBarcodes SANS jamais un succès = le module WASM ne se charge pas. */
+const WASM_FAILURE_THRESHOLD = 3;
 
 type BarcodeScannerProps = {
   onCode: (code: string) => void;
@@ -27,6 +39,8 @@ type BarcodeScannerProps = {
 export function BarcodeScanner({ onCode }: BarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cameraError, setCameraError] = useState(false);
+  /** Le moteur WASM n'a pas pu s'initialiser — l'utilisateur doit le SAVOIR, pas fixer une caméra muette. */
+  const [engineError, setEngineError] = useState(false);
   /** Le code lu, affiché pendant qu'on espère encore son supplément. */
   const [pendingDisplay, setPendingDisplay] = useState<string | null>(null);
 
@@ -47,6 +61,11 @@ export function BarcodeScanner({ onCode }: BarcodeScannerProps) {
     let stream: MediaStream | undefined;
     let intervalId: ReturnType<typeof setInterval> | undefined;
     let isDecoding = false;
+    // Détection d'un moteur mort : readBarcodes qui REJETTE dès les premières
+    // frames, sans jamais avoir réussi (une frame sans code-barres, elle,
+    // résout normalement avec un tableau vide).
+    let hasEverDecoded = false;
+    let consecutiveFailures = 0;
     const canvas = document.createElement("canvas");
 
     const emit = (code: string) => {
@@ -75,6 +94,7 @@ export function BarcodeScanner({ onCode }: BarcodeScannerProps) {
           tryHarder: true,
           maxNumberOfSymbols: 1,
         });
+        hasEverDecoded = true;
         const result = results[0];
         if (!result?.isValid) return;
 
@@ -94,8 +114,20 @@ export function BarcodeScanner({ onCode }: BarcodeScannerProps) {
           // On suit le dernier code vu (l'utilisateur a pu changer de bouquin).
           pendingRef.current.code = digits;
         }
-      } catch {
-        // Une frame qui ne décode pas n'est pas une erreur : la suivante arrive.
+      } catch (error) {
+        // Une frame sans code-barres RÉSOUT (tableau vide) : un rejet ici, c'est
+        // le module WASM lui-même. Répété dès la première frame = il ne se
+        // chargera pas — on le dit au lieu de laisser une caméra muette.
+        if (!hasEverDecoded) {
+          consecutiveFailures += 1;
+          if (consecutiveFailures >= WASM_FAILURE_THRESHOLD) {
+            console.error("[scan] le module WASM ne s'initialise pas :", error);
+            if (intervalId) clearInterval(intervalId);
+            // La caméra ne sert plus à rien : on la libère (LED éteinte).
+            stream?.getTracks().forEach((track) => track.stop());
+            setEngineError(true);
+          }
+        }
       } finally {
         isDecoding = false;
       }
@@ -128,6 +160,14 @@ export function BarcodeScanner({ onCode }: BarcodeScannerProps) {
     return (
       <p role="alert" className="rounded-lg border border-foreground/20 p-4 text-sm opacity-80">
         La caméra est inaccessible (permission refusée ?). Tu peux saisir le code à la main ci-dessous.
+      </p>
+    );
+  }
+
+  if (engineError) {
+    return (
+      <p role="alert" className="rounded-lg border border-foreground/20 p-4 text-sm opacity-80">
+        Le moteur de scan n&apos;a pas pu se charger — recharge la page ou utilise la saisie manuelle.
       </p>
     );
   }

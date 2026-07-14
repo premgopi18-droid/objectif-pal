@@ -7,8 +7,11 @@
  *  - icônes/manifest : cache d'abord (immuables entre déploiements) ;
  *  - /api/* : JAMAIS touché — les données sont toujours fraîches.
  */
-const CACHE_NAME = "objectif-pal-shell-v1";
-const SHELL_ASSETS = ["/", "/icons/icon-192.png", "/icons/icon-512.png"];
+// ⚠️ À chaque bump du paquet zxing-wasm (donc du binaire copié dans
+// /wasm/), incrémenter CACHE_NAME : sinon les clients gardent l'ancien
+// binaire en cache, désynchronisé du JS — erreurs imprévisibles au scan.
+const CACHE_NAME = "objectif-pal-shell-v2";
+const SHELL_ASSETS = ["/", "/icons/icon-192.png", "/icons/icon-512.png", "/wasm/zxing_reader.wasm"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS)));
@@ -40,8 +43,10 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Icônes et manifest : cache d'abord.
-  if (url.pathname.startsWith("/icons/") || url.pathname === "/manifest.webmanifest") {
+  // Icônes, manifest et binaire WASM du scanner : cache d'abord (immuables
+  // entre déploiements — le WASM ne change qu'avec un bump de zxing-wasm,
+  // couvert par l'incrément de CACHE_NAME ci-dessus).
+  if (url.pathname.startsWith("/icons/") || url.pathname.startsWith("/wasm/") || url.pathname === "/manifest.webmanifest") {
     event.respondWith(
       caches.match(request).then(
         (cached) =>

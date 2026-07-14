@@ -43,5 +43,8 @@ next-env.d.ts
 # Donnees GCD generees depuis le dump (regenerables via scripts/gcd-export.mjs)
 /data
 
+# Binaire WASM du scanner, copie depuis node_modules par postinstall (scripts/copy-zxing-wasm.mjs)
+/public/wasm/
+
 .vercel
 .env*

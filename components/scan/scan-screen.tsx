@@ -3,6 +3,7 @@
 import { useCallback, useState } from "react";
 import { ErrorAlert } from "@/components/error-alert";
 import { startReading, recordPurchase, type BookInput, type ScanActionResult } from "@/lib/books/actions";
+import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
 import type { IssueCandidate, ResolvedBook, ScanLookupResult, SeriesCandidate } from "@/lib/resolution/types";
 import { BarcodeScanner } from "./barcode-scanner";
@@ -98,8 +99,16 @@ export function ScanScreen() {
     doneMessage: string,
   ) {
     setIsSubmitting(true);
-    const result = await action(input, date);
-    setIsSubmitting(false);
+    let result: ScanActionResult;
+    try {
+      result = await action(input, date);
+    } catch {
+      // La promesse d'une Server Action rejette quand le serveur est injoignable
+      // (réseau coupé) : sans ce catch, le geste échouerait en silence.
+      result = { ok: false, error: NETWORK_ERROR_MESSAGE };
+    } finally {
+      setIsSubmitting(false);
+    }
 
     if (!result.ok) {
       setState((previous) => (previous.step === "sheet" ? { ...previous, error: result.error } : previous));

@@ -62,6 +62,12 @@ function validateBook(input: BookInput): string | null {
  * Un livre par code-barres et par utilisateur (specs §4.2) : le rescan
  * réutilise l'existant, et un livre supprimé en douceur est ressuscité
  * plutôt que dupliqué (la contrainte d'unicité couvre aussi les supprimés).
+ *
+ * Règle du rescan : l'utilisateur vient de VOIR (et éventuellement corriger)
+ * la feuille — son titre et sa catégorie font foi, ils sont TOUJOURS
+ * appliqués (la catégorie détermine les points au barème, et il n'existe
+ * aucune autre UI pour la corriger). Les autres métadonnées ne font que
+ * COMBLER les trous : une valeur non-null en base n'est jamais écrasée.
  */
 async function findOrCreateBook(
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
@@ -71,7 +77,7 @@ async function findOrCreateBook(
   if (input.barcodeRaw) {
     const { data: existing, error } = await supabase
       .from("books")
-      .select("id, deleted_at")
+      .select("id, deleted_at, series_name, issue_number, authors, publisher, page_count, isbn, cover_url, metadata_source_id")
       .eq("user_id", userId)
       .eq("barcode_raw", input.barcodeRaw)
       .maybeSingle();
@@ -81,12 +87,26 @@ async function findOrCreateBook(
     }
 
     if (existing) {
-      if (existing.deleted_at !== null) {
-        const { error: reviveError } = await supabase.from("books").update({ deleted_at: null }).eq("id", existing.id);
-        if (reviveError) {
-          console.error("[books] findOrCreateBook:", reviveError.message);
-          return { error: GENERIC_ERROR_MESSAGE };
-        }
+      const { error: updateError } = await supabase
+        .from("books")
+        .update({
+          deleted_at: null, // un livre supprimé en douceur ressuscite au rescan
+          title: input.title.trim(),
+          category: input.category,
+          // Comblement des NULL uniquement — jamais d'écrasement d'une valeur existante.
+          series_name: existing.series_name ?? input.seriesName,
+          issue_number: existing.issue_number ?? input.issueNumber,
+          authors: existing.authors ?? input.authors,
+          publisher: existing.publisher ?? input.publisher,
+          page_count: existing.page_count ?? input.pageCount,
+          isbn: existing.isbn ?? input.isbn,
+          cover_url: existing.cover_url ?? input.coverUrl,
+          metadata_source_id: existing.metadata_source_id ?? input.metadataSourceId,
+        })
+        .eq("id", existing.id);
+      if (updateError) {
+        console.error("[books] findOrCreateBook:", updateError.message);
+        return { error: GENERIC_ERROR_MESSAGE };
       }
       return { bookId: existing.id, alreadyExisted: true };
     }

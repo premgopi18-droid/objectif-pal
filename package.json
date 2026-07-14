@@ -8,7 +8,8 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "gcd:load": "node scripts/gcd-load.mjs"
+    "gcd:load": "node scripts/gcd-load.mjs",
+    "postinstall": "node scripts/copy-zxing-wasm.mjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.12.1",

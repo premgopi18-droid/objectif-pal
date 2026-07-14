@@ -12,6 +12,7 @@ import {
 } from "@/lib/books/journal-actions";
 import { BookCover } from "@/components/book-cover";
 import { ErrorAlert } from "@/components/error-alert";
+import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { formatBookSubtitle } from "@/lib/books/format";
 import { formatDateFrench, localToday } from "@/lib/dates";
@@ -66,8 +67,14 @@ export function JournalList({ entries }: { entries: JournalEntry[] }) {
   const run = (action: () => Promise<JournalActionResult>) => {
     setError(null);
     startTransition(async () => {
-      const result = await action();
-      if (!result.ok) setError(result.error);
+      try {
+        const result = await action();
+        if (!result.ok) setError(result.error);
+      } catch {
+        // Serveur injoignable (réseau coupé) : la promesse de la Server Action
+        // rejette — sans ce catch, le geste échouerait en silence.
+        setError(NETWORK_ERROR_MESSAGE);
+      }
     });
   };
 
