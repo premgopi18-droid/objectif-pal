@@ -291,7 +291,7 @@ Les points ne sont qu'une multiplication de ces comptes par le barème : **le bi
 > | Stat | Périmètre |
 > |---|---|
 > | Points, volume, rythme | **Toutes** les lectures |
-> | Santé de la PAL (solde, courbe) | **Uniquement** les lectures de livres possédés |
+> | Santé de la PAL (solde, courbe) | **Uniquement** les lectures de livres possédés — et **une sortie par livre** : sa **première** fin de lecture. Une relecture re-rapporte ses points (§4.2) mais ne re-vide pas la pile, le livre en était déjà sorti. (Décision du 14/07/2026, review de la vue PAL.) |
 >
 > **Implémentation aujourd'hui** : « possédé » = le livre a un `purchase`. Quand l'action « je possède »
 > arrivera (§12), la source s'élargira **sans changer la définition** — c'est tout l'objet de la précaution de
