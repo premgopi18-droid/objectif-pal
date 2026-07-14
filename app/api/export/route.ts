@@ -29,6 +29,9 @@ const EXPORT_TABLES: Record<"books" | "readings" | "reading_events" | "purchases
   },
   reading_events: { columns: "id, reading_id, status, occurred_at", orderBy: "id" },
   purchases: { columns: "id, book_id, purchased_at, created_at, deleted_at", orderBy: "created_at" },
+  // TODO(P1) : ajouter monthly_objectives, objective_targets et monthly_picks
+  // dès qu'ils portent des données — le §4.10 les liste, un export incomplet
+  // serait un trou silencieux dans la portabilité.
 };
 
 type ExportTable = keyof typeof EXPORT_TABLES;
@@ -65,7 +68,9 @@ export async function GET(request: Request) {
         return Response.json({ error: `table inconnue — valeurs permises : ${Object.keys(EXPORT_TABLES).join(", ")}` }, { status: 400 });
       }
       const rows = await fetchTable(table);
-      return new Response(toCsv(rows), {
+      // En-têtes explicites : une table vide sort quand même sa ligne d'en-tête.
+      const headers = EXPORT_TABLES[table].columns.split(", ");
+      return new Response(toCsv(rows, headers), {
         headers: {
           "Content-Type": "text/csv; charset=utf-8",
           "Content-Disposition": `attachment; filename="objectif-pal-${table}-${today}.csv"`,

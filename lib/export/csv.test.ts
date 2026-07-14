@@ -19,7 +19,15 @@ describe("le CSV de l'export (specs §4.10)", () => {
     expect(toCsv([{ rating: null, comment: undefined, title: "X" }])).toBe("rating,comment,title\r\n,,X\r\n");
   });
 
-  it("zéro ligne = chaîne vide", () => {
+  it("zéro ligne SANS en-têtes = chaîne vide", () => {
     expect(toCsv([])).toBe("");
+  });
+
+  it("zéro ligne AVEC en-têtes = la ligne d'en-tête seule (un export vide reste lisible)", () => {
+    expect(toCsv([], ["id", "title"])).toBe("id,title\r\n");
+  });
+
+  it("les en-têtes explicites imposent l'ordre et le sous-ensemble des colonnes", () => {
+    expect(toCsv([{ title: "X", id: 1, extra: "jamais" }], ["id", "title"])).toBe("id,title\r\n1,X\r\n");
   });
 });
