@@ -22,11 +22,11 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 
 ## Statut
 
-> **Fondations posées : projet Supabase (`objectif-pal`, ref `reqtckmawllprisvrzlb`, eu-west-3) avec le schéma
-> §7 appliqué et les 559 516 lignes GCD chargées et indexées ; les quatre connexions externes (BnF, Google
-> Books, Metron, Google OAuth) créées et vérifiées, secrets dans `.env.local` ; moteur de scoring
-> (`lib/scoring/`) écrit et testé (26 tests Vitest). Prochaine étape = le scan (routage ISBN/UPC, cascade de
-> providers), puis l'écran du bilan.**
+> **L'app tourne en prod (https://objectif-pal.vercel.app, Vercel lié au repo GitHub) et remplit sa promesse
+> de base : scan caméra (zxing-wasm) → « je commence / j'achète » → journal (terminer/abandonner/reprendre,
+> note + avis) → bilan mensuel au barème copiable pour l'antenne. Base Supabase complète (schéma §7 + 559 516
+> lignes GCD indexées), 4 connexions externes vérifiées, moteur de scoring testé, export JSON/CSV.
+> Reste du P0 : la vue PAL (§4.6). Puis P1 : objectifs mensuels + distinctions.**
 
 ## Stack
 
@@ -74,10 +74,11 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. Le **scan** : routage ISBN / UPC, cascade de providers (interface `resolveByBarcode` / `resolveByIsbn`),
-   saisie manuelle en filet.
-2. Le **bilan mensuel au barème** — l'écran qui est le livrable de l'app (le moteur existe : `lib/scoring/`).
-3. **Auth Google + PWA + export** — le reste du P0.
+1. La **vue PAL** (§4.6) : les achetés-pas-lus, « je le commence » en un tap — dernier bloc du P0.
+2. **P1** : objectifs mensuels (cible par catégorie, jauge, bonus +3 — le moteur les calcule déjà) et
+   distinctions du mois.
+3. En carnet : issue #10 (chercher d'abord dans la bibliothèque de l'utilisateur au scan), fix cosmétique
+   du `#[nn]` GCD dans les titres, surveiller le déploiement auto Vercel au prochain merge.
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs
 roman) à partir de Google Books — on n'a que des indices (éditeur, pages, langue). La catégorie proposée doit

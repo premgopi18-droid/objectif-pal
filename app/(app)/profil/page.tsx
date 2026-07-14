@@ -25,6 +25,32 @@ export default async function ProfilPage() {
         </p>
       </div>
 
+      <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">Mes données</h2>
+        <p className="text-sm opacity-70">
+          Tout ce que l&apos;app sait — livres, lectures avec notes et avis, journal des changements d&apos;état,
+          achats, y compris ce que tu as supprimé. Tes données sont à toi.
+        </p>
+        <a
+          href="/api/export"
+          download
+          className="w-fit rounded-full bg-amber-500 px-5 py-2.5 text-sm font-semibold text-black"
+        >
+          Exporter tout (JSON)
+        </a>
+        <p className="text-xs opacity-60">
+          Ou en CSV, table par table :{" "}
+          {(["books", "readings", "reading_events", "purchases"] as const).map((table, index) => (
+            <span key={table}>
+              {index > 0 && " · "}
+              <a href={`/api/export?format=csv&table=${table}`} download className="underline">
+                {{ books: "livres", readings: "lectures", reading_events: "événements", purchases: "achats" }[table]}
+              </a>
+            </span>
+          ))}
+        </p>
+      </section>
+
       <LogoutButton />
 
       <footer className="mt-auto border-t border-foreground/10 pt-4 text-xs opacity-70">
