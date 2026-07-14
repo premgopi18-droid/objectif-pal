@@ -54,6 +54,51 @@ export async function finishReading(readingId: string, finishedAt: string): Prom
   return { ok: true };
 }
 
+/**
+ * « Je le commence » depuis la PAL (specs §4.6) : le livre existe déjà, un tap
+ * crée la lecture — l'achat reste, la lecture s'ajoute, même book_id.
+ */
+export async function startReadingForBook(bookId: string, startedAt: string): Promise<JournalActionResult> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+  if (!ISO_DATE_PATTERN.test(startedAt)) return { ok: false, error: "Date de début invalide." };
+
+  // Le livre doit exister et être à soi (la RLS le garantit aussi, mais le
+  // message est plus clair ici qu'une violation de FK).
+  const { data: book, error: bookError } = await session.supabase
+    .from("books")
+    .select("id")
+    .eq("id", bookId)
+    .eq("user_id", session.user.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (bookError) return { ok: false, error: bookError.message };
+  if (!book) return { ok: false, error: "Livre introuvable." };
+
+  const { data: inProgress, error: inProgressError } = await session.supabase
+    .from("readings")
+    .select("id")
+    .eq("user_id", session.user.id)
+    .eq("book_id", bookId)
+    .eq("status", "reading")
+    .is("deleted_at", null)
+    .limit(1);
+  if (inProgressError) return { ok: false, error: inProgressError.message };
+  if (inProgress.length > 0) return { ok: false, error: "Tu as déjà ce livre en cours de lecture." };
+
+  const { error } = await session.supabase.from("readings").insert({
+    user_id: session.user.id,
+    book_id: bookId,
+    status: "reading",
+    started_at: startedAt,
+  });
+  if (error) return { ok: false, error: error.message };
+
+  revalidatePath("/journal");
+  revalidatePath("/pal");
+  return { ok: true };
+}
+
 /** Abandonner — 0 point, et toujours réversible (specs §4.2). */
 export async function abandonReading(readingId: string): Promise<JournalActionResult> {
   const session = await getSessionOrError();

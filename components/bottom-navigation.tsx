@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, BookOpen, ScanBarcode, User } from "lucide-react";
+import { BarChart3, BookOpen, Layers, ScanBarcode, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -11,6 +11,7 @@ import { usePathname } from "next/navigation";
 const TABS = [
   { href: "/", label: "Scanner", icon: ScanBarcode },
   { href: "/journal", label: "Journal", icon: BookOpen },
+  { href: "/pal", label: "PAL", icon: Layers },
   { href: "/bilan", label: "Bilan", icon: BarChart3 },
   { href: "/profil", label: "Profil", icon: User },
 ] as const;
