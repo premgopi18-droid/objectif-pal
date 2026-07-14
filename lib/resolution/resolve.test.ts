@@ -57,7 +57,7 @@ function fakeDeps(overrides: {
 }
 
 describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
-  it("une BD franco-belge se résout en base, catégorie bd, sans mise en cache", async () => {
+  it("une BD franco-belge se résout en base, catégorie bd, sans mise en cache quand rien ne l'enrichit", async () => {
     const deps = fakeDeps({
       gcd: {
         findIssuesByIsbn: vi.fn(async () => [gcdIssue({ isbn: "9782203001114", barcode: null, title: "Tintin et les Picaros" })]),
@@ -70,7 +70,8 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
       kind: "resolved",
       book: { suggestedCategory: "bd", source: "gcd", seriesName: "Les Aventures de Tintin" },
     });
-    // GCD est déjà en base : le cache ne stocke QUE les résolutions externes (specs §6).
+    // GCD est déjà en base et l'enrichissement (Google Books muet ici) n'a
+    // rien rapporté : rien à cacher — on retentera la couverture au prochain scan.
     expect(deps.cache.set).not.toHaveBeenCalled();
   });
 
@@ -99,6 +100,34 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
       kind: "resolved",
       book: { suggestedCategory: "omnibus", coverUrl: "https://static.metron.cloud/cover.jpg" },
     });
+    // L'enrichissement Metron a coûté du réseau : il part dans barcode_cache
+    // sous la source gcd — le rescan ne repaiera pas ces appels (specs §8).
+    expect(deps.cache.set).toHaveBeenCalledWith(
+      expect.objectContaining({ barcode: "9781302915704", source: "gcd", coverUrl: "https://static.metron.cloud/cover.jpg" }),
+    );
+  });
+
+  it("la clé de cache d'un ISBN est l'EAN-13 : le supplément prix ne crée pas de seconde entrée", async () => {
+    const deps = fakeDeps({
+      googleBooks: {
+        resolveIsbn: vi.fn(async () => ({
+          title: "The Martian",
+          authors: "Andy Weir",
+          publisher: "Crown",
+          pageCount: 369,
+          coverUrl: null,
+          categories: ["Fiction"],
+          volumeId: "martian",
+        })),
+      },
+    });
+    // Scanné AVEC le supplément prix (18 chiffres) : lecture ET écriture du
+    // cache se font sur l'EAN-13 seul — le prix est jeté (specs §5.1).
+    const result = await resolveScannedCode("978080413902151095", deps);
+
+    expect(result).toMatchObject({ kind: "resolved", book: { source: "google_books" } });
+    expect(deps.cache.get).toHaveBeenCalledWith("9780804139021");
+    expect(deps.cache.set).toHaveBeenCalledWith(expect.objectContaining({ barcode: "9780804139021" }));
   });
 
   it("un manga VF absent de GCD est identifié par la BnF, habillé par Google Books, et mis en cache", async () => {
@@ -165,6 +194,30 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
     expect(await resolveScannedCode("9799999999990", fakeDeps())).toEqual({ kind: "not-found" });
   });
 
+  it("budget global épuisé : on n'essaie plus les providers restants, on rend not-found", async () => {
+    vi.useFakeTimers();
+    try {
+      const deps = fakeDeps({
+        // La BnF « prend » 11 s (on avance l'horloge) : le budget de la
+        // cascade est dépassé — Google Books ne doit plus être tenté.
+        bnf: {
+          resolveIsbn: vi.fn(async () => {
+            vi.advanceTimersByTime(11_000);
+            return null;
+          }),
+        },
+        googleBooks: { resolveIsbn: vi.fn(async () => null) },
+      });
+      const result = await resolveScannedCode("9780804139021", deps);
+
+      expect(result).toEqual({ kind: "not-found" });
+      expect(deps.bnf.resolveIsbn).toHaveBeenCalled();
+      expect(deps.googleBooks.resolveIsbn).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it("une source qui JETTE ne casse rien : on descend d'un cran (dégradation douce, §8)", async () => {
     const deps = fakeDeps({
       gcd: { findIssuesByIsbn: vi.fn(async () => Promise.reject(new Error("base indisponible"))) },
@@ -212,6 +265,9 @@ describe("la cascade UPC (GCD exact → préfixe → Metron)", () => {
       kind: "resolved",
       book: { suggestedCategory: "issue", source: "gcd", coverUrl: "https://static.metron.cloud/nightwing.jpg" },
     });
+    // L'enrichissement Metron est caché sous le code BRUT : sur un UPC, le
+    // supplément est signifiant (numéro, couverture, tirage — specs §5.1).
+    expect(deps.cache.set).toHaveBeenCalledWith(expect.objectContaining({ barcode: "76194134174312311", source: "gcd" }));
   });
 
   it("un préfixe net rend « quel numéro ? » : les issues de la série, triées", async () => {

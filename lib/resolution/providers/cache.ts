@@ -4,8 +4,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 /**
  * Le cache de résolutions (`barcode_cache`) — NOTRE table, celle qui grossit
  * toute seule : tout ce que la BnF, Google Books ou Metron ont résolu une
- * fois y reste pour toujours (specs §6). Jamais une résolution GCD : GCD est
- * déjà en base, et cette table-là survit aux refreshs du dump.
+ * fois y reste pour toujours (specs §6), et cette table-là survit aux
+ * refreshs du dump. Les résolutions GCD y entrent aussi, mais UNIQUEMENT une
+ * fois enrichies (couverture Metron / Google Books) : ce n'est pas la ligne
+ * GCD qu'on cache — elle est déjà en base, gratuite — c'est son
+ * ENRICHISSEMENT, qui coûte 2-3 appels réseau à chaque scan sinon.
  */
 
 type CacheRow = {

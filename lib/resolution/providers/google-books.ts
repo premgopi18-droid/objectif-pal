@@ -5,8 +5,9 @@
  * le provider se déclare simplement muet et la cascade continue.
  */
 
+import { PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
+
 const GOOGLE_BOOKS_ENDPOINT = "https://www.googleapis.com/books/v1/volumes";
-const REQUEST_TIMEOUT_MILLISECONDS = 8000;
 
 export type GoogleBooksRecord = {
   title: string | null;
@@ -40,7 +41,7 @@ export function createGoogleBooksProvider(
 
       const url = `${GOOGLE_BOOKS_ENDPOINT}?q=isbn:${isbn}&key=${apiKey}`;
       const response = await fetchImplementation(url, {
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MILLISECONDS),
+        signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS),
       });
       if (!response.ok) throw new Error(`Google Books : HTTP ${response.status}`);
 

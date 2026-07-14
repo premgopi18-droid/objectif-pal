@@ -8,6 +8,15 @@ import type { BookCategory } from "@/lib/scoring/types";
 
 export type MetadataSource = "gcd" | "bnf" | "google_books" | "metron" | "manual";
 
+/**
+ * Timeout d'UN appel provider (BnF, Google Books, Metron) — partagé, jamais
+ * recopié. 4 s suffisent largement : le cas normal mesuré est 300-800 ms
+ * (specs §8) ; au-delà, la source est considérée en rade et la cascade
+ * descend d'un cran plutôt que de laisser l'utilisateur devant
+ * « Résolution en cours… ».
+ */
+export const PROVIDER_REQUEST_TIMEOUT_MILLISECONDS = 4000;
+
 /** Un livre résolu, normalisé quelle que soit la source. */
 export type ResolvedBook = {
   title: string | null;
@@ -61,7 +70,13 @@ export type ScanLookupResult =
   /** Pas un code exploitable (trop court, illisible). */
   | { kind: "invalid" };
 
-/** Une entrée du cache de résolutions (`barcode_cache`) — jamais un résultat GCD. */
+/**
+ * Une entrée du cache de résolutions (`barcode_cache`). Y entrent les
+ * résolutions externes (BnF, Google Books, Metron) ET les résolutions GCD
+ * une fois ENRICHIES (couverture Metron / Google Books) : la ligne GCD est
+ * déjà en base, mais son enrichissement coûte 2-3 appels réseau — c'est lui
+ * qu'on ne veut jamais repayer (specs §8).
+ */
 export type CacheEntry = {
   barcode: string;
   title: string | null;
@@ -71,6 +86,6 @@ export type CacheEntry = {
   publisher: string | null;
   pageCount: number | null;
   coverUrl: string | null;
-  source: Exclude<MetadataSource, "gcd" | "manual">;
+  source: Exclude<MetadataSource, "manual">;
   sourceId: string | null;
 };

@@ -1,4 +1,5 @@
 import { normalizeUpcForMetron } from "@/lib/resolution/barcode-router";
+import { PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
 
 /**
  * Le provider Metron — enrichit la VO : couverture + `series_type` (le signal
@@ -12,7 +13,6 @@ import { normalizeUpcForMetron } from "@/lib/resolution/barcode-router";
  */
 
 const METRON_ENDPOINT = "https://metron.cloud/api";
-const REQUEST_TIMEOUT_MILLISECONDS = 8000;
 
 export type MetronIssue = {
   metronId: number;
@@ -53,7 +53,7 @@ export function createMetronProvider(
     if (!authorization) throw new Error("Identifiants Metron non configurés");
     const response = await fetchImplementation(`${METRON_ENDPOINT}${path}`, {
       headers: { Authorization: authorization, "User-Agent": "objectif-pal" },
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MILLISECONDS),
+      signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS),
     });
     if (!response.ok) throw new Error(`Metron : HTTP ${response.status}`);
     return (await response.json()) as T;

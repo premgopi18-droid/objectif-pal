@@ -11,6 +11,11 @@
 // /wasm/), incrémenter CACHE_NAME : sinon les clients gardent l'ancien
 // binaire en cache, désynchronisé du JS — erreurs imprévisibles au scan.
 const CACHE_NAME = "objectif-pal-shell-v2";
+// ⚠️ "/" est du HTML AUTHENTIFIÉ : la déconnexion purge tous les caches
+// (components/logout-button.tsx). Icônes et WASM se re-remplissent au fil des
+// fetchs ; la coquille "/", elle, n'est re-précachée qu'à la prochaine
+// installation du SW (prochain déploiement) — hors ligne dégradé d'ici là,
+// assumé : la vie privée d'un appareil partagé passe d'abord.
 const SHELL_ASSETS = ["/", "/icons/icon-192.png", "/icons/icon-512.png", "/wasm/zxing_reader.wasm"];
 
 self.addEventListener("install", (event) => {
