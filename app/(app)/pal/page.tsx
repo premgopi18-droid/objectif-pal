@@ -41,11 +41,15 @@ export default async function PalPage() {
     if (!isOwned) continue;
 
     purchaseDates.push(...purchases.map((purchase) => purchase.purchased_at));
-    ownedFinishedDates.push(
-      ...readings
-        .filter((reading) => reading.status === "finished" && reading.finished_at !== null)
-        .map((reading) => reading.finished_at as string),
-    );
+
+    // UNE sortie de pile par livre : sa PREMIÈRE fin de lecture. Les relectures
+    // re-rapportent leurs points (§4.2) mais ne re-vident pas la pile — sinon
+    // la courbe de PAL fondrait artificiellement (§4.5, review #19).
+    const firstFinishedDate = readings
+      .filter((reading) => reading.status === "finished" && reading.finished_at !== null)
+      .map((reading) => reading.finished_at as string)
+      .sort()[0];
+    if (firstFinishedDate) ownedFinishedDates.push(firstFinishedDate);
 
     const isFinished = readings.some((reading) => reading.status === "finished");
     if (isFinished) continue; // sorti de la pile — l'achat, lui, reste dans l'historique
