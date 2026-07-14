@@ -48,6 +48,7 @@ export function MonthlyReportView({ readings, purchases }: MonthlyReportViewProp
   const currentMonth = localCurrentMonth();
   const [month, setMonth] = useState(currentMonth);
   const [isCopied, setIsCopied] = useState(false);
+  const [copyFallbackText, setCopyFallbackText] = useState<string | null>(null);
 
   const report = useMemo(
     () => computeMonthlyReport(month, { readings, purchases }),
@@ -59,9 +60,17 @@ export function MonthlyReportView({ readings, purchases }: MonthlyReportViewProp
   );
 
   async function copyReport() {
-    await navigator.clipboard.writeText(reportToText(report));
-    setIsCopied(true);
-    setTimeout(() => setIsCopied(false), 2000);
+    // Le presse-papiers peut rejeter (permission, focus, navigateur) : pour LE
+    // bouton du livrable, un échec muet est interdit — le texte s'affiche alors
+    // dans une zone sélectionnable, toujours récupérable.
+    try {
+      await navigator.clipboard.writeText(reportToText(report));
+      setIsCopied(true);
+      setCopyFallbackText(null);
+      setTimeout(() => setIsCopied(false), 2000);
+    } catch {
+      setCopyFallbackText(reportToText(report));
+    }
   }
 
   return (
@@ -124,6 +133,21 @@ export function MonthlyReportView({ readings, purchases }: MonthlyReportViewProp
         {isCopied ? <Check aria-hidden className="size-5" /> : <Copy aria-hidden className="size-5" />}
         {isCopied ? "Copié !" : "Copier pour l'antenne"}
       </button>
+
+      {copyFallbackText && (
+        <div className="flex flex-col gap-1.5">
+          <p role="alert" className="text-sm opacity-80">
+            La copie automatique a été bloquée — sélectionne le texte ci-dessous :
+          </p>
+          <textarea
+            readOnly
+            value={copyFallbackText}
+            rows={copyFallbackText.split("\n").length}
+            onFocus={(event) => event.target.select()}
+            className="rounded-md border border-foreground/20 bg-transparent p-3 font-mono text-sm"
+          />
+        </div>
+      )}
     </div>
   );
 }

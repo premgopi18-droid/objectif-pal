@@ -45,5 +45,6 @@ export function localCurrentMonth(): string {
 export function addMonths(month: string, offset: number): string {
   const [year, monthNumber] = month.split("-").map(Number);
   const total = year * 12 + (monthNumber - 1) + offset;
-  return `${Math.floor(total / 12)}-${String((total % 12) + 1).padStart(2, "0")}`;
+  // Le double modulo protège des totaux négatifs (théorique, mais gratuit).
+  return `${Math.floor(total / 12)}-${String((((total % 12) + 12) % 12) + 1).padStart(2, "0")}`;
 }
