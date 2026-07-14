@@ -15,7 +15,7 @@ import { ManualEntryForm } from "./manual-entry-form";
 
 type ScanState =
   | { step: "scan"; notice?: string }
-  | { step: "loading" }
+  | { step: "loading"; code: string }
   | { step: "sheet"; book: ResolvedBook; scannedCode: string | null; error?: string }
   | { step: "pick-issue"; seriesName: string; issues: IssueCandidate[]; scannedCode: string }
   | { step: "pick-series"; candidates: SeriesCandidate[]; scannedCode: string }
@@ -45,7 +45,7 @@ export function ScanScreen() {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const lookup = useCallback(async (code: string) => {
-    setState({ step: "loading" });
+    setState({ step: "loading", code });
     try {
       const response = await fetch(`/api/lookup/${encodeURIComponent(code)}`);
       if (response.status === 401) {
@@ -70,7 +70,7 @@ export function ScanScreen() {
   }, []);
 
   const resolvePickedIssue = useCallback(async (gcdId: number, scannedCode: string) => {
-    setState({ step: "loading" });
+    setState({ step: "loading", code: scannedCode });
     try {
       const response = await fetch(`/api/lookup/gcd/${gcdId}`);
       const result = (await response.json()) as ScanLookupResult;
@@ -112,7 +112,14 @@ export function ScanScreen() {
   }
 
   if (state.step === "loading") {
-    return <p className="py-24 text-center text-sm opacity-70">Résolution en cours…</p>;
+    return (
+      <div className="py-24 text-center">
+        <p className="text-sm opacity-70">Résolution en cours…</p>
+        <p className="mt-2 font-mono text-sm opacity-50">
+          {state.code} · {state.code.length} chiffres
+        </p>
+      </div>
+    );
   }
 
   if (state.step === "sheet") {

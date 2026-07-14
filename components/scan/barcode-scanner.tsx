@@ -116,7 +116,7 @@ export function BarcodeScanner({ onCode }: BarcodeScannerProps) {
       <div aria-hidden className="pointer-events-none absolute inset-x-8 top-1/2 h-24 -translate-y-1/2 rounded-lg border-2 border-amber-500/80" />
       {pendingDisplay && (
         <p className="absolute inset-x-0 bottom-3 text-center text-sm font-medium text-white/90">
-          Code lu — cadre aussi les petits chiffres à droite…
+          <code className="font-mono">{pendingDisplay}</code> — cadre aussi les petits chiffres à droite…
         </p>
       )}
     </div>

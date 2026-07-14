@@ -83,6 +83,12 @@ export function BookActionSheet({ book, scannedCode, onStartReading, onPurchase,
           </p>
           {book.pageCount !== null && <p className="text-sm opacity-70">{book.pageCount} pages</p>}
           {book.authors && <p className="truncate text-sm opacity-70">{book.authors}</p>}
+          {(scannedCode ?? book.barcode) && (
+            <p className="mt-1 font-mono text-xs opacity-50">
+              {scannedCode ?? book.barcode}
+              {scannedCode && ` · ${scannedCode.length} chiffres`}
+            </p>
+          )}
         </div>
       </div>
 
