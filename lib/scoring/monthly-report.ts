@@ -1,4 +1,5 @@
 import { SCORING_SCALE } from "./scale";
+import { ALL_CATEGORIES } from "./types";
 import type {
   BookCategory,
   IsoDate,
@@ -18,8 +19,6 @@ import type {
  * périmé), ce qui est aussi la raison pour laquelle l'app n'a aucune tâche
  * planifiée de « clôture ».
  */
-
-const ALL_CATEGORIES: readonly BookCategory[] = ["issue", "manga", "bd", "comics", "omnibus", "roman"];
 
 /** `2026-07-13` → `2026-07`. */
 const monthOf = (date: IsoDate): Month => date.slice(0, 7);

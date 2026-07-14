@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getSessionOrError, type createServerSupabaseClient } from "@/lib/supabase/server";
+import { isValidIsoDate } from "@/lib/dates";
+import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
+import { getReadingInProgressError } from "@/lib/books/reading-guards";
 import type { BookCategory } from "@/lib/scoring/types";
 
 /**
@@ -36,7 +39,6 @@ export type ScanActionResult =
   | { ok: true; bookAlreadyExisted: boolean; isRereading?: boolean }
   | { ok: false; error: string };
 
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 const BARCODE_PREFIX_LENGTH = 12;
 
 /**
@@ -45,7 +47,7 @@ const BARCODE_PREFIX_LENGTH = 12;
  * Paris — exactement le bug de bilan que les specs §7 interdisent.
  */
 function validateDate(date: string): string | null {
-  return ISO_DATE_PATTERN.test(date) ? date : null;
+  return isValidIsoDate(date) ? date : null;
 }
 
 function validateBook(input: BookInput): string | null {
@@ -73,12 +75,18 @@ async function findOrCreateBook(
       .eq("user_id", userId)
       .eq("barcode_raw", input.barcodeRaw)
       .maybeSingle();
-    if (error) return { error: error.message };
+    if (error) {
+      console.error("[books] findOrCreateBook:", error.message);
+      return { error: GENERIC_ERROR_MESSAGE };
+    }
 
     if (existing) {
       if (existing.deleted_at !== null) {
         const { error: reviveError } = await supabase.from("books").update({ deleted_at: null }).eq("id", existing.id);
-        if (reviveError) return { error: reviveError.message };
+        if (reviveError) {
+          console.error("[books] findOrCreateBook:", reviveError.message);
+          return { error: GENERIC_ERROR_MESSAGE };
+        }
       }
       return { bookId: existing.id, alreadyExisted: true };
     }
@@ -105,18 +113,19 @@ async function findOrCreateBook(
     })
     .select("id")
     .single();
-  if (insertError) return { error: insertError.message };
+  if (insertError) {
+    console.error("[books] findOrCreateBook:", insertError.message);
+    return { error: GENERIC_ERROR_MESSAGE };
+  }
 
   return { bookId: created.id, alreadyExisted: false };
 }
 
 /** « Je commence » — crée une lecture ; 0 point pour l'instant (specs §4.1). */
 export async function startReading(input: BookInput, startedAt: string): Promise<ScanActionResult> {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Authentification requise." };
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+  const { supabase, user } = session;
 
   const invalid = validateBook(input);
   if (invalid) return { ok: false, error: invalid };
@@ -126,19 +135,8 @@ export async function startReading(input: BookInput, startedAt: string): Promise
   const book = await findOrCreateBook(supabase, user.id, input);
   if ("error" in book) return { ok: false, error: book.error };
 
-  // Une lecture déjà en cours sur ce livre : on ne double pas — on le dit.
-  const { data: inProgress, error: inProgressError } = await supabase
-    .from("readings")
-    .select("id")
-    .eq("user_id", user.id)
-    .eq("book_id", book.bookId)
-    .eq("status", "reading")
-    .is("deleted_at", null)
-    .limit(1);
-  if (inProgressError) return { ok: false, error: inProgressError.message };
-  if (inProgress.length > 0) {
-    return { ok: false, error: "Tu as déjà ce livre en cours de lecture." };
-  }
+  const inProgressError = await getReadingInProgressError(supabase, user.id, book.bookId);
+  if (inProgressError) return { ok: false, error: inProgressError };
 
   // Relire = une NOUVELLE lecture du même livre (specs §4.2) — permise, signalée.
   const { count: finishedCount, error: finishedError } = await supabase
@@ -148,7 +146,10 @@ export async function startReading(input: BookInput, startedAt: string): Promise
     .eq("book_id", book.bookId)
     .eq("status", "finished")
     .is("deleted_at", null);
-  if (finishedError) return { ok: false, error: finishedError.message };
+  if (finishedError) {
+    console.error("[books] startReading:", finishedError.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
 
   // Le trigger en base écrit reading_events tout seul, atomiquement.
   const { error: readingError } = await supabase.from("readings").insert({
@@ -157,7 +158,10 @@ export async function startReading(input: BookInput, startedAt: string): Promise
     status: "reading",
     started_at: date,
   });
-  if (readingError) return { ok: false, error: readingError.message };
+  if (readingError) {
+    console.error("[books] startReading:", readingError.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
 
   revalidatePath("/journal");
   return { ok: true, bookAlreadyExisted: book.alreadyExisted, isRereading: (finishedCount ?? 0) > 0 };
@@ -165,11 +169,9 @@ export async function startReading(input: BookInput, startedAt: string): Promise
 
 /** « Je l'achète » — crée un achat : −1 immédiat, effaçable (specs §4.1). */
 export async function recordPurchase(input: BookInput, purchasedAt: string): Promise<ScanActionResult> {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  if (!user) return { ok: false, error: "Authentification requise." };
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+  const { supabase, user } = session;
 
   const invalid = validateBook(input);
   if (invalid) return { ok: false, error: invalid };
@@ -184,7 +186,10 @@ export async function recordPurchase(input: BookInput, purchasedAt: string): Pro
     book_id: book.bookId,
     purchased_at: date,
   });
-  if (purchaseError) return { ok: false, error: purchaseError.message };
+  if (purchaseError) {
+    console.error("[books] recordPurchase:", purchaseError.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
 
   revalidatePath("/journal");
   revalidatePath("/bilan");

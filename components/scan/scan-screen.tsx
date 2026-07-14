@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useState } from "react";
+import { ErrorAlert } from "@/components/error-alert";
 import { startReading, recordPurchase, type BookInput, type ScanActionResult } from "@/lib/books/actions";
+import { SCORING_SCALE } from "@/lib/scoring/scale";
 import type { IssueCandidate, ResolvedBook, ScanLookupResult, SeriesCandidate } from "@/lib/resolution/types";
 import { BarcodeScanner } from "./barcode-scanner";
 import { BookActionSheet } from "./book-action-sheet";
@@ -21,6 +23,9 @@ type ScanState =
   | { step: "pick-series"; candidates: SeriesCandidate[]; scannedCode: string }
   | { step: "manual"; scannedCode: string | null }
   | { step: "done"; message: string; detail: string | null };
+
+/** Le malus affiché vient du barème — jamais recopié en dur (CLAUDE.md). */
+const PENALTY_POINTS = Math.abs(SCORING_SCALE.unreadPurchasePenalty);
 
 /** Un BookInput saisi à la main, présenté comme un livre résolu pour réutiliser la feuille d'actions. */
 const manualInputToBook = (input: BookInput): ResolvedBook => ({
@@ -125,17 +130,15 @@ export function ScanScreen() {
   if (state.step === "sheet") {
     return (
       <div className="flex flex-col gap-3">
-        {state.error && (
-          <p role="alert" className="rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-500">
-            {state.error}
-          </p>
-        )}
+        {state.error && <ErrorAlert message={state.error} />}
         <BookActionSheet
           book={state.book}
           scannedCode={state.scannedCode}
           isSubmitting={isSubmitting}
           onStartReading={(input, date) => performAction(startReading, input, date, "Lecture commencée !")}
-          onPurchase={(input, date) => performAction(recordPurchase, input, date, "Achat enregistré (−1, effaçable).")}
+          onPurchase={(input, date) =>
+            performAction(recordPurchase, input, date, `Achat enregistré (−${PENALTY_POINTS}, effaçable).`)
+          }
           onCancel={() => setState({ step: "scan" })}
         />
       </div>

@@ -1,6 +1,5 @@
 "use client";
 
-import Image from "next/image";
 import { useState, useTransition } from "react";
 import {
   abandonReading,
@@ -11,7 +10,10 @@ import {
   updateReadingDetails,
   type JournalActionResult,
 } from "@/lib/books/journal-actions";
+import { BookCover } from "@/components/book-cover";
+import { ErrorAlert } from "@/components/error-alert";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
+import { formatBookSubtitle } from "@/lib/books/format";
 import { formatDateFrench, localToday } from "@/lib/dates";
 import type { BookCategory } from "@/lib/scoring/types";
 
@@ -95,11 +97,7 @@ export function JournalList({ entries }: { entries: JournalEntry[] }) {
         ))}
       </div>
 
-      {error && (
-        <p role="alert" className="rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-500">
-          {error}
-        </p>
-      )}
+      {error && <ErrorAlert message={error} />}
 
       <ul className="flex flex-col gap-3">
         {visible.map((entry) => (
@@ -121,25 +119,12 @@ function JournalItem({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const badge = STATUS_BADGES[entry.status];
-  const subtitle = [
-    entry.book.series_name && entry.book.issue_number
-      ? `${entry.book.series_name} #${entry.book.issue_number}`
-      : entry.book.series_name,
-    CATEGORY_LABELS[entry.book.category],
-  ]
-    .filter(Boolean)
-    .join(" · ");
+  const subtitle = formatBookSubtitle(entry.book.series_name, entry.book.issue_number, CATEGORY_LABELS[entry.book.category]);
 
   return (
     <li className="rounded-xl border border-foreground/10 p-3">
       <div className="flex gap-3">
-        {entry.book.cover_url ? (
-          <Image src={entry.book.cover_url} alt="" width={48} height={72} className="h-18 w-12 shrink-0 rounded object-cover" unoptimized />
-        ) : (
-          <div aria-hidden className="flex h-18 w-12 shrink-0 items-center justify-center rounded bg-foreground/10">
-            📖
-          </div>
-        )}
+        <BookCover coverUrl={entry.book.cover_url} size="small" placeholderEmoji="📖" />
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">

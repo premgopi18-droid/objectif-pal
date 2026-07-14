@@ -34,3 +34,12 @@ export async function getAuthenticatedUser() {
   } = await supabase.auth.getUser();
   return user;
 }
+
+/** Client + utilisateur de la session courante, ou null — le garde des Server Actions. */
+export async function getSessionOrError() {
+  const supabase = await createServerSupabaseClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  return user ? ({ supabase, user } as const) : null;
+}

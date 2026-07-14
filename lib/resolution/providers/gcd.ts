@@ -8,7 +8,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 /** `language_id` de GCD (table `stddata_language` du dump). */
 export const GCD_LANGUAGE_FRENCH = 34;
-export const GCD_LANGUAGE_ENGLISH = 25;
 
 export type GcdIssue = {
   gcdId: number;

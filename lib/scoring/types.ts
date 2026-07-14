@@ -15,6 +15,9 @@
 /** Les six catégories du barème — miroir de l'enum `book_category` en base. */
 export type BookCategory = "issue" | "manga" | "bd" | "comics" | "omnibus" | "roman";
 
+/** Les six catégories dans l'ordre d'affichage — LA source unique, jamais redéfinie ailleurs. */
+export const ALL_CATEGORIES: readonly BookCategory[] = ["issue", "manga", "bd", "comics", "omnibus", "roman"];
+
 /** Miroir de l'enum `reading_status` en base. */
 export type ReadingStatus = "reading" | "finished" | "abandoned";
 

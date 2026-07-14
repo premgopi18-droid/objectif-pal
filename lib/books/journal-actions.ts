@@ -1,7 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getSessionOrError } from "@/lib/supabase/server";
+import { isValidIsoDate } from "@/lib/dates";
+import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
+import { getReadingInProgressError } from "@/lib/books/reading-guards";
 
 /**
  * Les gestes du journal — specs §4.1 et §4.2. Les transitions permises :
@@ -17,18 +20,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 export type JournalActionResult = { ok: true } | { ok: false; error: string };
 
-const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
-
 /** Note sur 5, demi-étoiles permises : un multiple de 0,5 entre 0,5 et 5. */
 const isValidRating = (rating: number) => rating >= 0.5 && rating <= 5 && rating * 2 === Math.trunc(rating * 2);
-
-async function getSessionOrError() {
-  const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  return user ? ({ supabase, user } as const) : null;
-}
 
 /**
  * Terminer une lecture — la date vient du CLIENT (la date locale de
@@ -37,7 +30,7 @@ async function getSessionOrError() {
 export async function finishReading(readingId: string, finishedAt: string): Promise<JournalActionResult> {
   const session = await getSessionOrError();
   if (!session) return { ok: false, error: "Authentification requise." };
-  if (!ISO_DATE_PATTERN.test(finishedAt)) return { ok: false, error: "Date de fin invalide." };
+  if (!isValidIsoDate(finishedAt)) return { ok: false, error: "Date de fin invalide." };
 
   const { error, count } = await session.supabase
     .from("readings")
@@ -46,7 +39,10 @@ export async function finishReading(readingId: string, finishedAt: string): Prom
     .eq("user_id", session.user.id)
     .in("status", ["reading", "abandoned"])
     .is("deleted_at", null);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("[journal] finishReading:", error.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
   if (!count) return { ok: false, error: "Lecture introuvable ou déjà terminée." };
 
   revalidatePath("/journal");
@@ -61,7 +57,7 @@ export async function finishReading(readingId: string, finishedAt: string): Prom
 export async function startReadingForBook(bookId: string, startedAt: string): Promise<JournalActionResult> {
   const session = await getSessionOrError();
   if (!session) return { ok: false, error: "Authentification requise." };
-  if (!ISO_DATE_PATTERN.test(startedAt)) return { ok: false, error: "Date de début invalide." };
+  if (!isValidIsoDate(startedAt)) return { ok: false, error: "Date de début invalide." };
 
   // Le livre doit exister et être à soi (la RLS le garantit aussi, mais le
   // message est plus clair ici qu'une violation de FK).
@@ -72,19 +68,14 @@ export async function startReadingForBook(bookId: string, startedAt: string): Pr
     .eq("user_id", session.user.id)
     .is("deleted_at", null)
     .maybeSingle();
-  if (bookError) return { ok: false, error: bookError.message };
+  if (bookError) {
+    console.error("[journal] startReadingForBook:", bookError.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
   if (!book) return { ok: false, error: "Livre introuvable." };
 
-  const { data: inProgress, error: inProgressError } = await session.supabase
-    .from("readings")
-    .select("id")
-    .eq("user_id", session.user.id)
-    .eq("book_id", bookId)
-    .eq("status", "reading")
-    .is("deleted_at", null)
-    .limit(1);
-  if (inProgressError) return { ok: false, error: inProgressError.message };
-  if (inProgress.length > 0) return { ok: false, error: "Tu as déjà ce livre en cours de lecture." };
+  const inProgressError = await getReadingInProgressError(session.supabase, session.user.id, bookId);
+  if (inProgressError) return { ok: false, error: inProgressError };
 
   const { error } = await session.supabase.from("readings").insert({
     user_id: session.user.id,
@@ -92,7 +83,10 @@ export async function startReadingForBook(bookId: string, startedAt: string): Pr
     status: "reading",
     started_at: startedAt,
   });
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("[journal] startReadingForBook:", error.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
 
   revalidatePath("/journal");
   revalidatePath("/pal");
@@ -111,7 +105,10 @@ export async function abandonReading(readingId: string): Promise<JournalActionRe
     .eq("user_id", session.user.id)
     .eq("status", "reading")
     .is("deleted_at", null);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("[journal] abandonReading:", error.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
   if (!count) return { ok: false, error: "Seule une lecture en cours peut être abandonnée." };
 
   revalidatePath("/journal");
@@ -130,7 +127,10 @@ export async function resumeReading(readingId: string): Promise<JournalActionRes
     .eq("user_id", session.user.id)
     .eq("status", "abandoned")
     .is("deleted_at", null);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("[journal] resumeReading:", error.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
   if (!count) return { ok: false, error: "Seule une lecture abandonnée peut être reprise." };
 
   revalidatePath("/journal");
@@ -153,7 +153,10 @@ export async function reopenReading(readingId: string): Promise<JournalActionRes
     .eq("user_id", session.user.id)
     .eq("status", "finished")
     .is("deleted_at", null);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("[journal] reopenReading:", error.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
   if (!count) return { ok: false, error: "Seule une lecture terminée peut repasser en cours." };
 
   revalidatePath("/journal");
@@ -177,8 +180,8 @@ export async function updateReadingDetails(
   const session = await getSessionOrError();
   if (!session) return { ok: false, error: "Authentification requise." };
 
-  if (!ISO_DATE_PATTERN.test(details.startedAt)) return { ok: false, error: "Date de début invalide." };
-  if (details.finishedAt !== null && !ISO_DATE_PATTERN.test(details.finishedAt)) {
+  if (!isValidIsoDate(details.startedAt)) return { ok: false, error: "Date de début invalide." };
+  if (details.finishedAt !== null && !isValidIsoDate(details.finishedAt)) {
     return { ok: false, error: "Date de fin invalide." };
   }
   if (details.rating !== null && !isValidRating(details.rating)) {
@@ -194,7 +197,10 @@ export async function updateReadingDetails(
     .eq("user_id", session.user.id)
     .is("deleted_at", null)
     .maybeSingle();
-  if (readError) return { ok: false, error: readError.message };
+  if (readError) {
+    console.error("[journal] updateReadingDetails:", readError.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
   if (!current) return { ok: false, error: "Lecture introuvable." };
   if (current.status === "finished" && details.finishedAt === null) {
     return { ok: false, error: "Une lecture terminée garde une date de fin." };
@@ -210,7 +216,10 @@ export async function updateReadingDetails(
     })
     .eq("id", readingId)
     .eq("user_id", session.user.id);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("[journal] updateReadingDetails:", error.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
 
   revalidatePath("/journal");
   revalidatePath("/bilan");
@@ -228,7 +237,10 @@ export async function softDeleteReading(readingId: string): Promise<JournalActio
     .eq("id", readingId)
     .eq("user_id", session.user.id)
     .is("deleted_at", null);
-  if (error) return { ok: false, error: error.message };
+  if (error) {
+    console.error("[journal] softDeleteReading:", error.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
   if (!count) return { ok: false, error: "Lecture introuvable." };
 
   revalidatePath("/journal");
