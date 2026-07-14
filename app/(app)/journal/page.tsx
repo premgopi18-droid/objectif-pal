@@ -1,11 +1,50 @@
-/** Le journal des lectures (specs §4.2) — l'écran arrive avec le scan. */
-export default function JournalPage() {
+import { JournalList, type JournalEntry } from "@/components/journal/journal-list";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
+
+/**
+ * Le journal — specs §4.2 : tout ce que je lis et ai lu, avec les états, les
+ * dates, et le geste qui rapporte les points (« Terminé », un tap). Lu avec le
+ * client SESSION : la RLS ne montre que les lectures de l'utilisateur.
+ */
+export default async function JournalPage() {
+  const supabase = await createServerSupabaseClient();
+
+  const { data, error } = await supabase
+    .from("readings")
+    .select(
+      `id, status, started_at, finished_at, rating, comment,
+       book:books (title, series_name, issue_number, category, cover_url, page_count)`,
+    )
+    .is("deleted_at", null)
+    .order("started_at", { ascending: false })
+    .order("created_at", { ascending: false });
+
+  if (error) {
+    return (
+      <section className="py-6">
+        <h1 className="text-2xl font-bold">Journal</h1>
+        <p role="alert" className="mt-3 text-sm text-red-500">
+          Impossible de charger le journal — réessaie.
+        </p>
+      </section>
+    );
+  }
+
+  // Supabase type l'embed en tableau ; la FK garantit un seul livre.
+  const entries: JournalEntry[] = (data ?? []).map((row) => ({
+    id: row.id,
+    status: row.status,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+    rating: row.rating === null ? null : Number(row.rating),
+    comment: row.comment,
+    book: Array.isArray(row.book) ? row.book[0] : row.book,
+  }));
+
   return (
     <section className="py-6">
       <h1 className="text-2xl font-bold">Journal</h1>
-      <p className="mt-3 text-sm opacity-70">
-        Tes lectures — en cours, terminées, abandonnées — apparaîtront ici dès le premier scan.
-      </p>
+      <JournalList entries={entries} />
     </section>
   );
 }
