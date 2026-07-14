@@ -5,9 +5,19 @@
 
 const needsQuoting = /[",;\n\r]/;
 
+/**
+ * Excel (et consorts) EXÉCUTE une cellule qui commence par `=`, `+`, `-`, `@`,
+ * tabulation ou retour chariot : un avis « =HYPERLINK(…) » deviendrait une
+ * formule vivante à l'ouverture du fichier (injection CSV, OWASP). On préfixe
+ * d'une apostrophe — le marqueur « texte brut » d'Excel — les CHAÎNES seules :
+ * un nombre négatif doit rester un nombre.
+ */
+const formulaTriggers = /^[=+\-@\t\r]/;
+
 const escapeField = (value: unknown): string => {
   if (value === null || value === undefined) return "";
-  const text = typeof value === "object" ? JSON.stringify(value) : String(value);
+  let text = typeof value === "object" ? JSON.stringify(value) : String(value);
+  if (typeof value === "string" && formulaTriggers.test(text)) text = `'${text}`;
   return needsQuoting.test(text) ? `"${text.replace(/"/g, '""')}"` : text;
 };
 

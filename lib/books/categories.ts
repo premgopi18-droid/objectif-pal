@@ -10,4 +10,5 @@ export const CATEGORY_LABELS: Record<BookCategory, string> = {
   roman: "Roman",
 };
 
-export const ALL_CATEGORIES = Object.keys(CATEGORY_LABELS) as BookCategory[];
+// La liste elle-même vit avec le barème (source unique) — re-exportée ici par commodité.
+export { ALL_CATEGORIES } from "@/lib/scoring/types";

@@ -1,7 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { ALL_CATEGORIES, CATEGORY_LABELS } from "@/lib/books/categories";
+import { CategoryPicker } from "@/components/category-picker";
+import { EAN13_LENGTH, isBooklandCode } from "@/lib/resolution/barcode-router";
 import type { BookInput } from "@/lib/books/actions";
 import type { BookCategory } from "@/lib/scoring/types";
 
@@ -35,8 +36,8 @@ export function ManualEntryForm({ scannedCode, onSubmit, onCancel }: ManualEntry
       coverUrl: null,
       category,
       barcodeRaw: scannedCode,
-      barcodeType: scannedCode ? (/^97[89]/.test(scannedCode) ? "isbn" : "upc") : null,
-      isbn: scannedCode && /^97[89]/.test(scannedCode) ? scannedCode.slice(0, 13) : null,
+      barcodeType: scannedCode ? (isBooklandCode(scannedCode) ? "isbn" : "upc") : null,
+      isbn: scannedCode && isBooklandCode(scannedCode) ? scannedCode.slice(0, EAN13_LENGTH) : null,
       metadataSource: "manual",
       metadataSourceId: null,
     });
@@ -80,21 +81,7 @@ export function ManualEntryForm({ scannedCode, onSubmit, onCancel }: ManualEntry
 
       <fieldset>
         <legend className="mb-2 text-sm font-medium opacity-80">Catégorie</legend>
-        <div className="flex flex-wrap gap-2">
-          {ALL_CATEGORIES.map((candidate) => (
-            <button
-              key={candidate}
-              type="button"
-              onClick={() => setCategory(candidate)}
-              aria-pressed={category === candidate}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                category === candidate ? "bg-amber-500 text-black" : "border border-foreground/20 opacity-70"
-              }`}
-            >
-              {CATEGORY_LABELS[candidate]}
-            </button>
-          ))}
-        </div>
+        <CategoryPicker value={category} onChange={setCategory} />
       </fieldset>
 
       <div className="mt-2 flex gap-3">

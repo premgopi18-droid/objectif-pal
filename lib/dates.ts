@@ -3,6 +3,14 @@
  * Tout se fait en chaînes : zéro objet Date interprété en UTC, zéro décalage.
  */
 
+/** Une date du journal, `YYYY-MM-DD` — le FORMAT seul (le bornage mois/jour est un ticket séparé). */
+export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
+
+/** Vrai si la chaîne a la forme `YYYY-MM-DD` — la validation des Server Actions. */
+export function isValidIsoDate(value: string): boolean {
+  return ISO_DATE_PATTERN.test(value);
+}
+
 /** La date locale de l'APPAREIL — jamais celle du serveur (UTC). */
 export function localToday(): string {
   const now = new Date();

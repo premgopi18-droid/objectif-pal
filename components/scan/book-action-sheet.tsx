@@ -1,9 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import { useState } from "react";
-import { ALL_CATEGORIES, CATEGORY_LABELS } from "@/lib/books/categories";
+import { BookCover } from "@/components/book-cover";
+import { CategoryPicker } from "@/components/category-picker";
+import { formatBookSubtitle } from "@/lib/books/format";
 import { localToday } from "@/lib/dates";
+import { SCORING_SCALE } from "@/lib/scoring/scale";
 import type { BookInput } from "@/lib/books/actions";
 import type { ResolvedBook } from "@/lib/resolution/types";
 import type { BookCategory } from "@/lib/scoring/types";
@@ -14,6 +16,9 @@ import type { BookCategory } from "@/lib/scoring/types";
  * effets opposés sur le score). La catégorie proposée se corrige en un tap,
  * la date est pré-remplie à aujourd'hui mais modifiable.
  */
+
+/** Le malus affiché vient du barème — jamais recopié en dur (CLAUDE.md). */
+const PENALTY_POINTS = Math.abs(SCORING_SCALE.unreadPurchasePenalty);
 
 type BookActionSheetProps = {
   book: ResolvedBook;
@@ -50,20 +55,7 @@ export function BookActionSheet({ book, scannedCode, onStartReading, onPurchase,
   return (
     <section className="flex flex-col gap-5">
       <div className="flex gap-4">
-        {book.coverUrl ? (
-          <Image
-            src={book.coverUrl}
-            alt=""
-            width={96}
-            height={144}
-            className="h-36 w-24 shrink-0 rounded-md object-cover"
-            unoptimized
-          />
-        ) : (
-          <div aria-hidden className="flex h-36 w-24 shrink-0 items-center justify-center rounded-md bg-foreground/10 text-3xl">
-            📚
-          </div>
-        )}
+        <BookCover coverUrl={book.coverUrl} size="large" />
         <div className="min-w-0">
           <input
             aria-label="Titre"
@@ -72,9 +64,7 @@ export function BookActionSheet({ book, scannedCode, onStartReading, onPurchase,
             className="w-full rounded-md border border-foreground/20 bg-transparent px-2 py-1.5 font-semibold"
           />
           <p className="mt-1.5 truncate text-sm opacity-70">
-            {[book.seriesName && book.issueNumber ? `${book.seriesName} #${book.issueNumber}` : book.seriesName, book.publisher]
-              .filter(Boolean)
-              .join(" · ")}
+            {formatBookSubtitle(book.seriesName, book.issueNumber, book.publisher)}
           </p>
           {book.pageCount !== null && <p className="text-sm opacity-70">{book.pageCount} pages</p>}
           {book.authors && <p className="truncate text-sm opacity-70">{book.authors}</p>}
@@ -89,21 +79,7 @@ export function BookActionSheet({ book, scannedCode, onStartReading, onPurchase,
 
       <fieldset>
         <legend className="mb-2 text-sm font-medium opacity-80">Catégorie (proposée — corrige si besoin)</legend>
-        <div className="flex flex-wrap gap-2">
-          {ALL_CATEGORIES.map((candidate) => (
-            <button
-              key={candidate}
-              type="button"
-              onClick={() => setCategory(candidate)}
-              aria-pressed={category === candidate}
-              className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-                category === candidate ? "bg-amber-500 text-black" : "border border-foreground/20 opacity-70"
-              }`}
-            >
-              {CATEGORY_LABELS[candidate]}
-            </button>
-          ))}
-        </div>
+        <CategoryPicker value={category} onChange={setCategory} />
       </fieldset>
 
       <label className="flex items-center justify-between gap-3 text-sm">
@@ -131,7 +107,7 @@ export function BookActionSheet({ book, scannedCode, onStartReading, onPurchase,
           onClick={() => onPurchase(buildInput(), date)}
           className="rounded-full border-2 border-amber-500 px-6 py-4 text-lg font-semibold text-amber-500 transition-opacity disabled:opacity-50"
         >
-          Je l&apos;achète <span className="text-sm font-normal opacity-80">(−1 point, effaçable)</span>
+          Je l&apos;achète <span className="text-sm font-normal opacity-80">(−{PENALTY_POINTS} point, effaçable)</span>
         </button>
         <button type="button" onClick={onCancel} disabled={isSubmitting} className="py-2 text-sm opacity-60">
           Annuler

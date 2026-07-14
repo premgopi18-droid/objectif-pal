@@ -13,8 +13,13 @@ const BOOKLAND_PREFIXES = /^97[89]/;
 /** Longueurs : UPC-A nu, et UPC-A + supplément de 5. */
 const UPC_BASE_LENGTH = 12;
 const UPC_WITH_SUPPLEMENT_LENGTH = 17;
-const EAN13_LENGTH = 13;
+export const EAN13_LENGTH = 13;
 const MINIMUM_BARCODE_LENGTH = 8;
+
+/** Vrai si le code désigne un LIVRE (préfixe Bookland → ISBN). Pure, client-safe. */
+export function isBooklandCode(code: string): boolean {
+  return BOOKLAND_PREFIXES.test(code);
+}
 
 export type ScannedCode =
   | {

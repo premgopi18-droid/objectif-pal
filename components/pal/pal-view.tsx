@@ -1,9 +1,11 @@
 "use client";
 
-import Image from "next/image";
 import { useState, useTransition } from "react";
 import { startReadingForBook } from "@/lib/books/journal-actions";
+import { BookCover } from "@/components/book-cover";
+import { ErrorAlert } from "@/components/error-alert";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
+import { formatBookSubtitle } from "@/lib/books/format";
 import { formatDateFrench, localCurrentMonth, localToday } from "@/lib/dates";
 import type { BookCategory } from "@/lib/scoring/types";
 
@@ -70,11 +72,7 @@ export function PalView({ entries, purchaseDates, ownedFinishedDates }: PalViewP
         </div>
       </dl>
 
-      {error && (
-        <p role="alert" className="rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-500">
-          {error}
-        </p>
-      )}
+      {error && <ErrorAlert message={error} />}
 
       {entries.length === 0 ? (
         <p className="text-sm opacity-70">
@@ -84,22 +82,11 @@ export function PalView({ entries, purchaseDates, ownedFinishedDates }: PalViewP
         <ul className="flex flex-col gap-3">
           {entries.map((entry) => (
             <li key={entry.bookId} className="flex items-center gap-3 rounded-xl border border-foreground/10 p-3">
-              {entry.coverUrl ? (
-                <Image src={entry.coverUrl} alt="" width={48} height={72} className="h-18 w-12 shrink-0 rounded object-cover" unoptimized />
-              ) : (
-                <div aria-hidden className="flex h-18 w-12 shrink-0 items-center justify-center rounded bg-foreground/10">
-                  📚
-                </div>
-              )}
+              <BookCover coverUrl={entry.coverUrl} size="small" />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold leading-tight">{entry.title}</p>
                 <p className="mt-0.5 truncate text-sm opacity-70">
-                  {[
-                    entry.seriesName && entry.issueNumber ? `${entry.seriesName} #${entry.issueNumber}` : entry.seriesName,
-                    CATEGORY_LABELS[entry.category],
-                  ]
-                    .filter(Boolean)
-                    .join(" · ")}
+                  {formatBookSubtitle(entry.seriesName, entry.issueNumber, CATEGORY_LABELS[entry.category])}
                 </p>
                 <p className="text-xs opacity-60">Acheté le {formatDateFrench(entry.purchasedAt)}</p>
               </div>
