@@ -4,34 +4,25 @@ import { useState, useTransition } from "react";
 import { startReadingForBook } from "@/lib/books/journal-actions";
 import { BookCover } from "@/components/book-cover";
 import { ErrorAlert } from "@/components/error-alert";
+import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { formatBookSubtitle } from "@/lib/books/format";
 import { formatDateFrench, localCurrentMonth, localToday } from "@/lib/dates";
-import type { BookCategory } from "@/lib/scoring/types";
+import type { PalEntry } from "@/lib/pal/derive-pal";
 
 /**
  * La vue PAL — la pile à lire et sa santé (specs §4.5 et §4.6). Le geste :
  * un tap sur un livre non lu = « je le commence » (l'achat reste, la lecture
  * s'ajoute). Les sorties ne comptent QUE les livres possédés terminés — le
- * piège des deux dénominateurs (§4.5) : une lecture d'emprunt ne vide pas la pile.
+ * piège des deux dénominateurs (§4.5) : une lecture d'emprunt ne vide pas la
+ * pile. La sémantique (entrées, sorties, rachats) vit dans lib/pal/derive-pal.
  */
-
-export type PalEntry = {
-  bookId: string;
-  title: string;
-  seriesName: string | null;
-  issueNumber: string | null;
-  category: BookCategory;
-  coverUrl: string | null;
-  purchasedAt: string;
-  isInProgress: boolean;
-};
 
 type PalViewProps = {
   entries: PalEntry[];
-  /** Toutes les dates d'achat (les ENTRÉES de pile). */
+  /** Les dates d'ENTRÉE de pile (les achats, hors rachats de déjà-lus — cf. derivePal). */
   purchaseDates: string[];
-  /** Les dates de fin des lectures de livres POSSÉDÉS (les SORTIES de pile). */
+  /** Les dates de SORTIE de pile (une par livre possédé : sa première fin). */
   ownedFinishedDates: string[];
 };
 
@@ -48,8 +39,14 @@ export function PalView({ entries, purchaseDates, ownedFinishedDates }: PalViewP
   function startReading(bookId: string) {
     setError(null);
     startTransition(async () => {
-      const result = await startReadingForBook(bookId, localToday());
-      if (!result.ok) setError(result.error);
+      try {
+        const result = await startReadingForBook(bookId, localToday());
+        if (!result.ok) setError(result.error);
+      } catch {
+        // Serveur injoignable (réseau coupé) : la promesse de la Server Action
+        // rejette — sans ce catch, le geste échouerait en silence.
+        setError(NETWORK_ERROR_MESSAGE);
+      }
     });
   }
 

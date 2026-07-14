@@ -32,6 +32,24 @@ export async function finishReading(readingId: string, finishedAt: string): Prom
   if (!session) return { ok: false, error: "Authentification requise." };
   if (!isValidIsoDate(finishedAt)) return { ok: false, error: "Date de fin invalide." };
 
+  // Fin ≥ début (contrainte en base — le message est plus clair ici) : le cas
+  // réel est une date de début saisie dans le futur, puis un « Terminé » du jour.
+  const { data: current, error: readError } = await session.supabase
+    .from("readings")
+    .select("started_at")
+    .eq("id", readingId)
+    .eq("user_id", session.user.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (readError) {
+    console.error("[journal] finishReading:", readError.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+  if (!current) return { ok: false, error: "Lecture introuvable." };
+  if (finishedAt < current.started_at) {
+    return { ok: false, error: "La date de fin ne peut pas précéder la date de début." };
+  }
+
   const { error, count } = await session.supabase
     .from("readings")
     .update({ status: "finished", finished_at: finishedAt }, { count: "exact" })
@@ -120,6 +138,25 @@ export async function resumeReading(readingId: string): Promise<JournalActionRes
   const session = await getSessionOrError();
   if (!session) return { ok: false, error: "Authentification requise." };
 
+  // Une relecture du même livre peut déjà être en cours : le garde évite la
+  // violation de l'index unique (une seule lecture en cours par livre) et la
+  // remplace par un message clair. La lecture qu'on reprend est `abandoned`,
+  // elle ne se compte pas elle-même.
+  const { data: current, error: readError } = await session.supabase
+    .from("readings")
+    .select("book_id")
+    .eq("id", readingId)
+    .eq("user_id", session.user.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (readError) {
+    console.error("[journal] resumeReading:", readError.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+  if (!current) return { ok: false, error: "Lecture introuvable." };
+  const inProgressError = await getReadingInProgressError(session.supabase, session.user.id, current.book_id);
+  if (inProgressError) return { ok: false, error: inProgressError };
+
   const { error, count } = await session.supabase
     .from("readings")
     .update({ status: "reading" }, { count: "exact" })
@@ -145,6 +182,23 @@ export async function resumeReading(readingId: string): Promise<JournalActionRes
 export async function reopenReading(readingId: string): Promise<JournalActionResult> {
   const session = await getSessionOrError();
   if (!session) return { ok: false, error: "Authentification requise." };
+
+  // Même garde que resumeReading : une relecture en cours du même livre peut
+  // exister — la lecture qu'on rouvre est `finished`, elle ne se compte pas.
+  const { data: current, error: readError } = await session.supabase
+    .from("readings")
+    .select("book_id")
+    .eq("id", readingId)
+    .eq("user_id", session.user.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (readError) {
+    console.error("[journal] reopenReading:", readError.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+  if (!current) return { ok: false, error: "Lecture introuvable." };
+  const inProgressError = await getReadingInProgressError(session.supabase, session.user.id, current.book_id);
+  if (inProgressError) return { ok: false, error: inProgressError };
 
   const { error, count } = await session.supabase
     .from("readings")
@@ -187,6 +241,10 @@ export async function updateReadingDetails(
   if (details.rating !== null && !isValidRating(details.rating)) {
     return { ok: false, error: "La note va de 0,5 à 5, par demi-étoile." };
   }
+  // Fin ≥ début (contrainte en base — le message est plus clair ici).
+  if (details.finishedAt !== null && details.finishedAt < details.startedAt) {
+    return { ok: false, error: "La date de fin ne peut pas précéder la date de début." };
+  }
 
   // La date de fin d'une lecture terminée ne peut pas disparaître : c'est
   // elle qui date les points (contrainte en base, message plus clair ici).
@@ -204,6 +262,11 @@ export async function updateReadingDetails(
   if (!current) return { ok: false, error: "Lecture introuvable." };
   if (current.status === "finished" && details.finishedAt === null) {
     return { ok: false, error: "Une lecture terminée garde une date de fin." };
+  }
+  // Le miroir : seule une lecture terminée porte une date de fin (c'est elle
+  // qui date les points — contrainte en base, message plus clair ici).
+  if (current.status !== "finished" && details.finishedAt !== null) {
+    return { ok: false, error: "Seule une lecture terminée porte une date de fin." };
   }
 
   const { error } = await session.supabase
