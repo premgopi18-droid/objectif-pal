@@ -233,6 +233,30 @@ describe("la cascade UPC (GCD exact → préfixe → Metron)", () => {
     }
   });
 
+  it("les variantes de couverture sont dédupliquées : un numéro = une ligne, la principale gagne", async () => {
+    // Le cas vécu (Alias: Red Band) : GCD indexe chaque variante comme une
+    // ligne — sans déduplication, « quel numéro ? » affichait six fois le #1.
+    const deps = fakeDeps({
+      gcd: {
+        findIssuesByPrefix: vi.fn(async () => [
+          gcdIssue({ gcdId: 11, number: "1", barcode: "76194134174300121" }), // variante (cover 2)
+          gcdIssue({ gcdId: 10, number: "1", barcode: "76194134174300111" }), // principale
+          gcdIssue({ gcdId: 12, number: "1", barcode: "76194134174300131" }), // variante (cover 3)
+          gcdIssue({ gcdId: 20, number: "2", barcode: "76194134174300211" }),
+        ]),
+        getSeriesByIds: vi.fn(async () => new Map([[42, gcdSeries()]])),
+      },
+    });
+    const result = await resolveScannedCode("761941341743", deps);
+
+    expect(result.kind).toBe("pick-issue");
+    if (result.kind === "pick-issue") {
+      expect(result.issues.map((issue) => issue.number)).toEqual(["1", "2"]);
+      // Le représentant du #1 est la couverture principale (…00111) : gcd_id 10.
+      expect(result.issues[0].gcdId).toBe(10);
+    }
+  });
+
   it("un préfixe partagé rend la liste courte des séries possibles", async () => {
     const deps = fakeDeps({
       gcd: {

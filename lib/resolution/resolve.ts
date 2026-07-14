@@ -283,8 +283,35 @@ const toCacheEntry = (barcode: string, book: ResolvedBook, source: CacheEntry["s
   sourceId: book.sourceId,
 });
 
+/** Le 4ᵉ chiffre du supplément UPC encode la couverture : 1 = la principale. */
+const UPC_COVER_DIGIT_INDEX = 15;
+const isMainCover = (barcode: string | null) =>
+  !barcode || barcode.length <= UPC_COVER_DIGIT_INDEX || barcode[UPC_COVER_DIGIT_INDEX] === "1";
+
+/**
+ * GCD indexe chaque VARIANTE de couverture (et chaque retirage) comme une
+ * ligne à part : sans déduplication, « quel numéro ? » afficherait six fois
+ * le #1. Or la variante n'a aucune importance au barème — un numéro, une
+ * ligne. On garde comme représentant la couverture principale (c'est aussi
+ * celle que Metron référence, donc la bonne pour aller chercher la couverture).
+ */
+function dedupeIssuesByNumber(issues: GcdIssue[]): GcdIssue[] {
+  const representativeByNumber = new Map<string, GcdIssue>();
+  for (const issue of issues) {
+    const current = representativeByNumber.get(issue.number);
+    if (
+      !current ||
+      (isMainCover(issue.barcode) && !isMainCover(current.barcode)) ||
+      (isMainCover(issue.barcode) === isMainCover(current.barcode) && issue.gcdId < current.gcdId)
+    ) {
+      representativeByNumber.set(issue.number, issue);
+    }
+  }
+  return [...representativeByNumber.values()];
+}
+
 const sortIssueCandidates = (issues: GcdIssue[]) =>
-  issues
+  dedupeIssuesByNumber(issues)
     .map((issue) => ({ gcdId: issue.gcdId, number: issue.number, title: issue.title || null }))
     .sort((left, right) => {
       const leftNumber = Number(left.number);
