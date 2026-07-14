@@ -49,7 +49,7 @@ export type PalBookRecord = {
 export type PalDerivation = {
   /** Les livres encore dans la pile, du plus ancien achat au plus récent. */
   entries: PalEntry[];
-  /** Les dates d'ENTRÉE de pile (les achats, hors rachats de déjà-lus). */
+  /** Les dates d'ENTRÉE de pile (une par livre : son premier achat pas-encore-lu). */
   purchaseDates: IsoDate[];
   /** Les dates de SORTIE de pile (une par livre : sa première fin). */
   ownedFinishedDates: IsoDate[];
@@ -81,8 +81,12 @@ export function derivePal(books: PalBookRecord[]): PalDerivation {
     const entryDates = activePurchaseDates.filter(
       (purchasedAt) => !finishedDates.some((finishedAt) => finishedAt <= purchasedAt),
     );
-    purchaseDates.push(...entryDates);
     if (entryDates.length === 0) continue; // jamais entré : rien à sortir, rien à afficher
+    // UNE entrée par livre : la pile compte des LIVRES à lire, pas des
+    // exemplaires — deux achats du même livre ne la font grossir qu'une fois,
+    // exactement comme une seule lecture annule leurs deux malus au bilan
+    // (§3.3). Le solde du mois reste ainsi cohérent avec la pile affichée.
+    purchaseDates.push(entryDates[0]);
 
     // SORTIE : la première fin survenue alors que le livre était en pile.
     // (Une fin ≤ la première entrée aurait empêché cette entrée d'exister.)

@@ -77,7 +77,7 @@ async function findOrCreateBook(
   if (input.barcodeRaw) {
     const { data: existing, error } = await supabase
       .from("books")
-      .select("id, deleted_at, series_name, issue_number, authors, publisher, page_count, isbn, cover_url, metadata_source_id")
+      .select("id, deleted_at, series_name, issue_number, authors, publisher, page_count, isbn, cover_url")
       .eq("user_id", userId)
       .eq("barcode_raw", input.barcodeRaw)
       .maybeSingle();
@@ -101,7 +101,9 @@ async function findOrCreateBook(
           page_count: existing.page_count ?? input.pageCount,
           isbn: existing.isbn ?? input.isbn,
           cover_url: existing.cover_url ?? input.coverUrl,
-          metadata_source_id: existing.metadata_source_id ?? input.metadataSourceId,
+          // metadata_source et metadata_source_id restent ceux de la création :
+          // la paire doit désigner le même référentiel, et la source (NOT NULL)
+          // n'est jamais « comblable » — on ne touche donc pas à l'id non plus.
         })
         .eq("id", existing.id);
       if (updateError) {

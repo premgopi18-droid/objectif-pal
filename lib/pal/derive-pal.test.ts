@@ -107,12 +107,30 @@ describe("la relecture — une seule sortie par livre (décision du 14/07/2026)"
 });
 
 describe("les achats multiples du même livre", () => {
-  it("deux exemplaires achetés sans lecture : deux entrées, un seul livre dans la pile", () => {
+  it("deux exemplaires achetés sans lecture : UNE entrée, un seul livre dans la pile", () => {
+    // La pile compte des livres à lire, pas des exemplaires (review #22) :
+    // le solde du mois doit dire la même chose que la liste en dessous.
     const result = derivePal([book({ purchases: [bought("2026-07-08"), bought("2026-07-02")] })]);
-    expect(result.purchaseDates.sort()).toEqual(["2026-07-02", "2026-07-08"]);
+    expect(result.purchaseDates).toEqual(["2026-07-02"]);
     expect(result.entries).toHaveLength(1);
     // Le plus ancien achat date l'entrée dans la pile.
     expect(result.entries[0].purchasedAt).toBe("2026-07-02");
+  });
+
+  it("deux exemplaires puis une lecture : 1 entrée · 1 sortie — solde nul, comme le bilan (§3.3)", () => {
+    // Le cas de la review #22 : compter les entrées par ACHAT donnerait
+    // « 2 entrées · 1 sortie », un +1 fantôme que ni la pile affichée (le
+    // livre en est sorti) ni le bilan (une lecture annule les deux malus)
+    // ne racontent.
+    const result = derivePal([
+      book({
+        purchases: [bought("2026-07-02"), bought("2026-07-08")],
+        readings: [finished("2026-07-20")],
+      }),
+    ]);
+    expect(result.purchaseDates).toEqual(["2026-07-02"]);
+    expect(result.ownedFinishedDates).toEqual(["2026-07-20"]);
+    expect(result.entries).toEqual([]);
   });
 
   it("acheté, lu, puis racheté : la première entrée sort, le rachat n'entre pas", () => {
