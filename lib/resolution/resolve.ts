@@ -14,7 +14,7 @@ import {
   type GcdSeries,
 } from "./providers/gcd";
 import { createGoogleBooksProvider, type GoogleBooksProvider } from "./providers/google-books";
-import { createMetronProvider, type MetronProvider } from "./providers/metron";
+import { createMetronProvider, type MetronIssue, type MetronProvider } from "./providers/metron";
 import type { CacheEntry, ResolvedBook, ScanLookupResult } from "./types";
 
 /**
@@ -210,7 +210,22 @@ async function resolveUpc(raw: string, base: string, deps: ResolutionDeps): Prom
     return { kind: "resolved", book: await enrichWithMetron(book, deps, raw) };
   }
 
-  // 2. Par préfixe : les 12 premiers chiffres identifient le titre (93,9 % des
+  // 2. Metron par code COMPLET : quand le supplément a été scanné, un match
+  //    exact identifie l'issue précisément — GCD n'a pas toujours la ligne
+  //    (vécu : It's In Your Skin #1, préfixe partagé chez GCD mais code complet
+  //    chez Metron). À tenter AVANT les listes par préfixe : elles sont le
+  //    pis-aller des scans incomplets, pas des codes précis.
+  const hasSupplement = raw !== base;
+  if (hasSupplement) {
+    const metronExact = await attempt(() => deps.metron.findIssueByUpc(raw));
+    if (metronExact) {
+      const book = fromMetronIssue(metronExact, raw);
+      await attempt(() => deps.cache.set(toCacheEntry(raw, book, "metron")));
+      return { kind: "resolved", book };
+    }
+  }
+
+  // 3. Par préfixe : les 12 premiers chiffres identifient le titre (93,9 % des
   //    préfixes ne pointent qu'une série — specs §6).
   const prefixMatches = await attempt(() => deps.gcd.findIssuesByPrefix(base));
   if (prefixMatches && prefixMatches.length > 0) {
@@ -244,30 +259,37 @@ async function resolveUpc(raw: string, base: string, deps: ResolutionDeps): Prom
     };
   }
 
-  // 3. Metron : les nouveautés que le dump n'a pas encore (specs §6) —
-  //    et chaque succès enrichit notre base pour toujours.
-  const metronIssue = await attempt(() => deps.metron.findIssueByUpc(raw));
-  if (metronIssue) {
-    const book: ResolvedBook = {
-      title: metronIssue.issueName,
-      seriesName: metronIssue.seriesName,
-      issueNumber: metronIssue.number,
-      authors: null,
-      publisher: metronIssue.publisher,
-      pageCount: metronIssue.pageCount,
-      coverUrl: metronIssue.coverUrl,
-      suggestedCategory: guessCategoryFromMetronSeriesType(metronIssue.seriesType) ?? "issue",
-      source: "metron",
-      sourceId: String(metronIssue.metronId),
-      barcodeType: "upc",
-      barcode: raw,
-      isbn: null,
-    };
-    await attempt(() => deps.cache.set(toCacheEntry(raw, book, "metron")));
-    return { kind: "resolved", book };
+  // 4. Metron en dernier recours pour les scans SANS supplément (avec, il a
+  //    déjà été tenté à l'étape 2) : couvre les nouveautés du dump (specs §6).
+  if (!hasSupplement) {
+    const metronIssue = await attempt(() => deps.metron.findIssueByUpc(raw));
+    if (metronIssue) {
+      const book = fromMetronIssue(metronIssue, raw);
+      await attempt(() => deps.cache.set(toCacheEntry(raw, book, "metron")));
+      return { kind: "resolved", book };
+    }
   }
 
   return { kind: "not-found" };
+}
+
+/** Construit un livre depuis une issue Metron (identification directe). */
+function fromMetronIssue(metronIssue: MetronIssue, raw: string): ResolvedBook {
+  return {
+    title: metronIssue.issueName,
+    seriesName: metronIssue.seriesName,
+    issueNumber: metronIssue.number,
+    authors: null,
+    publisher: metronIssue.publisher,
+    pageCount: metronIssue.pageCount,
+    coverUrl: metronIssue.coverUrl,
+    suggestedCategory: guessCategoryFromMetronSeriesType(metronIssue.seriesType) ?? "issue",
+    source: "metron",
+    sourceId: String(metronIssue.metronId),
+    barcodeType: "upc",
+    barcode: raw,
+    isbn: null,
+  };
 }
 
 const toCacheEntry = (barcode: string, book: ResolvedBook, source: CacheEntry["source"]): CacheEntry => ({

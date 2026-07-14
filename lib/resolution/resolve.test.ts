@@ -283,6 +283,39 @@ describe("la cascade UPC (GCD exact → préfixe → Metron)", () => {
     }
   });
 
+  it("un code COMPLET absent de GCD va chez Metron AVANT les listes par préfixe", async () => {
+    // Le cas vécu (It's In Your Skin #1) : GCD n'a pas le code exact mais
+    // connaît le préfixe — partagé par d'autres séries qui n'ont pas ce numéro.
+    // Metron, lui, a le code complet : c'est lui qui doit répondre.
+    const deps = fakeDeps({
+      gcd: {
+        findIssuesByPrefix: vi.fn(async () => [gcdIssue({ gcdId: 500, number: "43" }), gcdIssue({ gcdId: 501, number: "44", seriesId: 43 })]),
+        getSeriesByIds: vi.fn(async () => new Map([[42, gcdSeries()]])),
+      },
+      metron: {
+        findIssueByUpc: vi.fn(async () => ({
+          metronId: 321,
+          issueName: "It's In Your Skin (2025) #1",
+          seriesName: "It's In Your Skin",
+          number: "1",
+          coverUrl: "https://static.metron.cloud/skin1.jpg",
+          seriesType: "Limited Series",
+          publisher: "Mad Cave",
+          pageCount: 28,
+        })),
+      },
+    });
+    const result = await resolveScannedCode("70985304605900111", deps);
+
+    expect(result).toMatchObject({
+      kind: "resolved",
+      book: { source: "metron", issueNumber: "1", suggestedCategory: "issue" },
+    });
+    // Le préfixe n'a même pas été consulté : le code complet prime.
+    expect(deps.gcd.findIssuesByPrefix).not.toHaveBeenCalled();
+    expect(deps.cache.set).toHaveBeenCalledWith(expect.objectContaining({ source: "metron" }));
+  });
+
   it("une nouveauté absente du dump est identifiée par Metron et mise en cache pour toujours", async () => {
     const deps = fakeDeps({
       metron: {

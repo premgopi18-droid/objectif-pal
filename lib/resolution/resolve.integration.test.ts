@@ -66,6 +66,17 @@ describe.skipIf(!integrationEnabled)("la cascade sur de vrais bouquins", () => {
     }
   }, 30000);
 
+  it("un indé absent de GCD mais chez Metron se résout par code complet (It's In Your Skin #1)", async () => {
+    // Code réel scanné le 14/07/2026 : GCD n'a pas la ligne (préfixe partagé
+    // seulement), Metron a le code exact.
+    const result = await resolveScannedCode("70985304605900111");
+    expect(result.kind).toBe("resolved");
+    if (result.kind === "resolved") {
+      expect(result.book.source).toBe("metron");
+      expect(result.book.issueNumber).toBe("1");
+    }
+  }, 30000);
+
   it("un préfixe seul (12 chiffres) rend « quel numéro ? » sur la série", async () => {
     const result = await resolveScannedCode("761941341743");
     expect(result.kind).toBe("pick-issue");

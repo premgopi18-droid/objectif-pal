@@ -440,7 +440,7 @@ Dégradation douce : **jamais d'échec sec**.
 
 | Ce que le scan capte | Ce que fait l'app |
 |---|---|
-| Code complet (UPC + supplément) | **Issue exacte, zéro question** |
+| Code complet (UPC + supplément) | **Issue exacte, zéro question** — GCD, sinon **Metron par code exact AVANT les listes par préfixe** (vécu : un indé absent de GCD dont le préfixe, partagé, aurait affiché des listes sans rapport — 14/07/2026) |
 | 12 chiffres, préfixe net (**81,7 %** des cas) | Série connue → *« quel numéro ? »*, **un tap** (liste des numéros de la série, pas de clavier). **Dédupliquée par numéro** : GCD indexe chaque variante de couverture comme une ligne, or la variante n'a aucune importance au barème — le représentant gardé est la couverture principale (celle que Metron référence). Vécu sur Alias: Red Band, 14/07/2026. |
 | 12 chiffres, préfixe partagé (18,3 %) | **Liste courte** des séries possibles → **deux taps** |
 | ISBN | Résolution directe : GCD, puis **BnF** (dépôt légal français) |
