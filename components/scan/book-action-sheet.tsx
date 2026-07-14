@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { ALL_CATEGORIES, CATEGORY_LABELS } from "@/lib/books/categories";
+import { localToday } from "@/lib/dates";
 import type { BookInput } from "@/lib/books/actions";
 import type { ResolvedBook } from "@/lib/resolution/types";
 import type { BookCategory } from "@/lib/scoring/types";
@@ -22,12 +23,6 @@ type BookActionSheetProps = {
   onPurchase: (input: BookInput, date: string) => void;
   onCancel: () => void;
   isSubmitting: boolean;
-};
-
-/** La date locale de l'APPAREIL — jamais celle du serveur (UTC, specs §7). */
-const localToday = () => {
-  const now = new Date();
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
 };
 
 export function BookActionSheet({ book, scannedCode, onStartReading, onPurchase, onCancel, isSubmitting }: BookActionSheetProps) {
