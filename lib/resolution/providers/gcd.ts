@@ -1,4 +1,5 @@
 import { createAdminClient } from "@/lib/supabase/admin";
+import type { Database } from "@/lib/supabase/database.types";
 
 /**
  * Le provider GCD — la table importée chez nous (specs §6) : zéro réseau,
@@ -21,27 +22,29 @@ export type GcdIssue = {
 
 export type GcdSeries = {
   id: number;
-  name: string;
+  name: string | null;
   format: string | null;
   publisher: string | null;
   languageId: number | null;
 };
 
-type IssueRow = {
-  gcd_id: number;
-  barcode: string | null;
-  series_id: number;
-  number: string;
-  page_count: number | null;
-  isbn: string | null;
-  title: string | null;
-};
+/** La ligne telle que la sélectionne ISSUE_COLUMNS — dérivée du schéma généré. */
+type IssueRow = Pick<
+  Database["public"]["Tables"]["gcd_issues"]["Row"],
+  "gcd_id" | "barcode" | "series_id" | "number" | "page_count" | "isbn" | "title"
+>;
 
+/** Jamais attribué par GCD (ses ids commencent à 1) : la recherche de série rend « inconnue ». */
+const UNKNOWN_SERIES_ID = 0;
+
+// Notre table d'import ne porte pas les NOT NULL du schéma GCD d'origine
+// (series_id et number y sont obligatoires) : on absorbe ici le NULL
+// théorique plutôt que de le propager dans toute la cascade.
 const toIssue = (row: IssueRow): GcdIssue => ({
   gcdId: row.gcd_id,
   barcode: row.barcode,
-  seriesId: row.series_id,
-  number: row.number,
+  seriesId: row.series_id ?? UNKNOWN_SERIES_ID,
+  number: row.number ?? "",
   pageCount: row.page_count === null ? null : Math.round(Number(row.page_count)),
   isbn: row.isbn,
   title: row.title,
@@ -57,14 +60,14 @@ export function createGcdProvider(client = createAdminClient()) {
     async findIssuesByBarcode(codes: string[]): Promise<GcdIssue[]> {
       const { data, error } = await client.from("gcd_issues").select(ISSUE_COLUMNS).in("barcode", codes);
       if (error) throw new Error(`GCD findIssuesByBarcode : ${error.message}`);
-      return (data as IssueRow[]).map(toIssue);
+      return data.map(toIssue);
     },
 
     /** Match par ISBN — c'est par là qu'arrive la BD franco-belge. */
     async findIssuesByIsbn(isbnCandidates: string[]): Promise<GcdIssue[]> {
       const { data, error } = await client.from("gcd_issues").select(ISSUE_COLUMNS).in("isbn", isbnCandidates);
       if (error) throw new Error(`GCD findIssuesByIsbn : ${error.message}`);
-      return (data as IssueRow[]).map(toIssue);
+      return data.map(toIssue);
     },
 
     /**
@@ -78,14 +81,14 @@ export function createGcdProvider(client = createAdminClient()) {
         .eq("barcode_prefix", prefix)
         .limit(500);
       if (error) throw new Error(`GCD findIssuesByPrefix : ${error.message}`);
-      return (data as IssueRow[]).map(toIssue);
+      return data.map(toIssue);
     },
 
     /** Une issue précise — utilisée après un choix dans une liste (pick). */
     async getIssueByGcdId(gcdId: number): Promise<GcdIssue | null> {
       const { data, error } = await client.from("gcd_issues").select(ISSUE_COLUMNS).eq("gcd_id", gcdId).limit(1);
       if (error) throw new Error(`GCD getIssueByGcdId : ${error.message}`);
-      const row = (data as IssueRow[])[0];
+      const row = data[0];
       return row ? toIssue(row) : null;
     },
 
@@ -98,9 +101,10 @@ export function createGcdProvider(client = createAdminClient()) {
         .in("id", [...new Set(seriesIds)]);
       if (error) throw new Error(`GCD getSeriesByIds : ${error.message}`);
       return new Map(
-        (data as { id: number; name: string; format: string | null; publisher: string | null; language_id: number | null }[]).map(
-          (row) => [row.id, { id: row.id, name: row.name, format: row.format, publisher: row.publisher, languageId: row.language_id }],
-        ),
+        data.map((row) => [
+          row.id,
+          { id: row.id, name: row.name, format: row.format, publisher: row.publisher, languageId: row.language_id },
+        ]),
       );
     },
   };

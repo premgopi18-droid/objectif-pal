@@ -11,19 +11,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * ENRICHISSEMENT, qui coûte 2-3 appels réseau à chaque scan sinon.
  */
 
-type CacheRow = {
-  barcode: string;
-  title: string | null;
-  series_name: string | null;
-  issue_number: string | null;
-  authors: string | null;
-  publisher: string | null;
-  page_count: number | null;
-  cover_url: string | null;
-  source: CacheEntry["source"];
-  source_id: string | null;
-};
-
 export type CacheProvider = ReturnType<typeof createCacheProvider>;
 
 export function createCacheProvider(client = createAdminClient()) {
@@ -31,8 +18,12 @@ export function createCacheProvider(client = createAdminClient()) {
     async get(barcode: string): Promise<CacheEntry | null> {
       const { data, error } = await client.from("barcode_cache").select("*").eq("barcode", barcode).limit(1);
       if (error) throw new Error(`barcode_cache get : ${error.message}`);
-      const row = (data as CacheRow[])[0];
+      const row = data[0];
       if (!row) return null;
+      // L'enum en base autorise « manual », mais le cache n'en stocke jamais
+      // (le type de `set` l'interdit) : une telle ligne, forcément écrite hors
+      // de l'app, est traitée comme une absence — la cascade re-résout.
+      if (row.source === "manual") return null;
       return {
         barcode: row.barcode,
         title: row.title,

@@ -1,5 +1,5 @@
 import { PalView } from "@/components/pal/pal-view";
-import { derivePal, type PalBookRecord } from "@/lib/pal/derive-pal";
+import { derivePal } from "@/lib/pal/derive-pal";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 /**
@@ -38,7 +38,7 @@ export default async function PalPage() {
     );
   }
 
-  const { entries, purchaseDates, ownedFinishedDates } = derivePal((data ?? []) as PalBookRecord[]);
+  const { entries, purchaseDates, ownedFinishedDates } = derivePal(data ?? []);
 
   return (
     <section className="py-6">

@@ -16,7 +16,7 @@ import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { formatBookSubtitle } from "@/lib/books/format";
 import { formatDateFrench, localToday } from "@/lib/dates";
-import type { BookCategory } from "@/lib/scoring/types";
+import type { BookCategory, ReadingStatus } from "@/lib/scoring/types";
 
 /**
  * La liste du journal — specs §4.2. « Terminé » est LE geste qui rapporte les
@@ -26,18 +26,18 @@ import type { BookCategory } from "@/lib/scoring/types";
 
 export type JournalEntry = {
   id: string;
-  status: "reading" | "finished" | "abandoned";
+  status: ReadingStatus;
   startedAt: string;
   finishedAt: string | null;
   rating: number | null;
   comment: string | null;
   book: {
     title: string;
-    series_name: string | null;
-    issue_number: string | null;
+    seriesName: string | null;
+    issueNumber: string | null;
     category: BookCategory;
-    cover_url: string | null;
-    page_count: number | null;
+    coverUrl: string | null;
+    pageCount: number | null;
   };
 };
 
@@ -126,12 +126,12 @@ function JournalItem({
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const badge = STATUS_BADGES[entry.status];
-  const subtitle = formatBookSubtitle(entry.book.series_name, entry.book.issue_number, CATEGORY_LABELS[entry.book.category]);
+  const subtitle = formatBookSubtitle(entry.book.seriesName, entry.book.issueNumber, CATEGORY_LABELS[entry.book.category]);
 
   return (
     <li className="rounded-xl border border-foreground/10 p-3">
       <div className="flex gap-3">
-        <BookCover coverUrl={entry.book.cover_url} size="small" placeholderEmoji="📖" />
+        <BookCover coverUrl={entry.book.coverUrl} size="small" placeholderEmoji="📖" />
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">
