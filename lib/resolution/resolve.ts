@@ -424,9 +424,19 @@ export async function resolveGcdIssue(gcdId: number, deps: ResolutionDeps = crea
   const barcodeType = issue.barcode ? "upc" : "isbn";
   const book = fromGcdIssue(issue, seriesById?.get(issue.seriesId), barcodeType);
   const enriched = await enrichWithMetron(book, deps, issue.barcode, startedAtMs);
-  // Parcours « pick » : le code scanné était un préfixe (la série entière),
-  // il ne peut pas servir de clé — on ne cache que si GCD connaît le code
-  // COMPLET de cette issue (un UPC : clé brute, supplément signifiant).
+  // Parcours « pick » : le code scanné était un préfixe (la série entière), il
+  // ne peut pas servir de clé — on cache sous le code COMPLET que GCD connaît
+  // pour CETTE issue (un UPC : clé brute, supplément signifiant).
+  //
+  // LIMITE ASSUMÉE (review #23) : on n'arrive ici que parce que le code scanné
+  // n'a PAS matché en exact chez GCD — `issue.barcode` en diffère donc par
+  // construction, et re-scanner le même exemplaire repassera par préfixe+pick
+  // sans relire cette entrée. Le §8 (« jamais résolu deux fois ») n'est pas
+  // tenu pour ce parcours : l'entrée ne sert qu'à un futur scan d'un exemplaire
+  // dont le code vaut exactement celui de GCD. On la garde quand même (elle est
+  // gratuite et correcte) ; cacher sous le préfixe scanné serait un BUG — il
+  // pointe plusieurs issues, on résoudrait à tort les autres numéros vers
+  // celui-ci.
   if (issue.barcode) await cacheEnrichedGcdBook(issue.barcode, book, enriched, deps);
   return { kind: "resolved", book: enriched };
 }
