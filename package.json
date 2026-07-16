@@ -9,6 +9,7 @@
     "lint": "eslint",
     "test": "vitest run",
     "gcd:load": "node scripts/gcd-load.mjs",
+    "db:types": "supabase gen types typescript --project-id reqtckmawllprisvrzlb --schema public > lib/supabase/database.types.ts",
     "postinstall": "node scripts/copy-zxing-wasm.mjs"
   },
   "dependencies": {

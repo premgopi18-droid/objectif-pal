@@ -3,7 +3,10 @@
  *
  * Régénération (à rejouer après CHAQUE migration appliquée) :
  *
- *   npx supabase gen types typescript --project-id reqtckmawllprisvrzlb > lib/supabase/database.types.ts
+ *   npm run db:types
+ *
+ * (La commande vit dans package.json, pas ici : la régénération ÉCRASE ce
+ * fichier — cet en-tête compris. La source de vérité est le script npm.)
  */
 
 export type Json =
