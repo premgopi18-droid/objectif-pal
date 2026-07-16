@@ -24,8 +24,26 @@ import type { CacheEntry, ResolvedBook, ScanLookupResult } from "./types";
  *
  * Chaque source apporte ce qu'aucune autre n'a ; chaque échec (réseau, quota,
  * introuvable) fait descendre d'un cran : LE SCAN NE PEUT PAS ÉCHOUER (§8).
- * Toute résolution externe part dans `barcode_cache`, définitivement.
+ * Toute résolution externe part dans `barcode_cache`, définitivement — y
+ * compris l'ENRICHISSEMENT d'une résolution GCD (couverture Metron / Google
+ * Books) : la ligne GCD est gratuite, ses 2-3 appels d'enrichissement non.
+ *
+ * La clé de cache est NORMALISÉE : l'EAN-13 pour un ISBN (le supplément de
+ * 5 chiffres y est un PRIX — le même bouquin scanné avec ou sans doit tomber
+ * sur la même entrée), le code brut pour un UPC (le supplément y est
+ * SIGNIFIANT : numéro d'issue, couverture, tirage — specs §5.1).
  */
+
+/**
+ * Budget global de la cascade : au-delà, on arrête d'essayer les sources
+ * restantes et on rend « non résolu » — l'UI bascule en saisie manuelle avec
+ * le code scanné conservé. Trois providers à 4 s chacun peuvent sinon retenir
+ * l'utilisateur ~12 s devant « Résolution en cours… » ; le cas normal mesuré
+ * est 300-800 ms par appel (specs §8).
+ */
+const RESOLUTION_BUDGET_MILLISECONDS = 10_000;
+
+const isBudgetExhausted = (startedAtMs: number) => Date.now() - startedAtMs >= RESOLUTION_BUDGET_MILLISECONDS;
 
 export type ResolutionDeps = {
   gcd: GcdProvider;
@@ -100,7 +118,14 @@ function fromGcdIssue(issue: GcdIssue, series: GcdSeries | undefined, barcodeTyp
 }
 
 /** Enrichissement VO : couverture + series_type, sans jamais bloquer (specs §5.4). */
-async function enrichWithMetron(book: ResolvedBook, deps: ResolutionDeps, upc: string | null): Promise<ResolvedBook> {
+async function enrichWithMetron(
+  book: ResolvedBook,
+  deps: ResolutionDeps,
+  upc: string | null,
+  startedAtMs: number,
+): Promise<ResolvedBook> {
+  // Budget épuisé : le livre est déjà identifié, on le rend sans l'habiller.
+  if (isBudgetExhausted(startedAtMs)) return book;
   const metronIssue = await attempt(async () => {
     if (book.sourceId && book.source === "gcd") {
       const byGcdId = await deps.metron.findIssueByGcdId(Number(book.sourceId));
@@ -119,16 +144,48 @@ async function enrichWithMetron(book: ResolvedBook, deps: ResolutionDeps, upc: s
 }
 
 /** Enrichissement VF : la couverture Google Books, sans jamais bloquer. */
-async function enrichCoverWithGoogleBooks(book: ResolvedBook, deps: ResolutionDeps, isbn: string): Promise<ResolvedBook> {
+async function enrichCoverWithGoogleBooks(
+  book: ResolvedBook,
+  deps: ResolutionDeps,
+  isbn: string,
+  startedAtMs: number,
+): Promise<ResolvedBook> {
   if (book.coverUrl) return book;
+  // Budget épuisé : le livre est déjà identifié, on le rend sans l'habiller.
+  if (isBudgetExhausted(startedAtMs)) return book;
   const record = await attempt(() => deps.googleBooks.resolveIsbn(isbn));
   return record?.coverUrl ? { ...book, coverUrl: record.coverUrl } : book;
 }
 
+/**
+ * Met en cache une résolution GCD ENRICHIE — mais seulement si l'enrichissement
+ * a rapporté quelque chose (les helpers rendent le MÊME objet quand la source
+ * n'a rien donné) : un raté transitoire de Metron ou Google Books ne doit pas
+ * figer un livre sans couverture pour toujours — on retentera au prochain scan.
+ * La résolution GCD elle-même est gratuite (en base), elle n'a pas besoin du cache.
+ */
+async function cacheEnrichedGcdBook(
+  cacheKey: string,
+  book: ResolvedBook,
+  enriched: ResolvedBook,
+  deps: ResolutionDeps,
+): Promise<void> {
+  if (enriched === book) return;
+  await attempt(() => deps.cache.set(toCacheEntry(cacheKey, enriched, "gcd")));
+}
+
 /** La résolution d'un ISBN : GCD → BnF → Google Books (specs §5.2). */
-async function resolveIsbn(raw: string, ean13: string, isbnCandidates: string[], deps: ResolutionDeps): Promise<ScanLookupResult> {
-  // 1. Notre cache — un bouquin n'est jamais résolu deux fois.
-  const cached = await attempt(() => deps.cache.get(raw));
+async function resolveIsbn(
+  raw: string,
+  ean13: string,
+  isbnCandidates: string[],
+  deps: ResolutionDeps,
+  startedAtMs: number,
+): Promise<ScanLookupResult> {
+  // 1. Notre cache — un bouquin n'est jamais résolu deux fois. La clé est
+  //    l'EAN-13, PAS le code brut : scanné avec puis sans le supplément prix
+  //    (18 vs 13 chiffres), c'est le même livre — une seule entrée.
+  const cached = await attempt(() => deps.cache.get(ean13));
   if (cached) return { kind: "resolved", book: fromCache(cached, "isbn") };
 
   // 2. GCD, en base : comics VO (TPB, omnibus) et BD franco-belge.
@@ -139,12 +196,14 @@ async function resolveIsbn(raw: string, ean13: string, isbnCandidates: string[],
     const book = fromGcdIssue(issue, seriesById?.get(issue.seriesId), "isbn");
     const enriched =
       book.suggestedCategory === "bd"
-        ? await enrichCoverWithGoogleBooks(book, deps, ean13)
-        : await enrichWithMetron(book, deps, null);
+        ? await enrichCoverWithGoogleBooks(book, deps, ean13, startedAtMs)
+        : await enrichWithMetron(book, deps, null, startedAtMs);
+    await cacheEnrichedGcdBook(ean13, book, enriched, deps);
     return { kind: "resolved", book: enriched };
   }
 
   // 3. BnF : le dépôt légal identifie la VF (manga, roman, BD absente de GCD).
+  if (isBudgetExhausted(startedAtMs)) return { kind: "not-found" };
   const bnfRecord = await attempt(() => deps.bnf.resolveIsbn(ean13));
   if (bnfRecord) {
     let book: ResolvedBook = {
@@ -162,12 +221,13 @@ async function resolveIsbn(raw: string, ean13: string, isbnCandidates: string[],
       barcode: raw,
       isbn: ean13,
     };
-    book = await enrichCoverWithGoogleBooks(book, deps, ean13);
-    await attempt(() => deps.cache.set(toCacheEntry(raw, book, "bnf")));
+    book = await enrichCoverWithGoogleBooks(book, deps, ean13, startedAtMs);
+    await attempt(() => deps.cache.set(toCacheEntry(ean13, book, "bnf")));
     return { kind: "resolved", book };
   }
 
   // 4. Google Books : les romans étrangers, dernier identifiant.
+  if (isBudgetExhausted(startedAtMs)) return { kind: "not-found" };
   const googleRecord = await attempt(() => deps.googleBooks.resolveIsbn(ean13));
   if (googleRecord) {
     const book: ResolvedBook = {
@@ -188,7 +248,7 @@ async function resolveIsbn(raw: string, ean13: string, isbnCandidates: string[],
       barcode: raw,
       isbn: ean13,
     };
-    await attempt(() => deps.cache.set(toCacheEntry(raw, book, "google_books")));
+    await attempt(() => deps.cache.set(toCacheEntry(ean13, book, "google_books")));
     return { kind: "resolved", book };
   }
 
@@ -196,7 +256,9 @@ async function resolveIsbn(raw: string, ean13: string, isbnCandidates: string[],
 }
 
 /** La résolution d'un UPC : GCD exact → préfixe → Metron (nouveautés). */
-async function resolveUpc(raw: string, base: string, deps: ResolutionDeps): Promise<ScanLookupResult> {
+async function resolveUpc(raw: string, base: string, deps: ResolutionDeps, startedAtMs: number): Promise<ScanLookupResult> {
+  // La clé de cache d'un UPC est le code BRUT : ici le supplément est
+  // signifiant (numéro d'issue, couverture, tirage — specs §5.1).
   const cached = await attempt(() => deps.cache.get(raw));
   if (cached) return { kind: "resolved", book: fromCache(cached, "upc") };
 
@@ -207,7 +269,9 @@ async function resolveUpc(raw: string, base: string, deps: ResolutionDeps): Prom
     const issue = exactMatches[0];
     const seriesById = await attempt(() => deps.gcd.getSeriesByIds([issue.seriesId]));
     const book = fromGcdIssue(issue, seriesById?.get(issue.seriesId), "upc");
-    return { kind: "resolved", book: await enrichWithMetron(book, deps, raw) };
+    const enriched = await enrichWithMetron(book, deps, raw, startedAtMs);
+    await cacheEnrichedGcdBook(raw, book, enriched, deps);
+    return { kind: "resolved", book: enriched };
   }
 
   // 2. Metron par code COMPLET : quand le supplément a été scanné, un match
@@ -216,7 +280,7 @@ async function resolveUpc(raw: string, base: string, deps: ResolutionDeps): Prom
   //    chez Metron). À tenter AVANT les listes par préfixe : elles sont le
   //    pis-aller des scans incomplets, pas des codes précis.
   const hasSupplement = raw !== base;
-  if (hasSupplement) {
+  if (hasSupplement && !isBudgetExhausted(startedAtMs)) {
     const metronExact = await attempt(() => deps.metron.findIssueByUpc(raw));
     if (metronExact) {
       const book = fromMetronIssue(metronExact, raw);
@@ -261,7 +325,7 @@ async function resolveUpc(raw: string, base: string, deps: ResolutionDeps): Prom
 
   // 4. Metron en dernier recours pour les scans SANS supplément (avec, il a
   //    déjà été tenté à l'étape 2) : couvre les nouveautés du dump (specs §6).
-  if (!hasSupplement) {
+  if (!hasSupplement && !isBudgetExhausted(startedAtMs)) {
     const metronIssue = await attempt(() => deps.metron.findIssueByUpc(raw));
     if (metronIssue) {
       const book = fromMetronIssue(metronIssue, raw);
@@ -344,18 +408,35 @@ const sortIssueCandidates = (issues: GcdIssue[]) =>
 
 /** Le point d'entrée : un code scanné, un résultat — jamais d'exception. */
 export async function resolveScannedCode(input: string, deps: ResolutionDeps = createDefaultDeps()): Promise<ScanLookupResult> {
+  const startedAtMs = Date.now(); // le budget global court dès l'entrée dans la cascade
   const code = classifyScannedCode(input);
   if (code.type === "invalid") return { kind: "invalid" };
-  if (code.type === "isbn") return resolveIsbn(code.raw, code.ean13, code.isbnCandidates, deps);
-  return resolveUpc(code.raw, code.base, deps);
+  if (code.type === "isbn") return resolveIsbn(code.raw, code.ean13, code.isbnCandidates, deps, startedAtMs);
+  return resolveUpc(code.raw, code.base, deps, startedAtMs);
 }
 
 /** Résout une issue GCD précise — après un choix dans une liste (pick). */
 export async function resolveGcdIssue(gcdId: number, deps: ResolutionDeps = createDefaultDeps()): Promise<ScanLookupResult> {
+  const startedAtMs = Date.now();
   const issue = await attempt(() => deps.gcd.getIssueByGcdId(gcdId));
   if (!issue) return { kind: "not-found" };
   const seriesById = await attempt(() => deps.gcd.getSeriesByIds([issue.seriesId]));
   const barcodeType = issue.barcode ? "upc" : "isbn";
   const book = fromGcdIssue(issue, seriesById?.get(issue.seriesId), barcodeType);
-  return { kind: "resolved", book: await enrichWithMetron(book, deps, issue.barcode) };
+  const enriched = await enrichWithMetron(book, deps, issue.barcode, startedAtMs);
+  // Parcours « pick » : le code scanné était un préfixe (la série entière), il
+  // ne peut pas servir de clé — on cache sous le code COMPLET que GCD connaît
+  // pour CETTE issue (un UPC : clé brute, supplément signifiant).
+  //
+  // LIMITE ASSUMÉE (review #23) : on n'arrive ici que parce que le code scanné
+  // n'a PAS matché en exact chez GCD — `issue.barcode` en diffère donc par
+  // construction, et re-scanner le même exemplaire repassera par préfixe+pick
+  // sans relire cette entrée. Le §8 (« jamais résolu deux fois ») n'est pas
+  // tenu pour ce parcours : l'entrée ne sert qu'à un futur scan d'un exemplaire
+  // dont le code vaut exactement celui de GCD. On la garde quand même (elle est
+  // gratuite et correcte) ; cacher sous le préfixe scanné serait un BUG — il
+  // pointe plusieurs issues, on résoudrait à tort les autres numéros vers
+  // celui-ci.
+  if (issue.barcode) await cacheEnrichedGcdBook(issue.barcode, book, enriched, deps);
+  return { kind: "resolved", book: enriched };
 }

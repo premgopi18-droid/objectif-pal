@@ -157,17 +157,21 @@ export async function startReading(input: BookInput, startedAt: string): Promise
   const book = await findOrCreateBook(supabase, user.id, input);
   if ("error" in book) return { ok: false, error: book.error };
 
-  const inProgressError = await getReadingInProgressError(supabase, user.id, book.bookId);
+  // Les deux vérifications sont indépendantes (le garde « déjà en cours » et
+  // le décompte « déjà terminé » pour signaler la relecture) : en parallèle,
+  // un aller-retour Supabase au lieu de deux.
+  const [inProgressError, { count: finishedCount, error: finishedError }] = await Promise.all([
+    getReadingInProgressError(supabase, user.id, book.bookId),
+    // Relire = une NOUVELLE lecture du même livre (specs §4.2) — permise, signalée.
+    supabase
+      .from("readings")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("book_id", book.bookId)
+      .eq("status", "finished")
+      .is("deleted_at", null),
+  ]);
   if (inProgressError) return { ok: false, error: inProgressError };
-
-  // Relire = une NOUVELLE lecture du même livre (specs §4.2) — permise, signalée.
-  const { count: finishedCount, error: finishedError } = await supabase
-    .from("readings")
-    .select("id", { count: "exact", head: true })
-    .eq("user_id", user.id)
-    .eq("book_id", book.bookId)
-    .eq("status", "finished")
-    .is("deleted_at", null);
   if (finishedError) {
     console.error("[books] startReading:", finishedError.message);
     return { ok: false, error: GENERIC_ERROR_MESSAGE };

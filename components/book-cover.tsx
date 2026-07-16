@@ -3,20 +3,23 @@ import Image from "next/image";
 /**
  * La vignette de couverture — l'image distante, ou un emoji de secours.
  * Deux tailles : `small` pour les listes (journal, PAL), `large` pour la
- * feuille de scan. `unoptimized` est volontaire : l'optimisation d'images
- * est un ticket séparé.
+ * feuille de scan. Les images passent par l'optimiseur next/image (les hôtes
+ * Metron et Google Books sont dans `remotePatterns`) : `sizes` fixe la
+ * largeur affichée pour ne servir que la variante utile en mobile.
  */
 
 const COVER_SIZES = {
   small: {
     width: 48,
     height: 72,
+    sizes: "48px",
     imageClassName: "h-18 w-12 shrink-0 rounded object-cover",
     placeholderClassName: "flex h-18 w-12 shrink-0 items-center justify-center rounded bg-foreground/10",
   },
   large: {
     width: 96,
     height: 144,
+    sizes: "96px",
     imageClassName: "h-36 w-24 shrink-0 rounded-md object-cover",
     placeholderClassName: "flex h-36 w-24 shrink-0 items-center justify-center rounded-md bg-foreground/10 text-3xl",
   },
@@ -34,7 +37,7 @@ export function BookCover({ coverUrl, size, placeholderEmoji = "📚" }: BookCov
 
   if (coverUrl) {
     return (
-      <Image src={coverUrl} alt="" width={variant.width} height={variant.height} className={variant.imageClassName} unoptimized />
+      <Image src={coverUrl} alt="" width={variant.width} height={variant.height} sizes={variant.sizes} className={variant.imageClassName} />
     );
   }
 

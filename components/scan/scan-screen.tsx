@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState } from "react";
+import { useCallback, useRef, useState } from "react";
 import { ErrorAlert } from "@/components/error-alert";
 import { startReading, recordPurchase, type BookInput, type ScanActionResult } from "@/lib/books/actions";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
@@ -50,15 +50,23 @@ export function ScanScreen() {
   const [manualCode, setManualCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  // Le compteur de requêtes en vol : « Saisie manuelle » pendant la résolution
+  // incrémente le compteur, et la réponse d'une requête périmée est IGNORÉE
+  // quand elle revient — sinon elle écraserait la saisie en cours (course).
+  const lookupIdRef = useRef(0);
+
   const lookup = useCallback(async (code: string) => {
+    const requestId = ++lookupIdRef.current;
     setState({ step: "loading", code });
     try {
       const response = await fetch(`/api/lookup/${encodeURIComponent(code)}`);
+      if (requestId !== lookupIdRef.current) return; // l'utilisateur est déjà passé en saisie manuelle
       if (response.status === 401) {
         setState({ step: "scan", notice: "Session expirée — reconnecte-toi." });
         return;
       }
       const result = (await response.json()) as ScanLookupResult;
+      if (requestId !== lookupIdRef.current) return;
 
       if (result.kind === "resolved") {
         setState({ step: "sheet", book: result.book, scannedCode: code });
@@ -71,15 +79,18 @@ export function ScanScreen() {
         setState({ step: "manual", scannedCode: result.kind === "not-found" ? code : null });
       }
     } catch {
+      if (requestId !== lookupIdRef.current) return;
       setState({ step: "scan", notice: "La recherche a échoué — réessaie ou saisis à la main." });
     }
   }, []);
 
   const resolvePickedIssue = useCallback(async (gcdId: number, scannedCode: string) => {
+    const requestId = ++lookupIdRef.current;
     setState({ step: "loading", code: scannedCode });
     try {
       const response = await fetch(`/api/lookup/gcd/${gcdId}`);
       const result = (await response.json()) as ScanLookupResult;
+      if (requestId !== lookupIdRef.current) return; // requête périmée : la saisie manuelle a pris la main
       if (result.kind === "resolved") {
         // Le code scanné était un préfixe (la série entière) : ce n'est PAS le
         // code-barres de CE livre — on garde celui que GCD connaît pour l'issue.
@@ -88,8 +99,15 @@ export function ScanScreen() {
       }
       setState({ step: "manual", scannedCode });
     } catch {
+      if (requestId !== lookupIdRef.current) return;
       setState({ step: "manual", scannedCode });
     }
+  }, []);
+
+  /** La porte de sortie pendant « Résolution en cours… » : on n'attend pas la cascade. */
+  const skipToManualEntry = useCallback((scannedCode: string) => {
+    lookupIdRef.current += 1; // périme la requête en vol : sa réponse sera ignorée
+    setState({ step: "manual", scannedCode });
   }, []);
 
   async function performAction(
@@ -132,6 +150,13 @@ export function ScanScreen() {
         <p className="mt-2 font-mono text-sm opacity-50">
           {state.code} · {state.code.length} chiffres
         </p>
+        <button
+          type="button"
+          onClick={() => skipToManualEntry(state.code)}
+          className="mt-6 rounded-full border border-foreground/20 px-5 py-2.5 text-sm font-medium"
+        >
+          Saisie manuelle
+        </button>
       </div>
     );
   }
