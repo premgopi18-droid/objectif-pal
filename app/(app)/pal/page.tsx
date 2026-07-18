@@ -18,7 +18,7 @@ export default async function PalPage() {
     .from("books")
     .select(
       `id, title, series_name, issue_number, category, cover_url, deleted_at,
-       purchases (purchased_at, deleted_at),
+       purchases (id, purchased_at, deleted_at),
        readings (status, finished_at, deleted_at)`,
     )
     .is("deleted_at", null)

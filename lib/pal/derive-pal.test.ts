@@ -9,6 +9,7 @@ import { derivePal, type PalBookRecord } from "./derive-pal";
  */
 
 let bookCounter = 0;
+let purchaseCounter = 0;
 
 function book(overrides: Partial<PalBookRecord> = {}): PalBookRecord {
   bookCounter += 1;
@@ -27,7 +28,8 @@ function book(overrides: Partial<PalBookRecord> = {}): PalBookRecord {
 }
 
 function bought(purchasedAt: string) {
-  return { purchased_at: purchasedAt, deleted_at: null };
+  purchaseCounter += 1;
+  return { id: `purchase-${purchaseCounter}`, purchased_at: purchasedAt, deleted_at: null };
 }
 
 function finished(finishedAt: string, overrides: Partial<NonNullable<PalBookRecord["readings"]>[number]> = {}) {
@@ -40,9 +42,12 @@ function inProgress() {
 
 describe("les cas nominaux", () => {
   it("un achat sans lecture : le livre est dans la pile, une entrée, aucune sortie", () => {
-    const result = derivePal([book({ purchases: [bought("2026-07-03")] })]);
+    const purchase = bought("2026-07-03");
+    const result = derivePal([book({ purchases: [purchase] })]);
     expect(result.entries).toHaveLength(1);
     expect(result.entries[0].purchasedAt).toBe("2026-07-03");
+    // L'entrée porte l'id de l'achat d'entrée — celui qu'annule « je ne l'ai pas acheté ».
+    expect(result.entries[0].purchaseId).toBe(purchase.id);
     expect(result.purchaseDates).toEqual(["2026-07-03"]);
     expect(result.ownedFinishedDates).toEqual([]);
   });
@@ -110,11 +115,14 @@ describe("les achats multiples du même livre", () => {
   it("deux exemplaires achetés sans lecture : UNE entrée, un seul livre dans la pile", () => {
     // La pile compte des livres à lire, pas des exemplaires (review #22) :
     // le solde du mois doit dire la même chose que la liste en dessous.
-    const result = derivePal([book({ purchases: [bought("2026-07-08"), bought("2026-07-02")] })]);
+    const later = bought("2026-07-08");
+    const earlier = bought("2026-07-02");
+    const result = derivePal([book({ purchases: [later, earlier] })]);
     expect(result.purchaseDates).toEqual(["2026-07-02"]);
     expect(result.entries).toHaveLength(1);
-    // Le plus ancien achat date l'entrée dans la pile.
+    // Le plus ancien achat date l'entrée dans la pile — et c'est son id qui remonte.
     expect(result.entries[0].purchasedAt).toBe("2026-07-02");
+    expect(result.entries[0].purchaseId).toBe(earlier.id);
   });
 
   it("deux exemplaires puis une lecture : 1 entrée · 1 sortie — solde nul, comme le bilan (§3.3)", () => {
@@ -155,7 +163,7 @@ describe("la suppression douce", () => {
 
   it("un achat soft-deleted ne compte ni comme possession ni comme entrée", () => {
     const result = derivePal([
-      book({ purchases: [{ purchased_at: "2026-07-03", deleted_at: "2026-07-04T09:00:00Z" }] }),
+      book({ purchases: [{ id: "purchase-deleted", purchased_at: "2026-07-03", deleted_at: "2026-07-04T09:00:00Z" }] }),
     ]);
     expect(result.entries).toEqual([]);
     expect(result.purchaseDates).toEqual([]);

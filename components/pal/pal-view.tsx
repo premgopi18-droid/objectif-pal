@@ -2,6 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { startReadingForBook } from "@/lib/books/journal-actions";
+import { softDeletePurchase } from "@/lib/books/actions";
 import { BookCover } from "@/components/book-cover";
 import { ErrorAlert } from "@/components/error-alert";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
@@ -50,6 +51,20 @@ export function PalView({ entries, purchaseDates, ownedFinishedDates }: PalViewP
     });
   }
 
+  // « Je ne l'ai pas acheté » : annule l'achat qui a fait entrer le livre en
+  // pile (specs §4.6). Le livre disparaît de la liste au revalidate.
+  function removePurchase(purchaseId: string) {
+    setError(null);
+    startTransition(async () => {
+      try {
+        const result = await softDeletePurchase(purchaseId);
+        if (!result.ok) setError(result.error);
+      } catch {
+        setError(NETWORK_ERROR_MESSAGE);
+      }
+    });
+  }
+
   return (
     <div className="mt-4 flex flex-col gap-5">
       <dl className="grid grid-cols-2 gap-3">
@@ -86,6 +101,14 @@ export function PalView({ entries, purchaseDates, ownedFinishedDates }: PalViewP
                   {formatBookSubtitle(entry.seriesName, entry.issueNumber, CATEGORY_LABELS[entry.category])}
                 </p>
                 <p className="text-xs opacity-60">Acheté le {formatDateFrench(entry.purchasedAt)}</p>
+                <button
+                  type="button"
+                  disabled={isPending}
+                  onClick={() => removePurchase(entry.purchaseId)}
+                  className="mt-1 text-xs underline opacity-50 disabled:opacity-30"
+                >
+                  Je ne l&apos;ai pas acheté
+                </button>
               </div>
               {entry.isInProgress ? (
                 <span className="shrink-0 rounded-full bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-500">
