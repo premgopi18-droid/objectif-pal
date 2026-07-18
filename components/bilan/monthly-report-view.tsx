@@ -2,38 +2,85 @@
 
 import { Check, ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import { useMemo, useState } from "react";
+import { ObjectiveSection } from "@/components/bilan/objective-section";
+import { PicksSection } from "@/components/bilan/picks-section";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
+import { ALL_PICK_KINDS, type PickKind } from "@/lib/books/pick-kinds";
 import { addMonths, formatMonthFrench, localCurrentMonth } from "@/lib/dates";
 import { computeMonthlyReport } from "@/lib/scoring/monthly-report";
-import { formatPoints, reportToText } from "@/lib/scoring/report-text";
+import { formatPoints, reportToText, type PickLine } from "@/lib/scoring/report-text";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
-import type { BookCategory, PurchaseFact, ReadingFact } from "@/lib/scoring/types";
+import type { BookCategory, MonthlyObjective, PurchaseFact, ReadingFact } from "@/lib/scoring/types";
 
 /**
- * La vue du bilan — le décompte par catégorie, les achats non lus, le total,
- * et le bouton copier : un texte propre, lisible tel quel à l'antenne
- * (specs §4.5). Consultable pour n'importe quel mois passé.
+ * La vue du bilan — le décompte par catégorie, les achats non lus, l'objectif
+ * (§4.11), les distinctions (§4.4), le total, et le bouton copier : un texte
+ * propre, lisible tel quel à l'antenne (specs §4.5). Consultable pour
+ * n'importe quel mois passé.
  * Le texte copiable vit dans lib/scoring/report-text.ts (pur, testé).
  */
 
-type MonthlyReportViewProps = {
-  readings: ReadingFact[];
-  purchases: PurchaseFact[];
+/** Une lecture du bilan : le fait du moteur + de quoi nommer une distinction. */
+export type BilanReading = ReadingFact & {
+  readingId: string;
+  title: string;
 };
 
-export function MonthlyReportView({ readings, purchases }: MonthlyReportViewProps) {
+/** Une distinction telle que la page la charge (mois en `YYYY-MM`). */
+export type MonthlyPickRecord = {
+  month: string;
+  kind: PickKind;
+  readingId: string;
+  comment: string | null;
+};
+
+type MonthlyReportViewProps = {
+  readings: BilanReading[];
+  purchases: PurchaseFact[];
+  objectivesByMonth: Record<string, MonthlyObjective>;
+  picks: MonthlyPickRecord[];
+};
+
+export function MonthlyReportView({ readings, purchases, objectivesByMonth, picks }: MonthlyReportViewProps) {
   const currentMonth = localCurrentMonth();
   const [month, setMonth] = useState(currentMonth);
   const [isCopied, setIsCopied] = useState(false);
   const [copyFallbackText, setCopyFallbackText] = useState<string | null>(null);
 
+  const objective = objectivesByMonth[month] ?? null;
   const report = useMemo(
-    () => computeMonthlyReport(month, { readings, purchases }),
-    [month, readings, purchases],
+    () => computeMonthlyReport(month, { readings, purchases, objective }),
+    [month, readings, purchases, objective],
   );
 
   const categoryLines = (Object.entries(report.finishedByCategory) as [BookCategory, number][]).filter(
     ([, count]) => count > 0,
+  );
+
+  // Les candidates aux distinctions : les lectures TERMINÉES du mois affiché.
+  const finishedReadingsOfMonth = useMemo(
+    () =>
+      readings
+        .filter((reading) => reading.finishedAt !== null && reading.finishedAt.slice(0, 7) === month)
+        .map((reading) => ({ readingId: reading.readingId, title: reading.title }))
+        .sort((left, right) => left.title.localeCompare(right.title)),
+    [readings, month],
+  );
+  const monthPicks = useMemo(() => picks.filter((pick) => pick.month === month), [picks, month]);
+
+  // Les distinctions du texte copiable, dans l'ordre éditorial. Une lecture
+  // devenue introuvable (supprimée depuis) est passée sous silence dans le
+  // texte — pas de « (lecture introuvable) » à l'antenne.
+  const pickLines: PickLine[] = useMemo(
+    () =>
+      ALL_PICK_KINDS.flatMap((kind) => {
+        const pick = monthPicks.find((candidate) => candidate.kind === kind);
+        if (!pick) return [];
+        const reading = readings.find((candidate) => candidate.readingId === pick.readingId);
+        if (!reading) return [];
+        return [{ kind, title: reading.title, comment: pick.comment }];
+      }),
+    [monthPicks, readings],
   );
 
   async function copyReport() {
@@ -41,12 +88,12 @@ export function MonthlyReportView({ readings, purchases }: MonthlyReportViewProp
     // bouton du livrable, un échec muet est interdit — le texte s'affiche alors
     // dans une zone sélectionnable, toujours récupérable.
     try {
-      await navigator.clipboard.writeText(reportToText(report));
+      await navigator.clipboard.writeText(reportToText(report, pickLines));
       setIsCopied(true);
       setCopyFallbackText(null);
       setTimeout(() => setIsCopied(false), 2000);
     } catch {
-      setCopyFallbackText(reportToText(report));
+      setCopyFallbackText(reportToText(report, pickLines));
     }
   }
 
@@ -94,6 +141,14 @@ export function MonthlyReportView({ readings, purchases }: MonthlyReportViewProp
           </span>
           <span className="font-mono text-sm">{formatPoints(report.purchasePenalty)}</span>
         </div>
+        {report.objective && (
+          <div className="flex items-baseline justify-between border-b border-foreground/10 px-4 py-3">
+            <span>
+              Objectif du mois <span className="opacity-60">{report.objective.achieved ? "atteint" : month === currentMonth ? "en cours" : "manqué"}</span>
+            </span>
+            <span className="font-mono text-sm">{formatPoints(report.objective.bonus)}</span>
+          </div>
+        )}
         <div className="flex items-baseline justify-between px-4 py-4">
           <span className="text-lg font-bold">Score du mois</span>
           <span className={`font-mono text-2xl font-bold ${report.total >= 0 ? "text-amber-500" : "text-red-500"}`}>
@@ -125,6 +180,18 @@ export function MonthlyReportView({ readings, purchases }: MonthlyReportViewProp
           />
         </div>
       )}
+
+      <ObjectiveSection
+        // La clé remet l'éditeur à zéro quand on change de mois : le brouillon
+        // d'un mois ne fuit pas sur l'autre.
+        key={`objective-${month}`}
+        month={month}
+        isCurrentMonth={month === currentMonth}
+        objective={objective}
+        progress={report.objective}
+      />
+
+      <PicksSection key={`picks-${month}`} month={month} finishedReadings={finishedReadingsOfMonth} picks={monthPicks} />
     </div>
   );
 }

@@ -28,8 +28,9 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > Base Supabase complète (schéma §7 + 559 516 lignes GCD indexées), 4 connexions externes vérifiées, frontière
 > base typée, moteur de scoring testé, export JSON/CSV. **Le P0 est fait**, et un audit complet (issue #20,
 > PRs #21→#27) a durci fiabilité, sécurité, perf et cohérence (85 → 155 tests, migration d'intégrité + index perf).
-> Prochain chantier : les **stats essentielles** du §4.5 (tickets #28 moteur / #29 vue), puis P1 (objectifs
-> mensuels + distinctions).**
+> Les **stats essentielles** §4.5 sont livrées (moteur `lib/stats/` + vue `/stats` avec courbe de PAL,
+> PRs #37/#38) et le **P1 jeu** aussi : objectifs mensuels §4.11 (cibles, jauges, bonus +3) et distinctions
+> §4.4 (dans le bilan et le texte copiable) — 155 → 184 tests. Prochain chantier : le carnet (#10 en tête).**
 
 ## Stack
 
@@ -83,15 +84,12 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. Les **stats essentielles** du §4.5 (décision du 17/07/2026, découpage P0/P1 tracé dans les specs) :
-   moteur pur `lib/stats/` (ticket #28) puis vue « Stats » (ticket #29) — santé PAL, volume, répartitions,
-   note moyenne. Les analyses avancées (rythme, séries, goûts) sont en P1 (ticket #30).
-2. **P1** : objectifs mensuels (cible par catégorie, jauge, bonus +3 — le moteur les calcule déjà) et
-   distinctions du mois.
-3. En carnet : issue #10 (chercher d'abord dans la bibliothèque de l'utilisateur au scan), fix cosmétique
-   du `#[nn]` GCD dans les titres ; reliquats de l'audit #20 volontairement différés (trigger `occurred_at`,
-   pagination du journal, rate-limiting `/api/lookup`, export des tables P1) et backlog features (§5.4 photo
-   de couverture, §4.2 filtres du journal).
+1. En carnet, par ordre de priorité : **#10** (chercher d'abord dans la bibliothèque de l'utilisateur au
+   scan), **#35** (finitions UX scan — série mémorisée §5.3, « tu le relis ? » avant §4.2), **#34** (filtres
+   du journal §4.2), **#32** (tech-debt avant le multi-utilisateur : rate-limiting `/api/lookup`, sur-fetch
+   PAL, pagination du journal), **#33** (photo de couverture §5.4 — décisions produit à trancher), **#30**
+   (analyses avancées §4.5 — prérequis à lever, dont le trigger `occurred_at`).
+2. Fix cosmétique du `#[nn]` GCD dans les titres (sans ticket).
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs
 roman) à partir de Google Books — on n'a que des indices (éditeur, pages, langue). La catégorie proposée doit
