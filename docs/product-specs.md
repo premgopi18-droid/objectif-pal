@@ -319,6 +319,35 @@ Les points ne sont qu'une multiplication de ces comptes par le barème : **le bi
 - **Mes meilleures séries**, mes meilleurs éditeurs — et ceux qui me déçoivent.
 - Classement de mes lectures.
 
+#### Découpage P0 / P1 des analyses (décision du 17/07/2026)
+
+Le **bilan du mois au barème** (ci-dessus) est fait et reste le livrable P0 n°1. Les **analyses second rideau**
+n'ont pas toutes la même urgence ni le même coût, et surtout pas la même fiabilité de données — mesuré sur le
+dump GCD (559 516 issues) : **éditeur 0 % de valeurs nulles**, **pages 27,6 % nulles** (utilisable, à condition
+d'afficher « sur N livres où c'est connu »), catégorie/dates/notes 100 % (l'app les tient). On construit donc
+d'abord les analyses **fiables et utiles même à faible volume**, on diffère celles qui ont besoin de volume ou
+d'un arbitrage.
+
+**P0 — stats essentielles** (à construire maintenant — dérivations pures sur une base désormais typée et testée,
+même patron que le moteur de score) :
+- **Santé de la PAL** : solde du mois (entrées/sorties), **courbe cumulée** de la pile dans le temps, taille à
+  date, lectures hors PAL. (Réutilise le cœur `derivePileStatus` de `lib/pal/derive-pal.ts` — une sortie par
+  livre, deux dénominateurs, cf. l'encadré ci-dessus.)
+- **Volume** : lectures terminées (mois / année / total, et par catégorie), pages lues (là où `page_count` est
+  connu).
+- **Répartition** : par catégorie, par éditeur.
+- **Goûts** : note moyenne (globale, du mois, de l'année, par catégorie).
+
+**P1 — analyses avancées** (différées, avec leur raison) :
+- **Rythme** : durée moyenne d'une lecture, « lectures qui traînent » (demande un seuil à décider), abandons /
+  reprises (dépend de la lecture de `reading_events` et du correctif `occurred_at` — cf. audit #20).
+- **Répartition par série** + séries en cours (tomes lus, tome suivant).
+- **Goûts avancés** : meilleures / pires séries et éditeurs, classement des lectures. (Bruités tant qu'il n'y a
+  pas de volume.)
+- Moyenne par mois, meilleur mois.
+
+Tickets : moteur `lib/stats/` (P0), vue « Stats » (P0), analyses avancées (P1).
+
 ### 4.6 Achats (P0)
 
 Enregistrer un achat (scan ou saisie) avec sa date. Il sert deux fois :
