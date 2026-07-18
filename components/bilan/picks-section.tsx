@@ -39,7 +39,11 @@ export function PicksSection({ month, finishedReadings, picks }: PicksSectionPro
 
   function openEditor(kind: PickKind, current: PickSlot | undefined) {
     setEditingKind(kind);
-    setSelectedReadingId(current?.readingId ?? finishedReadings[0]?.readingId ?? "");
+    // Une lecture devenue introuvable (supprimée depuis) ne peut pas être
+    // pré-sélectionnée : le <select> n'aurait pas d'option correspondante et
+    // « Enregistrer » renverrait un id périmé (review #39).
+    const currentIsSelectable = finishedReadings.some((reading) => reading.readingId === current?.readingId);
+    setSelectedReadingId(currentIsSelectable ? current!.readingId : (finishedReadings[0]?.readingId ?? ""));
     setComment(current?.comment ?? "");
     setError(null);
   }
@@ -60,6 +64,7 @@ export function PicksSection({ month, finishedReadings, picks }: PicksSectionPro
   }
 
   function remove(kind: PickKind) {
+    setError(null);
     startTransition(async () => {
       const result = await removeMonthlyPick(month, kind);
       if (!result.ok) {
@@ -73,6 +78,13 @@ export function PicksSection({ month, finishedReadings, picks }: PicksSectionPro
   return (
     <section className="rounded-xl border border-foreground/10 p-4">
       <h2 className="font-semibold">Distinctions du mois</h2>
+      {/* L'échec muet est interdit : l'erreur d'un « Retirer » (hors éditeur)
+          s'affiche ici, au niveau de la section (review #39). */}
+      {error && editingKind === null && (
+        <div className="mt-2">
+          <ErrorAlert message={error} />
+        </div>
+      )}
       {finishedReadings.length === 0 && picks.length === 0 ? (
         <p className="mt-2 text-sm opacity-70">Termine une lecture ce mois-ci pour poser une distinction.</p>
       ) : (
