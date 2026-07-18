@@ -226,7 +226,8 @@ export function computeStats(books: StatBookRecord[], currentMonth: Month): Stat
       booksWithoutPageCount,
     },
     breakdown: {
-      byCategory: finishedByCategory,
+      // Copie défensive : même contenu que le volume, sans partager la référence.
+      byCategory: { ...finishedByCategory },
       byPublisher,
     },
     ratings: {
