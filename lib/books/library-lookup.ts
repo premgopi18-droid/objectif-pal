@@ -33,12 +33,19 @@ export async function findBookInLibrary(
   raw: string,
 ): Promise<ResolvedBook | null> {
   const code = classifyScannedCode(raw);
+  // Code inexploitable : aucun livre n'a pu être enregistré sous lui, inutile
+  // de requêter.
+  if (code.type === "invalid") return null;
+  // TOUJOURS les chiffres normalisés (`code.raw`), jamais le paramètre brut
+  // (review #40) : c'est sous cette forme que la résolution stocke
+  // `barcode_raw`, et c'est la garantie « 100 % chiffres » qui rend le filtre
+  // `or` PostgREST non forgeable.
+  const digits = code.raw;
   const ean13 = code.type === "isbn" ? code.ean13 : null;
 
   let query = supabase.from("books").select(LIBRARY_BOOK_COLUMNS).eq("user_id", userId).is("deleted_at", null);
-  // Pour un UPC, le supplément est SIGNIFIANT (numéro, couverture) : match
-  // brut uniquement. Les codes sont des chiffres : sûrs dans un filtre `or`.
-  query = ean13 ? query.or(`barcode_raw.eq.${raw},isbn.eq.${ean13}`) : query.eq("barcode_raw", raw);
+  // Pour un UPC, le supplément est SIGNIFIANT (numéro, couverture) : match brut uniquement.
+  query = ean13 ? query.or(`barcode_raw.eq.${digits},isbn.eq.${ean13}`) : query.eq("barcode_raw", digits);
 
   const { data, error } = await query.limit(2);
   if (error) {
@@ -51,7 +58,7 @@ export async function findBookInLibrary(
 
   // Deux exemplaires possibles (raw + isbn) : le match exact sur le code brut
   // l'emporte — c'est LE livre scanné, pas son jumeau sans supplément.
-  const row = data.find((candidate) => candidate.barcode_raw === raw) ?? data[0];
+  const row = data.find((candidate) => candidate.barcode_raw === digits) ?? data[0];
 
   return {
     title: row.title,

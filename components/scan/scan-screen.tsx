@@ -77,7 +77,11 @@ export function ScanScreen() {
       if (result.kind === "resolved") {
         setState({ step: "sheet", book: result.book, scannedCode: code });
       } else if (result.kind === "in-library") {
-        setState({ step: "sheet", book: result.book, scannedCode: code, isInLibrary: true });
+        // scannedCode: null — la feuille retombe sur book.barcode (le
+        // barcode_raw STOCKÉ) : la dédup d'écriture matche à coup sûr. Passer
+        // le code fraîchement scanné créerait un doublon quand le match vient
+        // du repli ISBN (supplément prix scanné ou non — review #40).
+        setState({ step: "sheet", book: result.book, scannedCode: null, isInLibrary: true });
       } else if (result.kind === "pick-issue") {
         setState({ step: "pick-issue", seriesName: result.seriesName, issues: result.issues, scannedCode: code });
       } else if (result.kind === "pick-series") {
