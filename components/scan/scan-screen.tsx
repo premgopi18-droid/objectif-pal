@@ -21,7 +21,9 @@ import { ManualEntryForm } from "./manual-entry-form";
 type ScanState =
   | { step: "scan"; notice?: string }
   | { step: "loading"; code: string }
-  | { step: "sheet"; book: ResolvedBook; scannedCode: string | null; error?: string }
+  // isInLibrary : le livre vient de la bibliothèque de l'utilisateur (issue
+  // #10) — la feuille l'annonce, « tu l'as déjà ».
+  | { step: "sheet"; book: ResolvedBook; scannedCode: string | null; error?: string; isInLibrary?: boolean }
   | { step: "pick-issue"; seriesName: string; issues: IssueCandidate[]; scannedCode: string }
   | { step: "pick-series"; candidates: SeriesCandidate[]; scannedCode: string }
   | { step: "manual"; scannedCode: string | null }
@@ -74,6 +76,12 @@ export function ScanScreen() {
 
       if (result.kind === "resolved") {
         setState({ step: "sheet", book: result.book, scannedCode: code });
+      } else if (result.kind === "in-library") {
+        // scannedCode: null — la feuille retombe sur book.barcode (le
+        // barcode_raw STOCKÉ) : la dédup d'écriture matche à coup sûr. Passer
+        // le code fraîchement scanné créerait un doublon quand le match vient
+        // du repli ISBN (supplément prix scanné ou non — review #40).
+        setState({ step: "sheet", book: result.book, scannedCode: null, isInLibrary: true });
       } else if (result.kind === "pick-issue") {
         setState({ step: "pick-issue", seriesName: result.seriesName, issues: result.issues, scannedCode: code });
       } else if (result.kind === "pick-series") {
@@ -205,6 +213,11 @@ export function ScanScreen() {
     return (
       <div className="flex flex-col gap-3">
         {state.error && <ErrorAlert message={state.error} />}
+        {state.isInLibrary && (
+          <p className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+            Déjà dans ta bibliothèque — tes infos sont pré-remplies.
+          </p>
+        )}
         <BookActionSheet
           book={state.book}
           scannedCode={state.scannedCode}
