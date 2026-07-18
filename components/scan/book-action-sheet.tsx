@@ -87,6 +87,8 @@ export function BookActionSheet({ book, scannedCode, onStartReading, onPurchase,
         <input
           type="date"
           value={date}
+          // Pas de date future : on borne la SÉLECTION côté client (le fuseau local, pas UTC).
+          max={localToday()}
           onChange={(event) => setDate(event.target.value)}
           className="rounded-md border border-foreground/20 bg-transparent px-3 py-2"
         />

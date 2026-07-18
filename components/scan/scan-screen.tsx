@@ -4,7 +4,8 @@ import { useCallback, useRef, useState } from "react";
 import { ErrorAlert } from "@/components/error-alert";
 import { startReading, recordPurchase, softDeletePurchase, type BookInput, type ScanActionResult } from "@/lib/books/actions";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
-import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
+import { FUTURE_DATE_MESSAGE, NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
+import { localToday } from "@/lib/dates";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
 import type { IssueCandidate, ResolvedBook, ScanLookupResult, SeriesCandidate } from "@/lib/resolution/types";
 import { BarcodeScanner } from "./barcode-scanner";
@@ -92,8 +93,15 @@ export function ScanScreen() {
     setState({ step: "loading", code: scannedCode });
     try {
       const response = await fetch(`/api/lookup/gcd/${gcdId}`);
-      const result = (await response.json()) as ScanLookupResult;
       if (requestId !== lookupIdRef.current) return; // requête périmée : la saisie manuelle a pris la main
+      if (response.status === 401) {
+        // Session expirée : on renvoie au scan avec le même message que `lookup`,
+        // plutôt que de forcer une ressaisie à la main d'un livre que GCD connaît.
+        setState({ step: "scan", notice: "Session expirée — reconnecte-toi." });
+        return;
+      }
+      const result = (await response.json()) as ScanLookupResult;
+      if (requestId !== lookupIdRef.current) return;
       if (result.kind === "resolved") {
         // Le code scanné était un préfixe (la série entière) : ce n'est PAS le
         // code-barres de CE livre — on garde celui que GCD connaît pour l'issue.
@@ -119,6 +127,12 @@ export function ScanScreen() {
     date: string,
     doneMessage: string,
   ) {
+    // Garde « pas de date future » : le max de l'input ne bloque pas une valeur
+    // tapée à la main — on la refuse ici, contre le today LOCAL (pas d'UTC).
+    if (date > localToday()) {
+      setState((previous) => (previous.step === "sheet" ? { ...previous, error: FUTURE_DATE_MESSAGE } : previous));
+      return;
+    }
     setIsSubmitting(true);
     let result: ScanActionResult;
     try {

@@ -12,7 +12,7 @@ import {
 } from "@/lib/books/journal-actions";
 import { BookCover } from "@/components/book-cover";
 import { ErrorAlert } from "@/components/error-alert";
-import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
+import { FUTURE_DATE_MESSAGE, NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { formatBookSubtitle } from "@/lib/books/format";
 import { formatDateFrench, localToday } from "@/lib/dates";
@@ -108,7 +108,7 @@ export function JournalList({ entries }: { entries: JournalEntry[] }) {
 
       <ul className="flex flex-col gap-3">
         {visible.map((entry) => (
-          <JournalItem key={entry.id} entry={entry} run={run} isPending={isPending} />
+          <JournalItem key={entry.id} entry={entry} run={run} isPending={isPending} onError={setError} />
         ))}
       </ul>
     </div>
@@ -119,10 +119,12 @@ function JournalItem({
   entry,
   run,
   isPending,
+  onError,
 }: {
   entry: JournalEntry;
   run: (action: () => Promise<JournalActionResult>) => void;
   isPending: boolean;
+  onError: (message: string) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const badge = STATUS_BADGES[entry.status];
@@ -193,7 +195,9 @@ function JournalItem({
         </button>
       </div>
 
-      {isEditing && <EditPanel entry={entry} run={run} isPending={isPending} onDone={() => setIsEditing(false)} />}
+      {isEditing && (
+        <EditPanel entry={entry} run={run} isPending={isPending} onError={onError} onDone={() => setIsEditing(false)} />
+      )}
     </li>
   );
 }
@@ -202,11 +206,13 @@ function EditPanel({
   entry,
   run,
   isPending,
+  onError,
   onDone,
 }: {
   entry: JournalEntry;
   run: (action: () => Promise<JournalActionResult>) => void;
   isPending: boolean;
+  onError: (message: string) => void;
   onDone: () => void;
 }) {
   const [startedAt, setStartedAt] = useState(entry.startedAt);
@@ -221,12 +227,14 @@ function EditPanel({
       <div className="flex flex-wrap gap-3">
         <label className="flex flex-col gap-1 text-xs opacity-80">
           Début
-          <input type="date" value={startedAt} onChange={(event) => setStartedAt(event.target.value)} className={inputClass} />
+          {/* Pas de date future : on borne la SÉLECTION côté client (le fuseau local, pas UTC). */}
+          <input type="date" value={startedAt} max={localToday()} onChange={(event) => setStartedAt(event.target.value)} className={inputClass} />
         </label>
         {entry.status === "finished" && (
           <label className="flex flex-col gap-1 text-xs opacity-80">
             Fin (elle date les points)
-            <input type="date" value={finishedAt} onChange={(event) => setFinishedAt(event.target.value)} className={inputClass} />
+            {/* Pas de date future : on borne la SÉLECTION côté client (le fuseau local, pas UTC). */}
+            <input type="date" value={finishedAt} max={localToday()} onChange={(event) => setFinishedAt(event.target.value)} className={inputClass} />
           </label>
         )}
         <label className="flex flex-col gap-1 text-xs opacity-80">
@@ -259,10 +267,17 @@ function EditPanel({
           type="button"
           disabled={isPending}
           onClick={() => {
+            // Garde « pas de date future » (le max de l'input ne bloque pas la
+            // saisie manuelle) : contre le today LOCAL, avant de soumettre.
+            const editedFinishedAt = entry.status === "finished" ? finishedAt || null : entry.finishedAt;
+            if (startedAt > localToday() || (editedFinishedAt !== null && editedFinishedAt > localToday())) {
+              onError(FUTURE_DATE_MESSAGE);
+              return;
+            }
             run(() =>
               updateReadingDetails(entry.id, {
                 startedAt,
-                finishedAt: entry.status === "finished" ? finishedAt || null : entry.finishedAt,
+                finishedAt: editedFinishedAt,
                 rating: rating === "" ? null : Number(rating),
                 comment: comment || null,
               }),

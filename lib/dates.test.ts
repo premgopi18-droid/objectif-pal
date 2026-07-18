@@ -43,7 +43,7 @@ describe("addMonths — l'arithmétique modulo des mois", () => {
 });
 
 describe("isValidIsoDate — le garde des Server Actions", () => {
-  it.each(["2026-07-14", "1999-01-01", "2026-12-31"])("accepte %s", (value) => {
+  it.each(["2026-07-14", "1999-01-01", "2026-12-31", "2024-02-29"])("accepte %s", (value) => {
     expect(isValidIsoDate(value)).toBe(true);
   });
 
@@ -58,8 +58,14 @@ describe("isValidIsoDate — le garde des Server Actions", () => {
     expect(isValidIsoDate(value)).toBe(false);
   });
 
-  it("ne borne pas mois et jour — c'est le FORMAT seul (ticket séparé)", () => {
-    expect(isValidIsoDate("2026-13-45")).toBe(true);
+  it.each([
+    ["2026-13-45", "un mois et un jour hors bornes"],
+    ["2026-02-30", "le 30 février"],
+    ["2026-02-29", "le 29 février d'une année non bissextile"],
+    ["2026-00-10", "un mois zéro"],
+    ["2026-01-00", "un jour zéro"],
+  ])("borne le calendrier — refuse %s (%s)", (value) => {
+    expect(isValidIsoDate(value)).toBe(false);
   });
 });
 

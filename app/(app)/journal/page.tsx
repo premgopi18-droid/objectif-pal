@@ -1,4 +1,5 @@
 import { JournalList, type JournalEntry } from "@/components/journal/journal-list";
+import { PageLoadError } from "@/components/page-load-error";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 /**
@@ -20,14 +21,7 @@ export default async function JournalPage() {
     .order("created_at", { ascending: false });
 
   if (error) {
-    return (
-      <section className="py-6">
-        <h1 className="text-2xl font-bold">Journal</h1>
-        <p role="alert" className="mt-3 text-sm text-red-500">
-          Impossible de charger le journal — réessaie.
-        </p>
-      </section>
-    );
+    return <PageLoadError title="Journal" message="Impossible de charger le journal — réessaie." />;
   }
 
   // La frontière snake_case → camelCase : la seule couche qui voit les noms

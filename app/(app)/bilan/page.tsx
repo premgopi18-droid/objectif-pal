@@ -1,4 +1,5 @@
 import { MonthlyReportView } from "@/components/bilan/monthly-report-view";
+import { PageLoadError } from "@/components/page-load-error";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { PurchaseFact, ReadingFact } from "@/lib/scoring/types";
 
@@ -13,23 +14,24 @@ export default async function BilanPage() {
   const supabase = await createServerSupabaseClient();
 
   const [readingsResult, purchasesResult] = await Promise.all([
+    // L'inner join sur books élague les livres supprimés en douceur : sans lui,
+    // les lectures/achats d'un livre effacé pèseraient au bilan tout en ayant
+    // disparu de la PAL. book_id est NOT NULL → l'inner join ne perd rien.
     supabase
       .from("readings")
-      .select("book_id, status, started_at, finished_at, book:books (category)")
+      .select("book_id, status, started_at, finished_at, book:books!inner (category, deleted_at)")
       .eq("status", "finished")
-      .is("deleted_at", null),
-    supabase.from("purchases").select("book_id, purchased_at").is("deleted_at", null),
+      .is("deleted_at", null)
+      .is("book.deleted_at", null),
+    supabase
+      .from("purchases")
+      .select("book_id, purchased_at, book:books!inner (deleted_at)")
+      .is("deleted_at", null)
+      .is("book.deleted_at", null),
   ]);
 
   if (readingsResult.error || purchasesResult.error) {
-    return (
-      <section className="py-6">
-        <h1 className="text-2xl font-bold">Bilan du mois</h1>
-        <p role="alert" className="mt-3 text-sm text-red-500">
-          Impossible de charger le bilan — réessaie.
-        </p>
-      </section>
-    );
+    return <PageLoadError title="Bilan du mois" message="Impossible de charger le bilan — réessaie." />;
   }
 
   // L'embed `book` est inféré objet (FK many-to-one) : plus de tableau à déplier.
