@@ -258,6 +258,12 @@ chiffres : ce qu'on lit à l'antenne, ce n'est pas qu'un décompte.
 > surprise, c'est **l'écart entre ce qu'on attendait et ce qu'on a eu** — et l'attente n'est enregistrée nulle
 > part. Un chef-d'œuvre attendu comme un chef-d'œuvre n'est pas une surprise.
 
+> **Décisions du 18/07/2026** : les distinctions **entrent dans le texte copiable** du bilan, après le score
+> (ce qu'on lit à l'antenne n'est pas qu'un décompte) ; et elles restent **posables/modifiables sur un mois
+> passé** (le choix éditorial se fait souvent après la clôture, en préparant l'émission). L'objectif du mois,
+> lui, reste figé dès le mois clos (§4.11) : il ne change pas le jeu après coup, les distinctions si — ce sont
+> des mots, pas des points.
+
 ### 4.5 Statistiques & analyses (P0)
 
 #### Le bilan du mois au barème — **l'écran principal, le livrable**

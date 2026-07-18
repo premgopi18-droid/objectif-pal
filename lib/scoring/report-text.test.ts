@@ -92,3 +92,21 @@ describe("reportToText", () => {
     expect(reportToText(report("2026-07"))).not.toContain("Objectif du mois");
   });
 });
+
+describe("les distinctions du mois dans le texte (décision du 18/07/2026)", () => {
+  it("s'ajoutent après le score, avec leur commentaire éventuel", () => {
+    const result = reportToText(report("2026-07", { readings: [finished("bd", "2026-07-10")] }), [
+      { kind: "favorite", title: "Monster T3", comment: "le retournement du chapitre 5" },
+      { kind: "bad_surprise", title: "Un album décevant", comment: null },
+    ]);
+    expect(result.split("\n").slice(-3)).toEqual([
+      "Score du mois : +2",
+      "L'œuvre préférée du mois : Monster T3 — le retournement du chapitre 5",
+      "La mauvaise surprise : Un album décevant",
+    ]);
+  });
+
+  it("sans distinction, le texte s'arrête au score — inchangé", () => {
+    expect(reportToText(report("2026-07")).split("\n").at(-1)).toBe("Score du mois : 0");
+  });
+});

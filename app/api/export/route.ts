@@ -17,7 +17,10 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 // refléter par accident la prochaine colonne technique venue.
 // L'annotation élargit `columns` en string : sans ça, le parseur de types de
 // supabase-js tente d'analyser chaque littéral et rend un ParserError.
-const EXPORT_TABLES: Record<"books" | "readings" | "reading_events" | "purchases", { columns: string; orderBy: string }> = {
+const EXPORT_TABLES: Record<
+  "books" | "readings" | "reading_events" | "purchases" | "monthly_objectives" | "objective_targets" | "monthly_picks",
+  { columns: string; orderBy: string }
+> = {
   books: {
     columns:
       "id, title, series_name, issue_number, authors, publisher, page_count, category, barcode_raw, barcode_type, barcode_prefix, isbn, cover_url, metadata_source, metadata_source_id, created_at, deleted_at",
@@ -29,9 +32,9 @@ const EXPORT_TABLES: Record<"books" | "readings" | "reading_events" | "purchases
   },
   reading_events: { columns: "id, reading_id, status, occurred_at", orderBy: "id" },
   purchases: { columns: "id, book_id, purchased_at, created_at, deleted_at", orderBy: "created_at" },
-  // TODO(P1) : ajouter monthly_objectives, objective_targets et monthly_picks
-  // dès qu'ils portent des données — le §4.10 les liste, un export incomplet
-  // serait un trou silencieux dans la portabilité.
+  monthly_objectives: { columns: "id, month, created_at", orderBy: "month" },
+  objective_targets: { columns: "id, objective_id, category, target_count", orderBy: "id" },
+  monthly_picks: { columns: "id, month, kind, reading_id, comment, created_at", orderBy: "month" },
 };
 
 type ExportTable = keyof typeof EXPORT_TABLES;
@@ -80,12 +83,16 @@ export async function GET(request: Request) {
       });
     }
 
-    const [books, readings, readingEvents, purchases] = await Promise.all([
-      fetchTable("books"),
-      fetchTable("readings"),
-      fetchTable("reading_events"),
-      fetchTable("purchases"),
-    ]);
+    const [books, readings, readingEvents, purchases, monthlyObjectives, objectiveTargets, monthlyPicks] =
+      await Promise.all([
+        fetchTable("books"),
+        fetchTable("readings"),
+        fetchTable("reading_events"),
+        fetchTable("purchases"),
+        fetchTable("monthly_objectives"),
+        fetchTable("objective_targets"),
+        fetchTable("monthly_picks"),
+      ]);
 
     const payload = {
       exported_at: new Date().toISOString(),
@@ -95,6 +102,9 @@ export async function GET(request: Request) {
       readings,
       reading_events: readingEvents,
       purchases,
+      monthly_objectives: monthlyObjectives,
+      objective_targets: objectiveTargets,
+      monthly_picks: monthlyPicks,
     };
 
     return new Response(JSON.stringify(payload, null, 2), {
