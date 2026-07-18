@@ -5,6 +5,9 @@ import { getSessionOrError, type createServerSupabaseClient } from "@/lib/supaba
 import { isValidIsoDate } from "@/lib/dates";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
 import { getReadingInProgressError } from "@/lib/books/reading-guards";
+import { mergeBookFieldsOnRescan } from "@/lib/books/book-merge";
+import { isBookInPile } from "@/lib/books/pile-guard";
+import type { JournalActionResult } from "@/lib/books/journal-actions";
 import type { BookCategory } from "@/lib/scoring/types";
 
 /**
@@ -36,7 +39,7 @@ export type BookInput = {
 };
 
 export type ScanActionResult =
-  | { ok: true; bookAlreadyExisted: boolean; isRereading?: boolean }
+  | { ok: true; bookAlreadyExisted: boolean; isRereading?: boolean; purchaseId?: string }
   | { ok: false; error: string };
 
 const BARCODE_PREFIX_LENGTH = 12;
@@ -87,24 +90,13 @@ async function findOrCreateBook(
     }
 
     if (existing) {
+      // La décision de fusion vit dans une fonction pure, testée (book-merge.ts).
+      // metadata_source et metadata_source_id restent ceux de la création : la
+      // paire doit désigner le même référentiel, et la source (NOT NULL) n'est
+      // jamais « comblable » — on ne touche donc pas à l'id non plus.
       const { error: updateError } = await supabase
         .from("books")
-        .update({
-          deleted_at: null, // un livre supprimé en douceur ressuscite au rescan
-          title: input.title.trim(),
-          category: input.category,
-          // Comblement des NULL uniquement — jamais d'écrasement d'une valeur existante.
-          series_name: existing.series_name ?? input.seriesName,
-          issue_number: existing.issue_number ?? input.issueNumber,
-          authors: existing.authors ?? input.authors,
-          publisher: existing.publisher ?? input.publisher,
-          page_count: existing.page_count ?? input.pageCount,
-          isbn: existing.isbn ?? input.isbn,
-          cover_url: existing.cover_url ?? input.coverUrl,
-          // metadata_source et metadata_source_id restent ceux de la création :
-          // la paire doit désigner le même référentiel, et la source (NOT NULL)
-          // n'est jamais « comblable » — on ne touche donc pas à l'id non plus.
-        })
+        .update(mergeBookFieldsOnRescan(existing, input))
         .eq("id", existing.id);
       if (updateError) {
         console.error("[books] findOrCreateBook:", updateError.message);
@@ -207,11 +199,35 @@ export async function recordPurchase(input: BookInput, purchasedAt: string): Pro
   const book = await findOrCreateBook(supabase, user.id, input);
   if ("error" in book) return { ok: false, error: book.error };
 
-  const { error: purchaseError } = await supabase.from("purchases").insert({
-    user_id: user.id,
-    book_id: book.bookId,
-    purchased_at: date,
-  });
+  // Garde du doublon (specs §4.6, §3.3) : un livre DÉJÀ dans la pile ne se
+  // rachète pas — ce serait un −2 silencieux. Racheter un déjà-lu reste permis
+  // (il n'entre pas dans la pile). On charge les achats + fins du livre et on
+  // délègue la décision au prédicat pur, cohérent avec la vue PAL.
+  const [{ data: purchases, error: purchasesError }, { data: readings, error: readingsError }] = await Promise.all([
+    supabase.from("purchases").select("purchased_at, deleted_at").eq("user_id", user.id).eq("book_id", book.bookId),
+    supabase
+      .from("readings")
+      .select("status, finished_at, deleted_at")
+      .eq("user_id", user.id)
+      .eq("book_id", book.bookId),
+  ]);
+  if (purchasesError || readingsError) {
+    console.error("[books] recordPurchase:", (purchasesError ?? readingsError)?.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+  if (isBookInPile(purchases ?? [], readings ?? [])) {
+    return { ok: false, error: "Ce livre est déjà dans ta PAL." };
+  }
+
+  const { data: inserted, error: purchaseError } = await supabase
+    .from("purchases")
+    .insert({
+      user_id: user.id,
+      book_id: book.bookId,
+      purchased_at: date,
+    })
+    .select("id")
+    .single();
   if (purchaseError) {
     console.error("[books] recordPurchase:", purchaseError.message);
     return { ok: false, error: GENERIC_ERROR_MESSAGE };
@@ -219,5 +235,35 @@ export async function recordPurchase(input: BookInput, purchasedAt: string): Pro
 
   revalidatePath("/journal");
   revalidatePath("/bilan");
-  return { ok: true, bookAlreadyExisted: book.alreadyExisted };
+  revalidatePath("/pal"); // l'achat fait entrer le livre dans la pile
+  // L'id remonte pour permettre l'annulation immédiate juste après le scan.
+  return { ok: true, bookAlreadyExisted: book.alreadyExisted, purchaseId: inserted.id };
+}
+
+/**
+ * Annuler un achat — suppression douce (specs §7 : rien n'est jamais effacé de
+ * la base). Deux points d'entrée : juste après le scan (« Annuler ») et depuis
+ * la PAL (« Je ne l'ai pas acheté »). L'achat pèse au barème (malus −1), donc
+ * on revalide aussi le bilan.
+ */
+export async function softDeletePurchase(purchaseId: string): Promise<JournalActionResult> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+  const { supabase, user } = session;
+
+  const { error, count } = await supabase
+    .from("purchases")
+    .update({ deleted_at: new Date().toISOString() }, { count: "exact" })
+    .eq("id", purchaseId)
+    .eq("user_id", user.id)
+    .is("deleted_at", null);
+  if (error) {
+    console.error("[books] softDeletePurchase:", error.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+  if (!count) return { ok: false, error: "Achat introuvable." };
+
+  revalidatePath("/pal");
+  revalidatePath("/bilan");
+  return { ok: true };
 }

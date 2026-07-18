@@ -2,7 +2,8 @@
 
 import { useCallback, useRef, useState } from "react";
 import { ErrorAlert } from "@/components/error-alert";
-import { startReading, recordPurchase, type BookInput, type ScanActionResult } from "@/lib/books/actions";
+import { startReading, recordPurchase, softDeletePurchase, type BookInput, type ScanActionResult } from "@/lib/books/actions";
+import type { JournalActionResult } from "@/lib/books/journal-actions";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
 import type { IssueCandidate, ResolvedBook, ScanLookupResult, SeriesCandidate } from "@/lib/resolution/types";
@@ -23,7 +24,9 @@ type ScanState =
   | { step: "pick-issue"; seriesName: string; issues: IssueCandidate[]; scannedCode: string }
   | { step: "pick-series"; candidates: SeriesCandidate[]; scannedCode: string }
   | { step: "manual"; scannedCode: string | null }
-  | { step: "done"; message: string; detail: string | null };
+  // purchaseId n'est porté que par un achat (pas une lecture) : c'est lui qui
+  // arme le bouton « Annuler ». error : l'échec d'une annulation, affiché sur place.
+  | { step: "done"; message: string; detail: string | null; purchaseId?: string; error?: string };
 
 /** Le malus affiché vient du barème — jamais recopié en dur (CLAUDE.md). */
 const PENALTY_POINTS = Math.abs(SCORING_SCALE.unreadPurchasePenalty);
@@ -140,7 +143,30 @@ export function ScanScreen() {
         : result.bookAlreadyExisted
           ? "Ce livre était déjà dans ta bibliothèque."
           : null,
+      // Seul un achat remonte un purchaseId : lui seul peut s'annuler ici.
+      purchaseId: result.purchaseId,
     });
+  }
+
+  /** « Annuler » juste après un achat — la suppression douce, effet immédiat. */
+  async function cancelPurchase(purchaseId: string) {
+    setIsSubmitting(true);
+    let result: JournalActionResult;
+    try {
+      result = await softDeletePurchase(purchaseId);
+    } catch {
+      // Serveur injoignable : la promesse rejette — sans ce catch, échec muet.
+      result = { ok: false, error: NETWORK_ERROR_MESSAGE };
+    } finally {
+      setIsSubmitting(false);
+    }
+
+    if (!result.ok) {
+      setState((previous) => (previous.step === "done" ? { ...previous, error: result.error } : previous));
+      return;
+    }
+    // L'achat annulé : plus de purchaseId, le bouton « Annuler » disparaît.
+    setState({ step: "done", message: "Achat annulé.", detail: null });
   }
 
   if (state.step === "loading") {
@@ -256,6 +282,17 @@ export function ScanScreen() {
         </p>
         <h2 className="text-xl font-bold">{state.message}</h2>
         {state.detail && <p className="text-sm opacity-70">{state.detail}</p>}
+        {state.error && <ErrorAlert message={state.error} />}
+        {state.purchaseId && (
+          <button
+            type="button"
+            disabled={isSubmitting}
+            onClick={() => cancelPurchase(state.purchaseId!)}
+            className="text-sm underline opacity-70 disabled:opacity-40"
+          >
+            Annuler
+          </button>
+        )}
         <button
           type="button"
           onClick={() => setState({ step: "scan" })}
