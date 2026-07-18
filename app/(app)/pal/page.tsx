@@ -18,8 +18,13 @@ export default async function PalPage() {
   const { data, error } = await supabase
     .from("books")
     .select(
+      // `purchases!inner` : seuls les livres POSSÉDÉS remontent (issue #32,
+      // lot B) — derivePal jetait de toute façon les emprunts (jamais dans la
+      // pile, §4.5), on ne les transfère plus. Combiné au filtre deleted_at
+      // sur l'embed, un livre dont tous les achats sont annulés est exclu dès
+      // la requête, exactement comme derivePal l'aurait exclu.
       `id, title, series_name, issue_number, category, cover_url, deleted_at,
-       purchases (id, purchased_at, deleted_at),
+       purchases!inner (id, purchased_at, deleted_at),
        readings (status, finished_at, deleted_at)`,
     )
     .is("deleted_at", null)

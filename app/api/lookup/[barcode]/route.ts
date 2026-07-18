@@ -1,4 +1,5 @@
 import { findBookInLibrary } from "@/lib/books/library-lookup";
+import { isLookupAllowed, LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
 import { resolveScannedCode } from "@/lib/resolution/resolve";
 import { getSessionOrError } from "@/lib/supabase/server";
 
@@ -19,6 +20,11 @@ export async function GET(_request: Request, { params }: { params: Promise<{ bar
   const session = await getSessionOrError();
   if (!session) {
     return Response.json({ error: "authentification requise" }, { status: 401 });
+  }
+  // Le quota se consomme AVANT tout travail (issue #32) : le lookup
+  // bibliothèque est gratuit, mais la cascade derrière ne l'est pas.
+  if (!(await isLookupAllowed(session.supabase))) {
+    return Response.json({ error: LOOKUP_RATE_LIMIT_MESSAGE }, { status: 429 });
   }
   const { barcode } = await params;
 

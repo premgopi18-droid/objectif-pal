@@ -6,6 +6,7 @@ import { startReading, recordPurchase, softDeletePurchase, type BookInput, type 
 import type { JournalActionResult } from "@/lib/books/journal-actions";
 import { FUTURE_DATE_MESSAGE, NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { localToday } from "@/lib/dates";
+import { LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
 import type { IssueCandidate, ResolvedBook, ScanLookupResult, SeriesCandidate } from "@/lib/resolution/types";
 import { BarcodeScanner } from "./barcode-scanner";
@@ -72,6 +73,10 @@ export function ScanScreen() {
         setState({ step: "scan", notice: "Session expirée — reconnecte-toi." });
         return;
       }
+      if (response.status === 429) {
+        setState({ step: "scan", notice: LOOKUP_RATE_LIMIT_MESSAGE });
+        return;
+      }
       const result = (await response.json()) as ScanLookupResult;
       if (requestId !== lookupIdRef.current) return;
 
@@ -113,6 +118,10 @@ export function ScanScreen() {
         // Session expirée : on renvoie au scan avec le même message que `lookup`,
         // plutôt que de forcer une ressaisie à la main d'un livre que GCD connaît.
         setState({ step: "scan", notice: "Session expirée — reconnecte-toi." });
+        return;
+      }
+      if (response.status === 429) {
+        setState({ step: "scan", notice: LOOKUP_RATE_LIMIT_MESSAGE });
         return;
       }
       const result = (await response.json()) as ScanLookupResult;

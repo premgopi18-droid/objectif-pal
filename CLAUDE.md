@@ -85,10 +85,11 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. En carnet, par ordre de priorité : **#32** (tech-debt avant le multi-utilisateur : rate-limiting
-   `/api/lookup`, sur-fetch PAL, pagination du journal — les filtres du journal devront alors migrer côté
-   requête), **#33** (photo de couverture §5.4 — décisions produit à trancher), **#30** (analyses avancées
-   §4.5 — prérequis à lever, dont le trigger `occurred_at`).
+1. En carnet, par ordre de priorité : **#32 — reste le lot C seul** (pagination du journal, volontairement
+   différée le 19/07/2026 : à déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ;
+   les filtres #34 migreront alors côté requête — l'index de tri est déjà posé), **#33** (photo de
+   couverture §5.4 — décisions produit à trancher), **#30** (analyses avancées §4.5 — prérequis à lever,
+   dont le trigger `occurred_at`).
 2. Fix cosmétique du `#[nn]` GCD dans les titres (sans ticket).
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs

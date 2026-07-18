@@ -1,14 +1,3 @@
-/**
- * Fichier GÉNÉRÉ depuis le schéma Supabase de prod — NE PAS ÉDITER À LA MAIN.
- *
- * Régénération (à rejouer après CHAQUE migration appliquée) :
- *
- *   npm run db:types
- *
- * (La commande vit dans package.json, pas ici : la régénération ÉCRASE ce
- * fichier — cet en-tête compris. La source de vérité est le script npm.)
- */
-
 export type Json =
   | string
   | number
@@ -203,6 +192,32 @@ export type Database = {
           year_began?: number | null
         }
         Relationships: []
+      }
+      lookup_rate_limits: {
+        Row: {
+          lookup_count: number
+          user_id: string
+          window_started_at: string
+        }
+        Insert: {
+          lookup_count: number
+          user_id: string
+          window_started_at: string
+        }
+        Update: {
+          lookup_count?: number
+          user_id?: string
+          window_started_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "lookup_rate_limits_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       monthly_objectives: {
         Row: {
@@ -465,7 +480,10 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      consume_lookup_quota: {
+        Args: { max_lookups: number; window_seconds: number }
+        Returns: boolean
+      }
     }
     Enums: {
       barcode_type: "isbn" | "upc"
