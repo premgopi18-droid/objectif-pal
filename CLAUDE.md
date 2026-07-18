@@ -27,7 +27,7 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > note + avis) → bilan mensuel au barème copiable pour l'antenne, vue PAL (§4.6) avec annulation d'achat.
 > Base Supabase complète (schéma §7 + 559 516 lignes GCD indexées), 4 connexions externes vérifiées, frontière
 > base typée, moteur de scoring testé, export JSON/CSV. **Le P0 est fait**, et un audit complet (issue #20,
-> PRs #21→#27) a durci fiabilité, sécurité, perf et cohérence (85 → 154 tests, 2 migrations d'intégrité).
+> PRs #21→#27) a durci fiabilité, sécurité, perf et cohérence (85 → 155 tests, migration d'intégrité + index perf).
 > Prochain chantier : les **stats essentielles** du §4.5 (tickets #28 moteur / #29 vue), puis P1 (objectifs
 > mensuels + distinctions).**
 
