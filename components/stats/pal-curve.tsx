@@ -67,15 +67,17 @@ export function PalCurve({ points }: PalCurveProps) {
 
       {coordinates.map((point, index) => {
         const isLast = index === coordinates.length - 1;
-        if (!showAllDots && !isLast) return null;
         return (
           // Cible tactile plus large que la marque : le cercle transparent porte
-          // l'infobulle native, le petit point reste fin.
+          // l'infobulle native — pour TOUS les points, même quand les marques
+          // visibles sont masquées (historique long, review #38).
           <g key={point.month}>
             <circle cx={point.x} cy={point.y} r={10} fill="transparent">
               <title>{`${formatMonthFrench(point.month)} : ${point.size}`}</title>
             </circle>
-            <circle cx={point.x} cy={point.y} r={isLast ? 3.5 : 2.5} fill="currentColor" />
+            {(showAllDots || isLast) && (
+              <circle cx={point.x} cy={point.y} r={isLast ? 3.5 : 2.5} fill="currentColor" />
+            )}
           </g>
         );
       })}
