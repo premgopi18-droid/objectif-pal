@@ -4,7 +4,8 @@ import { useCallback, useRef, useState } from "react";
 import { ErrorAlert } from "@/components/error-alert";
 import { startReading, recordPurchase, softDeletePurchase, type BookInput, type ScanActionResult } from "@/lib/books/actions";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
-import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
+import { FUTURE_DATE_MESSAGE, NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
+import { localToday } from "@/lib/dates";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
 import type { IssueCandidate, ResolvedBook, ScanLookupResult, SeriesCandidate } from "@/lib/resolution/types";
 import { BarcodeScanner } from "./barcode-scanner";
@@ -126,6 +127,12 @@ export function ScanScreen() {
     date: string,
     doneMessage: string,
   ) {
+    // Garde « pas de date future » : le max de l'input ne bloque pas une valeur
+    // tapée à la main — on la refuse ici, contre le today LOCAL (pas d'UTC).
+    if (date > localToday()) {
+      setState((previous) => (previous.step === "sheet" ? { ...previous, error: FUTURE_DATE_MESSAGE } : previous));
+      return;
+    }
     setIsSubmitting(true);
     let result: ScanActionResult;
     try {
