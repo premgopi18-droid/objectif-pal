@@ -149,6 +149,20 @@ describe("règle 3 — le malus d'achat", () => {
     });
     expect(result.purchasePenalty).toBe(-2);
   });
+
+  it("deux exemplaires du MÊME livre le même mois, un seul lu : les DEUX malus s'annulent (§3.3, assumé)", () => {
+    // L'annulation est PAR LIVRE, pas par achat (monthly-report.ts) : lire le
+    // livre efface le malus de tous ses achats du mois. Cas hors du geste réel
+    // (le doublon d'achat est bloqué au scan, #26) mais le comportement est
+    // documenté — ce test le verrouille.
+    const reading = finished("comics", "2026-07-15");
+    const result = report("2026-07", {
+      readings: [reading],
+      purchases: [purchase(reading.bookId, "2026-07-02"), purchase(reading.bookId, "2026-07-20")],
+    });
+    expect(result.unreadPurchaseCount).toBe(0);
+    expect(result.purchasePenalty).toBe(0);
+  });
 });
 
 describe("règle 4 — l'objectif du mois (all-or-nothing)", () => {
