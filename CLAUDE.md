@@ -84,8 +84,7 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. En carnet, par ordre de priorité : **#10** (chercher d'abord dans la bibliothèque de l'utilisateur au
-   scan), **#35** (finitions UX scan — série mémorisée §5.3, « tu le relis ? » avant §4.2), **#34** (filtres
+1. En carnet, par ordre de priorité : **#35** (finitions UX scan — série mémorisée §5.3, « tu le relis ? » avant §4.2), **#34** (filtres
    du journal §4.2), **#32** (tech-debt avant le multi-utilisateur : rate-limiting `/api/lookup`, sur-fetch
    PAL, pagination du journal), **#33** (photo de couverture §5.4 — décisions produit à trancher), **#30**
    (analyses avancées §4.5 — prérequis à lever, dont le trigger `occurred_at`).
