@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useMemo, useState, useTransition } from "react";
 import {
   abandonReading,
   finishReading,
@@ -13,10 +13,17 @@ import {
 import { BookCover } from "@/components/book-cover";
 import { ErrorAlert } from "@/components/error-alert";
 import { FUTURE_DATE_MESSAGE, NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
-import { CATEGORY_LABELS } from "@/lib/books/categories";
+import { ALL_CATEGORIES, CATEGORY_LABELS } from "@/lib/books/categories";
 import { formatBookSubtitle } from "@/lib/books/format";
-import { formatDateFrench, localToday } from "@/lib/dates";
+import { formatDateFrench, formatMonthFrench, localToday } from "@/lib/dates";
 import type { BookCategory, ReadingStatus } from "@/lib/scoring/types";
+import {
+  distinctMonths,
+  distinctSeriesNames,
+  filterJournalEntries,
+  NO_JOURNAL_FILTERS,
+  type JournalFilters,
+} from "./filter-journal-entries";
 
 /**
  * La liste du journal — specs §4.2. « Terminé » est LE geste qui rapporte les
@@ -58,11 +65,18 @@ const STATUS_BADGES: Record<JournalEntry["status"], { label: string; className: 
 const RATING_CHOICES = Array.from({ length: 10 }, (_, index) => (index + 1) / 2);
 
 export function JournalList({ entries }: { entries: JournalEntry[] }) {
-  const [filter, setFilter] = useState<(typeof STATUS_FILTERS)[number]["value"]>("all");
+  const [filters, setFilters] = useState<JournalFilters>(NO_JOURNAL_FILTERS);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const visible = filter === "all" ? entries : entries.filter((entry) => entry.status === filter);
+  // Les options des selects viennent des entrées elles-mêmes (dérivées en
+  // mémoire) ; le filtrage est un Array.filter — aucune requête (§4.2, #34).
+  const seriesOptions = useMemo(() => distinctSeriesNames(entries), [entries]);
+  const monthOptions = useMemo(() => distinctMonths(entries), [entries]);
+  const visible = useMemo(() => filterJournalEntries(entries, filters), [entries, filters]);
+  const hasActiveFilters = Object.values(filters).some((value) => value !== "all");
+
+  const selectClass = "min-w-[9rem] flex-1 rounded-md border border-foreground/20 bg-transparent px-2 py-1.5 text-sm";
 
   const run = (action: () => Promise<JournalActionResult>) => {
     setError(null);
@@ -93,10 +107,10 @@ export function JournalList({ entries }: { entries: JournalEntry[] }) {
           <button
             key={value}
             type="button"
-            onClick={() => setFilter(value)}
-            aria-pressed={filter === value}
+            onClick={() => setFilters({ ...filters, status: value })}
+            aria-pressed={filters.status === value}
             className={`rounded-full px-3.5 py-1.5 text-sm transition-colors ${
-              filter === value ? "bg-foreground text-background" : "border border-foreground/20 opacity-70"
+              filters.status === value ? "bg-foreground text-background" : "border border-foreground/20 opacity-70"
             }`}
           >
             {label}
@@ -104,13 +118,76 @@ export function JournalList({ entries }: { entries: JournalEntry[] }) {
         ))}
       </div>
 
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrer par catégorie, série ou mois">
+        <select
+          aria-label="Catégorie"
+          value={filters.category}
+          onChange={(event) => setFilters({ ...filters, category: event.target.value as JournalFilters["category"] })}
+          className={selectClass}
+        >
+          <option value="all">Catégorie : toutes</option>
+          {ALL_CATEGORIES.map((category) => (
+            <option key={category} value={category}>
+              {CATEGORY_LABELS[category]}
+            </option>
+          ))}
+        </select>
+        {seriesOptions.length > 0 && (
+          <select
+            aria-label="Série"
+            value={filters.seriesName}
+            onChange={(event) => setFilters({ ...filters, seriesName: event.target.value })}
+            className={selectClass}
+          >
+            <option value="all">Série : toutes</option>
+            {seriesOptions.map((seriesName) => (
+              <option key={seriesName} value={seriesName}>
+                {seriesName}
+              </option>
+            ))}
+          </select>
+        )}
+        <select
+          aria-label="Mois"
+          value={filters.month}
+          onChange={(event) => setFilters({ ...filters, month: event.target.value })}
+          className={selectClass}
+        >
+          <option value="all">Mois : tous</option>
+          {monthOptions.map((month) => (
+            <option key={month} value={month}>
+              {formatMonthFrench(month)}
+            </option>
+          ))}
+        </select>
+      </div>
+
       {error && <ErrorAlert message={error} />}
 
-      <ul className="flex flex-col gap-3">
-        {visible.map((entry) => (
-          <JournalItem key={entry.id} entry={entry} run={run} isPending={isPending} onError={setError} />
-        ))}
-      </ul>
+      {visible.length === 0 ? (
+        <div className="py-6 text-center text-sm opacity-70">
+          <p>Aucune lecture pour ces filtres.</p>
+          <button type="button" onClick={() => setFilters(NO_JOURNAL_FILTERS)} className="mt-2 underline">
+            Réinitialiser les filtres
+          </button>
+        </div>
+      ) : (
+        <>
+          {hasActiveFilters && (
+            <p className="text-xs opacity-60">
+              {visible.length} lecture{visible.length > 1 ? "s" : ""} ·{" "}
+              <button type="button" onClick={() => setFilters(NO_JOURNAL_FILTERS)} className="underline">
+                réinitialiser
+              </button>
+            </p>
+          )}
+          <ul className="flex flex-col gap-3">
+            {visible.map((entry) => (
+              <JournalItem key={entry.id} entry={entry} run={run} isPending={isPending} onError={setError} />
+            ))}
+          </ul>
+        </>
+      )}
     </div>
   );
 }
