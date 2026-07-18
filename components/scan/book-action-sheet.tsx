@@ -24,13 +24,27 @@ type BookActionSheetProps = {
   book: ResolvedBook;
   /** Le code réellement scanné — prioritaire sur celui connu de la source. */
   scannedCode: string | null;
+  /**
+   * Le livre a déjà été TERMINÉ (specs §4.2) : la question « tu le relis ? »
+   * est posée par l'écran, le bouton devient la réponse explicite — commencer
+   * crée une relecture, « Annuler » est le non.
+   */
+  isRereadingPrompt?: boolean;
   onStartReading: (input: BookInput, date: string) => void;
   onPurchase: (input: BookInput, date: string) => void;
   onCancel: () => void;
   isSubmitting: boolean;
 };
 
-export function BookActionSheet({ book, scannedCode, onStartReading, onPurchase, onCancel, isSubmitting }: BookActionSheetProps) {
+export function BookActionSheet({
+  book,
+  scannedCode,
+  isRereadingPrompt = false,
+  onStartReading,
+  onPurchase,
+  onCancel,
+  isSubmitting,
+}: BookActionSheetProps) {
   const defaultTitle = book.title ?? (book.seriesName ? `${book.seriesName} #${book.issueNumber ?? "?"}` : "");
   const [title, setTitle] = useState(defaultTitle);
   const [category, setCategory] = useState<BookCategory>(book.suggestedCategory);
@@ -101,7 +115,7 @@ export function BookActionSheet({ book, scannedCode, onStartReading, onPurchase,
           onClick={() => onStartReading(buildInput(), date)}
           className="rounded-full bg-amber-500 px-6 py-4 text-lg font-semibold text-black transition-opacity disabled:opacity-50"
         >
-          Je commence
+          {isRereadingPrompt ? "Oui, je le relis" : "Je commence"}
         </button>
         <button
           type="button"

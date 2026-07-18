@@ -61,8 +61,12 @@ export type SeriesCandidate = {
 export type ScanLookupResult =
   /** Code complet ou source directe : zéro question. */
   | { kind: "resolved"; book: ResolvedBook }
-  /** Déjà dans la bibliothèque de l'utilisateur (issue #10) : zéro question, zéro appel externe. */
-  | { kind: "in-library"; book: ResolvedBook }
+  /**
+   * Déjà dans la bibliothèque de l'utilisateur (issue #10) : zéro appel
+   * externe. `hasFinishedReading` permet de poser « tu le relis ? » AVANT de
+   * créer la lecture (specs §4.2, #35).
+   */
+  | { kind: "in-library"; book: ResolvedBook; hasFinishedReading: boolean }
   /** Préfixe net → série connue : « quel numéro ? », un tap. */
   | { kind: "pick-issue"; seriesId: number; seriesName: string; publisher: string | null; issues: IssueCandidate[] }
   /** Préfixe partagé → liste courte de séries : deux taps. */

@@ -193,6 +193,10 @@ Une lecture est une **entrée distincte du livre** : relire un bouquin crée une
 > `(user_id, barcode_raw)`). Sans cette règle, une relecture ou un double scan **dédoublerait silencieusement**
 > la bibliothèque et fausserait toutes les stats par série et par éditeur.
 > L'app doit d'ailleurs le **dire** : « tu l'as déjà — tu le relis ? »
+> *(Décision du 19/07/2026, #35)* : la question est posée **avant** de créer la lecture, **inline sur la
+> feuille d'actions** (pas un écran dédié) — le bandeau pose la question, le bouton devient « Oui, je le
+> relis », « Annuler » est le non. L'info « déjà terminé » arrive avec le lookup bibliothèque (#10) : zéro
+> aller-retour ajouté au geste central.
 
 **L'abandon est un état à part entière, et il est réversible.** Une lecture abandonnée n'est **jamais
 supprimée** : elle garde sa date de début, passe en `abandoned`, et rapporte 0 point.
@@ -480,7 +484,7 @@ Dégradation douce : **jamais d'échec sec**.
 | 12 chiffres, préfixe net (**81,7 %** des cas) | Série connue → *« quel numéro ? »*, **un tap** (liste des numéros de la série, pas de clavier). **Dédupliquée par numéro** : GCD indexe chaque variante de couverture comme une ligne, or la variante n'a aucune importance au barème — le représentant gardé est la couverture principale (celle que Metron référence). Vécu sur Alias: Red Band, 14/07/2026. |
 | 12 chiffres, préfixe partagé (18,3 %) | **Liste courte** des séries possibles → **deux taps** |
 | ISBN | Résolution directe : GCD, puis **BnF** (dépôt légal français) |
-| Rien / inconnu | **Saisie manuelle** série + numéro, série **mémorisée** (la 2ᵉ issue prend 3 secondes) |
+| Rien / inconnu | **Saisie manuelle** série + numéro, série **mémorisée** (la 2ᵉ issue prend 3 secondes). *Périmètre décidé le 19/07/2026 (#35) : LA dernière série (+ sa catégorie), en `localStorage` — pas de liste, pas de table.* |
 
 Rappel technique : **`BarcodeDetector` natif ne renvoie pas le supplément de 5 chiffres.** Et **mesuré le
 14/07/2026 : le port JavaScript de ZXing (`@zxing/library`) non plus** — son décodeur d'extensions est cassé
