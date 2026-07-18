@@ -24,9 +24,12 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 
 > **L'app tourne en prod (https://objectif-pal.vercel.app, Vercel lié au repo GitHub) et remplit sa promesse
 > de base : scan caméra (zxing-wasm) → « je commence / j'achète » → journal (terminer/abandonner/reprendre,
-> note + avis) → bilan mensuel au barème copiable pour l'antenne. Base Supabase complète (schéma §7 + 559 516
-> lignes GCD indexées), 4 connexions externes vérifiées, moteur de scoring testé, export JSON/CSV.
-> Reste du P0 : la vue PAL (§4.6). Puis P1 : objectifs mensuels + distinctions.**
+> note + avis) → bilan mensuel au barème copiable pour l'antenne, vue PAL (§4.6) avec annulation d'achat.
+> Base Supabase complète (schéma §7 + 559 516 lignes GCD indexées), 4 connexions externes vérifiées, frontière
+> base typée, moteur de scoring testé, export JSON/CSV. **Le P0 est fait**, et un audit complet (issue #20,
+> PRs #21→#27) a durci fiabilité, sécurité, perf et cohérence (85 → 154 tests, 2 migrations d'intégrité).
+> Prochain chantier : les **stats essentielles** du §4.5 (tickets #28 moteur / #29 vue), puis P1 (objectifs
+> mensuels + distinctions).**
 
 ## Stack
 
@@ -80,11 +83,15 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. La **vue PAL** (§4.6) : les achetés-pas-lus, « je le commence » en un tap — dernier bloc du P0.
+1. Les **stats essentielles** du §4.5 (décision du 17/07/2026, découpage P0/P1 tracé dans les specs) :
+   moteur pur `lib/stats/` (ticket #28) puis vue « Stats » (ticket #29) — santé PAL, volume, répartitions,
+   note moyenne. Les analyses avancées (rythme, séries, goûts) sont en P1 (ticket #30).
 2. **P1** : objectifs mensuels (cible par catégorie, jauge, bonus +3 — le moteur les calcule déjà) et
    distinctions du mois.
 3. En carnet : issue #10 (chercher d'abord dans la bibliothèque de l'utilisateur au scan), fix cosmétique
-   du `#[nn]` GCD dans les titres, surveiller le déploiement auto Vercel au prochain merge.
+   du `#[nn]` GCD dans les titres ; reliquats de l'audit #20 volontairement différés (trigger `occurred_at`,
+   pagination du journal, rate-limiting `/api/lookup`, export des tables P1) et backlog features (§5.4 photo
+   de couverture, §4.2 filtres du journal).
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs
 roman) à partir de Google Books — on n'a que des indices (éditeur, pages, langue). La catégorie proposée doit
