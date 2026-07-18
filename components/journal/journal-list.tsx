@@ -221,12 +221,14 @@ function EditPanel({
       <div className="flex flex-wrap gap-3">
         <label className="flex flex-col gap-1 text-xs opacity-80">
           Début
-          <input type="date" value={startedAt} onChange={(event) => setStartedAt(event.target.value)} className={inputClass} />
+          {/* Pas de date future : on borne la SÉLECTION côté client (le fuseau local, pas UTC). */}
+          <input type="date" value={startedAt} max={localToday()} onChange={(event) => setStartedAt(event.target.value)} className={inputClass} />
         </label>
         {entry.status === "finished" && (
           <label className="flex flex-col gap-1 text-xs opacity-80">
             Fin (elle date les points)
-            <input type="date" value={finishedAt} onChange={(event) => setFinishedAt(event.target.value)} className={inputClass} />
+            {/* Pas de date future : on borne la SÉLECTION côté client (le fuseau local, pas UTC). */}
+            <input type="date" value={finishedAt} max={localToday()} onChange={(event) => setFinishedAt(event.target.value)} className={inputClass} />
           </label>
         )}
         <label className="flex flex-col gap-1 text-xs opacity-80">

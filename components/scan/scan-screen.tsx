@@ -92,8 +92,15 @@ export function ScanScreen() {
     setState({ step: "loading", code: scannedCode });
     try {
       const response = await fetch(`/api/lookup/gcd/${gcdId}`);
-      const result = (await response.json()) as ScanLookupResult;
       if (requestId !== lookupIdRef.current) return; // requête périmée : la saisie manuelle a pris la main
+      if (response.status === 401) {
+        // Session expirée : on renvoie au scan avec le même message que `lookup`,
+        // plutôt que de forcer une ressaisie à la main d'un livre que GCD connaît.
+        setState({ step: "scan", notice: "Session expirée — reconnecte-toi." });
+        return;
+      }
+      const result = (await response.json()) as ScanLookupResult;
+      if (requestId !== lookupIdRef.current) return;
       if (result.kind === "resolved") {
         // Le code scanné était un préfixe (la série entière) : ce n'est PAS le
         // code-barres de CE livre — on garde celui que GCD connaît pour l'issue.

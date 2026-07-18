@@ -3,12 +3,20 @@
  * Tout se fait en chaînes : zéro objet Date interprété en UTC, zéro décalage.
  */
 
-/** Une date du journal, `YYYY-MM-DD` — le FORMAT seul (le bornage mois/jour est un ticket séparé). */
+/** Une date du journal, `YYYY-MM-DD` — le FORMAT seul (le bornage calendaire est vérifié à part). */
 export const ISO_DATE_PATTERN = /^\d{4}-\d{2}-\d{2}$/;
 
-/** Vrai si la chaîne a la forme `YYYY-MM-DD` — la validation des Server Actions. */
+/**
+ * Vrai si la chaîne est une VRAIE date calendaire `YYYY-MM-DD` — le garde des
+ * Server Actions. On teste d'abord le format, puis on reconstruit la date en
+ * UTC et on vérifie que la re-sérialisation redonne exactement la chaîne : ça
+ * rejette les jours/mois hors bornes (2026-13-45, 2026-02-30…) que Postgres
+ * refuserait ensuite avec une erreur SQL brute.
+ */
 export function isValidIsoDate(value: string): boolean {
-  return ISO_DATE_PATTERN.test(value);
+  if (!ISO_DATE_PATTERN.test(value)) return false;
+  const parsed = new Date(`${value}T00:00:00Z`);
+  return !Number.isNaN(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
 /** La date locale de l'APPAREIL — jamais celle du serveur (UTC). */

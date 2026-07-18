@@ -1,4 +1,5 @@
 import { PalView } from "@/components/pal/pal-view";
+import { PageLoadError } from "@/components/page-load-error";
 import { derivePal } from "@/lib/pal/derive-pal";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -28,14 +29,7 @@ export default async function PalPage() {
     .is("readings.deleted_at", null);
 
   if (error) {
-    return (
-      <section className="py-6">
-        <h1 className="text-2xl font-bold">Ma PAL</h1>
-        <p role="alert" className="mt-3 text-sm text-red-500">
-          Impossible de charger la pile — réessaie.
-        </p>
-      </section>
-    );
+    return <PageLoadError title="Ma PAL" message="Impossible de charger la pile — réessaie." />;
   }
 
   const { entries, purchaseDates, ownedFinishedDates } = derivePal(data ?? []);
