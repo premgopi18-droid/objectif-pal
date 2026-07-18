@@ -1,7 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { CategoryPicker } from "@/components/category-picker";
+import { loadLastManualSeries, saveLastManualSeries } from "@/lib/books/last-series";
 import { EAN13_LENGTH, isBooklandCode } from "@/lib/resolution/barcode-router";
 import type { BookInput } from "@/lib/books/actions";
 import type { BookCategory } from "@/lib/scoring/types";
@@ -10,6 +11,9 @@ import type { BookCategory } from "@/lib/scoring/types";
  * La saisie manuelle — le filet ultime de la cascade (specs §5.2) : le scan ne
  * peut pas échouer, il peut juste finir ici. Si un code avait été scanné, on
  * le garde : le livre restera re-résolvable plus tard.
+ *
+ * La série de la dernière saisie est mémorisée (§5.3) : la 2ᵉ issue d'une run
+ * se pré-remplit, le curseur part sur le numéro — écrasable librement.
  */
 
 type ManualEntryFormProps = {
@@ -19,13 +23,19 @@ type ManualEntryFormProps = {
 };
 
 export function ManualEntryForm({ scannedCode, onSubmit, onCancel }: ManualEntryFormProps) {
+  // Lue UNE fois à l'ouverture (le formulaire ne monte que côté client) : la
+  // valeur pré-remplie appartient ensuite à l'utilisateur.
+  const lastSeries = useMemo(() => loadLastManualSeries(), []);
   const [title, setTitle] = useState("");
-  const [seriesName, setSeriesName] = useState("");
+  const [seriesName, setSeriesName] = useState(lastSeries?.seriesName ?? "");
   const [issueNumber, setIssueNumber] = useState("");
   const [pageCount, setPageCount] = useState("");
-  const [category, setCategory] = useState<BookCategory>("bd");
+  const [category, setCategory] = useState<BookCategory>(lastSeries?.category ?? "bd");
 
   function submit() {
+    // La saisie validée devient la mémoire — ou l'efface si elle est sans série.
+    const trimmedSeries = seriesName.trim();
+    saveLastManualSeries(trimmedSeries ? { seriesName: trimmedSeries, category } : null);
     onSubmit({
       title,
       seriesName: seriesName.trim() || null,
@@ -56,7 +66,7 @@ export function ManualEntryForm({ scannedCode, onSubmit, onCancel }: ManualEntry
 
       <label className="flex flex-col gap-1.5 text-sm">
         <span className="font-medium opacity-80">Titre *</span>
-        <input value={title} onChange={(event) => setTitle(event.target.value)} className={inputClass} />
+        <input autoFocus={lastSeries === null} value={title} onChange={(event) => setTitle(event.target.value)} className={inputClass} />
       </label>
       <div className="flex gap-3">
         <label className="flex flex-1 flex-col gap-1.5 text-sm">
@@ -65,7 +75,8 @@ export function ManualEntryForm({ scannedCode, onSubmit, onCancel }: ManualEntry
         </label>
         <label className="flex w-24 flex-col gap-1.5 text-sm">
           <span className="font-medium opacity-80">N°</span>
-          <input value={issueNumber} onChange={(event) => setIssueNumber(event.target.value)} className={inputClass} />
+          {/* Série pré-remplie → le curseur part sur le numéro : « la 2ᵉ issue prend 3 secondes » (§5.3). */}
+          <input autoFocus={lastSeries !== null} value={issueNumber} onChange={(event) => setIssueNumber(event.target.value)} className={inputClass} />
         </label>
       </div>
       <label className="flex w-32 flex-col gap-1.5 text-sm">

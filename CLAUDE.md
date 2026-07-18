@@ -30,7 +30,8 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > PRs #21→#27) a durci fiabilité, sécurité, perf et cohérence (85 → 155 tests, migration d'intégrité + index perf).
 > Les **stats essentielles** §4.5 sont livrées (moteur `lib/stats/` + vue `/stats` avec courbe de PAL,
 > PRs #37/#38) et le **P1 jeu** aussi : objectifs mensuels §4.11 (cibles, jauges, bonus +3) et distinctions
-> §4.4 (dans le bilan et le texte copiable) — 155 → 184 tests. Prochain chantier : le carnet (#10 en tête).**
+> §4.4 (dans le bilan et le texte copiable) — 155 → 188 tests. Le carnet avance : scan-bibliothèque (#10)
+> et finitions UX scan (#35) livrés. Prochain : #34 (filtres du journal).**
 
 ## Stack
 
@@ -84,10 +85,10 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. En carnet, par ordre de priorité : **#35** (finitions UX scan — série mémorisée §5.3, « tu le relis ? » avant §4.2), **#34** (filtres
-   du journal §4.2), **#32** (tech-debt avant le multi-utilisateur : rate-limiting `/api/lookup`, sur-fetch
-   PAL, pagination du journal), **#33** (photo de couverture §5.4 — décisions produit à trancher), **#30**
-   (analyses avancées §4.5 — prérequis à lever, dont le trigger `occurred_at`).
+1. En carnet, par ordre de priorité : **#34** (filtres du journal §4.2), **#32** (tech-debt avant le
+   multi-utilisateur : rate-limiting `/api/lookup`, sur-fetch PAL, pagination du journal), **#33** (photo de
+   couverture §5.4 — décisions produit à trancher), **#30** (analyses avancées §4.5 — prérequis à lever,
+   dont le trigger `occurred_at`).
 2. Fix cosmétique du `#[nn]` GCD dans les titres (sans ticket).
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs

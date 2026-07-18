@@ -22,9 +22,13 @@ export async function GET(_request: Request, { params }: { params: Promise<{ bar
   }
   const { barcode } = await params;
 
-  const libraryBook = await findBookInLibrary(session.supabase, session.user.id, barcode);
-  if (libraryBook) {
-    return Response.json({ kind: "in-library", book: libraryBook });
+  const libraryMatch = await findBookInLibrary(session.supabase, session.user.id, barcode);
+  if (libraryMatch) {
+    return Response.json({
+      kind: "in-library",
+      book: libraryMatch.book,
+      hasFinishedReading: libraryMatch.hasFinishedReading,
+    });
   }
 
   const result = await resolveScannedCode(barcode);

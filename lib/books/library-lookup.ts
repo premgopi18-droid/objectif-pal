@@ -18,8 +18,10 @@ import type { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type SessionSupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
 
+// L'embed `readings` sert au « tu le relis ? » posé AVANT (specs §4.2, #35) :
+// l'info « déjà terminé » arrive avec le livre, sans aller-retour de plus.
 const LIBRARY_BOOK_COLUMNS =
-  "title, series_name, issue_number, authors, publisher, page_count, category, cover_url, barcode_raw, barcode_type, isbn, metadata_source, metadata_source_id";
+  "title, series_name, issue_number, authors, publisher, page_count, category, cover_url, barcode_raw, barcode_type, isbn, metadata_source, metadata_source_id, readings (status, deleted_at)";
 
 /**
  * Cherche le code scanné dans la bibliothèque de l'utilisateur. Un livre
@@ -27,11 +29,18 @@ const LIBRARY_BOOK_COLUMNS =
  * repart par la cascade normale (et la dédup d'écriture le ressuscitera s'il
  * le re-enregistre).
  */
+/** Le livre trouvé, et de quoi poser « tu le relis ? » AVANT de créer la lecture. */
+export type LibraryMatch = {
+  book: ResolvedBook;
+  /** Au moins une lecture TERMINÉE (active) : rescanner = probablement une relecture. */
+  hasFinishedReading: boolean;
+};
+
 export async function findBookInLibrary(
   supabase: SessionSupabaseClient,
   userId: string,
   raw: string,
-): Promise<ResolvedBook | null> {
+): Promise<LibraryMatch | null> {
   const code = classifyScannedCode(raw);
   // Code inexploitable : aucun livre n'a pu être enregistré sous lui, inutile
   // de requêter.
@@ -61,20 +70,25 @@ export async function findBookInLibrary(
   const row = data.find((candidate) => candidate.barcode_raw === digits) ?? data[0];
 
   return {
-    title: row.title,
-    seriesName: row.series_name,
-    issueNumber: row.issue_number,
-    authors: row.authors,
-    publisher: row.publisher,
-    pageCount: row.page_count,
-    coverUrl: row.cover_url,
-    // La catégorie du livre : le choix (éventuellement corrigé) de
-    // l'utilisateur — la meilleure suggestion possible.
-    suggestedCategory: row.category,
-    source: row.metadata_source,
-    sourceId: row.metadata_source_id,
-    barcodeType: row.barcode_type ?? (code.type === "upc" ? "upc" : "isbn"),
-    barcode: row.barcode_raw,
-    isbn: row.isbn,
+    book: {
+      title: row.title,
+      seriesName: row.series_name,
+      issueNumber: row.issue_number,
+      authors: row.authors,
+      publisher: row.publisher,
+      pageCount: row.page_count,
+      coverUrl: row.cover_url,
+      // La catégorie du livre : le choix (éventuellement corrigé) de
+      // l'utilisateur — la meilleure suggestion possible.
+      suggestedCategory: row.category,
+      source: row.metadata_source,
+      sourceId: row.metadata_source_id,
+      barcodeType: row.barcode_type ?? (code.type === "upc" ? "upc" : "isbn"),
+      barcode: row.barcode_raw,
+      isbn: row.isbn,
+    },
+    hasFinishedReading: (row.readings ?? []).some(
+      (reading) => reading.deleted_at === null && reading.status === "finished",
+    ),
   };
 }
