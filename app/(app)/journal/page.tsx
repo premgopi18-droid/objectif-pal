@@ -30,7 +30,8 @@ export default async function JournalPage() {
     );
   }
 
-  // Supabase type l'embed en tableau ; la FK garantit un seul livre.
+  // La frontière snake_case → camelCase : la seule couche qui voit les noms
+  // de colonnes (l'embed `book` est inféré objet — la FK est many-to-one).
   const entries: JournalEntry[] = (data ?? []).map((row) => ({
     id: row.id,
     status: row.status,
@@ -38,7 +39,14 @@ export default async function JournalPage() {
     finishedAt: row.finished_at,
     rating: row.rating === null ? null : Number(row.rating),
     comment: row.comment,
-    book: Array.isArray(row.book) ? row.book[0] : row.book,
+    book: {
+      title: row.book.title,
+      seriesName: row.book.series_name,
+      issueNumber: row.book.issue_number,
+      category: row.book.category,
+      coverUrl: row.book.cover_url,
+      pageCount: row.book.page_count,
+    },
   }));
 
   return (

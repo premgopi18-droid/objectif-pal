@@ -1,4 +1,5 @@
-import type { BookCategory, IsoDate, ReadingStatus } from "@/lib/scoring/types";
+import type { Database } from "@/lib/supabase/database.types";
+import type { BookCategory, IsoDate } from "@/lib/scoring/types";
 
 /**
  * La dérivation de la PAL — fonction PURE, sœur du moteur de score
@@ -32,17 +33,19 @@ export type PalEntry = {
   isInProgress: boolean;
 };
 
-/** Un livre tel que la page le charge — achats et lectures embarqués. */
-export type PalBookRecord = {
-  id: string;
-  title: string;
-  series_name: string | null;
-  issue_number: string | null;
-  category: BookCategory;
-  cover_url: string | null;
-  deleted_at: string | null;
-  purchases: { purchased_at: IsoDate; deleted_at: string | null }[] | null;
-  readings: { status: ReadingStatus; finished_at: IsoDate | null; deleted_at: string | null }[] | null;
+type Tables = Database["public"]["Tables"];
+
+/**
+ * Un livre tel que la page le charge — achats et lectures embarqués.
+ * Dérivé des Rows générés : la forme reste explicite (fonction pure, entrée
+ * assumée), mais chaque champ est garanti aligné sur le schéma.
+ */
+export type PalBookRecord = Pick<
+  Tables["books"]["Row"],
+  "id" | "title" | "series_name" | "issue_number" | "category" | "cover_url" | "deleted_at"
+> & {
+  purchases: Pick<Tables["purchases"]["Row"], "purchased_at" | "deleted_at">[] | null;
+  readings: Pick<Tables["readings"]["Row"], "status" | "finished_at" | "deleted_at">[] | null;
 };
 
 /** Exactement ce que `PalView` consomme. */

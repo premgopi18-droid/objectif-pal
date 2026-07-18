@@ -32,16 +32,14 @@ export default async function BilanPage() {
     );
   }
 
-  const readings: ReadingFact[] = (readingsResult.data ?? []).map((row) => {
-    const book = Array.isArray(row.book) ? row.book[0] : row.book;
-    return {
-      bookId: row.book_id,
-      category: book.category,
-      status: row.status,
-      startedAt: row.started_at,
-      finishedAt: row.finished_at,
-    };
-  });
+  // L'embed `book` est inféré objet (FK many-to-one) : plus de tableau à déplier.
+  const readings: ReadingFact[] = (readingsResult.data ?? []).map((row) => ({
+    bookId: row.book_id,
+    category: row.book.category,
+    status: row.status,
+    startedAt: row.started_at,
+    finishedAt: row.finished_at,
+  }));
 
   const purchases: PurchaseFact[] = (purchasesResult.data ?? []).map((row) => ({
     bookId: row.book_id,

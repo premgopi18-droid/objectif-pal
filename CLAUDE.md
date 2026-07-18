@@ -58,6 +58,12 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 Le **calcul du score vit en TypeScript** (`lib/scoring/`), pas en SQL : la base ne stocke que des faits
 (lectures, achats, objectifs), le score est dérivé. Testable, modifiable sans migration.
 
+## Les types de la base
+
+`lib/supabase/database.types.ts` est **généré** depuis le schéma de prod et typé sur les trois clients :
+une colonne renommée casse le build, pas la prod. **Après chaque migration appliquée : `npm run db:types`**
+— sinon les types mentent en silence. Le fichier ne s'édite jamais à la main (la régénération l'écrase).
+
 ## Conventions
 
 - **Nommage** : tout en anglais, pas d'abréviations (`pageCount` pas `pc`). camelCase pour les

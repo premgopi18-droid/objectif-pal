@@ -56,8 +56,10 @@ export async function GET(request: Request) {
     const { columns, orderBy } = EXPORT_TABLES[table];
     const { data, error } = await supabase.from(table).select(columns).order(orderBy, { ascending: true });
     if (error) throw new Error(`${table} : ${error.message}`);
-    // Sans schéma typé généré, supabase-js rend GenericStringError[] pour une
-    // sélection dynamique : le double cast est le passage obligé.
+    // Seul cast Supabase restant de l'app, et légitime : la sélection de
+    // colonnes est DYNAMIQUE (une chaîne `string` par table — l'annotation de
+    // EXPORT_TABLES l'élargit exprès), donc le parseur de types de supabase-js
+    // ne peut pas en dériver la forme des lignes.
     return (data ?? []) as unknown as Record<string, unknown>[];
   }
 

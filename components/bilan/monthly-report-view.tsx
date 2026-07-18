@@ -5,44 +5,21 @@ import { useMemo, useState } from "react";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { addMonths, formatMonthFrench, localCurrentMonth } from "@/lib/dates";
 import { computeMonthlyReport } from "@/lib/scoring/monthly-report";
+import { formatPoints, reportToText } from "@/lib/scoring/report-text";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
-import type { BookCategory, MonthlyReport, PurchaseFact, ReadingFact } from "@/lib/scoring/types";
+import type { BookCategory, PurchaseFact, ReadingFact } from "@/lib/scoring/types";
 
 /**
  * La vue du bilan — le décompte par catégorie, les achats non lus, le total,
  * et le bouton copier : un texte propre, lisible tel quel à l'antenne
  * (specs §4.5). Consultable pour n'importe quel mois passé.
+ * Le texte copiable vit dans lib/scoring/report-text.ts (pur, testé).
  */
 
 type MonthlyReportViewProps = {
   readings: ReadingFact[];
   purchases: PurchaseFact[];
 };
-
-/** +7,5 / −2 / 0 — les demi-points existent, la virgule est française. */
-const formatPoints = (points: number): string => {
-  const text = String(Math.abs(points)).replace(".", ",");
-  if (points > 0) return `+${text}`;
-  if (points < 0) return `−${text}`;
-  return "0";
-};
-
-/** Le texte à lire à l'antenne — copiable en un tap. */
-function reportToText(report: MonthlyReport): string {
-  const lines: string[] = [`Objectif PAL — bilan de ${formatMonthFrench(report.month)}`];
-  for (const [category, count] of Object.entries(report.finishedByCategory) as [BookCategory, number][]) {
-    if (count === 0) continue;
-    const points = count * SCORING_SCALE.pointsByCategory[category];
-    lines.push(`${CATEGORY_LABELS[category]} : ${count} (${formatPoints(points)})`);
-  }
-  if (report.readingPoints === 0) lines.push("Aucune lecture terminée ce mois-ci.");
-  lines.push(`Achats non lus : ${report.unreadPurchaseCount} (${formatPoints(report.purchasePenalty)})`);
-  if (report.objective) {
-    lines.push(`Objectif du mois : ${report.objective.achieved ? `atteint (${formatPoints(report.objective.bonus)})` : "manqué"}`);
-  }
-  lines.push(`Score du mois : ${formatPoints(report.total)}`);
-  return lines.join("\n");
-}
 
 export function MonthlyReportView({ readings, purchases }: MonthlyReportViewProps) {
   const currentMonth = localCurrentMonth();
