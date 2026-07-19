@@ -493,6 +493,29 @@ export async function resolveScannedCode(input: string, deps: ResolutionDeps = c
   return resolveUpc(code.raw, code.base, deps, startedAtMs);
 }
 
+/**
+ * Re-déroule la SEULE chaîne couverture pour un livre déjà identifié — le
+ * cœur de la réparation des liens cassés (issue #53) : un ISBN repasse par
+ * Google Books puis les replis (§5.4), un UPC par Metron. Rend la première
+ * URL trouvée, ou null — jamais d'exception (mêmes amortisseurs que la
+ * cascade).
+ */
+export async function findReplacementCover(
+  book: { barcodeType: "isbn" | "upc"; isbn: string | null; barcode: string | null },
+  deps: ResolutionDeps = createDefaultDeps(),
+): Promise<string | null> {
+  const startedAtMs = Date.now();
+  if (book.barcodeType === "isbn" && book.isbn) {
+    const record = await attempt(() => deps.googleBooks.resolveIsbn(book.isbn as string));
+    return record?.coverUrl ?? (await findFallbackCoverByIsbn(deps, book.isbn, startedAtMs));
+  }
+  if (book.barcodeType === "upc" && book.barcode) {
+    const metronIssue = await attempt(() => deps.metron.findIssueByUpc(book.barcode as string));
+    return metronIssue?.coverUrl ?? null;
+  }
+  return null;
+}
+
 /** Résout une issue GCD précise — après un choix dans une liste (pick). */
 export async function resolveGcdIssue(gcdId: number, deps: ResolutionDeps = createDefaultDeps()): Promise<ScanLookupResult> {
   const startedAtMs = Date.now();

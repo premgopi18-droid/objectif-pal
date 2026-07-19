@@ -213,7 +213,7 @@ function JournalItem({
   return (
     <li className="rounded-xl border border-foreground/10 p-3">
       <div className="flex gap-3">
-        <BookCover coverUrl={entry.book.coverUrl} size="small" placeholderEmoji="📖" />
+        <BookCover coverUrl={entry.book.coverUrl} size="small" placeholderEmoji="📖" bookId={entry.book.bookId} />
 
         <div className="min-w-0 flex-1">
           <div className="flex items-start justify-between gap-2">

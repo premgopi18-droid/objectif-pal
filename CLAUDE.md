@@ -91,10 +91,7 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
    différée le 19/07/2026 : à déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ;
    les filtres #34 migreront alors côté requête — l'index de tri est déjà posé), **#30** (analyses avancées
    §4.5 — prérequis à lever, dont le trigger `occurred_at`).
-2. **Réparation des liens de couverture cassés** (specs §5.4, décision du 19/07/2026) : `onError` client →
-   re-déroulé de la chaîne couverture serveur → `books.cover_url` mis à jour. La contrepartie assumée du
-   cran epagine.
-3. Fix cosmétique du `#[nn]` GCD dans les titres (sans ticket).
+2. Fix cosmétique du `#[nn]` GCD dans les titres (sans ticket).
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs
 roman) à partir de Google Books — on n'a que des indices (éditeur, pages, langue). La catégorie proposée doit

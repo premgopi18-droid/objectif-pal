@@ -580,10 +580,13 @@ redistribution), **zéro quota**, et c'est **l'exemplaire réel** avec sa vraie 
 > - **Une entrée de cache sans couverture n'est plus figée** : au rescan, la chaîne couverture est retentée
 >   et l'entrée **réparée** si elle rapporte — les crans s'étoffant avec le temps, les livres déjà scannés
 >   en profitent sans repayer l'identification.
-> - **À faire (la contrepartie du hotlink epagine) : la réparation des liens cassés.** Une URL de couverture
->   stockée peut mourir (CDN qui bloque, schéma d'URL qui change). Plan : détecter l'image qui ne charge plus
->   (`onError` côté client), re-dérouler la chaîne couverture côté serveur et mettre à jour `books.cover_url` ;
->   la photo (#33) reste le filet quand plus rien ne répond. À traiter dans la foulée de la livraison des crans.
+> - **Livré (issue #53, 19/07/2026) — la réparation des liens cassés**, la contrepartie du hotlink epagine :
+>   l'image qui ne charge plus (`onError` client, anti-boucle par session) déclenche la re-résolution serveur
+>   de la chaîne couverture → `books.cover_url` et l'entrée `barcode_cache` sont réparés, la vignette se
+>   remplace sur place. **Le doute profite toujours à l'existant** : la couverture n'est vidée (retour au
+>   filet photo #33) que si la chaîne n'a rien ET que l'URL actuelle est CONFIRMÉE morte côté serveur — un
+>   `onError` client peut n'être qu'un problème de réseau local. Les photos maison ne passent pas par là
+>   (elles sont chez nous). Décision pure et testée (`lib/books/cover-repair.ts`).
 
 ### 5.5 Deviner la catégorie du barème
 
