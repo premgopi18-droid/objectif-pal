@@ -95,6 +95,7 @@ export function LibraryView({ entries }: LibraryViewProps) {
         />
         <button
           type="button"
+          aria-label="Changer le tri"
           onClick={() => setSortOrder(sortOrder === "recent" ? "alphabetical" : "recent")}
           className="rounded-md border border-foreground/20 px-3 text-sm"
         >

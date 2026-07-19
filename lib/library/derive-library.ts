@@ -79,6 +79,8 @@ const normalizeForSearch = (text: string) =>
   text
     .toLowerCase()
     .normalize("NFD")
+    // La plage des diacritiques combinants, en échappé : lisible, et insensible
+    // à une normalisation d'encodage accidentelle du fichier (review #63).
     .replace(/[̀-ͯ]/g, "");
 
 /** La recherche en mémoire (même réserve que les filtres du journal #34 : client tant que pas de pagination #32). */
