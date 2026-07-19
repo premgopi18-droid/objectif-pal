@@ -508,13 +508,24 @@ commercialement.** C'est logique — une couverture est une **œuvre sous copyri
 | **BnF** | Identifie très bien (95 %) mais **ne fournit aucune couverture** — c’est un catalogue, pas une librairie. |
 | **Marvel API** | Gratuite et officielle, mais **Marvel uniquement** → ne résout pas l'indé. |
 | **Metron** | Héberge des couvertures, gratuit — mais CGU « usage personnel », même limite qu'ailleurs. |
+| **OpenLibrary** | ✅ **Ajoutée le 19/07/2026** — par ISBN, gratuite, **sans clé**, hotlink accepté. Mesuré : bonne sur les romans, correcte sur le manga VF, variable sur la BD. |
+| **Inventaire.io** | ✅ **Ajoutée le 19/07/2026** — projet ouvert (données CC0), API par ISBN sans clé, images communautaires. Point fort mesuré : le fonds **francophone**. |
+| **League of Comic Geeks / CLZ / Bedetheque** | Vérifié le 19/07/2026 : **aucune API publique** — communautés fair use ou base propriétaire payante. Le problème est structurel, pas un trou de recherche. |
+
+> **Comic Vine, décision du 19/07/2026** : différée. La plus riche des bases VO (indés compris) mais licence
+> **non-commerciale stricte** (clé révocable). À rouvrir **sur mesure d'usage** : si le filet photo se déclenche
+> trop souvent sur de la VO ancienne/indé, on tranchera alors la question « l'app restera-t-elle non
+> commerciale ? ».
 
 **Décision : cascade automatique, puis la photo.**
 
-1. **Tentative automatique** : Metron (VO) puis Google Books (VF, **avec clé**) → couvre la majorité des
-   lectures sans rien demander. **La BnF identifie mais n’illustre pas** : elle ne remplace pas cette étape.
+1. **Tentative automatique** : Metron (VO) puis, pour tout ISBN sans image, la chaîne **Google Books (avec
+   clé) → OpenLibrary → Inventaire** (décision du 19/07/2026 — chaque cran ne s'exécute que si le précédent
+   n'a rien trouvé : zéro coût sur le chemin heureux, et le résultat part en cache, payé une seule fois par
+   code). **La BnF identifie mais n’illustre pas** : elle ne remplace pas cette étape.
    Mesuré le 13/07/2026 sur un petit échantillon VF : Google Books a la **fiche** (pages, éditeur — utile pour
-   deviner la catégorie) mais souvent **pas d'`imageLinks`** → en VF, la photo servira plus qu'espéré.
+   deviner la catégorie) mais souvent **pas d'`imageLinks`** → les replis OpenLibrary/Inventaire comblent
+   (mesuré 3/3 le 19/07/2026 sur manga VF, BD, roman).
 
 > **Découverte mesurée (13/07/2026) : Metron ne référence que la couverture PRINCIPALE d'une issue.**
 > GCD indexe chaque variante (Nightwing #123 = 6 codes-barres), Metron une seule — donc le `gcd_id` **d'une

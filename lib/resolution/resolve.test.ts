@@ -33,6 +33,8 @@ function fakeDeps(overrides: {
   gcd?: Partial<ResolutionDeps["gcd"]>;
   bnf?: Partial<ResolutionDeps["bnf"]>;
   googleBooks?: Partial<ResolutionDeps["googleBooks"]>;
+  openLibrary?: Partial<ResolutionDeps["openLibrary"]>;
+  inventaire?: Partial<ResolutionDeps["inventaire"]>;
   metron?: Partial<ResolutionDeps["metron"]>;
   cache?: Partial<ResolutionDeps["cache"]>;
 } = {}): ResolutionDeps {
@@ -47,6 +49,8 @@ function fakeDeps(overrides: {
     },
     bnf: { resolveIsbn: vi.fn(async () => null), ...overrides.bnf },
     googleBooks: { resolveIsbn: vi.fn(async () => null), ...overrides.googleBooks },
+    openLibrary: { findCoverByIsbn: vi.fn(async () => null), ...overrides.openLibrary },
+    inventaire: { findCoverByIsbn: vi.fn(async () => null), ...overrides.inventaire },
     metron: {
       findIssueByGcdId: vi.fn(async () => null),
       findIssueByUpc: vi.fn(async () => null),
@@ -165,6 +169,76 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
       },
     });
     expect(deps.cache.set).toHaveBeenCalledWith(expect.objectContaining({ barcode: "9791032700327", source: "bnf" }));
+  });
+
+  it("Google Books sans image : OpenLibrary comble, dans l'ordre, et le résultat part en cache", async () => {
+    // Le cas VF courant (mesuré §5.4) : la fiche existe, l'imageLinks manque.
+    const deps = fakeDeps({
+      bnf: {
+        resolveIsbn: vi.fn(async () => ({
+          title: "Radiant T1",
+          seriesName: "Radiant",
+          issueNumber: "1",
+          authors: "Tony Valente",
+          publisher: "Ankama",
+          pageCount: 176,
+        })),
+      },
+      openLibrary: { findCoverByIsbn: vi.fn(async () => "https://covers.openlibrary.org/b/isbn/9791033500063-L.jpg") },
+      inventaire: { findCoverByIsbn: vi.fn(async () => "https://inventaire.io/img/entities/abc") },
+    });
+    const result = await resolveScannedCode("9791033500063", deps);
+    if (result.kind !== "resolved") throw new Error("attendu : resolved");
+    expect(result.book.coverUrl).toBe("https://covers.openlibrary.org/b/isbn/9791033500063-L.jpg");
+    // OpenLibrary a répondu : Inventaire n'est JAMAIS appelé (pas d'appel inutile).
+    expect(deps.inventaire.findCoverByIsbn).not.toHaveBeenCalled();
+    expect(deps.cache.set).toHaveBeenCalledWith(
+      expect.objectContaining({ coverUrl: "https://covers.openlibrary.org/b/isbn/9791033500063-L.jpg" }),
+    );
+  });
+
+  it("OpenLibrary muet : Inventaire est le dernier repli couverture", async () => {
+    const deps = fakeDeps({
+      bnf: { resolveIsbn: vi.fn(async () => ({ title: "Un roman", seriesName: null, issueNumber: null, authors: null, publisher: null, pageCount: null })) },
+      inventaire: { findCoverByIsbn: vi.fn(async () => "https://inventaire.io/img/entities/def") },
+    });
+    const result = await resolveScannedCode("9782070360024", deps);
+    if (result.kind !== "resolved") throw new Error("attendu : resolved");
+    expect(result.book.coverUrl).toBe("https://inventaire.io/img/entities/def");
+  });
+
+  it("Google Books a l'image : aucun repli appelé (zéro coût sur le chemin heureux)", async () => {
+    const deps = fakeDeps({
+      googleBooks: {
+        resolveIsbn: vi.fn(async () => ({
+          title: "Dune",
+          authors: null,
+          publisher: null,
+          pageCount: null,
+          coverUrl: "https://books.google.com/dune.jpg",
+          categories: null,
+          volumeId: "vol-1",
+        })),
+      },
+    });
+    const result = await resolveScannedCode("9780441013593", deps);
+    if (result.kind !== "resolved") throw new Error("attendu : resolved");
+    expect(result.book.coverUrl).toBe("https://books.google.com/dune.jpg");
+    expect(deps.openLibrary.findCoverByIsbn).not.toHaveBeenCalled();
+    expect(deps.inventaire.findCoverByIsbn).not.toHaveBeenCalled();
+  });
+
+  it("un TPB VO que Metron n'illustre pas retombe sur la chaîne ISBN", async () => {
+    const deps = fakeDeps({
+      gcd: {
+        findIssuesByIsbn: vi.fn(async () => [gcdIssue({ isbn: "9781302915704", barcode: null, seriesId: 42 })]),
+        getSeriesByIds: vi.fn(async () => new Map([[42, gcdSeries()]])),
+      },
+      openLibrary: { findCoverByIsbn: vi.fn(async () => "https://covers.openlibrary.org/b/isbn/9781302915704-L.jpg") },
+    });
+    const result = await resolveScannedCode("9781302915704", deps);
+    if (result.kind !== "resolved") throw new Error("attendu : resolved");
+    expect(result.book.coverUrl).toBe("https://covers.openlibrary.org/b/isbn/9781302915704-L.jpg");
   });
 
   it("un roman étranger tombe jusqu'à Google Books", async () => {

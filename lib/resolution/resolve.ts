@@ -14,7 +14,9 @@ import {
   type GcdSeries,
 } from "./providers/gcd";
 import { createGoogleBooksProvider, type GoogleBooksProvider } from "./providers/google-books";
+import { createInventaireProvider, type InventaireProvider } from "./providers/inventaire";
 import { createMetronProvider, type MetronIssue, type MetronProvider } from "./providers/metron";
+import { createOpenLibraryProvider, type OpenLibraryProvider } from "./providers/open-library";
 import type { CacheEntry, ResolvedBook, ScanLookupResult } from "./types";
 
 /**
@@ -49,6 +51,8 @@ export type ResolutionDeps = {
   gcd: GcdProvider;
   bnf: BnfProvider;
   googleBooks: GoogleBooksProvider;
+  openLibrary: OpenLibraryProvider;
+  inventaire: InventaireProvider;
   metron: MetronProvider;
   cache: CacheProvider;
 };
@@ -58,6 +62,8 @@ export function createDefaultDeps(): ResolutionDeps {
     gcd: createGcdProvider(),
     bnf: createBnfProvider(),
     googleBooks: createGoogleBooksProvider(),
+    openLibrary: createOpenLibraryProvider(),
+    inventaire: createInventaireProvider(),
     metron: createMetronProvider(),
     cache: createCacheProvider(),
   };
@@ -158,6 +164,40 @@ async function enrichCoverWithGoogleBooks(
 }
 
 /**
+ * Les crans de repli couverture par ISBN — OpenLibrary puis Inventaire
+ * (specs §5.4, décision du 19/07/2026) : gratuits, sans clé, chacun croque
+ * dans le reliquat du précédent. La photo (#33) reste le filet ultime.
+ */
+async function findFallbackCoverByIsbn(
+  deps: ResolutionDeps,
+  isbn: string,
+  startedAtMs: number,
+): Promise<string | null> {
+  if (isBudgetExhausted(startedAtMs)) return null;
+  const openLibraryCover = await attempt(() => deps.openLibrary.findCoverByIsbn(isbn));
+  if (openLibraryCover) return openLibraryCover;
+  if (isBudgetExhausted(startedAtMs)) return null;
+  return attempt(() => deps.inventaire.findCoverByIsbn(isbn));
+}
+
+/**
+ * La chaîne complète de couverture pour un livre à ISBN : Google Books, puis
+ * les replis. Rend le MÊME objet quand rien n'est trouvé (le contrat de
+ * `cacheEnrichedGcdBook`).
+ */
+async function enrichCoverForIsbn(
+  book: ResolvedBook,
+  deps: ResolutionDeps,
+  isbn: string,
+  startedAtMs: number,
+): Promise<ResolvedBook> {
+  const withGoogle = await enrichCoverWithGoogleBooks(book, deps, isbn, startedAtMs);
+  if (withGoogle.coverUrl) return withGoogle;
+  const fallbackCover = await findFallbackCoverByIsbn(deps, isbn, startedAtMs);
+  return fallbackCover ? { ...withGoogle, coverUrl: fallbackCover } : withGoogle;
+}
+
+/**
  * Met en cache une résolution GCD ENRICHIE — mais seulement si l'enrichissement
  * a rapporté quelque chose (les helpers rendent le MÊME objet quand la source
  * n'a rien donné) : un raté transitoire de Metron ou Google Books ne doit pas
@@ -194,10 +234,11 @@ async function resolveIsbn(
     const issue = gcdIssues[0];
     const seriesById = await attempt(() => deps.gcd.getSeriesByIds([issue.seriesId]));
     const book = fromGcdIssue(issue, seriesById?.get(issue.seriesId), "isbn");
-    const enriched =
-      book.suggestedCategory === "bd"
-        ? await enrichCoverWithGoogleBooks(book, deps, ean13, startedAtMs)
-        : await enrichWithMetron(book, deps, null, startedAtMs);
+    // Recueil VO (TPB, omnibus) → Metron d'abord (couverture + series_type),
+    // puis la chaîne ISBN (Google Books → OpenLibrary → Inventaire) pour tout
+    // ce qui reste sans image — BD comprise.
+    let enriched = book.suggestedCategory === "bd" ? book : await enrichWithMetron(book, deps, null, startedAtMs);
+    enriched = await enrichCoverForIsbn(enriched, deps, ean13, startedAtMs);
     await cacheEnrichedGcdBook(ean13, book, enriched, deps);
     return { kind: "resolved", book: enriched };
   }
@@ -221,7 +262,7 @@ async function resolveIsbn(
       barcode: raw,
       isbn: ean13,
     };
-    book = await enrichCoverWithGoogleBooks(book, deps, ean13, startedAtMs);
+    book = await enrichCoverForIsbn(book, deps, ean13, startedAtMs);
     await attempt(() => deps.cache.set(toCacheEntry(ean13, book, "bnf")));
     return { kind: "resolved", book };
   }
@@ -230,6 +271,9 @@ async function resolveIsbn(
   if (isBudgetExhausted(startedAtMs)) return { kind: "not-found" };
   const googleRecord = await attempt(() => deps.googleBooks.resolveIsbn(ean13));
   if (googleRecord) {
+    // La fiche sans image est le cas VF courant (mesuré §5.4) : les replis
+    // OpenLibrary → Inventaire comblent avant de renoncer.
+    const coverUrl = googleRecord.coverUrl ?? (await findFallbackCoverByIsbn(deps, ean13, startedAtMs));
     const book: ResolvedBook = {
       title: googleRecord.title,
       seriesName: null,
@@ -237,7 +281,7 @@ async function resolveIsbn(
       authors: googleRecord.authors,
       publisher: googleRecord.publisher,
       pageCount: googleRecord.pageCount,
-      coverUrl: googleRecord.coverUrl,
+      coverUrl,
       suggestedCategory:
         guessCategoryFromPublisher(googleRecord.publisher) ??
         guessCategoryFromGoogleBooksCategories(googleRecord.categories) ??
