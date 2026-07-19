@@ -1,5 +1,6 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { isPublicPath } from "@/lib/auth/public-paths";
 
 /**
  * Le proxy (l'ex-middleware, renommé en Next 16) : rafraîchit la session
@@ -39,13 +40,9 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // La liste des chemins publics vit dans lib/auth/public-paths.ts — pure et
+  // TESTÉE (le contrat anti-régression de l'issue #60).
   const path = request.nextUrl.pathname;
-  const isPublicPath =
-    path === "/sw.js" ||
-    path === "/manifest.webmanifest" ||
-    path.startsWith("/icons/") ||
-    path.startsWith("/login") ||
-    path.startsWith("/auth");
 
   // Les APIs se gardent elles-mêmes (401) : on ne les redirige jamais.
   if (path.startsWith("/api")) return supabaseResponse;
@@ -61,7 +58,7 @@ export async function proxy(request: NextRequest) {
     return response;
   };
 
-  if (!user && !isPublicPath) {
+  if (!user && !isPublicPath(path)) {
     return redirectPreservingSession("/login");
   }
   if (user && path.startsWith("/login")) {
@@ -72,7 +69,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Exclut les assets statiques ; manifest, sw.js et images restent hors gating
-  // (cf. isPublicPath pour la défense en profondeur).
-  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|sw\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  // Exclut les assets statiques ; manifest, sw.js, wasm et images restent hors
+  // gating (cf. isPublicPath pour la défense en profondeur).
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|sw\\.js|wasm/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 };
