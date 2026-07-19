@@ -1,16 +1,16 @@
 "use client";
 
-import { useMemo, useState, useTransition } from "react";
-import { BookCover } from "@/components/book-cover";
+import { useMemo, useState } from "react";
+import { Badge } from "@/components/ui/badge";
+import { BookRow } from "@/components/ui/book-row";
+import { Button } from "@/components/ui/button";
 import { CoverPhotoButton } from "@/components/cover-photo-button";
 import { ErrorAlert } from "@/components/error-alert";
+import { RemoveButton, StartReadingButton, useBookGestures } from "@/components/library/book-gestures";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
-import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { formatBookSubtitle } from "@/lib/books/format";
-import { startReadingForBook, type JournalActionResult } from "@/lib/books/journal-actions";
 import { softDeleteBook } from "@/lib/books/library-actions";
-import { localToday } from "@/lib/dates";
 import {
   filterLibraryEntries,
   sortLibraryEntries,
@@ -18,21 +18,28 @@ import {
   type LibrarySortOrder,
   type LibraryStatus,
 } from "@/lib/library/derive-library";
+import type { ComponentProps } from "react";
 
 /**
  * La vue Bibliothèque (issue #49) — tous les livres, recherche en mémoire
  * (même réserve que les filtres du journal #34 : client tant que pas de
  * pagination #32), et les gestes existants : commencer une lecture, photo de
  * couverture, et « retirer de la bibliothèque » (suppression douce du livre —
- * réversible par rescan, résurrection #10).
+ * réversible par rescan, résurrection #10). Gestes « Je commence » / retrait /
+ * photo mutualisés (design-specs §3).
  */
 
-const STATUS_BADGES: Record<LibraryStatus, { label: string; className: string }> = {
-  reading: { label: "En cours", className: "bg-amber-500/15 text-amber-500" },
-  finished: { label: "Lu", className: "bg-green-500/15 text-green-500" },
-  "in-pile": { label: "Dans la PAL", className: "bg-blue-500/15 text-blue-400" },
-  abandoned: { label: "Abandonné", className: "bg-foreground/10 opacity-70" },
-  shelved: { label: "Sans activité", className: "bg-foreground/10 opacity-70" },
+/**
+ * Le badge d'état — priorités §4.12 : En cours > Lu > Dans la PAL > Abandonné >
+ * Sans activité. Chaque état pointe sur une variante du `Badge` (#66) : cyan,
+ * vert, magenta, muet, ambre — dans le même ordre.
+ */
+const STATUS_BADGES: Record<LibraryStatus, { label: string; state: ComponentProps<typeof Badge>["state"] }> = {
+  reading: { label: "En cours", state: "reading" },
+  finished: { label: "Lu", state: "done" },
+  "in-pile": { label: "Dans la PAL", state: "pile" },
+  abandoned: { label: "Abandonné", state: "abandoned" },
+  shelved: { label: "Sans activité", state: "idle" },
 };
 
 type LibraryViewProps = {
@@ -42,26 +49,12 @@ type LibraryViewProps = {
 export function LibraryView({ entries }: LibraryViewProps) {
   const [searchText, setSearchText] = useState("");
   const [sortOrder, setSortOrder] = useState<LibrarySortOrder>("recent");
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const { run, isPending, error } = useBookGestures();
 
   const visible = useMemo(
     () => sortLibraryEntries(filterLibraryEntries(entries, searchText), sortOrder),
     [entries, searchText, sortOrder],
   );
-
-  function run(action: () => Promise<JournalActionResult>) {
-    setError(null);
-    startTransition(async () => {
-      try {
-        const result = await action();
-        if (!result.ok) setError(result.error);
-      } catch {
-        // Serveur injoignable : la promesse d'une Server Action rejette.
-        setError(NETWORK_ERROR_MESSAGE);
-      }
-    });
-  }
 
   function confirmRemoval(entry: LibraryEntry) {
     const traces = [
@@ -80,7 +73,7 @@ export function LibraryView({ entries }: LibraryViewProps) {
 
   return (
     <div className="mt-4 flex flex-col gap-4">
-      <p className="text-sm opacity-70">
+      <p className="text-sm text-ink2">
         {entries.length} livre{entries.length > 1 ? "s" : ""} — tout ce que tu as scanné ou saisi, y compris
         sans lecture ni achat en cours.
       </p>
@@ -91,67 +84,60 @@ export function LibraryView({ entries }: LibraryViewProps) {
           onChange={(event) => setSearchText(event.target.value)}
           placeholder="Rechercher un titre ou une série…"
           aria-label="Rechercher dans la bibliothèque"
-          className="flex-1 rounded-md border border-foreground/20 bg-transparent px-3 py-2.5 text-sm"
+          className="flex-1 rounded-xl border border-line bg-card px-3 py-2.5 text-sm text-ink placeholder:text-ink3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
         />
-        <button
+        <Button
           type="button"
+          variant="ghost"
           aria-label="Changer le tri"
           onClick={() => setSortOrder(sortOrder === "recent" ? "alphabetical" : "recent")}
-          className="rounded-md border border-foreground/20 px-3 text-sm"
         >
           {sortOrder === "recent" ? "Récents" : "A → Z"}
-        </button>
+        </Button>
       </div>
 
       {error && <ErrorAlert message={error} />}
 
       {visible.length === 0 ? (
-        <p className="py-8 text-center text-sm opacity-70">
+        <p className="py-8 text-center text-sm text-ink2">
           {entries.length === 0 ? "Aucun livre pour l'instant — scanne ton premier bouquin !" : "Aucun livre ne correspond à la recherche."}
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
           {visible.map((entry) => {
             const badge = STATUS_BADGES[entry.status];
+            const needsPhoto = entry.coverUrl === null;
+            const canRetakePhoto = isHouseCoverPhotoUrl(entry.coverUrl);
             return (
-              <li key={entry.bookId} className="rounded-xl border border-foreground/10 p-3">
-                <div className="flex gap-3">
-                  <BookCover coverUrl={entry.coverUrl} size="small" bookId={entry.bookId} />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex items-start justify-between gap-2">
-                      <p className="font-semibold">{entry.title}</p>
-                      <span className={`shrink-0 rounded-full px-2.5 py-0.5 text-xs font-medium ${badge.className}`}>
-                        {badge.label}
-                      </span>
-                    </div>
-                    <p className="text-sm opacity-70">
-                      {formatBookSubtitle(entry.seriesName, entry.issueNumber, CATEGORY_LABELS[entry.category])}
-                    </p>
-                    <div className="mt-2 flex flex-wrap items-center gap-3">
-                      {entry.status !== "reading" && (
-                        <button
-                          type="button"
-                          disabled={isPending}
-                          onClick={() => run(() => startReadingForBook(entry.bookId, localToday()))}
-                          className="rounded-full border border-foreground/20 px-3.5 py-1.5 text-sm disabled:opacity-50"
-                        >
-                          Je commence
-                        </button>
-                      )}
-                      {entry.coverUrl === null && <CoverPhotoButton bookId={entry.bookId} />}
-                      {isHouseCoverPhotoUrl(entry.coverUrl) && <CoverPhotoButton bookId={entry.bookId} mode="retake" />}
-                      <button
-                        type="button"
-                        disabled={isPending}
-                        onClick={() => {
-                          if (confirmRemoval(entry)) run(() => softDeleteBook(entry.bookId));
-                        }}
-                        className="ml-auto text-sm text-red-500/80 underline disabled:opacity-50"
-                      >
-                        Retirer
-                      </button>
-                    </div>
-                  </div>
+              <li key={entry.bookId} className="flex flex-col gap-2.5">
+                <BookRow
+                  title={entry.title}
+                  coverUrl={entry.coverUrl}
+                  bookId={entry.bookId}
+                  meta={formatBookSubtitle(entry.seriesName, entry.issueNumber, CATEGORY_LABELS[entry.category])}
+                  action={<Badge state={badge.state}>{badge.label}</Badge>}
+                />
+
+                {/* La photo, filet ultime (§5.4) : proposée quand aucune couverture,
+                    ou pour reprendre une photo maison. Geste déjà mutualisé (#66). */}
+                {needsPhoto ? (
+                  <CoverPhotoButton bookId={entry.bookId} />
+                ) : (
+                  canRetakePhoto && <CoverPhotoButton bookId={entry.bookId} mode="retake" />
+                )}
+
+                <div className="flex items-center gap-3 pl-0.5">
+                  {entry.status !== "reading" && (
+                    <StartReadingButton bookId={entry.bookId} run={run} isPending={isPending} />
+                  )}
+                  <RemoveButton
+                    label="Retirer"
+                    action={() => softDeleteBook(entry.bookId)}
+                    run={run}
+                    isPending={isPending}
+                    confirm={() => confirmRemoval(entry)}
+                    className="ml-auto"
+                  />
                 </div>
               </li>
             );

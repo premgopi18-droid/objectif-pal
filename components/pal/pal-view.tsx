@@ -1,14 +1,14 @@
 "use client";
 
-import { useState, useTransition } from "react";
-import { startReadingForBook } from "@/lib/books/journal-actions";
-import { softDeletePurchase } from "@/lib/books/actions";
-import { BookCover } from "@/components/book-cover";
+import { Badge } from "@/components/ui/badge";
+import { BookRow } from "@/components/ui/book-row";
+import { StatTile } from "@/components/ui/stat-tile";
 import { ErrorAlert } from "@/components/error-alert";
-import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
+import { RemoveButton, StartReadingButton, useBookGestures } from "@/components/library/book-gestures";
+import { softDeletePurchase } from "@/lib/books/actions";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { formatBookSubtitle } from "@/lib/books/format";
-import { formatDateFrench, localCurrentMonth, localToday } from "@/lib/dates";
+import { formatDateFrench, localCurrentMonth } from "@/lib/dates";
 import type { PalEntry } from "@/lib/pal/derive-pal";
 import { computePalHealth } from "@/lib/pal/health";
 
@@ -29,8 +29,7 @@ type PalViewProps = {
 };
 
 export function PalView({ entries, purchaseDates, ownedFinishedDates }: PalViewProps) {
-  const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const { run, isPending, error } = useBookGestures();
 
   // La santé du mois — dérivation PARTAGÉE (lib/pal/health), calculée avec le
   // mois LOCAL de l'appareil. La vue ne recompte plus rien elle-même.
@@ -39,93 +38,61 @@ export function PalView({ entries, purchaseDates, ownedFinishedDates }: PalViewP
     localCurrentMonth(),
   );
 
-  function startReading(bookId: string) {
-    setError(null);
-    startTransition(async () => {
-      try {
-        const result = await startReadingForBook(bookId, localToday());
-        if (!result.ok) setError(result.error);
-      } catch {
-        // Serveur injoignable (réseau coupé) : la promesse de la Server Action
-        // rejette — sans ce catch, le geste échouerait en silence.
-        setError(NETWORK_ERROR_MESSAGE);
-      }
-    });
-  }
-
-  // « Je ne l'ai pas acheté » : annule l'achat qui a fait entrer le livre en
-  // pile (specs §4.6). Le livre disparaît de la liste au revalidate.
-  function removePurchase(purchaseId: string) {
-    setError(null);
-    startTransition(async () => {
-      try {
-        const result = await softDeletePurchase(purchaseId);
-        if (!result.ok) setError(result.error);
-      } catch {
-        setError(NETWORK_ERROR_MESSAGE);
-      }
-    });
-  }
-
   return (
     <div className="mt-4 flex flex-col gap-5">
       <dl className="grid grid-cols-2 gap-3">
-        <div className="rounded-xl border border-foreground/10 p-3">
-          <dt className="text-xs opacity-60">Dans la pile</dt>
-          <dd className="text-2xl font-bold">{pileSize}</dd>
-        </div>
-        <div className="rounded-xl border border-foreground/10 p-3">
-          <dt className="text-xs opacity-60">Solde du mois</dt>
-          <dd className={`text-2xl font-bold ${monthBalance > 0 ? "text-red-500" : "text-green-500"}`}>
-            {monthBalance > 0 ? `+${monthBalance}` : monthBalance}
-            <span className="ml-2 text-xs font-normal opacity-60">
-              {monthEntries} entrée{monthEntries > 1 ? "s" : ""} · {monthExits} sortie
-              {monthExits > 1 ? "s" : ""}
-            </span>
-          </dd>
-        </div>
+        {/* Solde POSITIF = la pile gonfle = rouge ; négatif = vert (specs design §2). */}
+        <StatTile label="Dans la pile" value={pileSize} hint={`livre${pileSize > 1 ? "s" : ""} non lu${pileSize > 1 ? "s" : ""}`} />
+        <StatTile
+          label="Solde du mois"
+          value={monthBalance > 0 ? `+${monthBalance}` : monthBalance}
+          tone={monthBalance > 0 ? "bad" : "good"}
+          hint={`${monthEntries} entrée${monthEntries > 1 ? "s" : ""} · ${monthExits} sortie${monthExits > 1 ? "s" : ""}`}
+        />
       </dl>
 
       {error && <ErrorAlert message={error} />}
 
       {entries.length === 0 ? (
-        <p className="text-sm opacity-70">
+        <p className="text-sm text-ink2">
           Ta pile est vide — soit tu es un paliste modèle, soit tu n&apos;as pas encore scanné tes achats 🙂
         </p>
       ) : (
         <ul className="flex flex-col gap-3">
           {entries.map((entry) => (
-            <li key={entry.bookId} className="flex items-center gap-3 rounded-xl border border-foreground/10 p-3">
-              <BookCover coverUrl={entry.coverUrl} size="small" bookId={entry.bookId} />
-              <div className="min-w-0 flex-1">
-                <p className="font-semibold leading-tight">{entry.title}</p>
-                <p className="mt-0.5 truncate text-sm opacity-70">
-                  {formatBookSubtitle(entry.seriesName, entry.issueNumber, CATEGORY_LABELS[entry.category])}
-                </p>
-                <p className="text-xs opacity-60">Acheté le {formatDateFrench(entry.purchasedAt)}</p>
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => removePurchase(entry.purchaseId)}
-                  className="mt-1 text-xs underline opacity-50 disabled:opacity-30"
-                >
-                  Je ne l&apos;ai pas acheté
-                </button>
-              </div>
-              {entry.isInProgress ? (
-                <span className="shrink-0 rounded-full bg-amber-500/15 px-3 py-1.5 text-xs font-medium text-amber-500">
-                  En cours
-                </span>
-              ) : (
-                <button
-                  type="button"
-                  disabled={isPending}
-                  onClick={() => startReading(entry.bookId)}
-                  className="shrink-0 rounded-full bg-amber-500 px-4 py-2 text-sm font-semibold text-black disabled:opacity-50"
-                >
-                  Je le commence
-                </button>
-              )}
+            <li key={entry.bookId}>
+              <BookRow
+                title={entry.title}
+                coverUrl={entry.coverUrl}
+                bookId={entry.bookId}
+                meta={
+                  <>
+                    <div className="truncate">
+                      {formatBookSubtitle(entry.seriesName, entry.issueNumber, CATEGORY_LABELS[entry.category])}
+                    </div>
+                    <div className="mt-0.5 flex items-center gap-2 text-ink3">
+                      <span>Acheté le {formatDateFrench(entry.purchasedAt)}</span>
+                      {/* « Je ne l'ai pas acheté » : annule l'achat qui a fait entrer le
+                          livre en pile (§4.6). Réversible → pas de confirmation. */}
+                      <RemoveButton
+                        label="Je ne l'ai pas acheté"
+                        action={() => softDeletePurchase(entry.purchaseId)}
+                        run={run}
+                        isPending={isPending}
+                        tone="muted"
+                        className="text-xs"
+                      />
+                    </div>
+                  </>
+                }
+                action={
+                  entry.isInProgress ? (
+                    <Badge state="reading">En cours</Badge>
+                  ) : (
+                    <StartReadingButton bookId={entry.bookId} run={run} isPending={isPending} />
+                  )
+                }
+              />
             </li>
           ))}
         </ul>
