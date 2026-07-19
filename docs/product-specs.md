@@ -351,6 +351,21 @@ même patron que le moteur de score) :
 **P1 — analyses avancées** (différées, avec leur raison) :
 - **Rythme** : durée moyenne d'une lecture, « lectures qui traînent » (demande un seuil à décider), abandons /
   reprises (dépend de la lecture de `reading_events` et du correctif `occurred_at` — cf. audit #20).
+
+  **Correctif `occurred_at` (étape 1/3 de #30, migration `20260719180000_reading_events_occurred_at.sql`).** Le
+  trigger `append_reading_event` datait chaque événement à `now()`, ce qui faussait toute saisie rétroactive.
+  `occurred_at` porte désormais la date **sémantique** de la transition :
+  - vers `finished` → `finished_at` (la date qui date les points, §3, toujours renseignée) ;
+  - **INSERT** vers `reading` → `started_at` (un vrai début, date saisie, rétroactive permise) ;
+  - **UPDATE** vers `reading` → `now()` : reprise (abandoned → reading) ou réouverture (finished → reading) ;
+    `started_at` n'est pas retouché par ces gestes (il date l'ancien début), et aucune colonne ne date la
+    reprise, qui se fait toujours en direct ;
+  - vers `abandoned` → `now()` : pas de date d'abandon au schéma (§7), et l'abandon se fait en direct.
+
+  L'ordre **chronologique** des transitions reste porté par la clé `id` (monotone), `occurred_at` ne servant qu'à
+  ranger un événement dans son mois. La forme de `reading_events` ne change pas. Accès en lecture :
+  `lib/stats/reading-events.ts` (requête filtrée `user_id` + agrégation pure abandons/reprises par mois), pas
+  encore consommé — l'extension du moteur (étape 2) le branchera.
 - **Répartition par série** + séries en cours (tomes lus, tome suivant).
 - **Goûts avancés** : meilleures / pires séries et éditeurs, classement des lectures. (Bruités tant qu'il n'y a
   pas de volume.)
