@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { derivePileStatus } from "./derive-pal";
+import { bookToMovement } from "./derive-pal";
 import { computePalHealth, type PalMovements } from "./health";
 
 /**
@@ -8,7 +8,7 @@ import { computePalHealth, type PalMovements } from "./health";
  * angles de test :
  *  - directement, sur des MOUVEMENTS (entrées/sorties déjà réduites) — le
  *    contrat brut de la fonction ;
- *  - via le PIPELINE réel (derivePileStatus → computePalHealth), pour couvrir
+ *  - via le PIPELINE réel (bookToMovement → computePalHealth), pour couvrir
  *    les cas décrits en faits : pile vide, achat annulé, lecture hors PAL,
  *    abandon qui ne sort PAS de la pile (specs §4.6/§4.12).
  */
@@ -16,10 +16,11 @@ import { computePalHealth, type PalMovements } from "./health";
 const CURRENT_MONTH = "2026-07";
 
 /**
- * Réduit des livres (faits bruts) en mouvements, EXACTEMENT comme le font
- * derivePal et computeStats : achats actifs + fins de lecture terminées →
- * derivePileStatus → une entrée / au plus une sortie par livre. Ce helper est
- * le pipeline que les appelants exécutent — le tester, c'est tester la chaîne.
+ * Réduit des livres (faits bruts) en mouvements via le réducteur PARTAGÉ
+ * `bookToMovement` — EXACTEMENT le pipeline que derivePal et computeStats
+ * exécutent (issue #78). Le helper ne fait plus que normaliser les champs
+ * optionnels des fabriques et collecter les mouvements : la réduction
+ * elle-même (filtres + derivePileStatus) n'est plus dupliquée ici.
  */
 type BookFacts = {
   purchases?: { purchasedAt: string; deletedAt?: string | null }[];
@@ -30,20 +31,20 @@ function movementsFrom(books: BookFacts[]): PalMovements {
   const entryDates: string[] = [];
   const exitDates: string[] = [];
   for (const book of books) {
-    const activePurchaseDates = (book.purchases ?? [])
-      .filter((purchase) => (purchase.deletedAt ?? null) === null)
-      .map((purchase) => purchase.purchasedAt);
-    const finishedDates = (book.readings ?? [])
-      .filter(
-        (reading) =>
-          (reading.deletedAt ?? null) === null && reading.status === "finished" && (reading.finishedAt ?? null) !== null,
-      )
-      .map((reading) => reading.finishedAt as string);
-
-    const { entryDate, exitDate } = derivePileStatus(activePurchaseDates, finishedDates);
-    if (entryDate === null) continue;
-    entryDates.push(entryDate);
-    if (exitDate !== null) exitDates.push(exitDate);
+    const movement = bookToMovement({
+      purchases: (book.purchases ?? []).map((purchase) => ({
+        purchasedAt: purchase.purchasedAt,
+        deletedAt: purchase.deletedAt ?? null,
+      })),
+      readings: (book.readings ?? []).map((reading) => ({
+        status: reading.status,
+        finishedAt: reading.finishedAt ?? null,
+        deletedAt: reading.deletedAt ?? null,
+      })),
+    });
+    if (movement === null) continue;
+    entryDates.push(movement.entryDate);
+    if (movement.exitDate !== null) exitDates.push(movement.exitDate);
   }
   return { entryDates, exitDates };
 }

@@ -1,4 +1,4 @@
-import { derivePileStatus } from "@/lib/pal/derive-pal";
+import { activePurchasesOf, bookToMovement, finishedReadingsOf } from "@/lib/pal/derive-pal";
 import { computePalHealth } from "@/lib/pal/health";
 import { ALL_CATEGORIES } from "@/lib/scoring/types";
 import type { BookCategory, IsoDate, Month } from "@/lib/scoring/types";
@@ -11,9 +11,10 @@ import type { Database } from "@/lib/supabase/database.types";
  * requête, zéro horloge — le mois de référence arrive en ARGUMENT, fourni par
  * le client comme au bilan (le fuseau est une affaire d'UI, jamais de moteur).
  *
- * La règle de pile n'est PAS ré-implémentée : la santé PAL passe par
- * `derivePileStatus`, pour que la courbe raconte exactement la même histoire
- * que la vue PAL et le bilan (§4.5, les deux dénominateurs).
+ * La règle de pile n'est PAS ré-implémentée : la santé PAL passe par le
+ * réducteur partagé `bookToMovement` (lib/pal/derive-pal, #78), pour que la
+ * courbe raconte exactement la même histoire que la vue PAL et le bilan
+ * (§4.5, les deux dénominateurs).
  */
 
 type Tables = Database["public"]["Tables"];
@@ -133,17 +134,12 @@ export function computeStats(books: StatBookRecord[], currentMonth: Month): Stat
     // Suppression douce : un livre retiré n'existe plus, achats et lectures compris.
     if (book.deletedAt !== null) continue;
 
-    const activePurchaseDates = book.purchases
-      .filter((purchase) => purchase.deletedAt === null)
-      .map((purchase) => purchase.purchasedAt as IsoDate);
-    const isOwned = activePurchaseDates.length > 0;
+    // Possédé = au moins un achat actif — le filtre partagé (lib/pal, #78),
+    // jamais réécrit ici.
+    const isOwned = activePurchasesOf(book.purchases).length > 0;
 
-    const finishedDates: IsoDate[] = [];
-    for (const reading of book.readings) {
-      if (reading.deletedAt !== null) continue;
-      if (reading.status !== "finished" || reading.finishedAt === null) continue;
-      const finishedAt = reading.finishedAt as IsoDate;
-      finishedDates.push(finishedAt);
+    for (const reading of finishedReadingsOf(book.readings)) {
+      const finishedAt = reading.finishedAt;
 
       // Chaque lecture est un fait : une relecture compte deux fois ici
       // (volume, répartitions, notes) — mais une seule dans la pile, où la
@@ -184,12 +180,13 @@ export function computeStats(books: StatBookRecord[], currentMonth: Month): Stat
       if (!isOwned) readOutsidePalCount += 1;
     }
 
-    // La règle de pile — importée, jamais ré-implémentée : une entrée et au
-    // plus une sortie par livre (derivePileStatus).
-    const { entryDate, exitDate } = derivePileStatus(activePurchaseDates, finishedDates);
-    if (entryDate === null) continue;
-    palEntryDates.push(entryDate);
-    if (exitDate !== null) palExitDates.push(exitDate);
+    // La règle de pile — importée, jamais ré-implémentée : le réducteur
+    // partagé (achats actifs + fins terminées → derivePileStatus, #78) rend
+    // une entrée et au plus une sortie par livre.
+    const movement = bookToMovement(book);
+    if (movement === null) continue;
+    palEntryDates.push(movement.entryDate);
+    if (movement.exitDate !== null) palExitDates.push(movement.exitDate);
   }
 
   // Taille de pile et solde du mois : la dérivation PARTAGÉE (lib/pal/health),
