@@ -1,5 +1,11 @@
 import type { NextConfig } from "next";
 
+// L'hôte Supabase du projet — les photos de couverture maison (bucket public
+// `covers`, specs §5.4) passent par next/image comme les couvertures externes.
+const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
+  ? new URL(process.env.NEXT_PUBLIC_SUPABASE_URL).hostname
+  : undefined;
+
 const nextConfig: NextConfig = {
   // Les en-têtes de sécurité de base : anti-clickjacking (l'app n'a aucune
   // raison d'être embarquée dans une iframe), anti-sniffing de type MIME, et
@@ -28,6 +34,9 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "*.googleusercontent.com" },
       { protocol: "https", hostname: "covers.openlibrary.org" },
       { protocol: "https", hostname: "inventaire.io" },
+      ...(supabaseHostname
+        ? [{ protocol: "https" as const, hostname: supabaseHostname, pathname: "/storage/v1/object/public/**" }]
+        : []),
     ],
   },
 };

@@ -11,6 +11,7 @@ import {
   type JournalActionResult,
 } from "@/lib/books/journal-actions";
 import { BookCover } from "@/components/book-cover";
+import { CoverPhotoButton } from "@/components/cover-photo-button";
 import { ErrorAlert } from "@/components/error-alert";
 import { FUTURE_DATE_MESSAGE, NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { ALL_CATEGORIES, CATEGORY_LABELS } from "@/lib/books/categories";
@@ -39,6 +40,7 @@ export type JournalEntry = {
   rating: number | null;
   comment: string | null;
   book: {
+    bookId: string;
     title: string;
     seriesName: string | null;
     issueNumber: string | null;
@@ -327,6 +329,10 @@ function EditPanel({
           </select>
         </label>
       </div>
+
+      {/* La photo, filet ultime : proposée UNIQUEMENT quand toute la cascade
+          n'a rien trouvé (décision du 19/07/2026, §5.4) — jamais un remplacement. */}
+      {entry.book.coverUrl === null && <CoverPhotoButton bookId={entry.book.bookId} />}
 
       <label className="flex flex-col gap-1 text-xs opacity-80">
         Avis — la matière de l&apos;émission
