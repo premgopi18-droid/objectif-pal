@@ -32,6 +32,19 @@ describe("le provider epagine", () => {
     await expect(provider.findCoverByIsbn("9782000000006")).resolves.toBeNull();
   });
 
+  it("tolère un content-type image non-PNG qui bouge (charset, WebP) — le discriminant est le placeholder", async () => {
+    const withCharset = createEpagineProvider(
+      vi.fn(async () => fakeResponse({ contentType: "image/jpeg; charset=binary" })) as unknown as typeof fetch,
+    );
+    await expect(withCharset.findCoverByIsbn("9791026820963")).resolves.toContain("epagine.fr");
+
+    const webp = createEpagineProvider(vi.fn(async () => fakeResponse({ contentType: "image/webp" })) as unknown as typeof fetch);
+    await expect(webp.findCoverByIsbn("9791026820963")).resolves.toContain("epagine.fr");
+
+    const notAnImage = createEpagineProvider(vi.fn(async () => fakeResponse({ contentType: "text/html" })) as unknown as typeof fetch);
+    await expect(notAnImage.findCoverByIsbn("9791026820963")).resolves.toBeNull();
+  });
+
   it("404 = introuvable (null), autre erreur = panne (jette, la cascade amortit)", async () => {
     const notFound = createEpagineProvider(vi.fn(async () => fakeResponse({ status: 404 })) as unknown as typeof fetch);
     await expect(notFound.findCoverByIsbn("9782000000006")).resolves.toBeNull();

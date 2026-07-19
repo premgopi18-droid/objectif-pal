@@ -34,9 +34,11 @@ export function createEpagineProvider(fetchImplementation: typeof fetch = fetch)
       });
       if (response.status === 404) return null;
       if (!response.ok) throw new Error(`epagine : HTTP ${response.status}`);
-      // 200 ne veut pas dire trouvé : l'absence est un placeholder PNG.
+      // 200 ne veut pas dire trouvé : l'absence est un placeholder PNG. C'est
+      // LE discriminant — on rejette le PNG plutôt qu'exiger le JPEG exact,
+      // pour survivre à un `; charset=…` ou un passage au WebP (review #54).
       const contentType = response.headers.get("content-type") ?? "";
-      return contentType === "image/jpeg" ? url : null;
+      return contentType.startsWith("image/") && !contentType.startsWith("image/png") ? url : null;
     },
   };
 }

@@ -35,8 +35,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "*.googleusercontent.com" },
       { protocol: "https", hostname: "covers.openlibrary.org" },
       { protocol: "https", hostname: "inventaire.io" },
-      { protocol: "https", hostname: "openapi.bnf.fr" },
-      { protocol: "https", hostname: "images.epagine.fr" },
+      { protocol: "https", hostname: "openapi.bnf.fr", pathname: "/couverture/**" },
+      { protocol: "https", hostname: "images.epagine.fr", pathname: "/**/*.jpg" },
       ...(supabaseHostname
         ? [{ protocol: "https" as const, hostname: supabaseHostname, pathname: "/storage/v1/object/public/**" }]
         : []),
