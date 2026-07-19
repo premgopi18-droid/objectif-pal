@@ -13,7 +13,9 @@ export default function manifest(): MetadataRoute.Manifest {
     lang: "fr",
     start_url: "/",
     display: "standalone",
-    background_color: "#120826",
+    // La splash d'installation (Android) reprend le fond de l'affiche ; la barre
+    // système garde la nuit de l'app. Voir components/splash-screen.tsx (§ refonte #64).
+    background_color: "#2e2357",
     theme_color: "#120826",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
