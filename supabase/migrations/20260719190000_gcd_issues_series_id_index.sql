@@ -8,4 +8,8 @@
 -- L'index couvre en plus `number` : la requête du catalogue ne lit que ces deux
 -- colonnes, elle se sert donc entièrement dans l'index (index-only scan), sans
 -- jamais toucher la table.
-create index gcd_issues_series_id_idx on gcd_issues (series_id, number);
+-- `if not exists` : l'index a été créé directement en base avant d'être
+-- enregistré dans l'historique des migrations (cf. réconciliation par
+-- `supabase migration repair`, PR #99). Le garde rend le rejeu inoffensif,
+-- ici comme sur un environnement reconstruit de zéro.
+create index if not exists gcd_issues_series_id_idx on gcd_issues (series_id, number);
