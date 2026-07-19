@@ -17,6 +17,16 @@ export type MetadataSource = "gcd" | "bnf" | "google_books" | "metron" | "manual
  */
 export const PROVIDER_REQUEST_TIMEOUT_MILLISECONDS = 4000;
 
+/**
+ * La convention GCD pour un fascicule SANS numéro (one-shots, recueils) —
+ * 65 145 lignes du dump la portent (mesuré le 19/07/2026, issue #58). Elle ne
+ * doit jamais s'afficher : la résolution la traduit en absence, l'affichage
+ * la traite en défense pour les données déjà stockées. Vit ici (et pas dans
+ * le provider GCD) parce que les helpers d'affichage client-safe en ont
+ * besoin — le provider tire le client Supabase serveur.
+ */
+export const GCD_UNNUMBERED_ISSUE_NUMBER = "[nn]";
+
 /** Un livre résolu, normalisé quelle que soit la source. */
 export type ResolvedBook = {
   title: string | null;

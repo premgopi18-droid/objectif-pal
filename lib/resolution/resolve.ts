@@ -19,7 +19,7 @@ import { createGoogleBooksProvider, type GoogleBooksProvider } from "./providers
 import { createInventaireProvider, type InventaireProvider } from "./providers/inventaire";
 import { createMetronProvider, type MetronIssue, type MetronProvider } from "./providers/metron";
 import { createOpenLibraryProvider, type OpenLibraryProvider } from "./providers/open-library";
-import type { CacheEntry, ResolvedBook, ScanLookupResult } from "./types";
+import { GCD_UNNUMBERED_ISSUE_NUMBER, type CacheEntry, type ResolvedBook, type ScanLookupResult } from "./types";
 
 /**
  * La cascade de résolution — specs §5.2 :
@@ -91,7 +91,9 @@ async function attempt<T>(operation: () => Promise<T>): Promise<T | null> {
 const fromCache = (entry: CacheEntry, barcodeType: "isbn" | "upc"): ResolvedBook => ({
   title: entry.title,
   seriesName: entry.seriesName,
-  issueNumber: entry.issueNumber,
+  // Ceinture-bretelles (review #59) : une entrée « [nn] » écrite hors de
+  // l'app ne doit pas re-exposer le marqueur — même règle qu'à la résolution.
+  issueNumber: entry.issueNumber === GCD_UNNUMBERED_ISSUE_NUMBER ? null : entry.issueNumber,
   authors: entry.authors,
   publisher: entry.publisher,
   pageCount: entry.pageCount,
@@ -115,7 +117,8 @@ function fromGcdIssue(issue: GcdIssue, series: GcdSeries | undefined, barcodeTyp
   return {
     title: issue.title || null,
     seriesName: series?.name ?? null,
-    issueNumber: issue.number || null,
+    // « [nn] » = sans numéro chez GCD (issue #58) : une absence, pas un numéro.
+    issueNumber: issue.number === GCD_UNNUMBERED_ISSUE_NUMBER ? null : issue.number || null,
     authors: null, // le dump réduit ne porte pas les crédits
     publisher: series?.publisher ?? null,
     pageCount: issue.pageCount,
