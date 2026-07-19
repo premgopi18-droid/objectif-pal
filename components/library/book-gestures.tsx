@@ -25,12 +25,16 @@ export function useBookGestures() {
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  const run = useCallback((action: () => Promise<BookActionResult>) => {
+  // `onSuccess` (optionnel) ne se déclenche QUE si l'action a réussi : c'est là
+  // que le Journal célèbre « Terminé ✓ » (confettis + toast, #73) — jamais sur
+  // un échec, qui, lui, remplit l'ErrorAlert.
+  const run = useCallback((action: () => Promise<BookActionResult>, onSuccess?: () => void) => {
     setError(null);
     startTransition(async () => {
       try {
         const result = await action();
         if (!result.ok) setError(result.error);
+        else onSuccess?.();
       } catch {
         // Serveur injoignable (réseau coupé) : la promesse de la Server Action
         // rejette — sans ce catch, le geste échouerait en silence.
@@ -42,7 +46,7 @@ export function useBookGestures() {
   return { run, isPending, error, setError };
 }
 
-type RunGesture = (action: () => Promise<BookActionResult>) => void;
+type RunGesture = (action: () => Promise<BookActionResult>, onSuccess?: () => void) => void;
 
 /**
  * « Je commence » — le CTA en dégradé qui démarre une lecture pour un livre

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { computeMonthlyReport } from "./monthly-report";
-import { formatPoints, reportToText } from "./report-text";
+import { formatPoints, formatPointsLabel, reportToText } from "./report-text";
 import type { BookCategory, ReadingFact } from "./types";
 
 /**
@@ -30,6 +30,19 @@ describe("formatPoints — la virgule française et le signe", () => {
     [0, "0"],
   ])("%s → %s", (points, expected) => {
     expect(formatPoints(points)).toBe(expected);
+  });
+});
+
+describe("formatPointsLabel — le point signé + l'unité accordée (toast #73)", () => {
+  it.each([
+    [0.5, "+0,5 pt"], // une issue au barème
+    [1, "+1 pt"], // un manga
+    [2, "+2 pts"], // une BD
+    [3, "+3 pts"], // un comics
+    [5, "+5 pts"], // un roman / omnibus
+    [-1, "−1 pt"], // un achat non lu
+  ])("%s → %s", (points, expected) => {
+    expect(formatPointsLabel(points)).toBe(expected);
   });
 });
 

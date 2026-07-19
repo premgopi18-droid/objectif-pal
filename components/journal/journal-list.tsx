@@ -14,8 +14,10 @@ import { Badge } from "@/components/ui/badge";
 import { BookRow } from "@/components/ui/book-row";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
+import { burstConfetti } from "@/components/ui/confetti";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { Stars } from "@/components/ui/stars";
+import { Toast } from "@/components/ui/toast";
 import { CoverPhotoButton } from "@/components/cover-photo-button";
 import { ErrorAlert } from "@/components/error-alert";
 import { RemoveButton, useBookGestures } from "@/components/library/book-gestures";
@@ -24,6 +26,8 @@ import { ALL_CATEGORIES, CATEGORY_LABELS } from "@/lib/books/categories";
 import { isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
 import { formatBookSubtitle } from "@/lib/books/format";
 import { formatDateFrench, formatMonthFrench, localToday } from "@/lib/dates";
+import { formatPointsLabel } from "@/lib/scoring/report-text";
+import { SCORING_SCALE } from "@/lib/scoring/scale";
 import type { BookCategory, ReadingStatus } from "@/lib/scoring/types";
 import type { ComponentProps } from "react";
 import {
@@ -83,6 +87,8 @@ const SELECT_CLASS =
 
 export function JournalList({ entries }: { entries: JournalEntry[] }) {
   const [filters, setFilters] = useState<JournalFilters>(NO_JOURNAL_FILTERS);
+  // Un seul Toast pour toute la liste — la célébration de « Terminé ✓ » (#73).
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const { run, isPending, error, setError } = useBookGestures();
 
   // Les options des selects viennent des entrées elles-mêmes (dérivées en
@@ -182,11 +188,20 @@ export function JournalList({ entries }: { entries: JournalEntry[] }) {
           )}
           <ul className="flex flex-col gap-3">
             {visible.map((entry) => (
-              <JournalItem key={entry.id} entry={entry} run={run} isPending={isPending} onError={setError} />
+              <JournalItem
+                key={entry.id}
+                entry={entry}
+                run={run}
+                isPending={isPending}
+                onError={setError}
+                onCelebrate={setToastMessage}
+              />
             ))}
           </ul>
         </>
       )}
+
+      <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
     </div>
   );
 }
@@ -196,11 +211,13 @@ function JournalItem({
   run,
   isPending,
   onError,
+  onCelebrate,
 }: {
   entry: JournalEntry;
-  run: (action: () => Promise<JournalActionResult>) => void;
+  run: (action: () => Promise<JournalActionResult>, onSuccess?: () => void) => void;
   isPending: boolean;
   onError: (message: string) => void;
+  onCelebrate: (message: string) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const badge = STATUS_BADGES[entry.status];
@@ -233,7 +250,21 @@ function JournalItem({
                 type="button"
                 variant="done"
                 disabled={isPending}
-                onClick={() => run(() => finishReading(entry.id, localToday()))}
+                onClick={(event) => {
+                  // On capte le centre du bouton AU TAP : une fois la lecture
+                  // terminée il disparaît, son rect ne vaudrait plus rien.
+                  const rect = event.currentTarget.getBoundingClientRect();
+                  const origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                  // N vient du barème réel selon la catégorie — jamais en dur (§3, #73).
+                  const points = SCORING_SCALE.pointsByCategory[entry.book.category];
+                  run(
+                    () => finishReading(entry.id, localToday()),
+                    () => {
+                      burstConfetti(origin);
+                      onCelebrate(`Lecture terminée · ${formatPointsLabel(points)} 🎉`);
+                    },
+                  );
+                }}
               >
                 Terminé ✓
               </Button>
