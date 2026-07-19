@@ -82,7 +82,13 @@ export function StartReadingButton({
  * Le geste retrait/soft-delete — un seul composant pour « Supprimer » (journal),
  * « Retirer » (biblio) et « Je ne l'ai pas acheté » (pile) : mêmes réserves de
  * réversibilité, même plomberie, seule l'action et l'éventuelle confirmation
- * changent. Rendu en lien souligné discret (jamais un CTA).
+ * changent.
+ *
+ * Deux tons :
+ * - `danger` : la variante `danger` de `Button` (#84) — LE style destructif
+ *   unique, partagé avec la déconnexion. Plus de rouge posé ici.
+ * - `muted` : lien souligné discret `--ink3` (« Je ne l'ai pas acheté »,
+ *   réversible) — volontairement en retrait, jamais un bouton.
  *
  * `confirm` : appelée avant l'action ; si elle renvoie `false`, on annule. Sans
  * elle, l'action part directement (cas de l'annulation d'achat, réversible).
@@ -104,17 +110,24 @@ export function RemoveButton({
   tone?: "danger" | "muted";
   className?: string;
 }) {
-  const toneClass = tone === "danger" ? "text-red" : "text-ink3";
+  const handleClick = () => {
+    if (!confirm || confirm()) run(action);
+  };
+  if (tone === "muted") {
+    return (
+      <button
+        type="button"
+        disabled={isPending}
+        onClick={handleClick}
+        className={`text-sm underline underline-offset-2 disabled:opacity-40 text-ink3 ${className}`}
+      >
+        {label}
+      </button>
+    );
+  }
   return (
-    <button
-      type="button"
-      disabled={isPending}
-      onClick={() => {
-        if (!confirm || confirm()) run(action);
-      }}
-      className={`text-sm underline underline-offset-2 disabled:opacity-40 ${toneClass} ${className}`}
-    >
+    <Button type="button" variant="danger" disabled={isPending} onClick={handleClick} className={className}>
       {label}
-    </button>
+    </Button>
   );
 }

@@ -33,17 +33,9 @@ export function LogoutButton() {
   }
 
   return (
-    // Button ghost + encre rouge (déconnexion = sémantique négatif, specs §2).
-    // Le token passe par `style` (var(--red)) : inline il l'emporte à coup sûr
-    // sur le `text-ink` de la variante ghost, sans dépendre de l'ordre Tailwind.
-    <Button
-      type="button"
-      variant="ghost"
-      block
-      onClick={signOut}
-      disabled={isSigningOut}
-      style={{ color: "var(--red)" }}
-    >
+    // Déconnexion = sémantique négatif (specs §2) : la variante `danger` porte
+    // l'encre rouge elle-même (#84) — plus de style inline à surcharger ici.
+    <Button type="button" variant="danger" block onClick={signOut} disabled={isSigningOut}>
       {isSigningOut ? "Déconnexion…" : "Se déconnecter"}
     </Button>
   );
