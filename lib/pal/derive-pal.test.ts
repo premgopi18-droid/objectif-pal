@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { derivePal, type PalBookRecord } from "./derive-pal";
+import { bookToMovement, derivePal, type PalBookRecord } from "./derive-pal";
 
 /**
  * La pile doit raconter la MÊME histoire que le bilan (specs §4.5) : chaque
@@ -188,5 +188,67 @@ describe("l'ordre d'affichage", () => {
       book({ purchases: [bought("2026-06-02")] }),
     ]);
     expect(result.entries.map((entry) => entry.purchasedAt)).toEqual(["2026-06-02", "2026-07-10"]);
+  });
+});
+
+describe("bookToMovement — le réducteur partagé faits → mouvement (#78)", () => {
+  // Fabriques camelCase : la langue du réducteur (les Rows snake_case passent
+  // par l'adaptateur de derivePal, testé au-dessus).
+  const purchase = (purchasedAt: string, overrides: { id?: string; deletedAt?: string | null } = {}) => ({
+    id: overrides.id ?? `purchase-at-${purchasedAt}`,
+    purchasedAt,
+    deletedAt: overrides.deletedAt ?? null,
+  });
+  const reading = (
+    status: "finished" | "reading" | "abandoned",
+    finishedAt: string | null = null,
+    deletedAt: string | null = null,
+  ) => ({ status, finishedAt, deletedAt });
+
+  it("aucun achat (emprunt) : pas de mouvement — le livre n'entre jamais en pile", () => {
+    expect(bookToMovement({ purchases: [], readings: [reading("finished", "2026-07-10")] })).toBeNull();
+  });
+
+  it("un achat annulé (soft-deleted) ne compte pas comme possession", () => {
+    expect(
+      bookToMovement({ purchases: [purchase("2026-07-03", { deletedAt: "2026-07-04T09:00:00Z" })], readings: [] }),
+    ).toBeNull();
+  });
+
+  it("un achat sans lecture : une entrée, pas de sortie, l'achat d'entrée remonte avec ses champs propres", () => {
+    const entry = purchase("2026-07-03", { id: "the-entry-purchase" });
+    const movement = bookToMovement({ purchases: [entry], readings: [] });
+    expect(movement).toEqual({ entryDate: "2026-07-03", exitDate: null, entryPurchase: entry });
+  });
+
+  it("deux exemplaires en désordre : l'entrée est datée et portée par le PLUS ANCIEN achat actif", () => {
+    const later = purchase("2026-07-08", { id: "later" });
+    const earlier = purchase("2026-07-02", { id: "earlier" });
+    const movement = bookToMovement({ purchases: [later, earlier], readings: [] });
+    expect(movement?.entryDate).toBe("2026-07-02");
+    expect(movement?.entryPurchase.id).toBe("earlier");
+  });
+
+  it("acheté puis lu : la fin terminée fait la sortie", () => {
+    const movement = bookToMovement({
+      purchases: [purchase("2026-07-03")],
+      readings: [reading("finished", "2026-07-20")],
+    });
+    expect(movement?.entryDate).toBe("2026-07-03");
+    expect(movement?.exitDate).toBe("2026-07-20");
+  });
+
+  it("racheter un déjà-lu (§3.3) : pas de mouvement du tout", () => {
+    expect(
+      bookToMovement({ purchases: [purchase("2026-07-05")], readings: [reading("finished", "2026-06-12")] }),
+    ).toBeNull();
+  });
+
+  it("ni l'abandon ni la lecture supprimée ne comptent comme fin : le livre reste en pile", () => {
+    const movement = bookToMovement({
+      purchases: [purchase("2026-07-03")],
+      readings: [reading("abandoned"), reading("finished", "2026-07-10", "2026-07-11T08:00:00Z")],
+    });
+    expect(movement?.exitDate).toBeNull();
   });
 });
