@@ -30,8 +30,9 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > PRs #21→#27) a durci fiabilité, sécurité, perf et cohérence (85 → 155 tests, migration d'intégrité + index perf).
 > Les **stats essentielles** §4.5 sont livrées (moteur `lib/stats/` + vue `/stats` avec courbe de PAL,
 > PRs #37/#38) et le **P1 jeu** aussi : objectifs mensuels §4.11 (cibles, jauges, bonus +3) et distinctions
-> §4.4 (dans le bilan et le texte copiable) — 155 → 194 tests. Le carnet avance : scan-bibliothèque (#10),
-> finitions UX scan (#35) et filtres du journal (#34) livrés. Prochain : #32 (tech-debt multi-utilisateur).**
+> §4.4 (dans le bilan et le texte copiable) — 155 → 198 tests. Le carnet avance : scan-bibliothèque (#10),
+> finitions UX scan (#35), filtres du journal (#34), tech-debt #32 (lots A+B) et replis couvertures
+> OpenLibrary/Inventaire livrés. Prochain : #33 (photo de couverture).**
 
 ## Stack
 
@@ -43,7 +44,7 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 | Auth | Supabase Auth — **Google OAuth** (⚠️ `redirectTo` construit sur l'origine réelle, pas une constante) |
 | **Identification d'un scan** | **GCD (Grand Comics Database), importé chez nous** — 559 516 lignes (~75 Mo) : comics VO **et BD franco-belge**. Match par code-barres, par préfixe, ou par ISBN |
 | **Identification VF** | **BnF** (API SRU, gratuite, sans clé) — dépôt légal : BD, manga VF, romans. 95 % mesuré |
-| Couvertures VF | Google Books — **clé obligatoire** (429 systématique sans clé, même en résidentiel) |
+| Couvertures ISBN | **Google Books** (clé obligatoire — 429 systématique sans clé) → **OpenLibrary** → **Inventaire.io** (sans clé, replis du 19/07/2026) |
 | Enrichissement VO | Metron — **couverture** + `series_type` (Basic Auth, **côté serveur**) |
 | Scan | **zxing-wasm** (ZXing C++ en WASM — le port JS de ZXing ne décode pas les suppléments, mesuré) |
 | Hébergement | Vercel |
