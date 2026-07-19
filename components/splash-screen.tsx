@@ -17,12 +17,14 @@ export function SplashScreen() {
   const [phase, setPhase] = useState<"visible" | "fading" | "done">("visible");
 
   useEffect(() => {
-    if (window.matchMedia?.("(prefers-reduced-motion: reduce)").matches) {
-      setPhase("done");
-      return;
-    }
-    const toFade = setTimeout(() => setPhase("fading"), HOLD_MS);
-    const toDone = setTimeout(() => setPhase("done"), HOLD_MS + FADE_MS);
+    // Sous reduced-motion : escamotage immédiat (délais à 0), sans fondu. Les
+    // setState passent par des timers (jamais synchrones dans l'effet — règle
+    // react-hooks/set-state-in-effect).
+    const reduced = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ?? false;
+    const hold = reduced ? 0 : HOLD_MS;
+    const fade = reduced ? 0 : FADE_MS;
+    const toFade = setTimeout(() => setPhase("fading"), hold);
+    const toDone = setTimeout(() => setPhase("done"), hold + fade);
     return () => {
       clearTimeout(toFade);
       clearTimeout(toDone);
