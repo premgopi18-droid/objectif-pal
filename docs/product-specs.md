@@ -414,6 +414,26 @@ Deux raisons, et la seconde est la vraie :
 - Modifiable tant que le mois est en cours.
 - Bonus **+3 all-or-nothing**, ajouté au total du bilan.
 
+### 4.12 La Bibliothèque — tous les livres (issue #49, décisions du 19/07/2026)
+
+Le journal et la PAL sont des **projections** (les livres à travers leurs lectures / leurs achats) ; la
+Bibliothèque montre la table `books` elle-même — y compris les livres **sans aucune trace active**,
+invisibles ailleurs (l'angle mort qui a motivé le ticket).
+
+- **7ᵉ onglet de la nav** (« Biblio ») — tranché contre l'entrée cachée dans le Profil : libellés courts.
+- **v1** : liste (vignette, titre, sous-titre, badge d'état), **recherche en mémoire** titre/série
+  (insensible casse et accents — même réserve que les filtres du journal : client tant que pas de
+  pagination #32), tri « récents / A→Z », et les **gestes existants** : « je commence », photo de
+  couverture (#33/#47). L'édition des métadonnées reste au rescan.
+- **Badge d'état** (priorité) : En cours > Lu > Dans la PAL (possédé non lu — l'abandon n'en sort pas,
+  §4.6) > Abandonné > **Sans activité** (l'angle mort, enfin visible).
+- **« Retirer de la bibliothèque »** : suppression douce du **livre seul, sans cascade** — ses lectures et
+  achats restent intacts en base mais disparaissent de toutes les vues, car **chaque surface filtre sur
+  `books.deleted_at`** (le bilan le faisait déjà ; le journal l'a rejoint — `books!inner` + filtre). 100 %
+  réversible : **rescanner le livre le ressuscite avec tout son historique** (résurrection #10), photo
+  comprise (l'objet Storage n'est pas touché — rien n'est jamais effacé, §7). La confirmation annonce les
+  traces actives qui vont disparaître. L'export (§4.10) continue d'inclure les lignes supprimées.
+
 ---
 
 ## 5. Le scan — architecture

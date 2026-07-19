@@ -1,6 +1,6 @@
 "use client";
 
-import { BarChart3, BookOpen, Layers, ScanBarcode, TrendingUp, User } from "lucide-react";
+import { BarChart3, BookOpen, Layers, Library, ScanBarcode, TrendingUp, User } from "lucide-react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
@@ -8,10 +8,13 @@ import { usePathname } from "next/navigation";
  * La barre d'onglets — mobile-first, pouce-first : le Scanner (le geste
  * central) est le premier onglet et la page d'accueil.
  */
+// 7 onglets se partagent un max-w-md : les libellés restent COURTS (décision
+// #49 — le 7ᵉ onglet plutôt qu'une entrée cachée dans le Profil).
 const TABS = [
   { href: "/", label: "Scanner", icon: ScanBarcode },
   { href: "/journal", label: "Journal", icon: BookOpen },
   { href: "/pal", label: "PAL", icon: Layers },
+  { href: "/bibliotheque", label: "Biblio", icon: Library },
   { href: "/bilan", label: "Bilan", icon: BarChart3 },
   { href: "/stats", label: "Stats", icon: TrendingUp },
   { href: "/profil", label: "Profil", icon: User },
