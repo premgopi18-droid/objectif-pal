@@ -71,17 +71,25 @@ export type ScanLookupResult =
   | { kind: "pick-issue"; seriesId: number; seriesName: string; publisher: string | null; issues: IssueCandidate[] }
   /** Préfixe partagé → liste courte de séries : deux taps. */
   | { kind: "pick-series"; candidates: SeriesCandidate[] }
-  /** Rien trouvé nulle part → l'UI enchaîne sur la saisie manuelle. */
-  | { kind: "not-found" }
+  /**
+   * Rien trouvé nulle part → l'UI enchaîne sur la saisie manuelle. La chaîne
+   * couverture a quand même été tentée pour un ISBN (issue #55 — les libraires
+   * distribuent des livres qu'aucune base bibliographique ne connaît) :
+   * `coverUrl` pré-remplit la saisie, l'utilisateur fournit le reste.
+   */
+  | { kind: "not-found"; coverUrl: string | null }
   /** Pas un code exploitable (trop court, illisible). */
   | { kind: "invalid" };
 
 /**
  * Une entrée du cache de résolutions (`barcode_cache`). Y entrent les
- * résolutions externes (BnF, Google Books, Metron) ET les résolutions GCD
- * une fois ENRICHIES (couverture Metron / Google Books) : la ligne GCD est
- * déjà en base, mais son enrichissement coûte 2-3 appels réseau — c'est lui
- * qu'on ne veut jamais repayer (specs §8).
+ * résolutions externes (BnF, Google Books, Metron), les résolutions GCD
+ * une fois ENRICHIES (couverture Metron / Google Books) — la ligne GCD est
+ * déjà en base, mais son enrichissement coûte 2-3 appels réseau, c'est lui
+ * qu'on ne veut jamais repayer (specs §8) — ET, depuis l'issue #55, les
+ * SAISIES MANUELLES rattachées à un code-barres (`source: "manual"`) : le
+ * premier qui saisit un livre inconnu des bases le saisit pour tous les
+ * rescans à venir.
  */
 export type CacheEntry = {
   barcode: string;
@@ -92,6 +100,6 @@ export type CacheEntry = {
   publisher: string | null;
   pageCount: number | null;
   coverUrl: string | null;
-  source: Exclude<MetadataSource, "manual">;
+  source: MetadataSource;
   sourceId: string | null;
 };

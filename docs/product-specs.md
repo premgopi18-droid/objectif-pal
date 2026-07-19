@@ -445,6 +445,17 @@ GCD, en base (identifie : comics VO + BD franco-belge)
         → saisie manuelle + photo (le filet ultime, toujours disponible)
 ```
 
+> **Raffiné le 19/07/2026 (issue #55)** : même quand l'identification rate PARTOUT, la **chaîne couverture**
+> (§5.4) est tentée sur un ISBN avant de rendre « introuvable » — mesuré : les libraires (epagine) distribuent
+> des livres qu'aucune base bibliographique ne connaît (l'auto-édition française, ex. Northstar Comics). La
+> saisie manuelle s'ouvre alors **avec l'image et son explication** (« la couverture vient des libraires, ce
+> livre n'est répertorié nulle part — remplis ses infos ») : l'utilisateur saisit le reste, la couverture
+> sous les yeux. Et une **saisie manuelle rattachée à un code-barres part dans `barcode_cache`**
+> (`source: "manual"`) : le premier qui saisit un livre inconnu le saisit pour tous les rescans — et, à
+> l'ouverture multi-utilisateur, pour les autres (faits bibliographiques, aucun droit en jeu — contrairement
+> au pool de photos, §5.4). Une entrée d'une **vraie source n'est jamais écrasée** par du manuel, et la
+> qualité (fautes de frappe propagées) sera à re-peser au multi-user : provenance affichée + correction.
+
 **Chaque source apporte ce qu'aucune autre n'a.** On n'en ajoute pas une de plus : chacune coûte une
 implémentation, un cas d'erreur et un test.
 
@@ -819,7 +830,9 @@ dans `barcode_cache`, définitivement.
 cascade, jusqu'à la saisie manuelle. Le scan ne peut pas échouer.
 
 **Toute résolution externe est mise en cache.** Un bouquin n'est jamais résolu deux fois. Avec 4-5 utilisateurs,
-on parle de quelques dizaines d'appels par mois — tous les quotas sont hors d'atteinte.
+on parle de quelques dizaines d'appels par mois — tous les quotas sont hors d'atteinte. Depuis l'issue #55,
+« jamais résolu deux fois » vaut aussi pour la **saisie manuelle** : rattachée à un code-barres, elle entre
+dans `barcode_cache` (`source: "manual"`) et le rescan la restitue sans rien redemander.
 
 **Les secrets ne quittent pas le serveur.** Metron s'authentifie en **HTTP Basic Auth** (pas de clé API : les
 identifiants d'un **compte de service** dédié). Ils vivent en variables d'environnement serveur, **jamais

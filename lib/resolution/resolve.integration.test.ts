@@ -99,6 +99,20 @@ describe.skipIf(!integrationEnabled)("la cascade sur de vrais bouquins", () => {
     }
   }, 45000);
 
+  it("un livre inconnu de TOUTES les bases rend not-found AVEC la couverture des libraires (#55)", async () => {
+    // Le cas mesuré du 19/07/2026 : HEROICS (Northstar Comics, auto-édité) —
+    // ni GCD, ni BnF (0 notice), ni Google Books ; epagine a l'image.
+    // NOTE : si quelqu'un a saisi ce livre depuis (cache source manual),
+    // le scan rendra « resolved » — les deux issues sont légitimes.
+    const result = await resolveScannedCode("9782955689851");
+    if (result.kind === "resolved") {
+      expect(result.book.source).toBe("manual");
+      return;
+    }
+    expect(result.kind).toBe("not-found");
+    if (result.kind === "not-found") expect(result.coverUrl).toBeTruthy();
+  }, 45000);
+
   it("un livre absent de GCD est identifié (BnF ou Google Books) et le rescan sort du cache", async () => {
     // ISBN réel (une édition de L'Étranger, trouvée via la BnF elle-même),
     // vérifié absent de gcd_issues : la résolution est forcément externe,

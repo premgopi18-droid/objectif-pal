@@ -9,6 +9,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * fois enrichies (couverture Metron / Google Books) : ce n'est pas la ligne
  * GCD qu'on cache — elle est déjà en base, gratuite — c'est son
  * ENRICHISSEMENT, qui coûte 2-3 appels réseau à chaque scan sinon.
+ *
+ * Les SAISIES MANUELLES rattachées à un code-barres y entrent aussi depuis
+ * l'issue #55 (`source: "manual"`) : un livre qu'aucune base ne connaît n'est
+ * saisi qu'une fois — le rescan (et demain, les autres utilisateurs) le
+ * retrouve ici.
  */
 
 export type CacheProvider = ReturnType<typeof createCacheProvider>;
@@ -20,10 +25,6 @@ export function createCacheProvider(client = createAdminClient()) {
       if (error) throw new Error(`barcode_cache get : ${error.message}`);
       const row = data[0];
       if (!row) return null;
-      // L'enum en base autorise « manual », mais le cache n'en stocke jamais
-      // (le type de `set` l'interdit) : une telle ligne, forcément écrite hors
-      // de l'app, est traitée comme une absence — la cascade re-résout.
-      if (row.source === "manual") return null;
       return {
         barcode: row.barcode,
         title: row.title,
