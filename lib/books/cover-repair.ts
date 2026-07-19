@@ -5,6 +5,40 @@
  * ne fait qu'appliquer.
  */
 
+/**
+ * Les hôtes d'où viennent nos couvertures distantes — à garder en phase avec
+ * les `remotePatterns` de `next.config.ts` (la même liste, deux couches :
+ * l'optimiseur d'images côté affichage, la re-vérification côté réparation).
+ */
+const KNOWN_COVER_HOSTNAMES = [
+  "static.metron.cloud",
+  "books.google.com",
+  "covers.openlibrary.org",
+  "inventaire.io",
+  "openapi.bnf.fr",
+  "images.epagine.fr",
+] as const;
+const GOOGLE_USER_CONTENT_SUFFIX = ".googleusercontent.com";
+
+/**
+ * Garde SSRF (review #57) : le serveur ne re-vérifie JAMAIS une URL hors des
+ * hôtes de couverture connus — `books.cover_url` peut être posé par un client
+ * forgé, et un `fetch` serveur d'une cible arbitraire n'a rien à faire ici.
+ */
+export function isKnownCoverImageUrl(url: string): boolean {
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    return false;
+  }
+  if (parsed.protocol !== "https:") return false;
+  return (
+    (KNOWN_COVER_HOSTNAMES as readonly string[]).includes(parsed.hostname) ||
+    parsed.hostname.endsWith(GOOGLE_USER_CONTENT_SUFFIX)
+  );
+}
+
 export type CoverRepairDecision =
   /** Une autre couverture existe : on remplace. */
   | { action: "replace"; coverUrl: string }

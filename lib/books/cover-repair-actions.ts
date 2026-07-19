@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { decideCoverRepair } from "@/lib/books/cover-repair";
+import { decideCoverRepair, isKnownCoverImageUrl } from "@/lib/books/cover-repair";
 import { isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
 import { createCacheProvider } from "@/lib/resolution/providers/cache";
 import { findReplacementCover } from "@/lib/resolution/resolve";
@@ -28,6 +28,9 @@ export type CoverRepairResult = { coverUrl: string | null };
  * (405), on retombe sur un GET dont on relâche le corps.
  */
 async function isUrlAlive(url: string): Promise<boolean | null> {
+  // Garde SSRF (review #57) : jamais de fetch serveur hors des hôtes de
+  // couverture connus. Indéterminable → le doute profite à l'existant (keep).
+  if (!isKnownCoverImageUrl(url)) return null;
   try {
     const head = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS) });
     if (head.status !== 405) return head.ok;
