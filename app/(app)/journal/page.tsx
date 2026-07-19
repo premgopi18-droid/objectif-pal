@@ -10,13 +10,18 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 export default async function JournalPage() {
   const supabase = await createServerSupabaseClient();
 
+  // `books!inner` + filtre `book.deleted_at` : un livre retiré de la
+  // bibliothèque (#49) emporte ses lectures hors du journal — même sémantique
+  // que le bilan, qui élaguait déjà ainsi. Réversible : le rescan ressuscite
+  // le livre (#10) et ses lectures réapparaissent.
   const { data, error } = await supabase
     .from("readings")
     .select(
       `id, status, started_at, finished_at, rating, comment,
-       book:books (id, title, series_name, issue_number, category, cover_url, page_count)`,
+       book:books!inner (id, title, series_name, issue_number, category, cover_url, page_count, deleted_at)`,
     )
     .is("deleted_at", null)
+    .is("book.deleted_at", null)
     .order("started_at", { ascending: false })
     .order("created_at", { ascending: false });
 
