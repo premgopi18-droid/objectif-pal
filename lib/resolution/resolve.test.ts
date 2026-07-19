@@ -35,6 +35,8 @@ function fakeDeps(overrides: {
   googleBooks?: Partial<ResolutionDeps["googleBooks"]>;
   openLibrary?: Partial<ResolutionDeps["openLibrary"]>;
   inventaire?: Partial<ResolutionDeps["inventaire"]>;
+  bnfCovers?: Partial<ResolutionDeps["bnfCovers"]>;
+  epagine?: Partial<ResolutionDeps["epagine"]>;
   metron?: Partial<ResolutionDeps["metron"]>;
   cache?: Partial<ResolutionDeps["cache"]>;
 } = {}): ResolutionDeps {
@@ -51,6 +53,8 @@ function fakeDeps(overrides: {
     googleBooks: { resolveIsbn: vi.fn(async () => null), ...overrides.googleBooks },
     openLibrary: { findCoverByIsbn: vi.fn(async () => null), ...overrides.openLibrary },
     inventaire: { findCoverByIsbn: vi.fn(async () => null), ...overrides.inventaire },
+    bnfCovers: { findCoverByIsbn: vi.fn(async () => null), ...overrides.bnfCovers },
+    epagine: { findCoverByIsbn: vi.fn(async () => null), ...overrides.epagine },
     metron: {
       findIssueByGcdId: vi.fn(async () => null),
       findIssueByUpc: vi.fn(async () => null),
@@ -197,7 +201,7 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
     );
   });
 
-  it("OpenLibrary muet : Inventaire est le dernier repli couverture", async () => {
+  it("OpenLibrary muet : Inventaire prend le relais, et les crans suivants ne sont pas appelés", async () => {
     const deps = fakeDeps({
       bnf: { resolveIsbn: vi.fn(async () => ({ title: "Un roman", seriesName: null, issueNumber: null, authors: null, publisher: null, pageCount: null })) },
       inventaire: { findCoverByIsbn: vi.fn(async () => "https://inventaire.io/img/entities/def") },
@@ -205,6 +209,41 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
     const result = await resolveScannedCode("9782070360024", deps);
     if (result.kind !== "resolved") throw new Error("attendu : resolved");
     expect(result.book.coverUrl).toBe("https://inventaire.io/img/entities/def");
+    expect(deps.bnfCovers.findCoverByIsbn).not.toHaveBeenCalled();
+    expect(deps.epagine.findCoverByIsbn).not.toHaveBeenCalled();
+  });
+
+  it("le trou VF type Urban Comics : tout est muet jusqu'à epagine, dernier repli avant la photo", async () => {
+    // Le cas mesuré du 19/07/2026 (Batman : La Cour des Hiboux, 9791026820963) :
+    // fiche Google Books sans image, ISBN inconnu d'OpenLibrary, d'Inventaire
+    // et du Service Couvertures BnF — seul le CDN des libraires l'a.
+    const deps = fakeDeps({
+      bnf: { resolveIsbn: vi.fn(async () => ({ title: "Batman", seriesName: null, issueNumber: null, authors: "Scott Snyder", publisher: "Urban comics", pageCount: 176 })) },
+      epagine: { findCoverByIsbn: vi.fn(async () => "https://images.epagine.fr/963/9791026820963_1_75.jpg") },
+    });
+    const result = await resolveScannedCode("9791026820963", deps);
+    if (result.kind !== "resolved") throw new Error("attendu : resolved");
+    expect(result.book.coverUrl).toBe("https://images.epagine.fr/963/9791026820963_1_75.jpg");
+    // L'ordre est respecté : epagine n'est sollicité qu'après les trois crans ouverts.
+    expect(deps.openLibrary.findCoverByIsbn).toHaveBeenCalled();
+    expect(deps.inventaire.findCoverByIsbn).toHaveBeenCalled();
+    expect(deps.bnfCovers.findCoverByIsbn).toHaveBeenCalled();
+  });
+
+  it("BnF Couvertures comble avant epagine quand il a l'image", async () => {
+    const deps = fakeDeps({
+      bnf: { resolveIsbn: vi.fn(async () => ({ title: "Un roman", seriesName: null, issueNumber: null, authors: null, publisher: null, pageCount: null })) },
+      bnfCovers: {
+        findCoverByIsbn: vi.fn(
+          async () =>
+            "https://openapi.bnf.fr/couverture/image/image/recupererImage?ISBN=9782226250223&couverture=1&taille=originale",
+        ),
+      },
+    });
+    const result = await resolveScannedCode("9782226250223", deps);
+    if (result.kind !== "resolved") throw new Error("attendu : resolved");
+    expect(result.book.coverUrl).toContain("openapi.bnf.fr");
+    expect(deps.epagine.findCoverByIsbn).not.toHaveBeenCalled();
   });
 
   it("Google Books a l'image : aucun repli appelé (zéro coût sur le chemin heureux)", async () => {
@@ -226,6 +265,8 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
     expect(result.book.coverUrl).toBe("https://books.google.com/dune.jpg");
     expect(deps.openLibrary.findCoverByIsbn).not.toHaveBeenCalled();
     expect(deps.inventaire.findCoverByIsbn).not.toHaveBeenCalled();
+    expect(deps.bnfCovers.findCoverByIsbn).not.toHaveBeenCalled();
+    expect(deps.epagine.findCoverByIsbn).not.toHaveBeenCalled();
   });
 
   it("un TPB VO que Metron n'illustre pas retombe sur la chaîne ISBN", async () => {
@@ -465,6 +506,90 @@ describe("la cascade UPC (GCD exact → préfixe → Metron)", () => {
 
     expect(result).toMatchObject({ kind: "resolved", book: { source: "metron", suggestedCategory: "issue" } });
     expect(deps.cache.set).toHaveBeenCalledWith(expect.objectContaining({ source: "metron" }));
+  });
+
+  it("une entrée ISBN cachée SANS couverture retente la chaîne et répare l'entrée", async () => {
+    // Le cas Batman (9791026820963) : identifié par la BnF avant l'arrivée des
+    // crans BnF Couvertures/epagine, donc figé en cache sans image. Le rescan
+    // doit récupérer la couverture ET la persister.
+    const deps = fakeDeps({
+      cache: {
+        get: vi.fn(async () => ({
+          barcode: "9791026820963",
+          title: "Batman",
+          seriesName: null,
+          issueNumber: null,
+          authors: "Scott Snyder",
+          publisher: "Urban comics",
+          pageCount: 176,
+          coverUrl: null,
+          source: "bnf" as const,
+          sourceId: "9791026820963",
+        })),
+      },
+      epagine: { findCoverByIsbn: vi.fn(async () => "https://images.epagine.fr/963/9791026820963_1_75.jpg") },
+    });
+    const result = await resolveScannedCode("9791026820963", deps);
+
+    if (result.kind !== "resolved") throw new Error("attendu : resolved");
+    expect(result.book.coverUrl).toBe("https://images.epagine.fr/963/9791026820963_1_75.jpg");
+    // L'entrée est réparée, même source, la couverture en plus.
+    expect(deps.cache.set).toHaveBeenCalledWith(
+      expect.objectContaining({ barcode: "9791026820963", source: "bnf", coverUrl: "https://images.epagine.fr/963/9791026820963_1_75.jpg" }),
+    );
+    // L'identification n'est PAS repayée : seuls les crans couverture tournent.
+    expect(deps.bnf.resolveIsbn).not.toHaveBeenCalled();
+    expect(deps.gcd.findIssuesByIsbn).not.toHaveBeenCalled();
+  });
+
+  it("le retenter d'une entrée sans couverture qui ne rapporte rien ne réécrit pas le cache", async () => {
+    const deps = fakeDeps({
+      cache: {
+        get: vi.fn(async () => ({
+          barcode: "9791026820963",
+          title: "Batman",
+          seriesName: null,
+          issueNumber: null,
+          authors: null,
+          publisher: "Urban comics",
+          pageCount: 176,
+          coverUrl: null,
+          source: "bnf" as const,
+          sourceId: "9791026820963",
+        })),
+      },
+    });
+    const result = await resolveScannedCode("9791026820963", deps);
+
+    if (result.kind !== "resolved") throw new Error("attendu : resolved");
+    expect(result.book.coverUrl).toBeNull();
+    expect(deps.cache.set).not.toHaveBeenCalled();
+  });
+
+  it("une entrée ISBN cachée AVEC couverture ne retente rien (zéro coût au rescan)", async () => {
+    const deps = fakeDeps({
+      cache: {
+        get: vi.fn(async () => ({
+          barcode: "9780804139021",
+          title: "The Martian",
+          seriesName: null,
+          issueNumber: null,
+          authors: "Andy Weir",
+          publisher: "Crown",
+          pageCount: 369,
+          coverUrl: "https://books.google.com/martian.jpg",
+          source: "google_books" as const,
+          sourceId: "martian",
+        })),
+      },
+    });
+    const result = await resolveScannedCode("9780804139021", deps);
+
+    if (result.kind !== "resolved") throw new Error("attendu : resolved");
+    expect(result.book.coverUrl).toBe("https://books.google.com/martian.jpg");
+    expect(deps.googleBooks.resolveIsbn).not.toHaveBeenCalled();
+    expect(deps.epagine.findCoverByIsbn).not.toHaveBeenCalled();
+    expect(deps.cache.set).not.toHaveBeenCalled();
   });
 
   it("le cache court-circuite tout : aucun provider appelé au deuxième scan", async () => {

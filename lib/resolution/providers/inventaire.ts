@@ -18,7 +18,7 @@ export function createInventaireProvider(fetchImplementation: typeof fetch = fet
     /** L'URL de couverture pour un ISBN, ou null. */
     async findCoverByIsbn(isbn: string): Promise<string | null> {
       const response = await fetchImplementation(
-        `${INVENTAIRE_ORIGIN}/api/entities?action=by-uris&uris=isbn:${isbn}`,
+        `${INVENTAIRE_ORIGIN}/api/entities/by-uris?uris=isbn:${isbn}`,
         { signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS) },
       );
       // 400 = ISBN que l'API juge invalide (clé de contrôle) : « introuvable »,

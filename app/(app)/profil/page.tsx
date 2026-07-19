@@ -72,7 +72,11 @@ export default async function ProfilPage() {
           >
             CC BY-SA 4.0
           </a>
-          . Identification des ouvrages français : catalogue général de la BnF.
+          . Identification des ouvrages français et couvertures (récupérées le jour du scan) :{" "}
+          <a href="https://api.bnf.fr" className="underline" rel="noopener noreferrer" target="_blank">
+            catalogue général de la BnF
+          </a>
+          .
         </p>
       </footer>
     </section>
