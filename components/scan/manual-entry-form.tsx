@@ -69,12 +69,20 @@ export function ManualEntryForm({ scannedCode, suggestedCoverUrl = null, onSubmi
     <section className="flex flex-col gap-4">
       <h2 className="text-xl font-bold">Saisie manuelle</h2>
       {suggestedCoverUrl ? (
-        <div className="flex items-start gap-3 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3">
-          <BookCover coverUrl={suggestedCoverUrl} size="large" />
-          <p className="text-sm">
-            On a trouvé la couverture chez les libraires, mais ce livre n'est répertorié dans aucune base
-            bibliographique — remplis ses infos (elles sont sous tes yeux !) et il sera nickel dans ta PAL.
-          </p>
+        <div className="flex flex-col gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3">
+          <div className="flex items-start gap-3">
+            <BookCover coverUrl={suggestedCoverUrl} size="large" />
+            <p className="text-sm">
+              On a trouvé la couverture chez les libraires, mais ce livre n'est répertorié dans aucune base
+              bibliographique — remplis ses infos (elles sont sous tes yeux !) et il sera nickel dans ta PAL.
+            </p>
+          </div>
+          {/* La promesse §5.2 reste visible : le code est gardé, le livre restera re-résolvable. */}
+          {scannedCode && (
+            <p className="text-xs opacity-60">
+              Code <code className="font-mono">{scannedCode}</code> gardé avec le livre.
+            </p>
+          )}
         </div>
       ) : (
         scannedCode && (
