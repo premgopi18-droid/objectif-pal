@@ -41,6 +41,9 @@ type ScanState =
 /** Le malus affiché vient du barème — jamais recopié en dur (CLAUDE.md). */
 const PENALTY_POINTS = Math.abs(SCORING_SCALE.unreadPurchasePenalty);
 
+/** Le libellé d'un numéro dans les listes de choix — « [nn] » GCD = sans numéro (issue #58). */
+const issueNumberLabel = (number: string) => (number === GCD_UNNUMBERED_ISSUE_NUMBER ? "Sans numéro" : `#${number}`);
+
 /** Un BookInput saisi à la main, présenté comme un livre résolu pour réutiliser la feuille d'actions. */
 const manualInputToBook = (input: BookInput): ResolvedBook => ({
   title: input.title,
@@ -274,8 +277,7 @@ export function ScanScreen() {
                 onClick={() => resolvePickedIssue(issue.gcdId, state.scannedCode)}
                 className="w-full rounded-lg border border-foreground/20 px-4 py-3 text-left"
               >
-                {/* « [nn] » GCD = sans numéro (issue #58) : un libellé, pas le marqueur brut. */}
-                <span className="font-semibold">{issue.number === GCD_UNNUMBERED_ISSUE_NUMBER ? "Sans numéro" : `#${issue.number}`}</span>
+                <span className="font-semibold">{issueNumberLabel(issue.number)}</span>
                 {issue.title && <span className="ml-2 text-sm opacity-70">{issue.title}</span>}
               </button>
             </li>
@@ -307,7 +309,7 @@ export function ScanScreen() {
                     onClick={() => resolvePickedIssue(issue.gcdId, state.scannedCode)}
                     className="rounded-full border border-foreground/20 px-3.5 py-1.5 text-sm"
                   >
-                    {issue.number === GCD_UNNUMBERED_ISSUE_NUMBER ? "Sans numéro" : `#${issue.number}`}
+                    {issueNumberLabel(issue.number)}
                   </button>
                 ))}
               </div>

@@ -91,7 +91,9 @@ async function attempt<T>(operation: () => Promise<T>): Promise<T | null> {
 const fromCache = (entry: CacheEntry, barcodeType: "isbn" | "upc"): ResolvedBook => ({
   title: entry.title,
   seriesName: entry.seriesName,
-  issueNumber: entry.issueNumber,
+  // Ceinture-bretelles (review #59) : une entrée « [nn] » écrite hors de
+  // l'app ne doit pas re-exposer le marqueur — même règle qu'à la résolution.
+  issueNumber: entry.issueNumber === GCD_UNNUMBERED_ISSUE_NUMBER ? null : entry.issueNumber,
   authors: entry.authors,
   publisher: entry.publisher,
   pageCount: entry.pageCount,
