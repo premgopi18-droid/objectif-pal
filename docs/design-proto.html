@@ -1,0 +1,591 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Objectif PAL — Proto UI</title>
+<style>
+  :root{
+    --bg0:#120826; --bg1:#1B0F38;
+    --card:#221345; --card2:#2B1A55;
+    --line:rgba(255,255,255,.08);
+    --ink:#F4EFFC; --ink2:#B3A5D6; --ink3:#8474AC;
+    --magenta:#F32FB6; --violet:#8C5CF6; --cyan:#2BD7F0; --green:#3BE596;
+    --amber:#FFB63B; --red:#FF5470;
+    --grad:linear-gradient(100deg,#F32FB6,#8C5CF6 45%,#2BD7F0 75%,#3BE596);
+    --radius:20px;
+  }
+  html{color-scheme:dark}
+  body{
+    margin:0; background:radial-gradient(120% 90% at 50% 0%, #241247 0%, var(--bg0) 55%);
+    color:var(--ink); font-family:system-ui,-apple-system,"Segoe UI",sans-serif;
+    min-height:100vh;
+  }
+  button{font:inherit; color:inherit; background:none; border:none; cursor:pointer; padding:0}
+  button:focus-visible, a:focus-visible, input:focus-visible{outline:2px solid var(--cyan); outline-offset:2px; border-radius:6px}
+
+  /* ── La scène ─────────────────────────────── */
+  .stage{position:relative; display:flex; flex-direction:column; align-items:center; gap:20px; padding:36px 16px 48px; overflow:hidden}
+  .confetti{position:absolute; inset:0; pointer-events:none; z-index:0}
+  .confetti i{position:absolute; display:block; border-radius:2px; opacity:.7}
+  .stage-head{position:relative; z-index:1; text-align:center}
+  .logo{font-size:clamp(26px,5vw,38px); font-weight:900; font-style:italic; text-transform:uppercase; letter-spacing:-.02em; margin:0}
+  .logo .pal{background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .stage-note{margin:6px 0 0; color:var(--ink2); font-size:14px}
+
+  /* ── Le téléphone ─────────────────────────── */
+  .phone{
+    position:relative; z-index:1; width:min(390px,100%); height:min(760px,calc(100vh - 40px));
+    background:linear-gradient(180deg,var(--bg1),var(--bg0) 70%);
+    border:1px solid rgba(255,255,255,.12); border-radius:40px;
+    box-shadow:0 30px 80px rgba(0,0,0,.55), 0 0 60px rgba(140,92,246,.18);
+    display:flex; flex-direction:column; overflow:hidden;
+  }
+  .screen-area{flex:1; overflow-y:auto; padding:22px 18px 96px; scrollbar-width:thin}
+  section[hidden]{display:none}
+
+  .screen-title{font-size:22px; font-weight:900; text-transform:uppercase; font-style:italic; letter-spacing:-.01em; margin:0 0 4px}
+  .screen-sub{margin:0 0 18px; color:var(--ink2); font-size:14px}
+
+  /* ── Tab bar ──────────────────────────────── */
+  .tabbar{
+    position:absolute; inset-inline:0; bottom:0; z-index:5;
+    display:flex; align-items:flex-end;
+    background:rgba(16,7,34,.92); backdrop-filter:blur(12px);
+    border-top:1px solid var(--line); padding:8px 6px 12px;
+  }
+  .tab{flex:1; display:flex; flex-direction:column; align-items:center; gap:3px; font-size:10.5px; font-weight:600; color:var(--ink3); padding-top:4px}
+  .tab svg{width:23px; height:23px}
+  .tab[aria-current="page"]{color:var(--ink)}
+  .tab .dot{width:14px; height:3px; border-radius:2px; background:transparent}
+  .tab[aria-current="page"] .dot{background:var(--grad)}
+  .scan-fab{
+    flex:1; display:flex; flex-direction:column; align-items:center; gap:4px;
+    font-size:10.5px; font-weight:700; color:var(--ink); margin-top:-26px;
+  }
+  .scan-fab .bubble{
+    width:60px; height:60px; border-radius:50%;
+    background:var(--grad); display:grid; place-items:center;
+    border:4px solid var(--bg0);
+    box-shadow:0 8px 24px rgba(140,92,246,.55), 0 2px 8px rgba(243,47,182,.35);
+    transition:transform .15s;
+  }
+  .scan-fab:active .bubble{transform:scale(.93)}
+  .scan-fab svg{width:26px; height:26px; color:#fff}
+
+  /* ── Composants ───────────────────────────── */
+  .segments{display:flex; gap:4px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:4px; margin-bottom:18px}
+  .segments button{flex:1; padding:8px 0; border-radius:999px; font-size:14px; font-weight:700; color:var(--ink2)}
+  .segments button[aria-pressed="true"]{background:var(--grad); color:#fff; box-shadow:0 2px 10px rgba(140,92,246,.4)}
+
+  .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px}
+  .stack{display:flex; flex-direction:column; gap:12px}
+
+  .tiles{display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:18px}
+  .tile{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:14px 16px}
+  .tile .label{font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; color:var(--ink3)}
+  .tile .value{font-size:28px; font-weight:900; font-variant-numeric:tabular-nums; margin-top:2px}
+  .tile .value.good{color:var(--green)} .tile .value.bad{color:var(--red)}
+  .tile .hint{font-size:12px; color:var(--ink2); margin-top:2px}
+
+  .book{display:flex; gap:12px; align-items:center; background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:12px}
+  .cover{width:46px; height:64px; border-radius:8px; flex:none; display:grid; place-items:center; font-weight:900; font-size:18px; color:rgba(255,255,255,.9); box-shadow:inset 0 0 0 1px rgba(255,255,255,.15)}
+  .cv1{background:linear-gradient(160deg,#F32FB6,#8C5CF6)} .cv2{background:linear-gradient(160deg,#2BD7F0,#3BE596)}
+  .cv3{background:linear-gradient(160deg,#8C5CF6,#2BD7F0)} .cv4{background:linear-gradient(160deg,#FFB63B,#F32FB6)}
+  .cv5{background:linear-gradient(160deg,#3BE596,#2BD7F0)} .cv6{background:linear-gradient(160deg,#F32FB6,#FFB63B)}
+  .book .body{flex:1; min-width:0}
+  .book h3{margin:0; font-size:15px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis}
+  .book .meta{font-size:12.5px; color:var(--ink2); margin-top:2px}
+  .stars{color:var(--amber); font-size:13px; letter-spacing:1px}
+  .book .side{display:flex; flex-direction:column; align-items:flex-end; gap:6px; flex:none}
+
+  .badge{font-size:11px; font-weight:700; padding:3px 9px; border-radius:999px; white-space:nowrap}
+  .b-reading{background:rgba(43,215,240,.16); color:var(--cyan)}
+  .b-done{background:rgba(59,229,150,.16); color:var(--green)}
+  .b-pile{background:rgba(243,47,182,.16); color:#FF7CD9}
+  .b-drop{background:rgba(255,255,255,.08); color:var(--ink2)}
+  .b-idle{background:rgba(255,182,59,.14); color:var(--amber)}
+
+  .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; font-size:13.5px; font-weight:700; padding:9px 14px; border-radius:12px; transition:transform .12s}
+  .btn:active{transform:scale(.96)}
+  .btn-grad{background:var(--grad); color:#fff; box-shadow:0 4px 16px rgba(140,92,246,.4)}
+  .btn-ghost{background:var(--card2); color:var(--ink); border:1px solid var(--line)}
+  .btn-done{background:rgba(59,229,150,.16); color:var(--green); border:1px solid rgba(59,229,150,.3)}
+  .btn-block{display:flex; width:100%; padding:13px; font-size:15px}
+
+  .chips{display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:14px}
+  .chip{flex:none; font-size:12.5px; font-weight:600; color:var(--ink2); background:var(--card); border:1px solid var(--line); border-radius:999px; padding:6px 12px}
+  .chip[aria-pressed="true"]{background:var(--grad); color:#fff; border-color:transparent}
+
+  .search{display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:11px 14px; margin-bottom:14px}
+  .search input{flex:1; background:none; border:none; color:var(--ink); font-size:14px}
+  .search input::placeholder{color:var(--ink3)}
+  .search svg{width:17px; height:17px; color:var(--ink3); flex:none}
+
+  /* ── Scanner ──────────────────────────────── */
+  .viewfinder{position:relative; aspect-ratio:3/3.4; border-radius:var(--radius); background:
+      radial-gradient(80% 60% at 50% 45%, #17102e 0%, #0d0620 100%); overflow:hidden; border:1px solid var(--line); margin-bottom:16px}
+  .corner{position:absolute; width:34px; height:34px; border:3px solid transparent; border-image:var(--grad) 1}
+  .corner.tl{top:18px; left:18px; border-right:none; border-bottom:none}
+  .corner.tr{top:18px; right:18px; border-left:none; border-bottom:none}
+  .corner.bl{bottom:18px; left:18px; border-right:none; border-top:none}
+  .corner.br{bottom:18px; right:18px; border-left:none; border-top:none}
+  .scanline{position:absolute; inset-inline:26px; top:20%; height:2px; background:var(--grad); border-radius:2px; box-shadow:0 0 14px rgba(43,215,240,.8)}
+  .vf-hint{position:absolute; inset-inline:0; bottom:14px; text-align:center; font-size:12.5px; color:var(--ink2)}
+  @media (prefers-reduced-motion:no-preference){
+    .scanline{animation:sweep 2.6s ease-in-out infinite alternate}
+    @keyframes sweep{from{top:16%} to{top:78%}}
+  }
+
+  /* ── Bilan ────────────────────────────────── */
+  .monthnav{display:flex; align-items:center; justify-content:space-between; margin-bottom:14px}
+  .monthnav .arrow{width:38px; height:38px; border-radius:12px; background:var(--card); border:1px solid var(--line); display:grid; place-items:center; font-size:18px; color:var(--ink2)}
+  .monthnav h3{margin:0; font-size:17px; font-weight:800; text-transform:capitalize}
+  .score-hero{text-align:center; padding:20px 16px 22px}
+  .score-hero .num{font-size:52px; font-weight:900; font-style:italic; line-height:1;
+      background:var(--grad); -webkit-background-clip:text; background-clip:text; color:transparent}
+  .score-hero .label{font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.12em; color:var(--ink3); margin-top:6px}
+  .rows{display:flex; flex-direction:column}
+  .row{display:flex; justify-content:space-between; align-items:baseline; padding:10px 0; border-top:1px solid var(--line); font-size:14.5px}
+  .row .pts{font-weight:800; font-variant-numeric:tabular-nums}
+  .row .pts.plus{color:var(--green)} .row .pts.minus{color:var(--red)}
+  .row .sub{color:var(--ink2); font-size:12.5px; margin-left:6px}
+  .gauge{height:10px; border-radius:999px; background:var(--card2); overflow:hidden; margin-top:10px}
+  .gauge > span{display:block; height:100%; border-radius:999px; background:var(--grad); width:75%}
+  .picks{display:flex; flex-direction:column; gap:10px}
+  .pick{display:flex; gap:10px; align-items:center; font-size:14px}
+  .pick .medal{font-size:20px; flex:none}
+  .pick b{font-weight:700}
+  .pick .why{color:var(--ink2); font-size:12.5px}
+
+  /* ── Stats ────────────────────────────────── */
+  .curve-card svg{display:block; width:100%; height:auto}
+  .bars{display:flex; flex-direction:column; gap:10px}
+  .bar-row{display:grid; grid-template-columns:64px 1fr 34px; gap:10px; align-items:center; font-size:13px}
+  .bar-row .name{color:var(--ink2)}
+  .bar-track{height:9px; border-radius:999px; background:var(--card2); overflow:hidden}
+  .bar-track > span{display:block; height:100%; border-radius:999px}
+  .bar-row .n{text-align:right; font-weight:700; font-variant-numeric:tabular-nums}
+
+  .h4{font-size:12px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--ink3); margin:22px 0 10px}
+  .h4:first-child{margin-top:0}
+
+  /* ── Profil ───────────────────────────────── */
+  .avatar-row{display:flex; align-items:center; gap:14px; margin-bottom:20px}
+  .avatar{width:56px; height:56px; border-radius:50%; background:var(--grad); display:grid; place-items:center; font-weight:900; font-size:22px; color:#fff}
+  .avatar-row .name{font-weight:800; font-size:17px}
+  .avatar-row .mail{color:var(--ink2); font-size:13px}
+  .credits{margin-top:22px; font-size:12px; color:var(--ink3); line-height:1.6}
+  .credits a{color:var(--ink2)}
+
+  .toast{
+    position:absolute; left:50%; bottom:108px; transform:translateX(-50%) translateY(8px);
+    background:var(--card2); border:1px solid var(--line); color:var(--ink);
+    font-size:13.5px; font-weight:600; padding:10px 18px; border-radius:999px;
+    box-shadow:0 8px 24px rgba(0,0,0,.5); opacity:0; pointer-events:none; transition:.25s; z-index:9; white-space:nowrap;
+  }
+  .toast.show{opacity:1; transform:translateX(-50%) translateY(0)}
+
+  .burst{position:absolute; width:7px; height:7px; border-radius:2px; pointer-events:none; z-index:8}
+
+  @media (max-width:520px){
+    .stage{padding:0}
+    .stage-head{padding:18px 16px 8px}
+    .phone{width:100%; height:auto; min-height:calc(100vh - 90px); border-radius:0; border:none; box-shadow:none}
+  }
+</style>
+
+</head>
+<body>
+<div class="stage">
+  <div class="confetti" id="confetti" aria-hidden="true"></div>
+  <header class="stage-head">
+    <h1 class="logo">Objectif <span class="pal">PAL</span></h1>
+    <p class="stage-note">Proto UI — nav 5 onglets, habillage émission · combo B</p>
+  </header>
+
+  <div class="phone">
+    <div class="screen-area" id="screens">
+
+      <!-- ═══ SCANNER (accueil) ═══ -->
+      <section id="scr-scan">
+        <h2 class="screen-title">Scanner <span style="background:var(--grad);-webkit-background-clip:text;background-clip:text;color:transparent">un bouquin</span></h2>
+        <p class="screen-sub">Vise le code-barres, le reste suit.</p>
+        <div class="viewfinder">
+          <span class="corner tl"></span><span class="corner tr"></span>
+          <span class="corner bl"></span><span class="corner br"></span>
+          <span class="scanline"></span>
+          <p class="vf-hint">EAN-13 &amp; suppléments · GCD + BnF</p>
+        </div>
+        <div class="search" style="margin-bottom:12px">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M3 5v14M7 5v14M11 5v14M15 5v14M19 5v14"/></svg>
+          <input type="text" inputmode="numeric" placeholder="Ou tape le code-barres…" aria-label="Saisir le code-barres">
+        </div>
+        <button class="btn btn-ghost btn-block">Pas de code-barres ? Saisie manuelle</button>
+      </section>
+
+      <!-- ═══ JOURNAL ═══ -->
+      <section id="scr-journal" hidden>
+        <h2 class="screen-title">Journal</h2>
+        <p class="screen-sub">Ce que je lis, ce que j'ai lu.</p>
+        <div class="chips" role="group" aria-label="Filtres">
+          <button class="chip" aria-pressed="true">Tout</button>
+          <button class="chip" aria-pressed="false">En cours</button>
+          <button class="chip" aria-pressed="false">Terminés</button>
+          <button class="chip" aria-pressed="false">Abandonnés</button>
+          <button class="chip" aria-pressed="false">Juillet</button>
+        </div>
+        <div class="stack">
+          <article class="book">
+            <div class="cover cv3">F</div>
+            <div class="body">
+              <h3>Frieren T.12</h3>
+              <div class="meta">Manga · commencé le 14 juil.</div>
+            </div>
+            <div class="side">
+              <span class="badge b-reading">En cours</span>
+              <button class="btn btn-done js-finish">Terminé ✓</button>
+            </div>
+          </article>
+          <article class="book">
+            <div class="cover cv1">S</div>
+            <div class="body">
+              <h3>Saga T.11</h3>
+              <div class="meta">Comics · fini le 12 juil. <span class="stars">★★★★½</span></div>
+            </div>
+            <div class="side"><span class="badge b-done">Lu</span></div>
+          </article>
+          <article class="book">
+            <div class="cover cv2">B</div>
+            <div class="body">
+              <h3>Blacksad T.7</h3>
+              <div class="meta">BD · fini le 5 juil. <span class="stars">★★★★</span></div>
+            </div>
+            <div class="side"><span class="badge b-done">Lu</span></div>
+          </article>
+          <article class="book">
+            <div class="cover cv4">P</div>
+            <div class="body">
+              <h3>Le Problème à trois corps</h3>
+              <div class="meta">Roman · abandonné le 28 juin</div>
+            </div>
+            <div class="side">
+              <span class="badge b-drop">Abandonné</span>
+              <button class="btn btn-ghost">Reprendre</button>
+            </div>
+          </article>
+        </div>
+      </section>
+
+      <!-- ═══ BIBLIO ═══ -->
+      <section id="scr-biblio" hidden>
+        <h2 class="screen-title">Biblio</h2>
+        <p class="screen-sub">Tout ce que je possède.</p>
+        <div class="segments" role="group" aria-label="Vue de la bibliothèque">
+          <button data-seg="pile" aria-pressed="true">Pile (PAL)</button>
+          <button data-seg="tous" aria-pressed="false">Tous · 47</button>
+        </div>
+
+        <div data-panel="pile">
+          <div class="tiles">
+            <div class="tile">
+              <div class="label">Dans la pile</div>
+              <div class="value">23</div>
+              <div class="hint">livres non lus</div>
+            </div>
+            <div class="tile">
+              <div class="label">Solde du mois</div>
+              <div class="value bad">+2</div>
+              <div class="hint">4 entrés · 2 sortis</div>
+            </div>
+          </div>
+          <div class="stack">
+            <article class="book">
+              <div class="cover cv5">O</div>
+              <div class="body">
+                <h3>One Piece T.108</h3>
+                <div class="meta">Manga · acheté le 15 juil.</div>
+              </div>
+              <div class="side"><button class="btn btn-grad">Je commence</button></div>
+            </article>
+            <article class="book">
+              <div class="cover cv6">M</div>
+              <div class="body">
+                <h3>Monstress T.9</h3>
+                <div class="meta">Comics · acheté le 15 juil.</div>
+              </div>
+              <div class="side"><button class="btn btn-grad">Je commence</button></div>
+            </article>
+            <article class="book">
+              <div class="cover cv3">F</div>
+              <div class="body">
+                <h3>Frieren T.12</h3>
+                <div class="meta">Manga · acheté le 2 juil.</div>
+              </div>
+              <div class="side"><span class="badge b-reading">En cours</span></div>
+            </article>
+          </div>
+        </div>
+
+        <div data-panel="tous" hidden>
+          <div class="search">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            <input type="search" placeholder="Chercher un titre, une série…" aria-label="Rechercher dans la bibliothèque">
+          </div>
+          <div class="stack">
+            <article class="book">
+              <div class="cover cv2">B</div>
+              <div class="body">
+                <h3>Blacksad T.7</h3>
+                <div class="meta">BD · <span class="stars">★★★★</span></div>
+              </div>
+              <div class="side"><span class="badge b-done">Lu</span></div>
+            </article>
+            <article class="book">
+              <div class="cover cv5">O</div>
+              <div class="body">
+                <h3>One Piece T.108</h3>
+                <div class="meta">Manga · acheté le 15 juil.</div>
+              </div>
+              <div class="side"><span class="badge b-pile">Dans la PAL</span></div>
+            </article>
+            <article class="book">
+              <div class="cover cv3">F</div>
+              <div class="body">
+                <h3>Frieren T.12</h3>
+                <div class="meta">Manga</div>
+              </div>
+              <div class="side"><span class="badge b-reading">En cours</span></div>
+            </article>
+            <article class="book">
+              <div class="cover cv1">W</div>
+              <div class="body">
+                <h3>Watchmen</h3>
+                <div class="meta">Comics · scanné, sans activité</div>
+              </div>
+              <div class="side"><span class="badge b-idle">Sans activité</span></div>
+            </article>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ BILAN ═══ -->
+      <section id="scr-bilan" hidden>
+        <h2 class="screen-title">Bilan</h2>
+        <p class="screen-sub">Le score du mois, prêt pour l'antenne.</p>
+        <div class="segments" role="group" aria-label="Bilan ou statistiques">
+          <button data-seg="bilan" aria-pressed="true">Bilan</button>
+          <button data-seg="stats" aria-pressed="false">Stats</button>
+        </div>
+
+        <div data-panel="bilan">
+          <div class="monthnav">
+            <button class="arrow" aria-label="Mois précédent">‹</button>
+            <h3>Juillet 2026</h3>
+            <button class="arrow" aria-label="Mois suivant">›</button>
+          </div>
+          <div class="card score-hero">
+            <div class="num">+9 pts</div>
+            <div class="label">Score du mois</div>
+          </div>
+          <div class="h4">Le détail</div>
+          <div class="card">
+            <div class="rows">
+              <div class="row" style="border-top:none"><span>2 comics <span class="sub">× 1 pt</span></span><span class="pts plus">+2</span></div>
+              <div class="row"><span>1 BD <span class="sub">× 1 pt</span></span><span class="pts plus">+1</span></div>
+              <div class="row"><span>1 manga <span class="sub">× 1 pt</span></span><span class="pts plus">+1</span></div>
+              <div class="row"><span>1 roman <span class="sub">× 3 pts</span></span><span class="pts plus">+3</span></div>
+              <div class="row"><span>4 achats non lus</span><span class="pts minus">−1</span></div>
+              <div class="row"><span>Objectif atteint 🎯</span><span class="pts plus">+3</span></div>
+            </div>
+          </div>
+          <div class="h4">Objectif du mois</div>
+          <div class="card">
+            <div style="display:flex;justify-content:space-between;font-size:14px">
+              <span>Terminer 5 lectures</span><b>5 / 5 ✓</b>
+            </div>
+            <div class="gauge"><span style="width:100%"></span></div>
+          </div>
+          <div class="h4">Distinctions</div>
+          <div class="card picks">
+            <div class="pick"><span class="medal">🏆</span><div><b>Saga T.11</b> — meilleure lecture<div class="why">« Le retour que j'attendais depuis deux ans. »</div></div></div>
+            <div class="pick"><span class="medal">💀</span><div><b>Le Problème à trois corps</b> — l'abandon<div class="why">« On se retrouvera, mais pas cet été. »</div></div></div>
+          </div>
+          <button class="btn btn-grad btn-block js-copy" style="margin-top:18px">📋 Copier pour l'antenne</button>
+        </div>
+
+        <div data-panel="stats" hidden>
+          <div class="tiles">
+            <div class="tile"><div class="label">Pile actuelle</div><div class="value">23</div></div>
+            <div class="tile"><div class="label">Finis en 2026</div><div class="value good">31</div></div>
+            <div class="tile"><div class="label">Pages lues</div><div class="value">8 412</div></div>
+            <div class="tile"><div class="label">Note moyenne</div><div class="value" style="color:var(--amber)">3,8</div></div>
+          </div>
+          <div class="h4">La courbe de la PAL</div>
+          <div class="card curve-card">
+            <svg viewBox="0 0 320 120" role="img" aria-label="Courbe de la taille de la PAL sur six mois, de 31 à 23 livres">
+              <defs>
+                <linearGradient id="lg" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0" stop-color="#F32FB6"/><stop offset=".5" stop-color="#8C5CF6"/><stop offset="1" stop-color="#2BD7F0"/>
+                </linearGradient>
+                <linearGradient id="fill" x1="0" y1="0" x2="0" y2="1">
+                  <stop offset="0" stop-color="#8C5CF6" stop-opacity=".35"/><stop offset="1" stop-color="#8C5CF6" stop-opacity="0"/>
+                </linearGradient>
+              </defs>
+              <g stroke="rgba(255,255,255,.07)"><line x1="0" y1="30" x2="320" y2="30"/><line x1="0" y1="60" x2="320" y2="60"/><line x1="0" y1="90" x2="320" y2="90"/></g>
+              <path d="M10 34 L62 42 L114 38 L166 56 L218 64 L270 60 L310 74 V120 H10 Z" fill="url(#fill)"/>
+              <path d="M10 34 L62 42 L114 38 L166 56 L218 64 L270 60 L310 74" fill="none" stroke="url(#lg)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
+              <circle cx="310" cy="74" r="5" fill="#2BD7F0"/>
+              <g fill="#8474AC" font-size="10" font-family="system-ui">
+                <text x="10" y="114">fév.</text><text x="114" y="114">avr.</text><text x="218" y="114">juin</text><text x="292" y="114">juil.</text>
+              </g>
+            </svg>
+          </div>
+          <div class="h4">Répartition</div>
+          <div class="card bars">
+            <div class="bar-row"><span class="name">Manga</span><div class="bar-track"><span style="width:88%;background:#F32FB6"></span></div><span class="n">14</span></div>
+            <div class="bar-row"><span class="name">Comics</span><div class="bar-track"><span style="width:69%;background:#8C5CF6"></span></div><span class="n">11</span></div>
+            <div class="bar-row"><span class="name">BD</span><div class="bar-track"><span style="width:25%;background:#2BD7F0"></span></div><span class="n">4</span></div>
+            <div class="bar-row"><span class="name">Roman</span><div class="bar-track"><span style="width:13%;background:#3BE596"></span></div><span class="n">2</span></div>
+          </div>
+        </div>
+      </section>
+
+      <!-- ═══ PROFIL ═══ -->
+      <section id="scr-profil" hidden>
+        <h2 class="screen-title">Profil</h2>
+        <p class="screen-sub">Ton compte, tes données.</p>
+        <div class="avatar-row">
+          <div class="avatar">P</div>
+          <div>
+            <div class="name">Prem</div>
+            <div class="mail">arwine.gopitchandirane@gmail.com</div>
+          </div>
+        </div>
+        <div class="h4">Mes données</div>
+        <div class="stack">
+          <button class="btn btn-ghost btn-block">Exporter tout (JSON)</button>
+          <button class="btn btn-ghost btn-block">Exporter en CSV…</button>
+        </div>
+        <div class="h4" style="margin-top:26px">Session</div>
+        <button class="btn btn-ghost btn-block" style="color:var(--red)">Se déconnecter</button>
+        <p class="credits">
+          Données bibliographiques : <a href="#">Grand Comics Database</a> et <a href="#">Metron</a>
+          (CC BY-SA 4.0) · <a href="#">BnF</a>. Couvertures : Google Books, OpenLibrary, Inventaire.io, BnF, epagine.
+        </p>
+      </section>
+    </div>
+
+    <!-- ═══ TAB BAR ═══ -->
+    <nav class="tabbar" aria-label="Navigation principale">
+      <button class="tab" data-target="scr-journal">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 4h6a4 4 0 0 1 4 4v12a3 3 0 0 0-3-3H2z"/><path d="M22 4h-6a4 4 0 0 0-4 4v12a3 3 0 0 1 3-3h7z"/></svg>
+        Journal<span class="dot"></span>
+      </button>
+      <button class="tab" data-target="scr-biblio">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg>
+        Biblio<span class="dot"></span>
+      </button>
+      <button class="scan-fab" data-target="scr-scan" aria-current="page">
+        <span class="bubble">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M4 7V5.5A1.5 1.5 0 0 1 5.5 4H7M17 4h1.5A1.5 1.5 0 0 1 20 5.5V7M20 17v1.5a1.5 1.5 0 0 1-1.5 1.5H17M7 20H5.5A1.5 1.5 0 0 1 4 18.5V17M8 9v6M12 9v6M16 9v6"/></svg>
+        </span>
+        Scanner
+      </button>
+      <button class="tab" data-target="scr-bilan">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3v18h18"/><path d="M18 17V9"/><path d="M13 17V5"/><path d="M8 17v-3"/></svg>
+        Bilan<span class="dot"></span>
+      </button>
+      <button class="tab" data-target="scr-profil">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 21v-2a4 4 0 0 0-4-4H9a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+        Profil<span class="dot"></span>
+      </button>
+    </nav>
+
+    <div class="toast" id="toast" role="status"></div>
+  </div>
+</div>
+
+<script>
+  const PALETTE = ['#F32FB6','#8C5CF6','#2BD7F0','#3BE596','#FFB63B'];
+  const reduced = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+  // Confettis de la scène (décor statique, pas d'animation)
+  const stage = document.getElementById('confetti');
+  for (let i = 0; i < 42; i++) {
+    const c = document.createElement('i');
+    const s = 3 + Math.random() * 6;
+    c.style.cssText = `left:${Math.random()*100}%;top:${Math.random()*100}%;width:${s}px;height:${s}px;` +
+      `background:${PALETTE[i % PALETTE.length]};transform:rotate(${Math.random()*360}deg);opacity:${.15+Math.random()*.4}`;
+    stage.appendChild(c);
+  }
+
+  // Navigation par onglets
+  const screens = document.querySelectorAll('#screens > section');
+  document.querySelectorAll('[data-target]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      screens.forEach(s => s.hidden = s.id !== btn.dataset.target);
+      document.querySelectorAll('[data-target]').forEach(b => {
+        if (b === btn) b.setAttribute('aria-current', 'page');
+        else b.removeAttribute('aria-current');
+      });
+      document.querySelector('.screen-area').scrollTo({top:0});
+    });
+  });
+
+  // Segments (Biblio : Pile/Tous — Bilan : Bilan/Stats)
+  document.querySelectorAll('.segments').forEach(group => {
+    const section = group.closest('section');
+    group.querySelectorAll('button').forEach(btn => {
+      btn.addEventListener('click', () => {
+        group.querySelectorAll('button').forEach(b => b.setAttribute('aria-pressed', b === btn));
+        section.querySelectorAll('[data-panel]').forEach(p => p.hidden = p.dataset.panel !== btn.dataset.seg);
+      });
+    });
+  });
+
+  // Chips du journal (visuel seulement)
+  document.querySelectorAll('.chip').forEach(chip => chip.addEventListener('click', () => {
+    chip.closest('.chips').querySelectorAll('.chip').forEach(c => c.setAttribute('aria-pressed', c === chip));
+  }));
+
+  // Toast
+  const toast = document.getElementById('toast');
+  let toastTimer;
+  function showToast(msg) {
+    toast.textContent = msg;
+    toast.classList.add('show');
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => toast.classList.remove('show'), 2200);
+  }
+
+  // « Terminé ✓ » : le moment de gloire — confettis + badge
+  document.querySelectorAll('.js-finish').forEach(btn => btn.addEventListener('click', () => {
+    const side = btn.closest('.side');
+    side.querySelector('.badge').outerHTML = '<span class="badge b-done">Lu</span>';
+    btn.remove();
+    showToast('Lecture terminée · +1 pt 🎉');
+    if (reduced) return;
+    const phone = document.querySelector('.phone');
+    const r = side.getBoundingClientRect(), pr = phone.getBoundingClientRect();
+    for (let i = 0; i < 18; i++) {
+      const p = document.createElement('span');
+      p.className = 'burst';
+      p.style.background = PALETTE[i % PALETTE.length];
+      p.style.left = (r.left - pr.left + r.width / 2) + 'px';
+      p.style.top = (r.top - pr.top + r.height / 2) + 'px';
+      phone.appendChild(p);
+      const a = Math.random() * Math.PI * 2, d = 40 + Math.random() * 70;
+      p.animate([
+        {transform:'translate(0,0) rotate(0)', opacity:1},
+        {transform:`translate(${Math.cos(a)*d}px,${Math.sin(a)*d + 30}px) rotate(${Math.random()*540}deg)`, opacity:0}
+      ], {duration:700 + Math.random()*400, easing:'cubic-bezier(.2,.7,.3,1)'}).onfinish = () => p.remove();
+    }
+  }));
+
+  // « Copier pour l'antenne »
+  document.querySelector('.js-copy').addEventListener('click', () => showToast('Bilan copié pour l’antenne ✓'));
+</script>
+
+</body>
+</html>

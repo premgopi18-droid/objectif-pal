@@ -93,8 +93,10 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **#49 — la vue Bibliothèque** : tous les livres, pas seulement les projections (journal, PAL). Le
-   prochain chantier.
+1. **La refonte UX/UI** (décidée le 19/07/2026, specs dans `docs/design-specs.md`, proto
+   `docs/design-proto.html`) : identité de l'émission (nuit violette + dégradé signature), nav
+   **5 onglets avec scan central** (la PAL devient un segment de la Biblio, les Stats un segment du
+   Bilan), famille de composants `components/ui/`. La vue Bibliothèque #49 est livrée (PR #63).
 2. **#30** (analyses avancées §4.5 — prérequis à lever, dont le trigger `occurred_at`).
 3. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
    déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ; les filtres #34 migreront

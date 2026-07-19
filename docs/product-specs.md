@@ -421,6 +421,9 @@ Bibliothèque montre la table `books` elle-même — y compris les livres **sans
 invisibles ailleurs (l'angle mort qui a motivé le ticket).
 
 - **7ᵉ onglet de la nav** (« Biblio ») — tranché contre l'entrée cachée dans le Profil : libellés courts.
+  **Remplacé le 19/07/2026** par la refonte design : nav **5 onglets** (Journal · Biblio · Scanner au
+  centre · Bilan · Profil), la PAL devient un segment de la Biblio, les Stats un segment du Bilan —
+  voir `docs/design-specs.md`.
 - **v1** : liste (vignette, titre, sous-titre, badge d'état), **recherche en mémoire** titre/série
   (insensible casse et accents — même réserve que les filtres du journal : client tant que pas de
   pagination #32), tri « récents / A→Z », et les **gestes existants** : « je commence », photo de
