@@ -1,4 +1,5 @@
 import { derivePileStatus } from "@/lib/pal/derive-pal";
+import { computePalHealth } from "@/lib/pal/health";
 import { ALL_CATEGORIES } from "@/lib/scoring/types";
 import type { BookCategory, IsoDate, Month } from "@/lib/scoring/types";
 import type { Database } from "@/lib/supabase/database.types";
@@ -120,10 +121,10 @@ export function computeStats(books: StatBookRecord[], currentMonth: Month): Stat
     RatingSum
   >;
 
-  // Santé PAL : +1 au mois d'entrée, −1 au mois de sortie, cumul à la fin.
-  const pileDeltaByMonth = new Map<Month, number>();
-  let monthEntries = 0;
-  let monthExits = 0;
+  // Santé PAL : on collecte les MOUVEMENTS (une entrée / une sortie par livre),
+  // qui alimentent ensuite la dérivation partagée (taille + solde) ET la courbe.
+  const palEntryDates: IsoDate[] = [];
+  const palExitDates: IsoDate[] = [];
   let readOutsidePalCount = 0;
 
   // Une seule passe sur les livres — chaque lecture terminée n'est visitée
@@ -183,25 +184,34 @@ export function computeStats(books: StatBookRecord[], currentMonth: Month): Stat
       if (!isOwned) readOutsidePalCount += 1;
     }
 
-    // La règle de pile — importée, jamais ré-implémentée.
+    // La règle de pile — importée, jamais ré-implémentée : une entrée et au
+    // plus une sortie par livre (derivePileStatus).
     const { entryDate, exitDate } = derivePileStatus(activePurchaseDates, finishedDates);
     if (entryDate === null) continue;
-    const entryMonth = monthOf(entryDate);
-    pileDeltaByMonth.set(entryMonth, (pileDeltaByMonth.get(entryMonth) ?? 0) + 1);
-    if (entryMonth === currentMonth) monthEntries += 1;
-    if (exitDate !== null) {
-      const exitMonth = monthOf(exitDate);
-      pileDeltaByMonth.set(exitMonth, (pileDeltaByMonth.get(exitMonth) ?? 0) - 1);
-      if (exitMonth === currentMonth) monthExits += 1;
-    }
+    palEntryDates.push(entryDate);
+    if (exitDate !== null) palExitDates.push(exitDate);
   }
 
-  // La courbe cumulée : mois à mouvement triés, cumul chronologique. La somme
-  // finale EST la taille de pile à date (les livres entrés jamais sortis).
-  let pileSize = 0;
+  // Taille de pile et solde du mois : la dérivation PARTAGÉE (lib/pal/health),
+  // pour que les stats, la vue PAL et le bilan racontent la même histoire (§4.5).
+  const health = computePalHealth({ entryDates: palEntryDates, exitDates: palExitDates }, currentMonth);
+
+  // La courbe cumulée : +1 au mois d'entrée, −1 au mois de sortie, mois à
+  // mouvement triés, cumul chronologique. Sa somme finale EST `health.pileSize`
+  // (les livres entrés jamais sortis) — même dérivation, deux lectures.
+  const pileDeltaByMonth = new Map<Month, number>();
+  for (const entryDate of palEntryDates) {
+    const entryMonth = monthOf(entryDate);
+    pileDeltaByMonth.set(entryMonth, (pileDeltaByMonth.get(entryMonth) ?? 0) + 1);
+  }
+  for (const exitDate of palExitDates) {
+    const exitMonth = monthOf(exitDate);
+    pileDeltaByMonth.set(exitMonth, (pileDeltaByMonth.get(exitMonth) ?? 0) - 1);
+  }
+  let runningSize = 0;
   const cumulativeByMonth = [...pileDeltaByMonth.keys()].sort().map((month) => {
-    pileSize += pileDeltaByMonth.get(month)!;
-    return { month, size: pileSize };
+    runningSize += pileDeltaByMonth.get(month)!;
+    return { month, size: runningSize };
   });
 
   const byPublisher = [...countByPublisher.entries()]
@@ -210,10 +220,10 @@ export function computeStats(books: StatBookRecord[], currentMonth: Month): Stat
 
   return {
     pal: {
-      currentSize: pileSize,
-      monthEntries,
-      monthExits,
-      monthBalance: monthEntries - monthExits,
+      currentSize: health.pileSize,
+      monthEntries: health.monthEntries,
+      monthExits: health.monthExits,
+      monthBalance: health.monthBalance,
       cumulativeByMonth,
       readOutsidePalCount,
     },
