@@ -33,7 +33,13 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > §4.4 (dans le bilan et le texte copiable) — 155 → 198 tests. Le carnet avance : scan-bibliothèque (#10),
 > finitions UX scan (#35), filtres du journal (#34), tech-debt #32 (lots A+B), replis couvertures
 > OpenLibrary/Inventaire (#44) et **photo de couverture (#33 — le filet ultime, bucket Storage public)**
-> livrés. Le carnet ne contient plus que du différé volontaire (#32 lot C, #30).**
+> livrés. **La vague du 19/07/2026 après-midi (#52→#61)** : la chaîne couverture passe à **5 crans**
+> (BnF Couvertures + epagine, specs §5.4) avec **réparation automatique** du cache et des liens morts
+> (self-healing, garde SSRF), la **saisie manuelle** pré-remplit la couverture, explique le « image oui,
+> infos non » et **alimente `barcode_cache` (source manual)**, le marqueur GCD `#[nn]` est éradiqué, et le
+> **scanner ressuscité** (#60 : le WASM était derrière le mur d'auth → cache SW empoisonné ; post-mortem
+> complet dans l'issue, contrat de test anti-régression + test d'intégration prod) — 198 → 240 tests.
+> Restent : #49 (vue Bibliothèque), #30 (prérequis à lever), #32 lot C (différé volontaire).**
 
 ## Stack
 
@@ -87,11 +93,12 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. En carnet, par ordre de priorité : **#32 — reste le lot C seul** (pagination du journal, volontairement
-   différée le 19/07/2026 : à déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ;
-   les filtres #34 migreront alors côté requête — l'index de tri est déjà posé), **#30** (analyses avancées
-   §4.5 — prérequis à lever, dont le trigger `occurred_at`).
-2. Fix cosmétique du `#[nn]` GCD dans les titres (sans ticket).
+1. **#49 — la vue Bibliothèque** : tous les livres, pas seulement les projections (journal, PAL). Le
+   prochain chantier.
+2. **#30** (analyses avancées §4.5 — prérequis à lever, dont le trigger `occurred_at`).
+3. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
+   déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ; les filtres #34 migreront
+   alors côté requête — l'index de tri est déjà posé).
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs
 roman) à partir de Google Books — on n'a que des indices (éditeur, pages, langue). La catégorie proposée doit
