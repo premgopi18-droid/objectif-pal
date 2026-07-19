@@ -1,5 +1,14 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { addMonths, formatDateFrench, formatMonthFrench, isValidIsoDate, localCurrentMonth, localToday } from "./dates";
+import {
+  addMonths,
+  daysBetween,
+  formatDateFrench,
+  formatMonthFrench,
+  isValidIsoDate,
+  localCurrentMonth,
+  localToday,
+  monthsBetween,
+} from "./dates";
 
 /**
  * Les dates « calendrier » — tout est arithmétique de chaînes, donc tout est
@@ -104,5 +113,59 @@ describe("localToday et localCurrentMonth — la date LOCALE de l'appareil", () 
     vi.setSystemTime(new Date(2026, 11, 31, 23, 0));
     expect(localToday()).toBe("2026-12-31");
     expect(localCurrentMonth()).toBe("2026-12");
+  });
+});
+
+describe("daysBetween — la différence en jours, sans piège de fuseau", () => {
+  it("compte les jours d'un intervalle simple", () => {
+    expect(daysBetween("2026-07-01", "2026-07-11")).toBe(10);
+  });
+
+  it("le même jour vaut zéro", () => {
+    expect(daysBetween("2026-07-05", "2026-07-05")).toBe(0);
+  });
+
+  it("un intervalle inversé est négatif (au consommateur d'en décider)", () => {
+    expect(daysBetween("2026-07-11", "2026-07-01")).toBe(-10);
+  });
+
+  it("traverse un changement de mois", () => {
+    expect(daysBetween("2026-06-28", "2026-07-02")).toBe(4);
+  });
+
+  it("traverse un 29 février (année bissextile)", () => {
+    expect(daysBetween("2024-02-27", "2024-03-01")).toBe(3);
+  });
+
+  it("traverse une année non bissextile", () => {
+    expect(daysBetween("2025-02-27", "2025-03-01")).toBe(2);
+  });
+
+  it("traverse un changement d'heure d'été sans perdre ni gagner un jour", () => {
+    // Dernier dimanche de mars 2026 : le calcul est en UTC des deux côtés.
+    expect(daysBetween("2026-03-28", "2026-03-30")).toBe(2);
+  });
+
+  it("traverse une année entière", () => {
+    expect(daysBetween("2025-07-19", "2026-07-19")).toBe(365);
+  });
+});
+
+describe("monthsBetween — les mois calendaires couverts, bornes comprises", () => {
+  it("le même mois en couvre un", () => {
+    expect(monthsBetween("2026-07", "2026-07")).toBe(1);
+  });
+
+  it("mai → juillet en couvre trois", () => {
+    expect(monthsBetween("2026-05", "2026-07")).toBe(3);
+  });
+
+  it("traverse le passage d'année", () => {
+    expect(monthsBetween("2025-11", "2026-02")).toBe(4);
+  });
+
+  it("un intervalle inversé rend un compte nul ou négatif", () => {
+    expect(monthsBetween("2026-07", "2026-06")).toBe(0);
+    expect(monthsBetween("2026-07", "2026-05")).toBe(-1);
   });
 });

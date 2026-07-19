@@ -3,6 +3,7 @@ import type { BilanReading, MonthlyPickRecord } from "@/components/bilan/monthly
 import { PageLoadError } from "@/components/page-load-error";
 import { StatsView } from "@/components/stats/stats-view";
 import { SegmentNav } from "@/components/ui/segment-nav";
+import { fetchReadingEventFacts } from "@/lib/stats/reading-events";
 import type { StatBookRecord } from "@/lib/stats/compute-stats";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { MonthlyObjective, PurchaseFact } from "@/lib/scoring/types";
@@ -39,26 +40,36 @@ export default async function BilanPage({
     // Les stats essentielles. UNE requête grouped (embeds PostgREST, pas de
     // N+1) ; le calcul vit dans la fonction pure `computeStats`, appelée côté
     // client (le « mois courant » est une notion du fuseau de l'APPAREIL).
-    const { data, error } = await supabase
-      .from("books")
-      .select(
-        `id, category, publisher, series_name, page_count, deleted_at,
+    // Le journal d'états part EN PARALLÈLE : il porte les abandons et reprises
+    // du lot A (#30). Requête bornée (filtrée `user_id` + RLS, index de #27),
+    // et son échec n'emporte pas la page — les stats restent lisibles sans lui.
+    const [{ data, error }, sessionResult] = await Promise.all([
+      supabase
+        .from("books")
+        .select(
+          `id, title, category, publisher, series_name, page_count, deleted_at,
          purchases (purchased_at, deleted_at),
          readings (status, started_at, finished_at, rating, deleted_at)`,
-      )
-      .is("deleted_at", null)
-      // Les filtres sur les embeds élaguent dès la requête — le moteur refiltre
-      // de toute façon (défense en profondeur, même patron que la PAL).
-      .is("purchases.deleted_at", null)
-      .is("readings.deleted_at", null);
+        )
+        .is("deleted_at", null)
+        // Les filtres sur les embeds élaguent dès la requête — le moteur refiltre
+        // de toute façon (défense en profondeur, même patron que la PAL).
+        .is("purchases.deleted_at", null)
+        .is("readings.deleted_at", null),
+      supabase.auth.getUser(),
+    ]);
 
     if (error) {
       return <PageLoadError title="Bilan du mois" message="Impossible de charger les statistiques — réessaie." />;
     }
 
+    const userId = sessionResult.data.user?.id;
+    const readingEvents = userId === undefined ? null : await fetchReadingEventFacts(supabase, userId);
+
     // Rows → contrat camelCase du moteur (types dérivés des Rows générés).
     const records: StatBookRecord[] = (data ?? []).map((row) => ({
       id: row.id,
+      title: row.title,
       category: row.category,
       publisher: row.publisher,
       seriesName: row.series_name,
@@ -81,7 +92,7 @@ export default async function BilanPage({
       <section className="py-6">
         <h1 className="text-2xl font-bold">Bilan du mois</h1>
         <div className="mt-4">{segments}</div>
-        <StatsView records={records} />
+        <StatsView records={records} readingEvents={readingEvents ?? []} />
       </section>
     );
   }

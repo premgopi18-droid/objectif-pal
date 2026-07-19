@@ -1,6 +1,11 @@
 import { describe, expect, it } from "vitest";
 import { derivePal, type PalBookRecord } from "@/lib/pal/derive-pal";
-import { computeStats, type StatBookRecord } from "./compute-stats";
+import {
+  computeStats,
+  MIN_RATED_READINGS_TO_RANK,
+  STALLED_READING_DAYS,
+  type StatBookRecord,
+} from "./compute-stats";
 
 /**
  * Les stats doivent raconter la même histoire que le bilan et la PAL (§4.5) :
@@ -16,6 +21,7 @@ function book(overrides: Partial<StatBookRecord> = {}): StatBookRecord {
   bookCounter += 1;
   return {
     id: `book-${bookCounter}`,
+    title: `Livre ${bookCounter}`,
     category: "bd",
     publisher: null,
     seriesName: null,
@@ -46,7 +52,7 @@ function finished(finishedAt: string, overrides: Partial<StatBookRecord["reading
 function toPalRecord(record: StatBookRecord, index: number): PalBookRecord {
   return {
     id: record.id,
-    title: `Livre ${record.id}`,
+    title: record.title,
     series_name: record.seriesName,
     issue_number: null,
     category: record.category as PalBookRecord["category"],
@@ -353,5 +359,300 @@ describe("le cas vide", () => {
     expect(result.pal.cumulativeByMonth).toEqual([]);
     expect(result.breakdown.byPublisher).toEqual([]);
     expect(result.ratings.averageOverall).toBeNull();
+  });
+});
+
+/* ------------------------------------------------------------------ *
+ * Les analyses avancées (#30) — lots A, B, C, D.
+ * ------------------------------------------------------------------ */
+
+const TODAY = "2026-07-19";
+
+/** Une lecture en cours, commencée à la date donnée. */
+function inProgress(startedAt: string) {
+  return { status: "reading" as const, startedAt, finishedAt: null, rating: null, deletedAt: null };
+}
+
+/** Une lecture terminée, avec un début distinct de sa fin (pour les durées). */
+function read(startedAt: string, finishedAt: string, rating: number | null = null) {
+  return { status: "finished" as const, startedAt, finishedAt, rating, deletedAt: null };
+}
+
+let eventCounter = 0;
+function event(status: "reading" | "finished" | "abandoned", occurredAt: string, readingId = "reading-1") {
+  eventCounter += 1;
+  return { id: eventCounter, readingId, status, occurredAt: `${occurredAt}T10:00:00+00:00` };
+}
+
+describe("lot A — le rythme : durée d'une lecture", () => {
+  it("moyenne globale et par catégorie sur les lectures datées", () => {
+    const result = computeStats(
+      [
+        book({ category: "bd", readings: [read("2026-07-01", "2026-07-05")] }), // 4 jours
+        book({ category: "bd", readings: [read("2026-07-01", "2026-07-11")] }), // 10 jours
+        book({ category: "roman", readings: [read("2026-06-01", "2026-06-21")] }), // 20 jours
+      ],
+      CURRENT_MONTH,
+    );
+    expect(result.rythme.averageDurationDays).toBeCloseTo((4 + 10 + 20) / 3);
+    expect(result.rythme.averageDurationByCategory.bd).toBeCloseTo(7);
+    expect(result.rythme.averageDurationByCategory.roman).toBeCloseTo(20);
+    expect(result.rythme.averageDurationByCategory.manga).toBeNull();
+    expect(result.rythme.readingsWithoutDuration).toBe(0);
+  });
+
+  it("une lecture du jour dure zéro jour — et compte quand même", () => {
+    const result = computeStats([book({ readings: [read("2026-07-05", "2026-07-05")] })], CURRENT_MONTH);
+    expect(result.rythme.averageDurationDays).toBe(0);
+    expect(result.rythme.readingsWithoutDuration).toBe(0);
+  });
+
+  it("une fin ANTÉRIEURE au début est incohérente : elle ne fabrique pas une durée négative", () => {
+    const result = computeStats([book({ readings: [read("2026-07-10", "2026-07-01")] })], CURRENT_MONTH);
+    expect(result.rythme.averageDurationDays).toBeNull();
+    expect(result.rythme.readingsWithoutDuration).toBe(1);
+  });
+
+  it("aucune lecture datée : `null`, jamais NaN ni zéro", () => {
+    const result = computeStats([], CURRENT_MONTH);
+    expect(result.rythme.averageDurationDays).toBeNull();
+    expect(result.rythme.readingsWithoutDuration).toBe(0);
+  });
+
+  it("la durée traverse un changement de mois et une année bissextile", () => {
+    const result = computeStats([book({ readings: [read("2024-02-27", "2024-03-01")] })], CURRENT_MONTH);
+    expect(result.rythme.averageDurationDays).toBe(3); // 27 → 29 février → 1er mars
+  });
+});
+
+describe("lot A — les lectures qui traînent", () => {
+  it("au-delà du seuil elle est listée, à la limite exacte elle ne l'est pas", () => {
+    const result = computeStats(
+      [
+        book({ title: "Ça traîne", readings: [inProgress("2026-01-01")] }),
+        // Exactement 60 jours avant `TODAY` : le seuil est STRICT.
+        book({ title: "Pile au seuil", readings: [inProgress("2026-05-20")] }),
+        book({ title: "Commencée hier", readings: [inProgress("2026-07-18")] }),
+      ],
+      CURRENT_MONTH,
+      { today: TODAY },
+    );
+    expect(result.rythme.stalledReadings.map((reading) => reading.title)).toEqual(["Ça traîne"]);
+    expect(result.rythme.stalledReadings[0].daysSinceStart).toBe(199);
+    expect(STALLED_READING_DAYS).toBe(60);
+  });
+
+  it("la plus ancienne d'abord", () => {
+    const result = computeStats(
+      [
+        book({ title: "Depuis un an", readings: [inProgress("2025-07-01")] }),
+        book({ title: "Depuis trois mois", readings: [inProgress("2026-04-01")] }),
+      ],
+      CURRENT_MONTH,
+      { today: TODAY },
+    );
+    expect(result.rythme.stalledReadings.map((reading) => reading.title)).toEqual([
+      "Depuis un an",
+      "Depuis trois mois",
+    ]);
+  });
+
+  it("ni les terminées, ni les abandonnées, ni les supprimées ne traînent", () => {
+    const result = computeStats(
+      [
+        book({ readings: [read("2025-01-01", "2026-07-01")] }),
+        book({ readings: [{ ...inProgress("2025-01-01"), status: "abandoned" as const }] }),
+        book({ readings: [{ ...inProgress("2025-01-01"), deletedAt: "2026-07-01" }] }),
+      ],
+      CURRENT_MONTH,
+      { today: TODAY },
+    );
+    expect(result.rythme.stalledReadings).toEqual([]);
+  });
+
+  it("sans date du jour, la liste reste vide plutôt que de mentir", () => {
+    const result = computeStats([book({ readings: [inProgress("2020-01-01")] })], CURRENT_MONTH);
+    expect(result.rythme.stalledReadings).toEqual([]);
+  });
+
+  it("un livre supprimé en douceur ne traîne pas non plus", () => {
+    const result = computeStats([book({ deletedAt: "2026-07-01", readings: [inProgress("2020-01-01")] })], CURRENT_MONTH, {
+      today: TODAY,
+    });
+    expect(result.rythme.stalledReadings).toEqual([]);
+  });
+});
+
+describe("lot A — abandons & reprises par mois", () => {
+  it("consomme le journal d'états et range chaque événement dans son mois", () => {
+    const result = computeStats([], CURRENT_MONTH, {
+      readingEvents: [
+        event("reading", "2026-05-02", "r1"), // un début, jamais une reprise
+        event("abandoned", "2026-05-20", "r1"),
+        event("reading", "2026-06-01", "r1"), // reprise
+        event("abandoned", "2026-06-10", "r2"),
+        event("reading", "2026-06-11", "r2"), // reprise (r2 vue lors de son abandon)
+      ],
+      today: TODAY,
+    });
+    expect(result.rythme.eventsByMonth).toEqual([
+      { month: "2026-05", abandons: 1, resumptions: 0 },
+      { month: "2026-06", abandons: 1, resumptions: 2 },
+    ]);
+  });
+
+  it("sans journal fourni, aucun mois — pas de zéro inventé", () => {
+    const result = computeStats([book({ readings: [finished("2026-07-01")] })], CURRENT_MONTH);
+    expect(result.rythme.eventsByMonth).toEqual([]);
+  });
+});
+
+describe("lot B — la répartition par série", () => {
+  it("compte les TOMES lus (des livres), pas les lectures : une relecture ne double pas", () => {
+    const result = computeStats(
+      [
+        book({ seriesName: "Blacksad", readings: [finished("2026-07-01"), finished("2026-07-10")] }),
+        book({ seriesName: "Blacksad", readings: [finished("2026-07-02")] }),
+        book({ seriesName: "Berserk", readings: [finished("2026-07-03")] }),
+      ],
+      CURRENT_MONTH,
+    );
+    expect(result.series.volumesRead).toEqual([
+      { seriesName: "Blacksad", count: 2 },
+      { seriesName: "Berserk", count: 1 },
+    ]);
+  });
+
+  it("un tome acheté mais pas lu ne compte pas, un livre hors série non plus", () => {
+    const result = computeStats(
+      [
+        book({ seriesName: "Blacksad", purchases: [bought("2026-07-01")] }),
+        book({ seriesName: null, readings: [finished("2026-07-01")] }),
+      ],
+      CURRENT_MONTH,
+    );
+    expect(result.series.volumesRead).toEqual([]);
+  });
+
+  it("à égalité de tomes, l'ordre alphabétique tranche", () => {
+    const result = computeStats(
+      [
+        book({ seriesName: "Zorro", readings: [finished("2026-07-01")] }),
+        book({ seriesName: "Astérix", readings: [finished("2026-07-01")] }),
+      ],
+      CURRENT_MONTH,
+    );
+    expect(result.series.volumesRead.map((entry) => entry.seriesName)).toEqual(["Astérix", "Zorro"]);
+  });
+});
+
+describe("lot C — les goûts avancés", () => {
+  /** Trois lectures notées d'une même série — le minimum pour être classée. */
+  const ratedSeries = (seriesName: string, publisher: string, ratings: number[]) =>
+    ratings.map((rating, index) =>
+      book({
+        seriesName,
+        publisher,
+        readings: [finished(`2026-07-0${index + 1}`, { rating })],
+      }),
+    );
+
+  it("sous le seuil de volume, rien n'est classé", () => {
+    const result = computeStats(ratedSeries("Blacksad", "Dargaud", [5, 5]), CURRENT_MONTH);
+    expect(MIN_RATED_READINGS_TO_RANK).toBe(3);
+    expect(result.tastes.series).toEqual([]);
+    expect(result.tastes.publishers).toEqual([]);
+  });
+
+  it("au seuil, la série et l'éditeur entrent au classement, moyenne en tête", () => {
+    const result = computeStats(
+      [...ratedSeries("Blacksad", "Dargaud", [4, 5, 3]), ...ratedSeries("Berserk", "Glénat", [2, 1, 3])],
+      CURRENT_MONTH,
+    );
+    expect(result.tastes.series).toEqual([
+      { name: "Blacksad", average: 4, ratedCount: 3 },
+      { name: "Berserk", average: 2, ratedCount: 3 },
+    ]);
+    expect(result.tastes.publishers.map((group) => group.name)).toEqual(["Dargaud", "Glénat"]);
+  });
+
+  it("les lectures NON notées ne comptent pas dans le seuil", () => {
+    const result = computeStats(
+      [
+        ...ratedSeries("Blacksad", "Dargaud", [5, 5]),
+        book({ seriesName: "Blacksad", publisher: "Dargaud", readings: [finished("2026-07-09")] }),
+      ],
+      CURRENT_MONTH,
+    );
+    expect(result.tastes.series).toEqual([]);
+  });
+
+  it("le classement des lectures : note décroissante, puis la fin la plus récente", () => {
+    const result = computeStats(
+      [
+        book({ title: "Moyen", readings: [finished("2026-07-01", { rating: 3 })] }),
+        book({ title: "Excellent ancien", readings: [finished("2026-01-01", { rating: 5 })] }),
+        book({ title: "Excellent récent", readings: [finished("2026-07-05", { rating: 5 })] }),
+        book({ title: "Pas noté", readings: [finished("2026-07-06")] }),
+      ],
+      CURRENT_MONTH,
+    );
+    expect(result.tastes.ranking.map((reading) => reading.title)).toEqual([
+      "Excellent récent",
+      "Excellent ancien",
+      "Moyen",
+    ]);
+  });
+
+  it("aucune note : trois listes vides, aucun crash", () => {
+    const result = computeStats([book({ readings: [finished("2026-07-01")] })], CURRENT_MONTH);
+    expect(result.tastes.series).toEqual([]);
+    expect(result.tastes.publishers).toEqual([]);
+    expect(result.tastes.ranking).toEqual([]);
+  });
+});
+
+describe("lot D — le volume temporel", () => {
+  it("la moyenne par mois compte les mois VIDES depuis la première lecture", () => {
+    const result = computeStats(
+      [
+        book({ readings: [finished("2026-05-01"), finished("2026-05-02")] }),
+        book({ readings: [finished("2026-07-01")] }),
+      ],
+      CURRENT_MONTH,
+    );
+    // 3 lectures sur mai → juillet, juin compris : 3 mois écoulés.
+    expect(result.monthly.finishedByMonth).toEqual([
+      { month: "2026-05", count: 2 },
+      { month: "2026-07", count: 1 },
+    ]);
+    expect(result.monthly.averagePerMonth).toBeCloseTo(1);
+  });
+
+  it("le meilleur mois — à égalité, le plus ancien", () => {
+    const result = computeStats(
+      [book({ readings: [finished("2026-05-01")] }), book({ readings: [finished("2026-07-01")] })],
+      CURRENT_MONTH,
+    );
+    expect(result.monthly.bestMonth).toEqual({ month: "2026-05", count: 1 });
+  });
+
+  it("une seule lecture dans le mois courant : moyenne de 1 sur 1 mois", () => {
+    const result = computeStats([book({ readings: [finished("2026-07-01")] })], CURRENT_MONTH);
+    expect(result.monthly.averagePerMonth).toBe(1);
+    expect(result.monthly.bestMonth).toEqual({ month: "2026-07", count: 1 });
+  });
+
+  it("aucune lecture : pas de moyenne, pas de meilleur mois", () => {
+    const result = computeStats([], CURRENT_MONTH);
+    expect(result.monthly.finishedByMonth).toEqual([]);
+    expect(result.monthly.averagePerMonth).toBeNull();
+    expect(result.monthly.bestMonth).toBeNull();
+  });
+
+  it("une lecture datée APRÈS le mois de référence ne rend pas la moyenne absurde", () => {
+    const result = computeStats([book({ readings: [finished("2026-09-01")] })], CURRENT_MONTH);
+    // Le plancher à 1 mois évite une division par zéro ou par un négatif.
+    expect(result.monthly.averagePerMonth).toBe(1);
   });
 });

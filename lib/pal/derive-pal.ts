@@ -103,6 +103,15 @@ export function finishedReadingsOf<R extends ReadingFact>(readings: R[]): (R & {
   );
 }
 
+/**
+ * Les lectures EN COURS actives — celles qui font dire « je suis dedans » à la
+ * vue PAL, et « ça traîne » aux stats (#30 lot A) quand elles durent. Même
+ * esprit que les deux filtres ci-dessus : écrit une seule fois, jamais recopié.
+ */
+export function inProgressReadingsOf<R extends ReadingFact>(readings: R[]): R[] {
+  return readings.filter((reading) => reading.deletedAt === null && reading.status === "reading");
+}
+
 /** Le mouvement de pile d'UN livre entré : son entrée, sa sortie éventuelle, l'achat d'entrée. */
 export type BookMovement<P extends PurchaseFact> = {
   /** La date d'ENTRÉE en pile (le premier achat pas-déjà-lu). */
@@ -212,9 +221,14 @@ export function derivePal(books: PalBookRecord[]): PalDerivation {
       // La plus ancienne entrée date l'arrivée dans la pile.
       purchasedAt: movement.entryDate,
       purchaseId: movement.entryPurchase.id,
-      isInProgress: (book.readings ?? []).some(
-        (reading) => reading.deleted_at === null && reading.status === "reading",
-      ),
+      isInProgress:
+        inProgressReadingsOf(
+          (book.readings ?? []).map((reading) => ({
+            status: reading.status,
+            finishedAt: reading.finished_at,
+            deletedAt: reading.deleted_at,
+          })),
+        ).length > 0,
     });
   }
 
