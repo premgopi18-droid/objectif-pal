@@ -86,6 +86,19 @@ describe.skipIf(!integrationEnabled)("la cascade sur de vrais bouquins", () => {
     }
   }, 30000);
 
+  it("le trou VF (Batman Urban Comics) obtient sa couverture — BnF Couvertures ou epagine", async () => {
+    // Le cas mesuré du 19/07/2026 : fiche Google Books sans image, ISBN inconnu
+    // d'OpenLibrary et d'Inventaire — la couverture ne peut venir que des
+    // derniers crans. Vaut aussi pour une entrée déjà cachée sans couverture :
+    // le rescan répare (même chemin de code).
+    const result = await resolveScannedCode("9791026820963");
+    expect(result.kind).toBe("resolved");
+    if (result.kind === "resolved") {
+      expect(result.book.title).toContain("Batman");
+      expect(result.book.coverUrl).toBeTruthy();
+    }
+  }, 45000);
+
   it("un livre absent de GCD est identifié (BnF ou Google Books) et le rescan sort du cache", async () => {
     // ISBN réel (une édition de L'Étranger, trouvée via la BnF elle-même),
     // vérifié absent de gcd_issues : la résolution est forcément externe,

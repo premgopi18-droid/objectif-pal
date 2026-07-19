@@ -45,7 +45,7 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 | Auth | Supabase Auth — **Google OAuth** (⚠️ `redirectTo` construit sur l'origine réelle, pas une constante) |
 | **Identification d'un scan** | **GCD (Grand Comics Database), importé chez nous** — 559 516 lignes (~75 Mo) : comics VO **et BD franco-belge**. Match par code-barres, par préfixe, ou par ISBN |
 | **Identification VF** | **BnF** (API SRU, gratuite, sans clé) — dépôt légal : BD, manga VF, romans. 95 % mesuré |
-| Couvertures ISBN | **Google Books** (clé obligatoire — 429 systématique sans clé) → **OpenLibrary** → **Inventaire.io** (sans clé, replis du 19/07/2026) |
+| Couvertures ISBN | **Google Books** (clé obligatoire — 429 systématique sans clé) → **OpenLibrary** → **Inventaire.io** → **BnF Couvertures** (API officielle, 500 = absente) → **epagine** (CDN libraires, hotlink assumé en dernier cran) — replis du 19/07/2026 |
 | Enrichissement VO | Metron — **couverture** + `series_type` (Basic Auth, **côté serveur**) |
 | Scan | **zxing-wasm** (ZXing C++ en WASM — le port JS de ZXing ne décode pas les suppléments, mesuré) |
 | Hébergement | Vercel |
@@ -91,7 +91,10 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
    différée le 19/07/2026 : à déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ;
    les filtres #34 migreront alors côté requête — l'index de tri est déjà posé), **#30** (analyses avancées
    §4.5 — prérequis à lever, dont le trigger `occurred_at`).
-2. Fix cosmétique du `#[nn]` GCD dans les titres (sans ticket).
+2. **Réparation des liens de couverture cassés** (specs §5.4, décision du 19/07/2026) : `onError` client →
+   re-déroulé de la chaîne couverture serveur → `books.cover_url` mis à jour. La contrepartie assumée du
+   cran epagine.
+3. Fix cosmétique du `#[nn]` GCD dans les titres (sans ticket).
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs
 roman) à partir de Google Books — on n'a que des indices (éditeur, pages, langue). La catégorie proposée doit

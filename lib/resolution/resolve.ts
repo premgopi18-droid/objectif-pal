@@ -5,7 +5,9 @@ import {
   guessCategoryFromPublisher,
 } from "./guess-category";
 import { createBnfProvider, type BnfProvider } from "./providers/bnf";
+import { createBnfCoversProvider, type BnfCoversProvider } from "./providers/bnf-covers";
 import { createCacheProvider, type CacheProvider } from "./providers/cache";
+import { createEpagineProvider, type EpagineProvider } from "./providers/epagine";
 import {
   createGcdProvider,
   GCD_LANGUAGE_FRENCH,
@@ -53,6 +55,8 @@ export type ResolutionDeps = {
   googleBooks: GoogleBooksProvider;
   openLibrary: OpenLibraryProvider;
   inventaire: InventaireProvider;
+  bnfCovers: BnfCoversProvider;
+  epagine: EpagineProvider;
   metron: MetronProvider;
   cache: CacheProvider;
 };
@@ -64,6 +68,8 @@ export function createDefaultDeps(): ResolutionDeps {
     googleBooks: createGoogleBooksProvider(),
     openLibrary: createOpenLibraryProvider(),
     inventaire: createInventaireProvider(),
+    bnfCovers: createBnfCoversProvider(),
+    epagine: createEpagineProvider(),
     metron: createMetronProvider(),
     cache: createCacheProvider(),
   };
@@ -164,20 +170,25 @@ async function enrichCoverWithGoogleBooks(
 }
 
 /**
- * Les crans de repli couverture par ISBN — OpenLibrary puis Inventaire
- * (specs §5.4, décision du 19/07/2026) : gratuits, sans clé, chacun croque
- * dans le reliquat du précédent. La photo (#33) reste le filet ultime.
+ * Les crans de repli couverture par ISBN — OpenLibrary, Inventaire, BnF
+ * Couvertures, puis epagine (specs §5.4, décisions des 19/07/2026) : gratuits,
+ * sans clé, chacun croque dans le reliquat du précédent. epagine ferme la
+ * marche : le mieux fourni en VF récente, mais le seul sans engagement
+ * d'ouverture — on ne le sollicite que quand tout le reste a échoué.
+ * La photo (#33) reste le filet ultime.
  */
 async function findFallbackCoverByIsbn(
   deps: ResolutionDeps,
   isbn: string,
   startedAtMs: number,
 ): Promise<string | null> {
-  if (isBudgetExhausted(startedAtMs)) return null;
-  const openLibraryCover = await attempt(() => deps.openLibrary.findCoverByIsbn(isbn));
-  if (openLibraryCover) return openLibraryCover;
-  if (isBudgetExhausted(startedAtMs)) return null;
-  return attempt(() => deps.inventaire.findCoverByIsbn(isbn));
+  const fallbacks = [deps.openLibrary, deps.inventaire, deps.bnfCovers, deps.epagine];
+  for (const provider of fallbacks) {
+    if (isBudgetExhausted(startedAtMs)) return null;
+    const cover = await attempt(() => provider.findCoverByIsbn(isbn));
+    if (cover) return cover;
+  }
+  return null;
 }
 
 /**
@@ -226,7 +237,18 @@ async function resolveIsbn(
   //    l'EAN-13, PAS le code brut : scanné avec puis sans le supplément prix
   //    (18 vs 13 chiffres), c'est le même livre — une seule entrée.
   const cached = await attempt(() => deps.cache.get(ean13));
-  if (cached) return { kind: "resolved", book: fromCache(cached, "isbn") };
+  if (cached) {
+    let book = fromCache(cached, "isbn");
+    // Une entrée SANS couverture n'est pas figée pour autant : les crans de
+    // repli s'étoffent avec le temps (specs §5.4) et une source muette un jour
+    // peut répondre le lendemain — on retente la chaîne, et si elle rapporte,
+    // on RÉPARE l'entrée pour que les scans suivants en profitent gratuitement.
+    if (!book.coverUrl) {
+      book = await enrichCoverForIsbn(book, deps, ean13, startedAtMs);
+      if (book.coverUrl) await attempt(() => deps.cache.set(toCacheEntry(ean13, book, cached.source)));
+    }
+    return { kind: "resolved", book };
+  }
 
   // 2. GCD, en base : comics VO (TPB, omnibus) et BD franco-belge.
   const gcdIssues = await attempt(() => deps.gcd.findIssuesByIsbn(isbnCandidates));
@@ -254,7 +276,7 @@ async function resolveIsbn(
       authors: bnfRecord.authors,
       publisher: bnfRecord.publisher,
       pageCount: bnfRecord.pageCount,
-      coverUrl: null, // la BnF n'illustre pas
+      coverUrl: null, // le SRU ne porte pas d'image — la chaîne couverture ci-dessous s'en charge
       suggestedCategory: guessCategoryFromPublisher(bnfRecord.publisher) ?? "roman",
       source: "bnf",
       sourceId: ean13,

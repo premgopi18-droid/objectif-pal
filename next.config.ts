@@ -26,14 +26,17 @@ const nextConfig: NextConfig = {
   },
   images: {
     // Les couvertures distantes de la cascade (specs §5.4) : Metron pour la VO,
-    // Google Books puis OpenLibrary puis Inventaire pour l'ISBN (décision du
-    // 19/07/2026). Les photos maison passeront par Supabase Storage.
+    // Google Books puis OpenLibrary, Inventaire, BnF Couvertures et epagine
+    // pour l'ISBN (décisions du 19/07/2026). Les photos maison passeront par
+    // Supabase Storage.
     remotePatterns: [
       { protocol: "https", hostname: "static.metron.cloud" },
       { protocol: "https", hostname: "books.google.com" },
       { protocol: "https", hostname: "*.googleusercontent.com" },
       { protocol: "https", hostname: "covers.openlibrary.org" },
       { protocol: "https", hostname: "inventaire.io" },
+      { protocol: "https", hostname: "openapi.bnf.fr", pathname: "/couverture/**" },
+      { protocol: "https", hostname: "images.epagine.fr", pathname: "/**/*.jpg" },
       ...(supabaseHostname
         ? [{ protocol: "https" as const, hostname: supabaseHostname, pathname: "/storage/v1/object/public/**" }]
         : []),

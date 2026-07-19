@@ -505,12 +505,13 @@ commercialement.** C'est logique — une couverture est une **œuvre sous copyri
 | **Comic Vine** | La plus grosse base d'images, indé compris — mais **usage commercial explicitement interdit** (clé révoquée), 200 req/h. |
 | **GCD** | Les scans existent sur le site mais **pas dans le dump** (vérifié : aucune table `cover`). Hotlinker = fragile et discourtois. |
 | **Google Books** | Couvertures **par ISBN seulement** → parfait pour BD, manga, roman, TPB, omnibus. **Inutile pour les fascicules**, et **exige une clé** (429 systématique sans clé, même en résidentiel). |
-| **BnF** | Identifie très bien (95 %) mais **ne fournit aucune couverture** — c’est un catalogue, pas une librairie. |
+| **BnF** | Identifie très bien (95 %) et, depuis le **17/02/2026**, expose un **Service Couvertures officiel** (bêta) — ✅ **ajouté le 19/07/2026** : par ISBN/EAN/ark, gratuit, sans clé, conditions BnF (source créditée). Mesuré : HEAD refusé (405), **image absente = HTTP 500** (pas 404), fonds récent clairsemé. |
 | **Marvel API** | Gratuite et officielle, mais **Marvel uniquement** → ne résout pas l'indé. |
 | **Metron** | Héberge des couvertures, gratuit — mais CGU « usage personnel », même limite qu'ailleurs. |
 | **OpenLibrary** | ✅ **Ajoutée le 19/07/2026** — par ISBN, gratuite, **sans clé**, hotlink accepté. Mesuré : bonne sur les romans, correcte sur le manga VF, variable sur la BD. |
 | **Inventaire.io** | ✅ **Ajoutée le 19/07/2026** — projet ouvert (données CC0), API par ISBN sans clé, images communautaires. Point fort mesuré : le fonds **francophone**. |
 | **League of Comic Geeks / CLZ / Bedetheque** | Vérifié le 19/07/2026 : **aucune API publique** — communautés fair use ou base propriétaire payante. Le problème est structurel, pas un trou de recherche. |
+| **epagine (`images.epagine.fr`)** | ✅ **Ajoutée le 19/07/2026** — le CDN d'images des libraires français (Place des Libraires, leslibraires.fr) : **la mieux fournie en VF récente** (mesuré : seule source à avoir un Urban Comics 2022 absent partout ailleurs). **Pas d'API publique ni de licence affichée** : hotlink assumé, en **dernier cran seulement**, avec la réparation des couvertures comme filet (voir décision ci-dessous). Motif d'URL mesuré : `/{3 derniers chiffres ISBN}/{isbn}_1_75.jpg` ; **ISBN inconnu = HTTP 200 mais placeholder PNG** (2 687 o) — les vraies couvertures sont des JPEG. |
 
 > **Comic Vine, décision du 19/07/2026** : différée. La plus riche des bases VO (indés compris) mais licence
 > **non-commerciale stricte** (clé révocable). À rouvrir **sur mesure d'usage** : si le filet photo se déclenche
@@ -520,9 +521,10 @@ commercialement.** C'est logique — une couverture est une **œuvre sous copyri
 **Décision : cascade automatique, puis la photo.**
 
 1. **Tentative automatique** : Metron (VO) puis, pour tout ISBN sans image, la chaîne **Google Books (avec
-   clé) → OpenLibrary → Inventaire** (décision du 19/07/2026 — chaque cran ne s'exécute que si le précédent
-   n'a rien trouvé : zéro coût sur le chemin heureux, et le résultat part en cache, payé une seule fois par
-   code). **La BnF identifie mais n’illustre pas** : elle ne remplace pas cette étape.
+   clé) → OpenLibrary → Inventaire → BnF Couvertures → epagine** (décisions du 19/07/2026 — chaque cran ne
+   s'exécute que si le précédent n'a rien trouvé : zéro coût sur le chemin heureux, et le résultat part en
+   cache, payé une seule fois par code). epagine ferme la marche : la mieux fournie en VF mais la seule sans
+   engagement d'ouverture — sollicitée uniquement quand tout le reste a échoué.
    Mesuré le 13/07/2026 sur un petit échantillon VF : Google Books a la **fiche** (pages, éditeur — utile pour
    deviner la catégorie) mais souvent **pas d'`imageLinks`** → les replis OpenLibrary/Inventaire comblent
    (mesuré 3/3 le 19/07/2026 sur manga VF, BD, roman).
@@ -558,6 +560,19 @@ redistribution), **zéro quota**, et c'est **l'exemplaire réel** avec sa vraie 
 >   `capture` — le navigateur propose nativement caméra ou photothèque). Usage privé, l'argument « aucune
 >   redistribution » tient.
 > - **Compression** : 800 px de grand côté, WebP qualité 0,8 (~60-150 Ko) ; un seul objet par livre, écrasé.
+
+> **Décisions du 19/07/2026 (deuxième vague — le trou VF)** — déclencheur : *Batman : La Cour des Hiboux*
+> (Urban Comics 2022, 9791026820963), fiche Google Books **sans image**, inconnu d'OpenLibrary, d'Inventaire
+> et du Service Couvertures BnF ; seule epagine l'avait.
+> - **Deux crans ajoutés** à la chaîne ISBN : **BnF Couvertures** (API officielle, légitime) puis **epagine**
+>   (le mieux fourni en VF, mais hotlink sans garantie — dernier cran, voir tableau).
+> - **Une entrée de cache sans couverture n'est plus figée** : au rescan, la chaîne couverture est retentée
+>   et l'entrée **réparée** si elle rapporte — les crans s'étoffant avec le temps, les livres déjà scannés
+>   en profitent sans repayer l'identification.
+> - **À faire (la contrepartie du hotlink epagine) : la réparation des liens cassés.** Une URL de couverture
+>   stockée peut mourir (CDN qui bloque, schéma d'URL qui change). Plan : détecter l'image qui ne charge plus
+>   (`onError` côté client), re-dérouler la chaîne couverture côté serveur et mettre à jour `books.cover_url` ;
+>   la photo (#33) reste le filet quand plus rien ne répond. À traiter dans la foulée de la livraison des crans.
 
 ### 5.5 Deviner la catégorie du barème
 
