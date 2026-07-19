@@ -551,8 +551,12 @@ redistribution), **zéro quota**, et c'est **l'exemplaire réel** avec sa vraie 
 > - **Photos strictement PAR UTILISATEUR** (policies d'écriture par dossier). Le **pool partagé** (« le premier
 >   qui photographie, les autres en profitent ») est une piste multi-user volontairement non ouverte : elle
 >   sacrifierait l'argument « aucune redistribution » ci-dessus — à re-peser à l'ouverture multi-utilisateur.
-> - **La photo est le filet ULTIME, jamais un remplacement** : proposée uniquement quand `cover_url` est vide
->   (au scan et dans le panneau Modifier du journal), et le serveur refuse d'écraser une couverture existante.
+> - **La photo est le filet ULTIME** : proposée quand `cover_url` est vide (au scan et dans le panneau
+>   Modifier du journal). *Raffiné le 19/07/2026 au soir (#47)* : une couverture de **source** reste
+>   intouchable, mais une **photo maison** peut être **reprise** (bouton « Reprendre la photo » au journal,
+>   URL versionnée `?v=` pour casser les caches) ; et l'**import galerie** est permis (pas d'attribut
+>   `capture` — le navigateur propose nativement caméra ou photothèque). Usage privé, l'argument « aucune
+>   redistribution » tient.
 > - **Compression** : 800 px de grand côté, WebP qualité 0,8 (~60-150 Ko) ; un seul objet par livre, écrasé.
 
 ### 5.5 Deviner la catégorie du barème

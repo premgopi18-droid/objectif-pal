@@ -15,6 +15,7 @@ import { CoverPhotoButton } from "@/components/cover-photo-button";
 import { ErrorAlert } from "@/components/error-alert";
 import { FUTURE_DATE_MESSAGE, NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { ALL_CATEGORIES, CATEGORY_LABELS } from "@/lib/books/categories";
+import { isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
 import { formatBookSubtitle } from "@/lib/books/format";
 import { formatDateFrench, formatMonthFrench, localToday } from "@/lib/dates";
 import type { BookCategory, ReadingStatus } from "@/lib/scoring/types";
@@ -330,9 +331,14 @@ function EditPanel({
         </label>
       </div>
 
-      {/* La photo, filet ultime : proposée UNIQUEMENT quand toute la cascade
-          n'a rien trouvé (décision du 19/07/2026, §5.4) — jamais un remplacement. */}
-      {entry.book.coverUrl === null && <CoverPhotoButton bookId={entry.book.bookId} />}
+      {/* La photo, filet ultime (§5.4, #47) : proposée quand la cascade n'a
+          rien trouvé, ou pour REPRENDRE une photo maison ratée — une
+          couverture de source, elle, reste intouchable. */}
+      {entry.book.coverUrl === null ? (
+        <CoverPhotoButton bookId={entry.book.bookId} />
+      ) : (
+        isHouseCoverPhotoUrl(entry.book.coverUrl) && <CoverPhotoButton bookId={entry.book.bookId} mode="retake" />
+      )}
 
       <label className="flex flex-col gap-1 text-xs opacity-80">
         Avis — la matière de l&apos;émission

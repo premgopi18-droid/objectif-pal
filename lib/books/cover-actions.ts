@@ -1,16 +1,16 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { coverPhotoPath, COVERS_BUCKET } from "@/lib/books/cover-photo";
+import { coverPhotoPath, COVERS_BUCKET, isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
 import { getSessionOrError } from "@/lib/supabase/server";
 
 /**
- * L'enregistrement d'une photo de couverture (specs §5.4, issue #33). Le
- * client a déjà uploadé le WebP dans le bucket (client session, RLS par
+ * L'enregistrement d'une photo de couverture (specs §5.4, issues #33 et #47).
+ * Le client a déjà uploadé le WebP dans le bucket (client session, RLS par
  * dossier) — ici on vérifie et on pose l'URL. Règle du 19/07/2026, gardée
- * CÔTÉ SERVEUR : la photo est le filet ultime — un livre qui a déjà une
- * couverture n'est jamais écrasé.
+ * CÔTÉ SERVEUR : la photo est le filet ultime — une couverture de SOURCE
+ * n'est jamais écrasée ; seule une photo MAISON peut être reprise (#47).
  */
 
 export type CoverActionResult = { ok: true } | { ok: false; error: string };
@@ -31,7 +31,9 @@ export async function recordCoverPhoto(bookId: string): Promise<CoverActionResul
     return { ok: false, error: GENERIC_ERROR_MESSAGE };
   }
   if (!book) return { ok: false, error: "Livre introuvable." };
-  if (book.cover_url !== null) {
+  // Filet ultime raffiné (#47) : une couverture de SOURCE est intouchable ;
+  // une photo maison (notre bucket) peut être reprise.
+  if (book.cover_url !== null && !isHouseCoverPhotoUrl(book.cover_url)) {
     return { ok: false, error: "Ce livre a déjà une couverture — la photo est le dernier recours." };
   }
 
@@ -49,21 +51,26 @@ export async function recordCoverPhoto(bookId: string): Promise<CoverActionResul
     return { ok: false, error: "La photo n'a pas été reçue — réessaie." };
   }
 
+  // L'objet Storage est écrasé au MÊME chemin : le `?v=` versionne l'URL pour
+  // que CDN et next/image servent la nouvelle photo, pas l'ancienne en cache.
   const { data: publicUrl } = session.supabase.storage.from(COVERS_BUCKET).getPublicUrl(path);
-  // Le filtre `cover_url is null` re-vérifie la règle du filet ultime au
-  // moment de l'écriture (anti-course) — et le count le dit franchement.
-  const { error: updateError, count } = await session.supabase
+  const versionedUrl = `${publicUrl.publicUrl}?v=${Date.now()}`;
+  // Anti-course : on n'écrit que si la couverture vaut encore EXACTEMENT ce
+  // qu'on vient de lire (vide, ou la photo maison qu'on remplace) — et le
+  // count dit franchement quand la course est perdue.
+  let update = session.supabase
     .from("books")
-    .update({ cover_url: publicUrl.publicUrl }, { count: "exact" })
+    .update({ cover_url: versionedUrl }, { count: "exact" })
     .eq("id", bookId)
-    .eq("user_id", session.user.id)
-    .is("cover_url", null);
+    .eq("user_id", session.user.id);
+  update = book.cover_url === null ? update.is("cover_url", null) : update.eq("cover_url", book.cover_url);
+  const { error: updateError, count } = await update;
   if (updateError) {
     console.error("[covers] recordCoverPhoto:", updateError.message);
     return { ok: false, error: GENERIC_ERROR_MESSAGE };
   }
   if (!count) {
-    return { ok: false, error: "Ce livre a déjà une couverture — la photo est le dernier recours." };
+    return { ok: false, error: "La couverture vient de changer — recharge et réessaie." };
   }
 
   revalidatePath("/journal");
