@@ -26,6 +26,15 @@ export const formatPoints = (points: number): string => {
 };
 
 /**
+ * Le point signé + son unité accordée : « +3 pts », « +1 pt », « +0,5 pt »,
+ * « −1 pt ». Le pluriel suit le français : « pt » sous 2, « pts » à partir de 2
+ * (0, 0,5 et 1 restent singuliers). Sert au toast « Lecture terminée · +N pts »
+ * (#73) — N vient toujours du barème réel, jamais recopié en dur.
+ */
+export const formatPointsLabel = (points: number): string =>
+  `${formatPoints(points)} ${Math.abs(points) >= 2 ? "pts" : "pt"}`;
+
+/**
  * Le texte à lire à l'antenne — copiable en un tap. Les distinctions du mois
  * s'ajoutent après le score (décision du 18/07/2026, specs §4.4) : ce qu'on
  * lit à l'antenne n'est pas qu'un décompte. L'appelant les fournit déjà

@@ -84,3 +84,21 @@ body {
 .pb-safe {
   padding-bottom: env(safe-area-inset-bottom);
 }
+
+/*
+ * prefers-reduced-motion : LE point de vérité unique (design-specs §6, #73).
+ * Coupe d'un coup toute animation/transition CSS de l'app — la ligne de scan
+ * (#69), les active:scale des boutons, les transitions d'onglets/segments. Les
+ * confettis (#73) passent, eux, par la Web Animations API (hors de portée du
+ * CSS) : ils se coupent côté JS, dans components/ui/confetti.ts.
+ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
