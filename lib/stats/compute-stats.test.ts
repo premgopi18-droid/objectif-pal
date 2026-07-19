@@ -6,6 +6,7 @@ import {
   STALLED_READING_DAYS,
   type StatBookRecord,
 } from "./compute-stats";
+import type { SeriesCatalog } from "./series-catalog";
 
 /**
  * Les stats doivent raconter la même histoire que le bilan et la PAL (§4.5) :
@@ -654,5 +655,84 @@ describe("lot D — le volume temporel", () => {
     const result = computeStats([book({ readings: [finished("2026-09-01")] })], CURRENT_MONTH);
     // Le plancher à 1 mois évite une division par zéro ou par un négatif.
     expect(result.monthly.averagePerMonth).toBe(1);
+  });
+});
+
+describe("lot B — les séries en cours et le tome suivant", () => {
+  /** Le catalogue d'une série numérotée 1..3, dont les tomes 1 et 2 sont reliés. */
+  const CATALOG: SeriesCatalog = {
+    issues: [
+      { gcdIssueId: 11, seriesId: 7, number: "1" },
+      { gcdIssueId: 12, seriesId: 7, number: "2" },
+    ],
+    series: [{ seriesId: 7, seriesName: "Blacksad (GCD)", numbers: ["1", "2", "3"] }],
+  };
+
+  it("croise les tomes lus et la numérotation GCD pour annoncer le suivant", () => {
+    const result = computeStats(
+      [book({ seriesName: "Blacksad", gcdIssueId: 11, readings: [finished("2026-07-01")] })],
+      CURRENT_MONTH,
+      { seriesCatalog: CATALOG },
+    );
+    expect(result.series.inProgress).toEqual([
+      {
+        seriesId: 7,
+        seriesName: "Blacksad",
+        volumesRead: 1,
+        knownVolumes: 3,
+        nextVolume: "2",
+        status: "next-known",
+        reason: null,
+      },
+    ]);
+  });
+
+  it("une relecture ne fait pas croire à un tome de plus", () => {
+    const result = computeStats(
+      [book({ seriesName: "Blacksad", gcdIssueId: 11, readings: [finished("2026-07-01"), finished("2026-07-20")] })],
+      CURRENT_MONTH,
+      { seriesCatalog: CATALOG },
+    );
+    expect(result.series.inProgress[0].volumesRead).toBe(1);
+    expect(result.series.inProgress[0].nextVolume).toBe("2");
+  });
+
+  it("un tome acheté mais pas lu ne met pas la série en cours", () => {
+    const result = computeStats(
+      [book({ seriesName: "Blacksad", gcdIssueId: 11, purchases: [bought("2026-07-01")] })],
+      CURRENT_MONTH,
+      { seriesCatalog: CATALOG },
+    );
+    expect(result.series.inProgress).toEqual([]);
+  });
+
+  it("sans catalogue, la répartition par série vit toujours mais aucun tome suivant n'est deviné", () => {
+    const result = computeStats(
+      [book({ seriesName: "Blacksad", gcdIssueId: 11, readings: [finished("2026-07-01")] })],
+      CURRENT_MONTH,
+    );
+    expect(result.series.volumesRead).toEqual([{ seriesName: "Blacksad", count: 1 }]);
+    expect(result.series.inProgress).toEqual([]);
+  });
+
+  it("un livre non résolu par GCD n'entre pas dans les séries en cours", () => {
+    const result = computeStats(
+      [book({ seriesName: "Blacksad", readings: [finished("2026-07-01")] })],
+      CURRENT_MONTH,
+      { seriesCatalog: CATALOG },
+    );
+    expect(result.series.inProgress).toEqual([]);
+  });
+
+  it("un tome lu non relié dans la même série fait taire le tome suivant", () => {
+    const result = computeStats(
+      [
+        book({ seriesName: "Blacksad", gcdIssueId: 11, readings: [finished("2026-07-01")] }),
+        book({ seriesName: "Blacksad", readings: [finished("2026-07-02")] }),
+      ],
+      CURRENT_MONTH,
+      { seriesCatalog: CATALOG },
+    );
+    expect(result.series.inProgress[0]).toMatchObject({ volumesRead: 2, status: "unusable", reason: "partial-link" });
   });
 });

@@ -1,0 +1,11 @@
+-- Index sur gcd_issues(series_id) — « séries en cours & tome suivant » (#30, lot B).
+--
+-- La table portait déjà ses index d'IDENTIFICATION (barcode, préfixe, isbn,
+-- gcd_id) : tous partent d'un code pour retrouver UNE issue. Le tome suivant
+-- pose la question inverse — « tous les numéros connus de CETTE série » — et
+-- attaquait donc 559 516 lignes en seq scan à chaque affichage des stats.
+--
+-- L'index couvre en plus `number` : la requête du catalogue ne lit que ces deux
+-- colonnes, elle se sert donc entièrement dans l'index (index-only scan), sans
+-- jamais toucher la table.
+create index gcd_issues_series_id_idx on gcd_issues (series_id, number);
