@@ -34,7 +34,7 @@ const COVER_SIZES = {
     imageClassName: "h-18 w-12 shrink-0 rounded object-cover",
     placeholderClassName: "flex h-18 w-12 shrink-0 items-center justify-center rounded bg-foreground/10",
     initialClassName:
-      "flex h-18 w-12 shrink-0 items-center justify-center rounded text-lg font-black text-ink ring-1 ring-inset ring-white/15",
+      "flex h-18 w-12 shrink-0 items-center justify-center rounded text-lg font-black text-bg0 ring-1 ring-inset ring-white/15",
   },
   large: {
     width: 96,
@@ -43,7 +43,7 @@ const COVER_SIZES = {
     imageClassName: "h-36 w-24 shrink-0 rounded-md object-cover",
     placeholderClassName: "flex h-36 w-24 shrink-0 items-center justify-center rounded-md bg-foreground/10 text-3xl",
     initialClassName:
-      "flex h-36 w-24 shrink-0 items-center justify-center rounded-md text-4xl font-black text-ink ring-1 ring-inset ring-white/15",
+      "flex h-36 w-24 shrink-0 items-center justify-center rounded-md text-4xl font-black text-bg0 ring-1 ring-inset ring-white/15",
   },
 } as const;
 
