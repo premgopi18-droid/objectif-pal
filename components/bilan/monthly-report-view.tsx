@@ -1,9 +1,12 @@
 "use client";
 
-import { Check, ChevronLeft, ChevronRight, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ObjectiveSection } from "@/components/bilan/objective-section";
 import { PicksSection } from "@/components/bilan/picks-section";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import { Toast } from "@/components/ui/toast";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { ALL_PICK_KINDS, type PickKind } from "@/lib/books/pick-kinds";
 import { addMonths, formatMonthFrench, localCurrentMonth } from "@/lib/dates";
@@ -18,6 +21,8 @@ import type { BookCategory, MonthlyObjective, PurchaseFact, ReadingFact } from "
  * propre, lisible tel quel à l'antenne (specs §4.5). Consultable pour
  * n'importe quel mois passé.
  * Le texte copiable vit dans lib/scoring/report-text.ts (pur, testé).
+ * Rhabillage refonte #71 : score en héros dégradé, détail au barème en lignes
+ * (+vert/−rouge), CTA « Copier » dégradé + toast — tout aux tokens.
  */
 
 /** Une lecture du bilan : le fait du moteur + de quoi nommer une distinction. */
@@ -41,10 +46,51 @@ type MonthlyReportViewProps = {
   picks: MonthlyPickRecord[];
 };
 
+/** « × 3 pts », « × 0,5 pt », « × −1 pt » — le barème par unité, virgule française. */
+function formatUnitPoints(value: number): string {
+  const absolute = Math.abs(value);
+  const text = String(absolute).replace(".", ",");
+  const sign = value < 0 ? "−" : "";
+  return `× ${sign}${text} ${absolute >= 2 ? "pts" : "pt"}`;
+}
+
+/** Le libellé de section (design-specs §2 « Typographie ») : 12px 800 majuscule, `--ink3`. */
+function SectionLabel({ children }: { children: React.ReactNode }) {
+  return <h3 className="mb-2.5 text-xs font-extrabold uppercase tracking-[0.1em] text-ink3">{children}</h3>;
+}
+
+/**
+ * Une ligne du détail au barème : libellé + sous-texte « × N pts », points à
+ * droite en vert (+) / rouge (−), alignés `tabular-nums`. Les points viennent
+ * TOUJOURS du moteur — jamais recopiés en dur (règle repo).
+ */
+function DetailRow({
+  label,
+  unit,
+  points,
+  isFirst,
+}: {
+  label: string;
+  unit: string;
+  points: number;
+  isFirst?: boolean;
+}) {
+  const tone = points > 0 ? "text-green" : points < 0 ? "text-red" : "text-ink2";
+  return (
+    <div className={`flex items-baseline justify-between gap-3 py-2.5 text-[14.5px] ${isFirst ? "" : "border-t border-line"}`}>
+      <span className="text-ink">
+        {label}
+        <span className="ml-1.5 text-[12.5px] text-ink3">{unit}</span>
+      </span>
+      <span className={`shrink-0 font-extrabold tabular-nums ${tone}`}>{formatPoints(points)}</span>
+    </div>
+  );
+}
+
 export function MonthlyReportView({ readings, purchases, objectivesByMonth, picks }: MonthlyReportViewProps) {
   const currentMonth = localCurrentMonth();
   const [month, setMonth] = useState(currentMonth);
-  const [isCopied, setIsCopied] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [copyFallbackText, setCopyFallbackText] = useState<string | null>(null);
 
   const objective = objectivesByMonth[month] ?? null;
@@ -89,13 +135,16 @@ export function MonthlyReportView({ readings, purchases, objectivesByMonth, pick
     // dans une zone sélectionnable, toujours récupérable.
     try {
       await navigator.clipboard.writeText(reportToText(report, pickLines));
-      setIsCopied(true);
       setCopyFallbackText(null);
-      setTimeout(() => setIsCopied(false), 2000);
+      setToastMessage("Bilan copié pour l'antenne ✓");
     } catch {
       setCopyFallbackText(reportToText(report, pickLines));
     }
   }
+
+  const unreadCount = report.unreadPurchaseCount;
+  // « pt » sous 2, « pts » à partir de 2 — 0 et 1 restent singuliers en français.
+  const heroUnit = Math.abs(report.total) >= 2 ? "pts" : "pt";
 
   return (
     <div className="mt-4 flex flex-col gap-5">
@@ -104,82 +153,62 @@ export function MonthlyReportView({ readings, purchases, objectivesByMonth, pick
           type="button"
           onClick={() => setMonth(addMonths(month, -1))}
           aria-label="Mois précédent"
-          className="rounded-full border border-foreground/20 p-2"
+          className="grid size-11 place-items-center rounded-xl border border-line bg-card text-ink2 transition active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
         >
           <ChevronLeft aria-hidden className="size-5" />
         </button>
-        <h2 className="text-lg font-semibold capitalize">{formatMonthFrench(month)}</h2>
+        <h2 className="text-[17px] font-extrabold capitalize text-ink">{formatMonthFrench(month)}</h2>
         <button
           type="button"
           onClick={() => setMonth(addMonths(month, 1))}
           disabled={month >= currentMonth}
           aria-label="Mois suivant"
-          className="rounded-full border border-foreground/20 p-2 disabled:opacity-30"
+          className="grid size-11 place-items-center rounded-xl border border-line bg-card text-ink2 transition active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan disabled:opacity-30 disabled:active:scale-100"
         >
           <ChevronRight aria-hidden className="size-5" />
         </button>
       </div>
 
-      <div className="rounded-xl border border-foreground/10">
-        {categoryLines.length === 0 ? (
-          <p className="px-4 py-5 text-sm opacity-70">Aucune lecture terminée ce mois-ci.</p>
-        ) : (
-          <ul>
-            {categoryLines.map(([category, count]) => (
-              <li key={category} className="flex items-baseline justify-between border-b border-foreground/10 px-4 py-3">
-                <span>
-                  {CATEGORY_LABELS[category]} <span className="opacity-60">× {count}</span>
-                </span>
-                <span className="font-mono text-sm">{formatPoints(count * SCORING_SCALE.pointsByCategory[category])}</span>
-              </li>
-            ))}
-          </ul>
-        )}
-        <div className="flex items-baseline justify-between border-b border-foreground/10 px-4 py-3">
-          <span>
-            Achats non lus <span className="opacity-60">× {report.unreadPurchaseCount}</span>
-          </span>
-          <span className="font-mono text-sm">{formatPoints(report.purchasePenalty)}</span>
+      {/* Le score en héros (design-specs §5) : 52px 900 italique, dégradé signature. */}
+      <Card className="py-6 text-center">
+        <div className="bg-grad bg-clip-text text-[52px] font-black italic leading-none text-transparent">
+          {formatPoints(report.total)} {heroUnit}
         </div>
-        {report.objective && (
-          <div className="flex items-baseline justify-between border-b border-foreground/10 px-4 py-3">
-            <span>
-              Objectif du mois <span className="opacity-60">{report.objective.achieved ? "atteint" : month === currentMonth ? "en cours" : "manqué"}</span>
-            </span>
-            <span className="font-mono text-sm">{formatPoints(report.objective.bonus)}</span>
-          </div>
-        )}
-        <div className="flex items-baseline justify-between px-4 py-4">
-          <span className="text-lg font-bold">Score du mois</span>
-          <span className={`font-mono text-2xl font-bold ${report.total >= 0 ? "text-amber-500" : "text-red-500"}`}>
-            {formatPoints(report.total)}
-          </span>
-        </div>
-      </div>
+        <div className="mt-2 text-xs font-bold uppercase tracking-[0.12em] text-ink3">Score du mois</div>
+      </Card>
 
-      <button
-        type="button"
-        onClick={copyReport}
-        className="flex items-center justify-center gap-2 rounded-full border-2 border-amber-500 px-6 py-3 font-semibold text-amber-500"
-      >
-        {isCopied ? <Check aria-hidden className="size-5" /> : <Copy aria-hidden className="size-5" />}
-        {isCopied ? "Copié !" : "Copier pour l'antenne"}
-      </button>
-
-      {copyFallbackText && (
-        <div className="flex flex-col gap-1.5">
-          <p role="alert" className="text-sm opacity-80">
-            La copie automatique a été bloquée — sélectionne le texte ci-dessous :
-          </p>
-          <textarea
-            readOnly
-            value={copyFallbackText}
-            rows={copyFallbackText.split("\n").length}
-            onFocus={(event) => event.target.select()}
-            className="rounded-md border border-foreground/20 bg-transparent p-3 font-mono text-sm"
+      <div>
+        <SectionLabel>Le détail</SectionLabel>
+        <Card className="flex flex-col">
+          {categoryLines.length === 0 && (
+            <p className="py-1 text-sm text-ink2">Aucune lecture terminée ce mois-ci.</p>
+          )}
+          {categoryLines.map(([category, count], index) => (
+            <DetailRow
+              key={category}
+              isFirst={index === 0}
+              label={`${count} ${CATEGORY_LABELS[category]}`}
+              unit={formatUnitPoints(SCORING_SCALE.pointsByCategory[category])}
+              points={count * SCORING_SCALE.pointsByCategory[category]}
+            />
+          ))}
+          <DetailRow
+            isFirst={categoryLines.length === 0}
+            label={`${unreadCount} achat${unreadCount > 1 ? "s" : ""} non lu${unreadCount > 1 ? "s" : ""}`}
+            unit={formatUnitPoints(SCORING_SCALE.unreadPurchasePenalty)}
+            points={report.purchasePenalty}
           />
-        </div>
-      )}
+          {report.objective && (
+            <DetailRow
+              label={`Objectif ${
+                report.objective.achieved ? "atteint 🎯" : month === currentMonth ? "en cours" : "manqué"
+              }`}
+              unit=""
+              points={report.objective.bonus}
+            />
+          )}
+        </Card>
+      </div>
 
       <ObjectiveSection
         // La clé remet l'éditeur à zéro quand on change de mois : le brouillon
@@ -192,6 +221,29 @@ export function MonthlyReportView({ readings, purchases, objectivesByMonth, pick
       />
 
       <PicksSection key={`picks-${month}`} month={month} finishedReadings={finishedReadingsOfMonth} picks={monthPicks} />
+
+      {/* Le geste-livrable (design-specs §5) : CTA dégradé pleine largeur + toast. */}
+      <Button variant="grad" block onClick={copyReport} className="mt-1">
+        <Copy aria-hidden className="size-5" />
+        Copier pour l&apos;antenne
+      </Button>
+
+      {copyFallbackText && (
+        <div className="flex flex-col gap-1.5">
+          <p role="alert" className="text-sm text-ink2">
+            La copie automatique a été bloquée — sélectionne le texte ci-dessous :
+          </p>
+          <textarea
+            readOnly
+            value={copyFallbackText}
+            rows={copyFallbackText.split("\n").length}
+            onFocus={(event) => event.target.select()}
+            className="rounded-xl border border-line bg-card2 p-3 font-mono text-sm text-ink"
+          />
+        </div>
+      )}
+
+      <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
     </div>
   );
 }
