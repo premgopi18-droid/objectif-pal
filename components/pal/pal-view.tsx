@@ -10,6 +10,7 @@ import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { formatBookSubtitle } from "@/lib/books/format";
 import { formatDateFrench, localCurrentMonth, localToday } from "@/lib/dates";
 import type { PalEntry } from "@/lib/pal/derive-pal";
+import { computePalHealth } from "@/lib/pal/health";
 
 /**
  * La vue PAL — la pile à lire et sa santé (specs §4.5 et §4.6). Le geste :
@@ -31,11 +32,12 @@ export function PalView({ entries, purchaseDates, ownedFinishedDates }: PalViewP
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
 
-  // La santé du mois — calculée avec le mois LOCAL de l'appareil.
-  const month = localCurrentMonth();
-  const entriesThisMonth = purchaseDates.filter((date) => date.startsWith(month)).length;
-  const exitsThisMonth = ownedFinishedDates.filter((date) => date.startsWith(month)).length;
-  const balance = entriesThisMonth - exitsThisMonth;
+  // La santé du mois — dérivation PARTAGÉE (lib/pal/health), calculée avec le
+  // mois LOCAL de l'appareil. La vue ne recompte plus rien elle-même.
+  const { pileSize, monthEntries, monthExits, monthBalance } = computePalHealth(
+    { entryDates: purchaseDates, exitDates: ownedFinishedDates },
+    localCurrentMonth(),
+  );
 
   function startReading(bookId: string) {
     setError(null);
@@ -70,15 +72,15 @@ export function PalView({ entries, purchaseDates, ownedFinishedDates }: PalViewP
       <dl className="grid grid-cols-2 gap-3">
         <div className="rounded-xl border border-foreground/10 p-3">
           <dt className="text-xs opacity-60">Dans la pile</dt>
-          <dd className="text-2xl font-bold">{entries.length}</dd>
+          <dd className="text-2xl font-bold">{pileSize}</dd>
         </div>
         <div className="rounded-xl border border-foreground/10 p-3">
           <dt className="text-xs opacity-60">Solde du mois</dt>
-          <dd className={`text-2xl font-bold ${balance > 0 ? "text-red-500" : "text-green-500"}`}>
-            {balance > 0 ? `+${balance}` : balance}
+          <dd className={`text-2xl font-bold ${monthBalance > 0 ? "text-red-500" : "text-green-500"}`}>
+            {monthBalance > 0 ? `+${monthBalance}` : monthBalance}
             <span className="ml-2 text-xs font-normal opacity-60">
-              {entriesThisMonth} entrée{entriesThisMonth > 1 ? "s" : ""} · {exitsThisMonth} sortie
-              {exitsThisMonth > 1 ? "s" : ""}
+              {monthEntries} entrée{monthEntries > 1 ? "s" : ""} · {monthExits} sortie
+              {monthExits > 1 ? "s" : ""}
             </span>
           </dd>
         </div>
