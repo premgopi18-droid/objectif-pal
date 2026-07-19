@@ -59,6 +59,11 @@ Attention PAL : un solde **positif** (la pile gonfle) est **rouge**, un solde n�
 librairie, métro). On supprime la bascule `prefers-color-scheme` actuelle. *TBD : une variante claire
 si l'usage en plein soleil (scan en librairie) le réclame — à trancher à l'usage, pas avant.*
 
+**Répercussions PWA** (étape 1 du chantier §7) : `app/manifest.ts` porte `background_color` et
+`theme_color` à `#0a0a0a` → à migrer vers `--bg0` (`#120826`), sinon le splash screen et la barre
+système resteront sur l'ancien noir. Les **icônes** (`/icons/icon-*.png`, écran d'accueil) sont un
+livrable de la nouvelle identité.
+
 ### Typographie
 
 - **Système** (`system-ui`) partout — c'est une PWA, zéro webfont à charger.
@@ -98,7 +103,10 @@ un segment du Bilan.
   chiffres ». Chaque segment s'ouvre sur son premier volet (Pile, Bilan) — le plus fréquent.
 - **Routes conservées** : `/journal`, `/bibliotheque` (+ `/pal` redirige vers le segment Pile),
   `/bilan` (+ `/stats` redirige vers le segment Stats). Les segments sont de l'état d'URL
-  (`?vue=pile|tous`, `?vue=bilan|stats`) pour rester partageables/rechargeables.
+  (`?vue=pile|tous`, `?vue=bilan|stats`) pour rester partageables/rechargeables. Le param est en
+  **français assumé** : les chemins le sont déjà (`/bibliotheque`, `/bilan`) — dans ce repo, l'URL
+  entière est une surface utilisateur francophone, et un `?view=` anglais créerait une incohérence
+  chemin/param. La règle « code en anglais » s'applique au code qui le lit, pas à sa valeur.
 
 ### Ce que la fusion rationalise (dette au passage)
 

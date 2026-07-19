@@ -39,7 +39,8 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > infos non » et **alimente `barcode_cache` (source manual)**, le marqueur GCD `#[nn]` est éradiqué, et le
 > **scanner ressuscité** (#60 : le WASM était derrière le mur d'auth → cache SW empoisonné ; post-mortem
 > complet dans l'issue, contrat de test anti-régression + test d'intégration prod) — 198 → 240 tests.
-> Restent : #49 (vue Bibliothèque), #30 (prérequis à lever), #32 lot C (différé volontaire).**
+> La **vue Bibliothèque #49 est livrée** (PR #63). Restent : #30 (prérequis à lever), #32 lot C
+> (différé volontaire).**
 
 ## Stack
 
