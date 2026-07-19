@@ -1,10 +1,10 @@
 /**
- * Squelette de la PAL — affiché instantanément au tap d'onglet pendant le
- * rendu serveur (la page est dynamique) : titre, les deux cartes de santé du
- * mois, puis des vignettes 48×72 avec le bouton « Je le commence », la
- * silhouette de PalView.
+ * Squelette de la Bibliothèque — affiché instantanément au tap d'onglet pendant
+ * le rendu serveur (la page est dynamique). Il épouse le volet par défaut (Pile,
+ * §3) : titre, les deux cartes de santé du mois, puis des vignettes 48×72 avec
+ * le bouton « Je le commence », la silhouette de PalView.
  */
-export default function PalLoading() {
+export default function BibliothequeLoading() {
   return (
     <section className="py-6" role="status" aria-label="Chargement de la pile">
       <span className="sr-only">Chargement…</span>

@@ -31,11 +31,11 @@ export async function softDeleteBook(bookId: string): Promise<JournalActionResul
   }
   if (!count) return { ok: false, error: "Livre introuvable." };
 
-  // Le livre disparaît de PARTOUT : toutes les surfaces qui le montrent.
+  // Le livre disparaît de PARTOUT : toutes les surfaces qui le montrent. Depuis
+  // la refonte #64, la Pile est un volet de /bibliotheque et les Stats un volet
+  // de /bilan — revalider ces deux routes couvre leurs deux volets.
   revalidatePath("/bibliotheque");
   revalidatePath("/journal");
-  revalidatePath("/pal");
   revalidatePath("/bilan");
-  revalidatePath("/stats");
   return { ok: true };
 }

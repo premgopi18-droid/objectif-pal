@@ -93,6 +93,6 @@ export async function repairBrokenCover(bookId: string): Promise<CoverRepairResu
   await repairCacheEntry(cacheKey, book.cover_url, newCoverUrl);
 
   revalidatePath("/journal");
-  revalidatePath("/pal");
+  revalidatePath("/bibliotheque");
   return { coverUrl: newCoverUrl };
 }

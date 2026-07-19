@@ -74,6 +74,6 @@ export async function recordCoverPhoto(bookId: string): Promise<CoverActionResul
   }
 
   revalidatePath("/journal");
-  revalidatePath("/pal");
+  revalidatePath("/bibliotheque");
   return { ok: true };
 }

@@ -107,7 +107,7 @@ export async function startReadingForBook(bookId: string, startedAt: string): Pr
   }
 
   revalidatePath("/journal");
-  revalidatePath("/pal");
+  revalidatePath("/bibliotheque");
   return { ok: true };
 }
 
