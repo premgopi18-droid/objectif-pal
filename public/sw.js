@@ -10,7 +10,9 @@
 // ⚠️ À chaque bump du paquet zxing-wasm (donc du binaire copié dans
 // /wasm/), incrémenter CACHE_NAME : sinon les clients gardent l'ancien
 // binaire en cache, désynchronisé du JS — erreurs imprévisibles au scan.
-const CACHE_NAME = "objectif-pal-shell-v2";
+// v3 (issue #60) : purge les caches où la redirection d'auth avait remplacé
+// le binaire WASM par le HTML de /login (SW installé hors session).
+const CACHE_NAME = "objectif-pal-shell-v3";
 // ⚠️ "/" est du HTML AUTHENTIFIÉ : la déconnexion purge tous les caches
 // (components/logout-button.tsx). Icônes et WASM se re-remplissent au fil des
 // fetchs ; la coquille "/", elle, n'est re-précachée qu'à la prochaine
@@ -57,8 +59,14 @@ self.addEventListener("fetch", (event) => {
         (cached) =>
           cached ??
           fetch(request).then((response) => {
-            const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+            // On ne met en cache que la VRAIE ressource : une réponse
+            // redirigée ou en erreur (mur d'auth, panne) se ferait passer
+            // pour l'asset à chaque visite suivante — le vecteur exact de
+            // l'issue #60 (le HTML de /login servi comme binaire WASM).
+            if (response.ok && !response.redirected) {
+              const copy = response.clone();
+              caches.open(CACHE_NAME).then((cache) => cache.put(request, copy));
+            }
             return response;
           }),
       ),

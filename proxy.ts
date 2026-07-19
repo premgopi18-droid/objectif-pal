@@ -44,6 +44,10 @@ export async function proxy(request: NextRequest) {
     path === "/sw.js" ||
     path === "/manifest.webmanifest" ||
     path.startsWith("/icons/") ||
+    // Le binaire du scanner : précaché par le SW dès la page de login (donc
+    // SANS session) — derrière le mur d'auth, la redirection empoisonnait le
+    // cache avec du HTML (issue #60). Public par nécessité, aucun secret.
+    path.startsWith("/wasm/") ||
     path.startsWith("/login") ||
     path.startsWith("/auth");
 
@@ -72,7 +76,7 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Exclut les assets statiques ; manifest, sw.js et images restent hors gating
-  // (cf. isPublicPath pour la défense en profondeur).
-  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|sw\\.js|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
+  // Exclut les assets statiques ; manifest, sw.js, wasm et images restent hors
+  // gating (cf. isPublicPath pour la défense en profondeur).
+  matcher: ["/((?!_next/static|_next/image|favicon\\.ico|manifest\\.webmanifest|sw\\.js|wasm/|.*\\.(?:svg|png|jpg|jpeg|gif|webp)$).*)"],
 };
