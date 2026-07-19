@@ -39,7 +39,8 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > infos non » et **alimente `barcode_cache` (source manual)**, le marqueur GCD `#[nn]` est éradiqué, et le
 > **scanner ressuscité** (#60 : le WASM était derrière le mur d'auth → cache SW empoisonné ; post-mortem
 > complet dans l'issue, contrat de test anti-régression + test d'intégration prod) — 198 → 240 tests.
-> Restent : #49 (vue Bibliothèque), #30 (prérequis à lever), #32 lot C (différé volontaire).**
+> La **vue Bibliothèque #49 est livrée** (PR #63). Restent : #30 (prérequis à lever), #32 lot C
+> (différé volontaire).**
 
 ## Stack
 
@@ -93,8 +94,10 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **#49 — la vue Bibliothèque** : tous les livres, pas seulement les projections (journal, PAL). Le
-   prochain chantier.
+1. **La refonte UX/UI** (décidée le 19/07/2026, specs dans `docs/design-specs.md`, proto
+   `docs/design-proto.html`) : identité de l'émission (nuit violette + dégradé signature), nav
+   **5 onglets avec scan central** (la PAL devient un segment de la Biblio, les Stats un segment du
+   Bilan), famille de composants `components/ui/`. La vue Bibliothèque #49 est livrée (PR #63).
 2. **#30** (analyses avancées §4.5 — prérequis à lever, dont le trigger `occurred_at`).
 3. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
    déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ; les filtres #34 migreront
