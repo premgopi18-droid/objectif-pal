@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { Button } from "@/components/ui/button";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 export function LogoutButton() {
@@ -32,13 +33,18 @@ export function LogoutButton() {
   }
 
   return (
-    <button
+    // Button ghost + encre rouge (déconnexion = sémantique négatif, specs §2).
+    // Le token passe par `style` (var(--red)) : inline il l'emporte à coup sûr
+    // sur le `text-ink` de la variante ghost, sans dépendre de l'ordre Tailwind.
+    <Button
       type="button"
+      variant="ghost"
+      block
       onClick={signOut}
       disabled={isSigningOut}
-      className="rounded-full border border-foreground/20 px-5 py-2.5 text-sm font-medium transition-opacity disabled:opacity-50"
+      style={{ color: "var(--red)" }}
     >
       {isSigningOut ? "Déconnexion…" : "Se déconnecter"}
-    </button>
+    </Button>
   );
 }

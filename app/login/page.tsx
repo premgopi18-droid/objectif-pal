@@ -1,14 +1,20 @@
 "use client";
 
-import { BookOpenCheck } from "lucide-react";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
+import { SceneConfetti } from "@/app/login/scene-confetti";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 /**
  * L'écran de connexion : un bouton, un tap, pas de mot de passe (specs §4.8).
+ * C'est LA page plein décor — l'affiche de l'émission (design-specs §5) : logo,
+ * confettis, dégradé signature.
+ *
  * Le redirectTo se construit sur window.location.origin — l'origine réelle,
  * jamais une constante — pour que le login marche aussi depuis une preview.
+ * ⚠️ Logique OAuth intouchée : ce chantier ne rhabille que le markup.
  */
 function LoginContent() {
   const searchParams = useSearchParams();
@@ -29,29 +35,32 @@ function LoginContent() {
   }
 
   return (
-    <main className="flex min-h-dvh flex-col items-center justify-center gap-8 px-6">
-      <div className="flex flex-col items-center gap-3 text-center">
-        <BookOpenCheck aria-hidden className="size-14 text-amber-500" />
-        <h1 className="text-3xl font-bold">Objectif PAL</h1>
-        <p className="text-sm opacity-70">
+    <main
+      className="relative flex min-h-dvh flex-col items-center justify-center gap-10 overflow-hidden px-6 pt-[max(2.5rem,env(safe-area-inset-top))] pb-[max(2.5rem,env(safe-area-inset-bottom))]"
+    >
+      <SceneConfetti />
+
+      <div className="relative z-10 flex flex-col items-center gap-3 text-center">
+        {/* Le logo — « PAL » porte le dégradé signature (§2). */}
+        <h1 className="text-4xl font-black uppercase italic tracking-tight">
+          Objectif <span className="bg-grad bg-clip-text text-transparent">PAL</span>
+        </h1>
+        <p className="max-w-xs text-sm text-ink2">
           Scanne tes lectures, fais fondre ta pile à lire, et donne tes chiffres à l&apos;antenne.
         </p>
       </div>
 
-      <button
-        type="button"
-        onClick={signInWithGoogle}
-        disabled={isSigningIn}
-        className="w-full max-w-xs rounded-full bg-foreground px-6 py-3.5 font-medium text-background transition-opacity disabled:opacity-50"
-      >
-        {isSigningIn ? "Redirection…" : "Continuer avec Google"}
-      </button>
+      <Card className="relative z-10 flex w-full max-w-xs flex-col gap-4">
+        <Button type="button" variant="grad" block onClick={signInWithGoogle} disabled={isSigningIn}>
+          {isSigningIn ? "Redirection…" : "Continuer avec Google"}
+        </Button>
 
-      {errorMessage && (
-        <p role="alert" className="text-sm text-red-500">
-          {errorMessage}
-        </p>
-      )}
+        {errorMessage && (
+          <p role="alert" className="text-center text-sm text-red">
+            {errorMessage}
+          </p>
+        )}
+      </Card>
     </main>
   );
 }
