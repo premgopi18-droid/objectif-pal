@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import type { GcdIssue, GcdSeries } from "./providers/gcd";
-import { resolveScannedCode, type ResolutionDeps } from "./resolve";
+import { findReplacementCover, resolveScannedCode, type ResolutionDeps } from "./resolve";
 
 /**
  * La cascade testée avec des providers factices : chaque test décrit un
@@ -657,5 +657,53 @@ describe("la cascade UPC (GCD exact → préfixe → Metron)", () => {
     expect(result).toMatchObject({ kind: "resolved", book: { source: "metron" } });
     expect(deps.gcd.findIssuesByBarcode).not.toHaveBeenCalled();
     expect(deps.metron.findIssueByUpc).not.toHaveBeenCalled();
+  });
+});
+
+describe("la re-résolution de couverture pour la réparation des liens cassés (#53)", () => {
+  it("un ISBN repasse par Google Books puis les replis, dans l'ordre", async () => {
+    const deps = fakeDeps({
+      inventaire: { findCoverByIsbn: vi.fn(async () => "https://inventaire.io/img/entities/abc") },
+    });
+    const cover = await findReplacementCover({ barcodeType: "isbn", isbn: "9791026820963", barcode: null }, deps);
+
+    expect(cover).toBe("https://inventaire.io/img/entities/abc");
+    expect(deps.googleBooks.resolveIsbn).toHaveBeenCalledWith("9791026820963");
+    expect(deps.openLibrary.findCoverByIsbn).toHaveBeenCalled();
+  });
+
+  it("un UPC repasse par Metron (la source des couvertures VO)", async () => {
+    const deps = fakeDeps({
+      metron: {
+        findIssueByUpc: vi.fn(async () => ({
+          metronId: 99,
+          issueName: null,
+          seriesName: "Nightwing",
+          number: "123",
+          coverUrl: "https://static.metron.cloud/nightwing.jpg",
+          seriesType: null,
+          publisher: "DC",
+          pageCount: 32,
+        })),
+      },
+    });
+    const cover = await findReplacementCover({ barcodeType: "upc", isbn: null, barcode: "76194134174312311" }, deps);
+
+    expect(cover).toBe("https://static.metron.cloud/nightwing.jpg");
+  });
+
+  it("toutes les sources muettes, ou un livre sans code : null — la décision tranchera (garder ou vider)", async () => {
+    expect(await findReplacementCover({ barcodeType: "isbn", isbn: "9799999999990", barcode: null }, fakeDeps())).toBeNull();
+    expect(await findReplacementCover({ barcodeType: "isbn", isbn: null, barcode: null }, fakeDeps())).toBeNull();
+  });
+
+  it("une source qui jette n'empêche pas les replis suivants (mêmes amortisseurs que la cascade)", async () => {
+    const deps = fakeDeps({
+      googleBooks: { resolveIsbn: vi.fn(async () => Promise.reject(new Error("GB en rade"))) },
+      epagine: { findCoverByIsbn: vi.fn(async () => "https://images.epagine.fr/963/9791026820963_1_75.jpg") },
+    });
+    const cover = await findReplacementCover({ barcodeType: "isbn", isbn: "9791026820963", barcode: null }, deps);
+
+    expect(cover).toBe("https://images.epagine.fr/963/9791026820963_1_75.jpg");
   });
 });

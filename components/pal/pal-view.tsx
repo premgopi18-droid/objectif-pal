@@ -94,7 +94,7 @@ export function PalView({ entries, purchaseDates, ownedFinishedDates }: PalViewP
         <ul className="flex flex-col gap-3">
           {entries.map((entry) => (
             <li key={entry.bookId} className="flex items-center gap-3 rounded-xl border border-foreground/10 p-3">
-              <BookCover coverUrl={entry.coverUrl} size="small" />
+              <BookCover coverUrl={entry.coverUrl} size="small" bookId={entry.bookId} />
               <div className="min-w-0 flex-1">
                 <p className="font-semibold leading-tight">{entry.title}</p>
                 <p className="mt-0.5 truncate text-sm opacity-70">
