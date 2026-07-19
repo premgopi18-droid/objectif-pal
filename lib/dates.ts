@@ -57,6 +57,38 @@ export function localCurrentMonth(): string {
   return localToday().slice(0, 7);
 }
 
+/**
+ * Le nombre de JOURS entre deux dates calendaires `YYYY-MM-DD` (`to − from`,
+ * signé). On reconstruit les deux dates en UTC — même fuseau des deux côtés,
+ * donc aucun décalage possible — et on divise par la durée d'un jour : pas
+ * d'heure d'été à traverser, le résultat est toujours un entier.
+ * Aucune horloge lue : c'est une fonction PURE, les deux bornes sont fournies.
+ */
+const MILLISECONDS_PER_DAY = 86_400_000;
+
+export function daysBetween(from: string, to: string): number {
+  return (utcMillisecondsOf(to) - utcMillisecondsOf(from)) / MILLISECONDS_PER_DAY;
+}
+
+function utcMillisecondsOf(isoDate: string): number {
+  const [year, month, day] = isoDate.split("-").map(Number);
+  return Date.UTC(year, month - 1, day);
+}
+
+/**
+ * Le nombre de MOIS calendaires couverts, bornes comprises : `2026-05` →
+ * `2026-07` fait 3. Arithmétique de chaînes, comme `addMonths`. Rend 0 ou un
+ * négatif si `to` précède `from` — au consommateur de décider ce que ça veut
+ * dire (le moteur de stats plancher à 1).
+ */
+export function monthsBetween(from: string, to: string): number {
+  const monthIndexOf = (month: string): number => {
+    const [year, monthNumber] = month.split("-").map(Number);
+    return year * 12 + (monthNumber - 1);
+  };
+  return monthIndexOf(to) - monthIndexOf(from) + 1;
+}
+
 /** `2026-07` ± n mois, en pure arithmétique de chaînes. */
 export function addMonths(month: string, offset: number): string {
   const [year, monthNumber] = month.split("-").map(Number);

@@ -1,8 +1,15 @@
-import { activePurchasesOf, bookToMovement, finishedReadingsOf } from "@/lib/pal/derive-pal";
+import { daysBetween, monthsBetween } from "@/lib/dates";
+import {
+  activePurchasesOf,
+  bookToMovement,
+  finishedReadingsOf,
+  inProgressReadingsOf,
+} from "@/lib/pal/derive-pal";
 import { computePalHealth } from "@/lib/pal/health";
 import { ALL_CATEGORIES } from "@/lib/scoring/types";
 import type { BookCategory, IsoDate, Month } from "@/lib/scoring/types";
 import type { Database } from "@/lib/supabase/database.types";
+import { summarizeReadingEvents, type ReadingEventFact } from "@/lib/stats/reading-events";
 
 /**
  * Le moteur des stats essentielles — specs §4.5, découpage P0 du 17/07/2026.
@@ -29,6 +36,8 @@ type ReadingRow = Tables["readings"]["Row"];
  */
 export type StatBookRecord = {
   id: BookRow["id"];
+  /** Le titre — affiché par les analyses avancées (lectures qui traînent, classement). */
+  title: BookRow["title"];
   category: BookRow["category"];
   publisher: BookRow["publisher"];
   seriesName: BookRow["series_name"];
@@ -86,6 +95,120 @@ export type StatsReport = {
     averageThisYear: number | null;
     averageByCategory: Record<BookCategory, number | null>;
   };
+  /** Lot A du #30 — rythme : durées, lectures qui traînent, abandons & reprises. */
+  rythme: RythmeReport;
+  /** Lot B du #30 — répartition par série. */
+  series: SeriesReport;
+  /** Lot C du #30 — goûts avancés : séries et éditeurs classés, classement des lectures. */
+  tastes: TastesReport;
+  /** Lot D du #30 — volume temporel : moyenne par mois, meilleur mois. */
+  monthly: MonthlyReport;
+};
+
+/**
+ * Le SEUIL des « lectures qui traînent » : une lecture encore `reading` dont le
+ * début remonte à plus de 60 jours (décision produit de Prem, 19/07/2026,
+ * reportée dans les specs §4.5). Affichée en LISTE CALME, jamais en alerte :
+ * l'app raconte une pile, elle ne fait pas la morale.
+ */
+export const STALLED_READING_DAYS = 60;
+
+/**
+ * Le volume MINIMAL pour qu'une série ou un éditeur entre au classement des
+ * goûts : 3 lectures NOTÉES (décision produit de Prem, 19/07/2026, specs §4.5).
+ * En dessous, une seule note 5 ferait une « meilleure série » mensongère.
+ */
+export const MIN_RATED_READINGS_TO_RANK = 3;
+
+/** Une lecture en cours depuis trop longtemps — le lot A, en liste calme. */
+export type StalledReading = {
+  bookId: string;
+  title: string;
+  category: BookCategory;
+  startedAt: IsoDate;
+  /** Jours écoulés depuis le début, à la date `today` fournie en argument. */
+  daysSinceStart: number;
+};
+
+/** Abandons et reprises d'un mois — issus du journal `reading_events`. */
+export type MonthlyEventCounts = { month: Month; abandons: number; resumptions: number };
+
+export type RythmeReport = {
+  /**
+   * Durée moyenne d'une lecture terminée, en jours (`finished_at − started_at`).
+   * `null` si aucune lecture n'a de durée mesurable — jamais NaN, jamais 0.
+   */
+  averageDurationDays: number | null;
+  averageDurationByCategory: Record<BookCategory, number | null>;
+  /**
+   * Lectures terminées dont la durée n'est pas mesurable (pas de `started_at`,
+   * ou une fin antérieure au début) — pour afficher « sur N lectures datées ».
+   */
+  readingsWithoutDuration: number;
+  /** Lectures encore en cours depuis plus de `STALLED_READING_DAYS` jours, la plus ancienne d'abord. */
+  stalledReadings: StalledReading[];
+  /** Abandons & reprises par mois, mois triés croissant — seuls les mois avec un événement. */
+  eventsByMonth: MonthlyEventCounts[];
+};
+
+export type SeriesReport = {
+  /**
+   * Tomes lus par série : on compte les LIVRES distincts ayant au moins une
+   * lecture terminée (une relecture ne fait pas un tome de plus). Trié count
+   * desc puis nom asc. Les livres hors série (`series_name` nul) sont exclus.
+   */
+  volumesRead: { seriesName: string; count: number }[];
+};
+
+/** Une série ou un éditeur classé par la moyenne de ses lectures notées. */
+export type RatedGroup = { name: string; average: number; ratedCount: number };
+
+/** Une lecture notée, pour le classement. */
+export type RankedReading = {
+  bookId: string;
+  title: string;
+  category: BookCategory;
+  rating: number;
+  finishedAt: IsoDate;
+};
+
+export type TastesReport = {
+  /**
+   * Séries classées par moyenne DESC (puis nom asc) — seules celles qui
+   * atteignent `MIN_RATED_READINGS_TO_RANK` lectures notées. La vue lit les
+   * meilleures en tête et les décevantes en queue : une seule liste, deux bouts.
+   */
+  series: RatedGroup[];
+  /** Idem pour les éditeurs — même seuil, même tri. */
+  publishers: RatedGroup[];
+  /** Toutes les lectures notées, note DESC puis fin la plus récente. */
+  ranking: RankedReading[];
+};
+
+export type MonthlyReport = {
+  /** Lectures terminées par mois, mois triés croissant — seuls les mois avec une fin. */
+  finishedByMonth: { month: Month; count: number }[];
+  /**
+   * Moyenne de lectures par mois, sur TOUS les mois écoulés depuis la première
+   * fin jusqu'au mois de référence — mois vides compris (les ignorer gonflerait
+   * la moyenne). `null` si aucune lecture terminée.
+   */
+  averagePerMonth: number | null;
+  /** Le mois le plus prolifique — en cas d'égalité, le plus ANCIEN. `null` si aucune fin. */
+  bestMonth: { month: Month; count: number } | null;
+};
+
+/**
+ * Le contexte des analyses avancées — tout ce que le moteur ne peut pas dériver
+ * des livres seuls, fourni par l'appelant (jamais lu d'une horloge ici) :
+ *  - `today` : la date locale de l'APPAREIL, qui date les lectures qui traînent.
+ *    Absente, `rythme.stalledReadings` reste vide (rien à mesurer contre) ;
+ *  - `readingEvents` : le journal d'états (`lib/stats/reading-events`), qui
+ *    porte abandons et reprises. Absent, `rythme.eventsByMonth` reste vide.
+ */
+export type StatsContext = {
+  today?: IsoDate;
+  readingEvents?: ReadingEventFact[];
 };
 
 /** `2026-07-13` → `2026-07`. */
@@ -101,8 +224,33 @@ const averageOf = ({ sum, count }: RatingSum): number | null => (count === 0 ? n
 const zeroByCategory = (): Record<BookCategory, number> =>
   Object.fromEntries(ALL_CATEGORIES.map((category) => [category, 0])) as Record<BookCategory, number>;
 
-export function computeStats(books: StatBookRecord[], currentMonth: Month): StatsReport {
+/** Accumulateur de moyenne nommé — séries et éditeurs des goûts (lot C). */
+type NamedRatingSums = Map<string, RatingSum>;
+
+const addRating = (sums: NamedRatingSums, name: string, rating: number): void => {
+  const current = sums.get(name) ?? emptyRatingSum();
+  current.sum += rating;
+  current.count += 1;
+  sums.set(name, current);
+};
+
+/**
+ * Les groupes qui atteignent le seuil de volume, moyenne DESC puis nom ASC —
+ * la liste dont la vue lit les deux bouts (meilleurs / décevants).
+ */
+const rankGroups = (sums: NamedRatingSums): RatedGroup[] =>
+  [...sums.entries()]
+    .filter(([, sum]) => sum.count >= MIN_RATED_READINGS_TO_RANK)
+    .map(([name, sum]) => ({ name, average: sum.sum / sum.count, ratedCount: sum.count }))
+    .sort((left, right) => right.average - left.average || left.name.localeCompare(right.name));
+
+export function computeStats(
+  books: StatBookRecord[],
+  currentMonth: Month,
+  context: StatsContext = {},
+): StatsReport {
   const currentYear = yearOf(currentMonth);
+  const { today, readingEvents } = context;
 
   // Volume & répartitions.
   let finishedThisMonth = 0;
@@ -128,6 +276,20 @@ export function computeStats(books: StatBookRecord[], currentMonth: Month): Stat
   const palExitDates: IsoDate[] = [];
   let readOutsidePalCount = 0;
 
+  // Analyses avancées (#30) — mêmes accumulateurs, MÊME passe : rien ne se
+  // re-boucle sur les livres, chaque lecture n'est visitée qu'une fois.
+  const durationOverall = emptyRatingSum(); // « sum » = jours cumulés, « count » = lectures datées
+  const durationByCategory = Object.fromEntries(
+    ALL_CATEGORIES.map((category) => [category, emptyRatingSum()]),
+  ) as Record<BookCategory, RatingSum>;
+  let readingsWithoutDuration = 0;
+  const stalledReadings: StalledReading[] = [];
+  const volumesReadBySeries = new Map<string, number>();
+  const ratingsBySeries: NamedRatingSums = new Map();
+  const ratingsByPublisher: NamedRatingSums = new Map();
+  const ranking: RankedReading[] = [];
+  const finishedCountByMonth = new Map<Month, number>();
+
   // Une seule passe sur les livres — chaque lecture terminée n'est visitée
   // qu'une fois, tous les compteurs s'alimentent au passage.
   for (const book of books) {
@@ -138,7 +300,9 @@ export function computeStats(books: StatBookRecord[], currentMonth: Month): Stat
     // jamais réécrit ici.
     const isOwned = activePurchasesOf(book.purchases).length > 0;
 
-    for (const reading of finishedReadingsOf(book.readings)) {
+    const finishedReadings = finishedReadingsOf(book.readings);
+
+    for (const reading of finishedReadings) {
       const finishedAt = reading.finishedAt;
 
       // Chaque lecture est un fait : une relecture compte deux fois ici
@@ -176,8 +340,62 @@ export function computeStats(books: StatBookRecord[], currentMonth: Month): Stat
         }
       }
 
+      // — Lot A, le rythme : une durée n'est mesurable que si le début est
+      // connu ET antérieur ou égal à la fin (une saisie incohérente ne compte
+      // pas comme « 0 jour », elle rejoint le dénominateur des non datées).
+      if (reading.startedAt !== null && reading.startedAt <= finishedAt) {
+        const duration = daysBetween(reading.startedAt, finishedAt);
+        durationOverall.sum += duration;
+        durationOverall.count += 1;
+        durationByCategory[book.category].sum += duration;
+        durationByCategory[book.category].count += 1;
+      } else {
+        readingsWithoutDuration += 1;
+      }
+
+      // — Lot D, le volume temporel : une fin, un mois.
+      const finishedMonth = monthOf(finishedAt);
+      finishedCountByMonth.set(finishedMonth, (finishedCountByMonth.get(finishedMonth) ?? 0) + 1);
+
+      // — Lot C, les goûts avancés : seules les lectures NOTÉES pèsent.
+      if (reading.rating !== null) {
+        ranking.push({
+          bookId: book.id,
+          title: book.title,
+          category: book.category,
+          rating: reading.rating,
+          finishedAt,
+        });
+        if (book.seriesName !== null) addRating(ratingsBySeries, book.seriesName, reading.rating);
+        if (book.publisher !== null) addRating(ratingsByPublisher, book.publisher, reading.rating);
+      }
+
       // Jamais possédé = jamais dans la pile (§4.5) : cette lecture est un emprunt.
       if (!isOwned) readOutsidePalCount += 1;
+    }
+
+    // — Lot B, les tomes lus par série : on compte des LIVRES, pas des lectures
+    // (une relecture ne fait pas apparaître un tome de plus dans la série).
+    if (book.seriesName !== null && finishedReadings.length > 0) {
+      volumesReadBySeries.set(book.seriesName, (volumesReadBySeries.get(book.seriesName) ?? 0) + 1);
+    }
+
+    // — Lot A, les lectures qui traînent : en cours depuis plus de N jours, à la
+    // date du jour FOURNIE (jamais lue d'une horloge ici). Sans `today`, on ne
+    // sait rien dater : la liste reste vide plutôt que de mentir.
+    if (today !== undefined) {
+      for (const reading of inProgressReadingsOf(book.readings)) {
+        if (reading.startedAt === null) continue;
+        const daysSinceStart = daysBetween(reading.startedAt, today);
+        if (daysSinceStart <= STALLED_READING_DAYS) continue;
+        stalledReadings.push({
+          bookId: book.id,
+          title: book.title,
+          category: book.category,
+          startedAt: reading.startedAt,
+          daysSinceStart,
+        });
+      }
     }
 
     // La règle de pile — importée, jamais ré-implémentée : le réducteur
@@ -210,6 +428,52 @@ export function computeStats(books: StatBookRecord[], currentMonth: Month): Stat
     runningSize += pileDeltaByMonth.get(month)!;
     return { month, size: runningSize };
   });
+
+  // — Lot A, la liste calme : la lecture la plus ancienne en tête (celle qui
+  // traîne le plus), le titre départage pour un rendu stable.
+  stalledReadings.sort(
+    (left, right) => right.daysSinceStart - left.daysSinceStart || left.title.localeCompare(right.title),
+  );
+
+  // — Lot A, abandons & reprises : l'agrégation PARTAGÉE de l'étape 1, jamais
+  // ré-implémentée ici. On la remet à plat en une liste triée par mois, la
+  // forme que les vues savent afficher (comme la courbe de PAL).
+  const eventSummary = summarizeReadingEvents(readingEvents ?? []);
+  const eventMonths = [
+    ...new Set([...Object.keys(eventSummary.abandonsByMonth), ...Object.keys(eventSummary.resumptionsByMonth)]),
+  ].sort();
+  const eventsByMonth: MonthlyEventCounts[] = eventMonths.map((month) => ({
+    month,
+    abandons: eventSummary.abandonsByMonth[month] ?? 0,
+    resumptions: eventSummary.resumptionsByMonth[month] ?? 0,
+  }));
+
+  // — Lot D : la série mensuelle, sa moyenne sur les mois ÉCOULÉS (vides
+  // compris) et le meilleur mois (égalité → le plus ancien, l'ordre croissant
+  // suffit à le garantir).
+  const finishedByMonth = [...finishedCountByMonth.keys()]
+    .sort()
+    .map((month) => ({ month, count: finishedCountByMonth.get(month)! }));
+  let bestMonth: MonthlyReport["bestMonth"] = null;
+  for (const point of finishedByMonth) {
+    if (bestMonth === null || point.count > bestMonth.count) bestMonth = point;
+  }
+  const elapsedMonths =
+    finishedByMonth.length === 0 ? 0 : Math.max(1, monthsBetween(finishedByMonth[0].month, currentMonth));
+  const averagePerMonth = elapsedMonths === 0 ? null : finishedTotal / elapsedMonths;
+
+  const volumesRead = [...volumesReadBySeries.entries()]
+    .map(([seriesName, count]) => ({ seriesName, count }))
+    .sort((left, right) => right.count - left.count || left.seriesName.localeCompare(right.seriesName));
+
+  // — Lot C : note DESC, puis la fin la plus RÉCENTE, puis le titre (tri total,
+  // donc rendu stable d'un calcul à l'autre).
+  ranking.sort(
+    (left, right) =>
+      right.rating - left.rating ||
+      right.finishedAt.localeCompare(left.finishedAt) ||
+      left.title.localeCompare(right.title),
+  );
 
   const byPublisher = [...countByPublisher.entries()]
     .map(([publisher, count]) => ({ publisher, count }))
@@ -245,5 +509,21 @@ export function computeStats(books: StatBookRecord[], currentMonth: Month): Stat
         ALL_CATEGORIES.map((category) => [category, averageOf(byCategory[category])]),
       ) as Record<BookCategory, number | null>,
     },
+    rythme: {
+      averageDurationDays: averageOf(durationOverall),
+      averageDurationByCategory: Object.fromEntries(
+        ALL_CATEGORIES.map((category) => [category, averageOf(durationByCategory[category])]),
+      ) as Record<BookCategory, number | null>,
+      readingsWithoutDuration,
+      stalledReadings,
+      eventsByMonth,
+    },
+    series: { volumesRead },
+    tastes: {
+      series: rankGroups(ratingsBySeries),
+      publishers: rankGroups(ratingsByPublisher),
+      ranking,
+    },
+    monthly: { finishedByMonth, averagePerMonth, bestMonth },
   };
 }

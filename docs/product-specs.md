@@ -364,8 +364,25 @@ même patron que le moteur de score) :
 
   L'ordre **chronologique** des transitions reste porté par la clé `id` (monotone), `occurred_at` ne servant qu'à
   ranger un événement dans son mois. La forme de `reading_events` ne change pas. Accès en lecture :
-  `lib/stats/reading-events.ts` (requête filtrée `user_id` + agrégation pure abandons/reprises par mois), pas
-  encore consommé — l'extension du moteur (étape 2) le branchera.
+  `lib/stats/reading-events.ts` (requête filtrée `user_id` + agrégation pure abandons/reprises par mois),
+  consommé depuis l'étape 2/3 par `computeStats` (`rythme.eventsByMonth`).
+
+  **Décisions produit du 19/07/2026 (étape 2/3 de #30), livrées avec le lot A et le lot C :**
+  - **« Lectures qui traînent » : seuil de 60 jours** sans être terminées (une lecture encore `reading` dont le
+    début remonte à plus de 60 jours ; le seuil est strict — pile 60 jours ne traîne pas encore). Affichage en
+    **liste calme** (« Commencées il y a un moment »), jamais en alerte : l'app constate, elle ne culpabilise pas.
+    Constante `STALLED_READING_DAYS` (`lib/stats/compute-stats.ts`), jamais recopiée dans la vue.
+  - **Classement des séries et éditeurs (goûts avancés) : minimum 3 lectures NOTÉES** pour qu'une série ou un
+    éditeur soit classé — sous ce seuil, une note isolée fabriquerait une « meilleure série » mensongère. Les
+    lectures non notées ne comptent pas dans le seuil. Constante `MIN_RATED_READINGS_TO_RANK`.
+  - **Durée d'une lecture** : mesurable seulement si `started_at` est connu ET antérieur ou égal à `finished_at` ;
+    une saisie incohérente rejoint le dénominateur « lectures non datées » plutôt que de fabriquer une durée
+    négative. Une lecture commencée et finie le même jour vaut 0 jour et compte.
+  - **Tomes lus par série** : on compte les **livres** distincts ayant au moins une lecture terminée — une
+    relecture ne fait pas apparaître un tome de plus.
+  - **Moyenne de lectures par mois** : rapportée à **tous** les mois écoulés depuis la première lecture jusqu'au
+    mois de référence, **mois vides compris** (les ignorer gonflerait la moyenne). Meilleur mois : à égalité, le
+    plus **ancien**.
 - **Répartition par série** + séries en cours (tomes lus, tome suivant).
 - **Goûts avancés** : meilleures / pires séries et éditeurs, classement des lectures. (Bruités tant qu'il n'y a
   pas de volume.)
