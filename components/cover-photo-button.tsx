@@ -8,12 +8,12 @@ import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 /**
- * « Photographier la couverture » — le filet ultime (specs §5.4, issues #33
- * et #47). Affiché pour un livre sans couverture (mode `add`) ou dont la
- * couverture est une photo maison à reprendre (mode `retake`) — le serveur
- * re-vérifie. Photo OU import galerie (choix natif du navigateur) → WebP
- * compressé → upload Storage (client session, RLS par dossier) →
- * books.cover_url.
+ * « Prendre une photo / Importer une image » — le filet ultime (specs §5.4,
+ * issues #33, #47, #50). Affiché pour un livre sans couverture (mode `add`)
+ * ou dont la couverture est une photo maison à reprendre (mode `retake`) —
+ * le serveur re-vérifie. Deux boutons explicites (les navigateurs sont
+ * incohérents sur le choix caméra/galerie, #50) → WebP compressé → upload
+ * Storage (client session, RLS par dossier) → books.cover_url.
  */
 
 type CoverPhotoButtonProps = {
@@ -23,7 +23,8 @@ type CoverPhotoButtonProps = {
 };
 
 export function CoverPhotoButton({ bookId, mode = "add" }: CoverPhotoButtonProps) {
-  const inputRef = useRef<HTMLInputElement>(null);
+  const cameraInputRef = useRef<HTMLInputElement>(null);
+  const galleryInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [isDone, setIsDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -71,30 +72,34 @@ export function CoverPhotoButton({ bookId, mode = "add" }: CoverPhotoButtonProps
     );
   }
 
+  const onFileChosen = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    // La même photo doit pouvoir être re-choisie après une erreur.
+    event.target.value = "";
+    if (file) handleFile(file);
+  };
+  const buttonClass = "flex-1 rounded-full border border-foreground/20 px-3 py-2 text-sm font-medium disabled:opacity-50";
+
   return (
     <div className="flex flex-col gap-2">
-      {/* Pas d'attribut `capture` : le navigateur propose nativement
-          « Prendre une photo / Photothèque » — l'import galerie gratuit (#47). */}
-      <input
-        ref={inputRef}
-        type="file"
-        accept="image/*"
-        className="hidden"
-        onChange={(event) => {
-          const file = event.target.files?.[0];
-          // La même photo doit pouvoir être re-choisie après une erreur.
-          event.target.value = "";
-          if (file) handleFile(file);
-        }}
-      />
-      <button
-        type="button"
-        disabled={isUploading}
-        onClick={() => inputRef.current?.click()}
-        className="rounded-full border border-foreground/20 px-4 py-2 text-sm font-medium disabled:opacity-50"
-      >
-        {isUploading ? "Envoi de la photo…" : mode === "retake" ? "📷 Reprendre la photo" : "📷 Photographier la couverture"}
-      </button>
+      {/* Deux inputs, deux gestes DÉTERMINISTES sur tous les OS (#50) : les
+          navigateurs sont incohérents sans `capture` (Chrome Android ouvre les
+          fichiers SANS option caméra, vécu) — un input `capture` pour la
+          caméra, un input nu pour la galerie/les fichiers. */}
+      <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFileChosen} />
+      <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={onFileChosen} />
+      {isUploading ? (
+        <p className="py-2 text-center text-sm opacity-70">Envoi de la photo…</p>
+      ) : (
+        <div className="flex gap-2">
+          <button type="button" onClick={() => cameraInputRef.current?.click()} className={buttonClass}>
+            📷 {mode === "retake" ? "Reprendre une photo" : "Prendre une photo"}
+          </button>
+          <button type="button" onClick={() => galleryInputRef.current?.click()} className={buttonClass}>
+            🖼️ Importer une image
+          </button>
+        </div>
+      )}
       {error && <ErrorAlert message={error} />}
     </div>
   );
