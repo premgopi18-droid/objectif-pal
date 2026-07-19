@@ -19,6 +19,19 @@ export const COVERS_BUCKET = "covers";
 export const coverPhotoPath = (userId: string, bookId: string) => `${userId}/${bookId}.webp`;
 
 /**
+ * Vrai si la couverture est une PHOTO MAISON (elle vit dans notre bucket) —
+ * la seule qu'on a le droit de reprendre (#47) : une couverture de source
+ * (Metron, Google, OpenLibrary, Inventaire) reste intouchable.
+ */
+export function isHouseCoverPhotoUrl(
+  coverUrl: string | null,
+  supabaseUrl: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL,
+): boolean {
+  if (coverUrl === null || !supabaseUrl) return false;
+  return coverUrl.startsWith(`${supabaseUrl}/storage/v1/object/public/${COVERS_BUCKET}/`);
+}
+
+/**
  * Redimensionne et convertit la photo en WebP via canvas — jamais l'image
  * brute du capteur (souvent plusieurs Mo) sur le réseau.
  */
