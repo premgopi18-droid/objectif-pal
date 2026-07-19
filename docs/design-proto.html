@@ -9,7 +9,7 @@
     --bg0:#120826; --bg1:#1B0F38;
     --card:#221345; --card2:#2B1A55;
     --line:rgba(255,255,255,.08);
-    --ink:#F4EFFC; --ink2:#B3A5D6; --ink3:#8474AC;
+    --ink:#F4EFFC; --ink2:#B3A5D6; --ink3:#9083BC;
     --magenta:#F32FB6; --violet:#8C5CF6; --cyan:#2BD7F0; --green:#3BE596;
     --amber:#FFB63B; --red:#FF5470;
     --grad:linear-gradient(100deg,#F32FB6,#8C5CF6 45%,#2BD7F0 75%,#3BE596);
@@ -71,12 +71,12 @@
     transition:transform .15s;
   }
   .scan-fab:active .bubble{transform:scale(.93)}
-  .scan-fab svg{width:26px; height:26px; color:#fff}
+  .scan-fab svg{width:26px; height:26px; color:var(--bg0)}
 
   /* ── Composants ───────────────────────────── */
   .segments{display:flex; gap:4px; background:var(--card); border:1px solid var(--line); border-radius:999px; padding:4px; margin-bottom:18px}
   .segments button{flex:1; padding:8px 0; border-radius:999px; font-size:14px; font-weight:700; color:var(--ink2)}
-  .segments button[aria-pressed="true"]{background:var(--grad); color:#fff; box-shadow:0 2px 10px rgba(140,92,246,.4)}
+  .segments button[aria-pressed="true"]{background:var(--grad); color:var(--bg0); box-shadow:0 2px 10px rgba(140,92,246,.4)}
 
   .card{background:var(--card); border:1px solid var(--line); border-radius:var(--radius); padding:16px}
   .stack{display:flex; flex-direction:column; gap:12px}
@@ -108,14 +108,14 @@
 
   .btn{display:inline-flex; align-items:center; justify-content:center; gap:8px; font-size:13.5px; font-weight:700; padding:9px 14px; border-radius:12px; transition:transform .12s}
   .btn:active{transform:scale(.96)}
-  .btn-grad{background:var(--grad); color:#fff; box-shadow:0 4px 16px rgba(140,92,246,.4)}
+  .btn-grad{background:var(--grad); color:var(--bg0); box-shadow:0 4px 16px rgba(140,92,246,.4)}
   .btn-ghost{background:var(--card2); color:var(--ink); border:1px solid var(--line)}
   .btn-done{background:rgba(59,229,150,.16); color:var(--green); border:1px solid rgba(59,229,150,.3)}
   .btn-block{display:flex; width:100%; padding:13px; font-size:15px}
 
   .chips{display:flex; gap:8px; overflow-x:auto; padding-bottom:4px; margin-bottom:14px}
   .chip{flex:none; font-size:12.5px; font-weight:600; color:var(--ink2); background:var(--card); border:1px solid var(--line); border-radius:999px; padding:6px 12px}
-  .chip[aria-pressed="true"]{background:var(--grad); color:#fff; border-color:transparent}
+  .chip[aria-pressed="true"]{background:var(--grad); color:var(--bg0); border-color:transparent}
 
   .search{display:flex; align-items:center; gap:10px; background:var(--card); border:1px solid var(--line); border-radius:14px; padding:11px 14px; margin-bottom:14px}
   .search input{flex:1; background:none; border:none; color:var(--ink); font-size:14px}
@@ -436,7 +436,7 @@
               <path d="M10 34 L62 42 L114 38 L166 56 L218 64 L270 60 L310 74 V120 H10 Z" fill="url(#fill)"/>
               <path d="M10 34 L62 42 L114 38 L166 56 L218 64 L270 60 L310 74" fill="none" stroke="url(#lg)" stroke-width="3" stroke-linejoin="round" stroke-linecap="round"/>
               <circle cx="310" cy="74" r="5" fill="#2BD7F0"/>
-              <g fill="#8474AC" font-size="10" font-family="system-ui">
+              <g fill="#9083BC" font-size="10" font-family="system-ui">
                 <text x="10" y="114">fév.</text><text x="114" y="114">avr.</text><text x="218" y="114">juin</text><text x="292" y="114">juil.</text>
               </g>
             </svg>
