@@ -306,7 +306,19 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
   });
 
   it("toutes les sources muettes → not-found (l'UI enchaîne sur la saisie manuelle)", async () => {
-    expect(await resolveScannedCode("9799999999990", fakeDeps())).toEqual({ kind: "not-found" });
+    expect(await resolveScannedCode("9799999999990", fakeDeps())).toEqual({ kind: "not-found", coverUrl: null });
+  });
+
+  it("identification ratée partout mais couverture chez les libraires : not-found AVEC l'image (#55)", async () => {
+    // Le cas mesuré du 19/07/2026 : HEROICS (Northstar Comics, auto-édité,
+    // 9782955689851) — inconnu de GCD, de la BnF et de Google Books, mais
+    // epagine a la couverture. Elle pré-remplit la saisie manuelle.
+    const deps = fakeDeps({
+      epagine: { findCoverByIsbn: vi.fn(async () => "https://images.epagine.fr/851/9782955689851_1_75.jpg") },
+    });
+    const result = await resolveScannedCode("9782955689851", deps);
+
+    expect(result).toEqual({ kind: "not-found", coverUrl: "https://images.epagine.fr/851/9782955689851_1_75.jpg" });
   });
 
   it("budget global épuisé : on n'essaie plus les providers restants, on rend not-found", async () => {
@@ -325,9 +337,12 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
       });
       const result = await resolveScannedCode("9780804139021", deps);
 
-      expect(result).toEqual({ kind: "not-found" });
+      // Budget dépassé : la chaîne couverture du not-found (#55) rend null
+      // immédiatement, elle aussi — aucun provider couverture n'est tenté.
+      expect(result).toEqual({ kind: "not-found", coverUrl: null });
       expect(deps.bnf.resolveIsbn).toHaveBeenCalled();
       expect(deps.googleBooks.resolveIsbn).not.toHaveBeenCalled();
+      expect(deps.openLibrary.findCoverByIsbn).not.toHaveBeenCalled();
     } finally {
       vi.useRealTimers();
     }
@@ -590,6 +605,34 @@ describe("la cascade UPC (GCD exact → préfixe → Metron)", () => {
     expect(deps.googleBooks.resolveIsbn).not.toHaveBeenCalled();
     expect(deps.epagine.findCoverByIsbn).not.toHaveBeenCalled();
     expect(deps.cache.set).not.toHaveBeenCalled();
+  });
+
+  it("une saisie manuelle cachée (#55) se résout comme n'importe quelle entrée : zéro question au rescan", async () => {
+    const deps = fakeDeps({
+      cache: {
+        get: vi.fn(async () => ({
+          barcode: "9782955689851",
+          title: "HEROICS – Season 1: Fathers",
+          seriesName: "HEROICS",
+          issueNumber: "1",
+          authors: "Maxime Garbarini",
+          publisher: "Northstar Comics",
+          pageCount: null,
+          coverUrl: "https://images.epagine.fr/851/9782955689851_1_75.jpg",
+          source: "manual" as const,
+          sourceId: null,
+        })),
+      },
+    });
+    const result = await resolveScannedCode("9782955689851", deps);
+
+    expect(result).toMatchObject({
+      kind: "resolved",
+      book: { source: "manual", title: "HEROICS – Season 1: Fathers", coverUrl: "https://images.epagine.fr/851/9782955689851_1_75.jpg" },
+    });
+    // Entrée complète (couverture incluse) : aucune source n'est re-payée.
+    expect(deps.gcd.findIssuesByIsbn).not.toHaveBeenCalled();
+    expect(deps.bnf.resolveIsbn).not.toHaveBeenCalled();
   });
 
   it("le cache court-circuite tout : aucun provider appelé au deuxième scan", async () => {

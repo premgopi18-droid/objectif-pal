@@ -225,6 +225,17 @@ async function cacheEnrichedGcdBook(
   await attempt(() => deps.cache.set(toCacheEntry(cacheKey, enriched, "gcd")));
 }
 
+/**
+ * L'échec d'identification d'un ISBN tente quand même la couverture (issue
+ * #55) : les libraires distribuent des livres qu'aucune base bibliographique
+ * ne connaît (mesuré : l'auto-édition française). L'image pré-remplit la
+ * saisie manuelle — l'utilisateur fournit le reste. Le budget global
+ * s'applique : épuisé, la chaîne rend null immédiatement.
+ */
+async function notFoundForIsbn(deps: ResolutionDeps, ean13: string, startedAtMs: number): Promise<ScanLookupResult> {
+  return { kind: "not-found", coverUrl: await findFallbackCoverByIsbn(deps, ean13, startedAtMs) };
+}
+
 /** La résolution d'un ISBN : GCD → BnF → Google Books (specs §5.2). */
 async function resolveIsbn(
   raw: string,
@@ -266,7 +277,7 @@ async function resolveIsbn(
   }
 
   // 3. BnF : le dépôt légal identifie la VF (manga, roman, BD absente de GCD).
-  if (isBudgetExhausted(startedAtMs)) return { kind: "not-found" };
+  if (isBudgetExhausted(startedAtMs)) return notFoundForIsbn(deps, ean13, startedAtMs);
   const bnfRecord = await attempt(() => deps.bnf.resolveIsbn(ean13));
   if (bnfRecord) {
     let book: ResolvedBook = {
@@ -290,7 +301,7 @@ async function resolveIsbn(
   }
 
   // 4. Google Books : les romans étrangers, dernier identifiant.
-  if (isBudgetExhausted(startedAtMs)) return { kind: "not-found" };
+  if (isBudgetExhausted(startedAtMs)) return notFoundForIsbn(deps, ean13, startedAtMs);
   const googleRecord = await attempt(() => deps.googleBooks.resolveIsbn(ean13));
   if (googleRecord) {
     // La fiche sans image est le cas VF courant (mesuré §5.4) : les replis
@@ -318,7 +329,7 @@ async function resolveIsbn(
     return { kind: "resolved", book };
   }
 
-  return { kind: "not-found" };
+  return notFoundForIsbn(deps, ean13, startedAtMs);
 }
 
 /** La résolution d'un UPC : GCD exact → préfixe → Metron (nouveautés). */
@@ -400,7 +411,8 @@ async function resolveUpc(raw: string, base: string, deps: ResolutionDeps, start
     }
   }
 
-  return { kind: "not-found" };
+  // Un UPC n'a pas de chaîne couverture par ISBN : la saisie partira sur la photo.
+  return { kind: "not-found", coverUrl: null };
 }
 
 /** Construit un livre depuis une issue Metron (identification directe). */
@@ -485,7 +497,7 @@ export async function resolveScannedCode(input: string, deps: ResolutionDeps = c
 export async function resolveGcdIssue(gcdId: number, deps: ResolutionDeps = createDefaultDeps()): Promise<ScanLookupResult> {
   const startedAtMs = Date.now();
   const issue = await attempt(() => deps.gcd.getIssueByGcdId(gcdId));
-  if (!issue) return { kind: "not-found" };
+  if (!issue) return { kind: "not-found", coverUrl: null };
   const seriesById = await attempt(() => deps.gcd.getSeriesByIds([issue.seriesId]));
   const barcodeType = issue.barcode ? "upc" : "isbn";
   const book = fromGcdIssue(issue, seriesById?.get(issue.seriesId), barcodeType);

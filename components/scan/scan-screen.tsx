@@ -29,7 +29,9 @@ type ScanState =
   | { step: "sheet"; book: ResolvedBook; scannedCode: string | null; error?: string; isInLibrary?: boolean; wasFinished?: boolean }
   | { step: "pick-issue"; seriesName: string; issues: IssueCandidate[]; scannedCode: string }
   | { step: "pick-series"; candidates: SeriesCandidate[]; scannedCode: string }
-  | { step: "manual"; scannedCode: string | null }
+  // suggestedCoverUrl : la chaîne couverture a abouti malgré l'identification
+  // ratée (#55) — le formulaire l'affiche et explique le « image oui, infos non ».
+  | { step: "manual"; scannedCode: string | null; suggestedCoverUrl?: string | null }
   // purchaseId n'est porté que par un achat (pas une lecture) : c'est lui qui
   // arme le bouton « Annuler ». error : l'échec d'une annulation, affiché sur
   // place. photoBookId : le livre vient d'être enregistré SANS couverture —
@@ -101,9 +103,12 @@ export function ScanScreen() {
         setState({ step: "pick-issue", seriesName: result.seriesName, issues: result.issues, scannedCode: code });
       } else if (result.kind === "pick-series") {
         setState({ step: "pick-series", candidates: result.candidates, scannedCode: code });
+      } else if (result.kind === "not-found") {
+        // Le filet ultime — avec, parfois, la couverture quand même (#55).
+        setState({ step: "manual", scannedCode: code, suggestedCoverUrl: result.coverUrl });
       } else {
-        // not-found ou invalid : le filet ultime.
-        setState({ step: "manual", scannedCode: result.kind === "not-found" ? code : null });
+        // invalid : un code inexploitable ne mérite pas d'être gardé.
+        setState({ step: "manual", scannedCode: null });
       }
     } catch {
       if (requestId !== lookupIdRef.current) return;
@@ -319,6 +324,7 @@ export function ScanScreen() {
     return (
       <ManualEntryForm
         scannedCode={state.scannedCode}
+        suggestedCoverUrl={state.suggestedCoverUrl}
         onSubmit={(input) => setState({ step: "sheet", book: manualInputToBook(input), scannedCode: input.barcodeRaw })}
         onCancel={() => setState({ step: "scan" })}
       />

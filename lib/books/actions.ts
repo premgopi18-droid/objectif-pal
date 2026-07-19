@@ -6,7 +6,9 @@ import { isValidIsoDate } from "@/lib/dates";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
 import { getReadingInProgressError } from "@/lib/books/reading-guards";
 import { mergeBookFieldsOnRescan } from "@/lib/books/book-merge";
+import { manualEntryToCacheEntry } from "@/lib/books/manual-cache";
 import { isBookInPile } from "@/lib/books/pile-guard";
+import { createCacheProvider } from "@/lib/resolution/providers/cache";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
 import type { BookCategory } from "@/lib/scoring/types";
 
@@ -136,6 +138,27 @@ async function findOrCreateBook(
   return { bookId: created.id, alreadyExisted: false };
 }
 
+/**
+ * Une saisie manuelle rattachée à un code-barres part dans `barcode_cache`
+ * (issue #55) — APRÈS la création du livre, jamais bloquant : le geste de
+ * l'utilisateur ne doit pas échouer parce que le cache partagé a toussé.
+ * Une entrée d'une VRAIE source (BnF, Google Books…) n'est jamais écrasée :
+ * elle peut exister si la cascade a abouti pendant que l'utilisateur sautait
+ * vers la saisie manuelle — la source référencée reste meilleure que la main.
+ */
+async function cacheManualEntry(input: BookInput): Promise<void> {
+  const entry = manualEntryToCacheEntry(input);
+  if (!entry) return;
+  try {
+    const cache = createCacheProvider();
+    const existing = await cache.get(entry.barcode);
+    if (existing && existing.source !== "manual") return;
+    await cache.set(entry);
+  } catch (error) {
+    console.error("[books] cacheManualEntry:", error instanceof Error ? error.message : String(error));
+  }
+}
+
 /** « Je commence » — crée une lecture ; 0 point pour l'instant (specs §4.1). */
 export async function startReading(input: BookInput, startedAt: string): Promise<ScanActionResult> {
   const session = await getSessionOrError();
@@ -149,6 +172,7 @@ export async function startReading(input: BookInput, startedAt: string): Promise
 
   const book = await findOrCreateBook(supabase, user.id, input);
   if ("error" in book) return { ok: false, error: book.error };
+  await cacheManualEntry(input);
 
   // Les deux vérifications sont indépendantes (le garde « déjà en cours » et
   // le décompte « déjà terminé » pour signaler la relecture) : en parallèle,
@@ -199,6 +223,7 @@ export async function recordPurchase(input: BookInput, purchasedAt: string): Pro
 
   const book = await findOrCreateBook(supabase, user.id, input);
   if ("error" in book) return { ok: false, error: book.error };
+  await cacheManualEntry(input);
 
   // Garde du doublon (specs §4.6, §3.3) : un livre DÉJÀ dans la pile ne se
   // rachète pas — ce serait un −2 silencieux. Racheter un déjà-lu reste permis
