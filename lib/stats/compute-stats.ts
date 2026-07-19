@@ -10,6 +10,13 @@ import { ALL_CATEGORIES } from "@/lib/scoring/types";
 import type { BookCategory, IsoDate, Month } from "@/lib/scoring/types";
 import type { Database } from "@/lib/supabase/database.types";
 import { summarizeReadingEvents, type ReadingEventFact } from "@/lib/stats/reading-events";
+import {
+  deriveSeriesProgress,
+  EMPTY_SERIES_CATALOG,
+  type ReadVolumeFact,
+  type SeriesCatalog,
+  type SeriesProgress,
+} from "@/lib/stats/series-catalog";
 
 /**
  * Le moteur des stats essentielles — specs §4.5, découpage P0 du 17/07/2026.
@@ -41,6 +48,13 @@ export type StatBookRecord = {
   category: BookRow["category"];
   publisher: BookRow["publisher"];
   seriesName: BookRow["series_name"];
+  /**
+   * Le `gcd_id` du tome quand le livre a été résolu par GCD — le SEUL lien
+   * fiable vers une série numérotée (#30, lot B). `null` ou absent pour les
+   * livres BnF, Google Books, Metron ou saisis à la main : ils ne portent
+   * qu'un nom de série en texte, et on n'invente pas de rattachement.
+   */
+  gcdIssueId?: number | null;
   pageCount: BookRow["page_count"];
   deletedAt: BookRow["deleted_at"];
   purchases: { purchasedAt: PurchaseRow["purchased_at"]; deletedAt: PurchaseRow["deleted_at"] }[];
@@ -158,6 +172,12 @@ export type SeriesReport = {
    * desc puis nom asc. Les livres hors série (`series_name` nul) sont exclus.
    */
   volumesRead: { seriesName: string; count: number }[];
+  /**
+   * Les séries commencées reliées à GCD : tomes lus et tome suivant quand la
+   * numérotation est exploitable (`lib/stats/series-catalog`). Vide sans
+   * catalogue — on ne devine jamais un tome suivant.
+   */
+  inProgress: SeriesProgress[];
 };
 
 /** Une série ou un éditeur classé par la moyenne de ses lectures notées. */
@@ -209,6 +229,12 @@ export type MonthlyReport = {
 export type StatsContext = {
   today?: IsoDate;
   readingEvents?: ReadingEventFact[];
+  /**
+   * `seriesCatalog` : ce que GCD sait des séries commencées (numérotation),
+   * chargé par la page. Absent, `series.inProgress` reste vide — la
+   * répartition par série, elle, ne dépend de rien d'externe.
+   */
+  seriesCatalog?: SeriesCatalog;
 };
 
 /** `2026-07-13` → `2026-07`. */
@@ -250,7 +276,7 @@ export function computeStats(
   context: StatsContext = {},
 ): StatsReport {
   const currentYear = yearOf(currentMonth);
-  const { today, readingEvents } = context;
+  const { today, readingEvents, seriesCatalog } = context;
 
   // Volume & répartitions.
   let finishedThisMonth = 0;
@@ -285,6 +311,7 @@ export function computeStats(
   let readingsWithoutDuration = 0;
   const stalledReadings: StalledReading[] = [];
   const volumesReadBySeries = new Map<string, number>();
+  const readVolumes: ReadVolumeFact[] = [];
   const ratingsBySeries: NamedRatingSums = new Map();
   const ratingsByPublisher: NamedRatingSums = new Map();
   const ranking: RankedReading[] = [];
@@ -378,6 +405,13 @@ export function computeStats(
     // (une relecture ne fait pas apparaître un tome de plus dans la série).
     if (book.seriesName !== null && finishedReadings.length > 0) {
       volumesReadBySeries.set(book.seriesName, (volumesReadBySeries.get(book.seriesName) ?? 0) + 1);
+    }
+
+    // — Lot B, le tome suivant : on retient le tome LU relié à GCD (même règle
+    // que ci-dessus, un livre = un tome). Le croisement avec la numérotation de
+    // la série se fait après la passe, contre le catalogue fourni.
+    if (book.gcdIssueId != null && finishedReadings.length > 0) {
+      readVolumes.push({ gcdIssueId: book.gcdIssueId, seriesName: book.seriesName });
     }
 
     // — Lot A, les lectures qui traînent : en cours depuis plus de N jours, à la
@@ -518,7 +552,12 @@ export function computeStats(
       stalledReadings,
       eventsByMonth,
     },
-    series: { volumesRead },
+    series: {
+      volumesRead,
+      // Le compte des tomes lus n'est pas recalculé : la dérivation du tome
+      // suivant lit `volumesReadBySeries`, celui de la répartition ci-dessus.
+      inProgress: deriveSeriesProgress(readVolumes, seriesCatalog ?? EMPTY_SERIES_CATALOG, volumesReadBySeries),
+    },
     tastes: {
       series: rankGroups(ratingsBySeries),
       publishers: rankGroups(ratingsByPublisher),

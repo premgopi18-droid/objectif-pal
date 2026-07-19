@@ -3,7 +3,9 @@ import type { BilanReading, MonthlyPickRecord } from "@/components/bilan/monthly
 import { PageLoadError } from "@/components/page-load-error";
 import { StatsView } from "@/components/stats/stats-view";
 import { SegmentNav } from "@/components/ui/segment-nav";
+import { createGcdProvider } from "@/lib/resolution/providers/gcd";
 import { fetchReadingEventFacts } from "@/lib/stats/reading-events";
+import { fetchSeriesCatalog, toGcdIssueId, type SeriesCatalog } from "@/lib/stats/series-catalog";
 import type { StatBookRecord } from "@/lib/stats/compute-stats";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { MonthlyObjective, PurchaseFact } from "@/lib/scoring/types";
@@ -48,6 +50,7 @@ export default async function BilanPage({
         .from("books")
         .select(
           `id, title, category, publisher, series_name, page_count, deleted_at,
+         metadata_source, metadata_source_id,
          purchases (purchased_at, deleted_at),
          readings (status, started_at, finished_at, rating, deleted_at)`,
         )
@@ -73,6 +76,7 @@ export default async function BilanPage({
       category: row.category,
       publisher: row.publisher,
       seriesName: row.series_name,
+      gcdIssueId: toGcdIssueId(row.metadata_source, row.metadata_source_id),
       pageCount: row.page_count,
       deletedAt: row.deleted_at,
       purchases: (row.purchases ?? []).map((purchase) => ({
@@ -88,11 +92,26 @@ export default async function BilanPage({
       })),
     }));
 
+    // Le catalogue GCD des séries commencées (#30, lot B) : la numérotation qui
+    // permet d'annoncer le tome suivant. Requêtes BORNÉES (au plus 5, jamais une
+    // par tome ni par série — cf. `fetchSeriesCatalog`) et lecture d'une table
+    // de référence, donc via le client admin. Son échec n'emporte pas la page :
+    // sans catalogue, la section « Séries en cours » se tait, le reste vit.
+    let seriesCatalog: SeriesCatalog | undefined;
+    try {
+      const gcdIssueIds = records
+        .map((record) => record.gcdIssueId)
+        .filter((gcdIssueId): gcdIssueId is number => gcdIssueId != null);
+      seriesCatalog = await fetchSeriesCatalog(createGcdProvider(), gcdIssueIds);
+    } catch {
+      seriesCatalog = undefined;
+    }
+
     return (
       <section className="py-6">
         <h1 className="text-2xl font-bold">Bilan du mois</h1>
         <div className="mt-4">{segments}</div>
-        <StatsView records={records} readingEvents={readingEvents ?? []} />
+        <StatsView records={records} readingEvents={readingEvents ?? []} seriesCatalog={seriesCatalog} />
       </section>
     );
   }

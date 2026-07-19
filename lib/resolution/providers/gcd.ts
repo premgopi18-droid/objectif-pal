@@ -92,6 +92,34 @@ export function createGcdProvider(client = createAdminClient()) {
       return row ? toIssue(row) : null;
     },
 
+    /**
+     * Un LOT d'issues par leur gcd_id — le point d'entrée des « séries en cours »
+     * (#30, lot B) : les livres de l'utilisateur portent le gcd_id dans
+     * `metadata_source_id`, une seule requête les situe tous. Index `gcd_id`.
+     */
+    async getIssuesByGcdIds(gcdIds: number[]): Promise<GcdIssue[]> {
+      if (gcdIds.length === 0) return [];
+      const { data, error } = await client.from("gcd_issues").select(ISSUE_COLUMNS).in("gcd_id", [...new Set(gcdIds)]);
+      if (error) throw new Error(`GCD getIssuesByGcdIds : ${error.message}`);
+      return data.map(toIssue);
+    },
+
+    /**
+     * La NUMÉROTATION d'un lot de séries — deux colonnes seulement, servies par
+     * l'index couvrant `(series_id, number)`. `rowLimit` borne la réponse :
+     * l'appelant sait qu'un retour plein peut être tronqué.
+     */
+    async listSeriesVolumes(seriesIds: number[], rowLimit: number): Promise<{ seriesId: number; number: string }[]> {
+      if (seriesIds.length === 0) return [];
+      const { data, error } = await client
+        .from("gcd_issues")
+        .select("series_id, number")
+        .in("series_id", [...new Set(seriesIds)])
+        .limit(rowLimit);
+      if (error) throw new Error(`GCD listSeriesVolumes : ${error.message}`);
+      return data.map((row) => ({ seriesId: row.series_id ?? UNKNOWN_SERIES_ID, number: row.number ?? "" }));
+    },
+
     /** Les séries d'un lot d'issues (pas de FK déclarée : jointure manuelle). */
     async getSeriesByIds(seriesIds: number[]): Promise<Map<number, GcdSeries>> {
       if (seriesIds.length === 0) return new Map();
