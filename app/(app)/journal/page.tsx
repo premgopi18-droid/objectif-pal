@@ -14,7 +14,7 @@ export default async function JournalPage() {
     .from("readings")
     .select(
       `id, status, started_at, finished_at, rating, comment,
-       book:books (title, series_name, issue_number, category, cover_url, page_count)`,
+       book:books (id, title, series_name, issue_number, category, cover_url, page_count)`,
     )
     .is("deleted_at", null)
     .order("started_at", { ascending: false })
@@ -34,6 +34,7 @@ export default async function JournalPage() {
     rating: row.rating === null ? null : Number(row.rating),
     comment: row.comment,
     book: {
+      bookId: row.book.id,
       title: row.book.title,
       seriesName: row.book.series_name,
       issueNumber: row.book.issue_number,

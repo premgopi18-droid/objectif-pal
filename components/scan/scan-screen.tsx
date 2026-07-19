@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useRef, useState } from "react";
+import { CoverPhotoButton } from "@/components/cover-photo-button";
 import { ErrorAlert } from "@/components/error-alert";
 import { startReading, recordPurchase, softDeletePurchase, type BookInput, type ScanActionResult } from "@/lib/books/actions";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
@@ -30,8 +31,10 @@ type ScanState =
   | { step: "pick-series"; candidates: SeriesCandidate[]; scannedCode: string }
   | { step: "manual"; scannedCode: string | null }
   // purchaseId n'est porté que par un achat (pas une lecture) : c'est lui qui
-  // arme le bouton « Annuler ». error : l'échec d'une annulation, affiché sur place.
-  | { step: "done"; message: string; detail: string | null; purchaseId?: string; error?: string };
+  // arme le bouton « Annuler ». error : l'échec d'une annulation, affiché sur
+  // place. photoBookId : le livre vient d'être enregistré SANS couverture —
+  // on propose la photo, le filet ultime (specs §5.4, #33).
+  | { step: "done"; message: string; detail: string | null; purchaseId?: string; error?: string; photoBookId?: string };
 
 /** Le malus affiché vient du barème — jamais recopié en dur (CLAUDE.md). */
 const PENALTY_POINTS = Math.abs(SCORING_SCALE.unreadPurchasePenalty);
@@ -183,6 +186,8 @@ export function ScanScreen() {
           : null,
       // Seul un achat remonte un purchaseId : lui seul peut s'annuler ici.
       purchaseId: result.purchaseId,
+      // Toute la cascade n'a rien trouvé : la photo est le filet ultime (#33).
+      photoBookId: input.coverUrl === null ? result.bookId : undefined,
     });
   }
 
@@ -329,6 +334,7 @@ export function ScanScreen() {
         <h2 className="text-xl font-bold">{state.message}</h2>
         {state.detail && <p className="text-sm opacity-70">{state.detail}</p>}
         {state.error && <ErrorAlert message={state.error} />}
+        {state.photoBookId && <CoverPhotoButton bookId={state.photoBookId} />}
         {state.purchaseId && (
           <button
             type="button"

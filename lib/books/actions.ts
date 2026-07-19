@@ -39,7 +39,8 @@ export type BookInput = {
 };
 
 export type ScanActionResult =
-  | { ok: true; bookAlreadyExisted: boolean; isRereading?: boolean; purchaseId?: string }
+  // bookId : permet de proposer la photo de couverture juste après (issue #33).
+  | { ok: true; bookId: string; bookAlreadyExisted: boolean; isRereading?: boolean; purchaseId?: string }
   | { ok: false; error: string };
 
 const BARCODE_PREFIX_LENGTH = 12;
@@ -182,7 +183,7 @@ export async function startReading(input: BookInput, startedAt: string): Promise
   }
 
   revalidatePath("/journal");
-  return { ok: true, bookAlreadyExisted: book.alreadyExisted, isRereading: (finishedCount ?? 0) > 0 };
+  return { ok: true, bookId: book.bookId, bookAlreadyExisted: book.alreadyExisted, isRereading: (finishedCount ?? 0) > 0 };
 }
 
 /** « Je l'achète » — crée un achat : −1 immédiat, effaçable (specs §4.1). */
@@ -237,7 +238,7 @@ export async function recordPurchase(input: BookInput, purchasedAt: string): Pro
   revalidatePath("/bilan");
   revalidatePath("/pal"); // l'achat fait entrer le livre dans la pile
   // L'id remonte pour permettre l'annulation immédiate juste après le scan.
-  return { ok: true, bookAlreadyExisted: book.alreadyExisted, purchaseId: inserted.id };
+  return { ok: true, bookId: book.bookId, bookAlreadyExisted: book.alreadyExisted, purchaseId: inserted.id };
 }
 
 /**

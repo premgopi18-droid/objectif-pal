@@ -544,6 +544,17 @@ redistribution), **zéro quota**, et c'est **l'exemplaire réel** avec sa vraie 
 **Stockage** : Supabase Storage, **1 Go gratuit**. Compression **WebP côté client** (~150 Ko/couverture) →
 **~6 000 bouquins**. Hors d'atteinte.
 
+> **Décisions du 19/07/2026 (implémentées, issue #33)** :
+> - **Bucket `covers` PUBLIC**, chemins `{user_id}/{book_id}.webp` — deux UUID, indevinables, pas de listing.
+>   URL directe dans `books.cover_url`, comme les couvertures externes : zéro plomberie d'URLs signées, cache
+>   `next/image` intact.
+> - **Photos strictement PAR UTILISATEUR** (policies d'écriture par dossier). Le **pool partagé** (« le premier
+>   qui photographie, les autres en profitent ») est une piste multi-user volontairement non ouverte : elle
+>   sacrifierait l'argument « aucune redistribution » ci-dessus — à re-peser à l'ouverture multi-utilisateur.
+> - **La photo est le filet ULTIME, jamais un remplacement** : proposée uniquement quand `cover_url` est vide
+>   (au scan et dans le panneau Modifier du journal), et le serveur refuse d'écraser une couverture existante.
+> - **Compression** : 800 px de grand côté, WebP qualité 0,8 (~60-150 Ko) ; un seul objet par livre, écrasé.
+
 ### 5.5 Deviner la catégorie du barème
 
 La catégorie est **proposée**, jamais imposée. Ordre des signaux, du plus fiable au moins fiable :

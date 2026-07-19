@@ -30,6 +30,7 @@ function entry(overrides: {
     rating: null,
     comment: null,
     book: {
+      bookId: `book-${entryCounter}`,
       title: `Livre ${entryCounter}`,
       seriesName: overrides.seriesName ?? null,
       issueNumber: null,

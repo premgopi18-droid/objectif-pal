@@ -31,8 +31,9 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > Les **stats essentielles** §4.5 sont livrées (moteur `lib/stats/` + vue `/stats` avec courbe de PAL,
 > PRs #37/#38) et le **P1 jeu** aussi : objectifs mensuels §4.11 (cibles, jauges, bonus +3) et distinctions
 > §4.4 (dans le bilan et le texte copiable) — 155 → 198 tests. Le carnet avance : scan-bibliothèque (#10),
-> finitions UX scan (#35), filtres du journal (#34), tech-debt #32 (lots A+B) et replis couvertures
-> OpenLibrary/Inventaire livrés. Prochain : #33 (photo de couverture).**
+> finitions UX scan (#35), filtres du journal (#34), tech-debt #32 (lots A+B), replis couvertures
+> OpenLibrary/Inventaire (#44) et **photo de couverture (#33 — le filet ultime, bucket Storage public)**
+> livrés. Le carnet ne contient plus que du différé volontaire (#32 lot C, #30).**
 
 ## Stack
 
@@ -88,9 +89,8 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 1. En carnet, par ordre de priorité : **#32 — reste le lot C seul** (pagination du journal, volontairement
    différée le 19/07/2026 : à déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ;
-   les filtres #34 migreront alors côté requête — l'index de tri est déjà posé), **#33** (photo de
-   couverture §5.4 — décisions produit à trancher), **#30** (analyses avancées §4.5 — prérequis à lever,
-   dont le trigger `occurred_at`).
+   les filtres #34 migreront alors côté requête — l'index de tri est déjà posé), **#30** (analyses avancées
+   §4.5 — prérequis à lever, dont le trigger `occurred_at`).
 2. Fix cosmétique du `#[nn]` GCD dans les titres (sans ticket).
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs
