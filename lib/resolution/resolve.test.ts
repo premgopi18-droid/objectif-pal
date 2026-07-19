@@ -115,6 +115,20 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
     );
   });
 
+  it("le marqueur GCD « [nn] » (sans numéro, #58) devient une absence à la résolution", async () => {
+    const deps = fakeDeps({
+      gcd: {
+        findIssuesByIsbn: vi.fn(async () => [gcdIssue({ isbn: "9781779527189", barcode: null, number: "[nn]" })]),
+        getSeriesByIds: vi.fn(async () => new Map([[42, gcdSeries({ name: "Supergirl: Woman of Tomorrow" })]])),
+      },
+    });
+    const result = await resolveScannedCode("9781779527189", deps);
+
+    if (result.kind !== "resolved") throw new Error("attendu : resolved");
+    expect(result.book.issueNumber).toBeNull();
+    expect(result.book.seriesName).toBe("Supergirl: Woman of Tomorrow");
+  });
+
   it("la clé de cache d'un ISBN est l'EAN-13 : le supplément prix ne crée pas de seconde entrée", async () => {
     const deps = fakeDeps({
       googleBooks: {

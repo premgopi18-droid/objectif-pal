@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { BookCover } from "@/components/book-cover";
 import { CategoryPicker } from "@/components/category-picker";
-import { formatBookSubtitle } from "@/lib/books/format";
+import { displayableIssueNumber, formatBookSubtitle } from "@/lib/books/format";
 import { localToday } from "@/lib/dates";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
 import type { BookInput } from "@/lib/books/actions";
@@ -45,7 +45,10 @@ export function BookActionSheet({
   onCancel,
   isSubmitting,
 }: BookActionSheetProps) {
-  const defaultTitle = book.title ?? (book.seriesName ? `${book.seriesName} #${book.issueNumber ?? "?"}` : "");
+  // Sans numéro affichable (dont le « [nn] » GCD, issue #58) : la série seule —
+  // plus jamais de « #[nn] » ni de « #? » qui partirait en base dans le titre.
+  const issueNumber = displayableIssueNumber(book.issueNumber);
+  const defaultTitle = book.title ?? (book.seriesName ? (issueNumber ? `${book.seriesName} #${issueNumber}` : book.seriesName) : "");
   const [title, setTitle] = useState(defaultTitle);
   const [category, setCategory] = useState<BookCategory>(book.suggestedCategory);
   const [date, setDate] = useState(localToday());

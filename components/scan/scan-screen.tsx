@@ -9,7 +9,7 @@ import { FUTURE_DATE_MESSAGE, NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { localToday } from "@/lib/dates";
 import { LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
-import type { IssueCandidate, ResolvedBook, ScanLookupResult, SeriesCandidate } from "@/lib/resolution/types";
+import { GCD_UNNUMBERED_ISSUE_NUMBER, type IssueCandidate, type ResolvedBook, type ScanLookupResult, type SeriesCandidate } from "@/lib/resolution/types";
 import { BarcodeScanner } from "./barcode-scanner";
 import { BookActionSheet } from "./book-action-sheet";
 import { ManualEntryForm } from "./manual-entry-form";
@@ -274,7 +274,8 @@ export function ScanScreen() {
                 onClick={() => resolvePickedIssue(issue.gcdId, state.scannedCode)}
                 className="w-full rounded-lg border border-foreground/20 px-4 py-3 text-left"
               >
-                <span className="font-semibold">#{issue.number}</span>
+                {/* « [nn] » GCD = sans numéro (issue #58) : un libellé, pas le marqueur brut. */}
+                <span className="font-semibold">{issue.number === GCD_UNNUMBERED_ISSUE_NUMBER ? "Sans numéro" : `#${issue.number}`}</span>
                 {issue.title && <span className="ml-2 text-sm opacity-70">{issue.title}</span>}
               </button>
             </li>
@@ -306,7 +307,7 @@ export function ScanScreen() {
                     onClick={() => resolvePickedIssue(issue.gcdId, state.scannedCode)}
                     className="rounded-full border border-foreground/20 px-3.5 py-1.5 text-sm"
                   >
-                    #{issue.number}
+                    {issue.number === GCD_UNNUMBERED_ISSUE_NUMBER ? "Sans numéro" : `#${issue.number}`}
                   </button>
                 ))}
               </div>
