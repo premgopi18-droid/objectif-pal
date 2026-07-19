@@ -261,7 +261,7 @@ export async function recordPurchase(input: BookInput, purchasedAt: string): Pro
 
   revalidatePath("/journal");
   revalidatePath("/bilan");
-  revalidatePath("/pal"); // l'achat fait entrer le livre dans la pile
+  revalidatePath("/bibliotheque"); // l'achat fait entrer le livre dans la pile (volet Pile)
   // L'id remonte pour permettre l'annulation immédiate juste après le scan.
   return { ok: true, bookId: book.bookId, bookAlreadyExisted: book.alreadyExisted, purchaseId: inserted.id };
 }
@@ -289,7 +289,7 @@ export async function softDeletePurchase(purchaseId: string): Promise<JournalAct
   }
   if (!count) return { ok: false, error: "Achat introuvable." };
 
-  revalidatePath("/pal");
+  revalidatePath("/bibliotheque");
   revalidatePath("/bilan");
   return { ok: true };
 }

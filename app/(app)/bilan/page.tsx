@@ -1,21 +1,96 @@
 import { MonthlyReportView } from "@/components/bilan/monthly-report-view";
 import type { BilanReading, MonthlyPickRecord } from "@/components/bilan/monthly-report-view";
 import { PageLoadError } from "@/components/page-load-error";
+import { StatsView } from "@/components/stats/stats-view";
+import { SegmentNav } from "@/components/ui/segment-nav";
+import type { StatBookRecord } from "@/lib/stats/compute-stats";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { MonthlyObjective, PurchaseFact } from "@/lib/scoring/types";
 
 /**
- * Le bilan mensuel au barème — l'écran principal, LE livrable (specs §4.5) :
- * exactement ce qu'on lit à l'antenne. On charge TOUS les faits une fois
- * (contrat du moteur : les lectures terminées de tous les mois, pour
- * l'annulation du malus) et la navigation entre les mois se fait côté client,
- * sans re-requête — le score est toujours dérivé, jamais stocké (§4.7).
- * Les objectifs (§4.11) et distinctions (§4.4) suivent le même contrat :
- * tout arrive d'un coup, le client pioche le mois affiché.
+ * Le Bilan — deux volets portés par `?vue=` (design-specs §3) :
+ *   - `bilan` (défaut) : le livrable mensuel au barème, copiable pour l'antenne
+ *     (§4.5) — l'écran principal ;
+ *   - `stats` : les statistiques essentielles (§1, §4.5), courbe de PAL comprise.
+ * Les deux vues sont DÉPLACÉES telles quelles depuis `/bilan` et `/stats`
+ * (vague 2, refonte #64) ; leur rhabillage viendra en vague 3. On ne charge que
+ * les données du volet demandé — bascule = navigation d'URL.
  */
-export default async function BilanPage() {
+const REPORT_VIEWS = [
+  { value: "bilan", label: "Bilan" },
+  { value: "stats", label: "Stats" },
+] as const;
+
+type ReportViewKey = (typeof REPORT_VIEWS)[number]["value"];
+
+export default async function BilanPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ vue?: string }>;
+}) {
+  const { vue } = await searchParams;
+  // Défaut « bilan » : le volet le plus fréquent (§3). Toute valeur inconnue y retombe.
+  const view: ReportViewKey = vue === "stats" ? "stats" : "bilan";
   const supabase = await createServerSupabaseClient();
 
+  const segments = <SegmentNav label="Bilan ou statistiques" options={REPORT_VIEWS} value={view} />;
+
+  if (view === "stats") {
+    // Les stats essentielles. UNE requête grouped (embeds PostgREST, pas de
+    // N+1) ; le calcul vit dans la fonction pure `computeStats`, appelée côté
+    // client (le « mois courant » est une notion du fuseau de l'APPAREIL).
+    const { data, error } = await supabase
+      .from("books")
+      .select(
+        `id, category, publisher, series_name, page_count, deleted_at,
+         purchases (purchased_at, deleted_at),
+         readings (status, started_at, finished_at, rating, deleted_at)`,
+      )
+      .is("deleted_at", null)
+      // Les filtres sur les embeds élaguent dès la requête — le moteur refiltre
+      // de toute façon (défense en profondeur, même patron que la PAL).
+      .is("purchases.deleted_at", null)
+      .is("readings.deleted_at", null);
+
+    if (error) {
+      return <PageLoadError title="Bilan du mois" message="Impossible de charger les statistiques — réessaie." />;
+    }
+
+    // Rows → contrat camelCase du moteur (types dérivés des Rows générés).
+    const records: StatBookRecord[] = (data ?? []).map((row) => ({
+      id: row.id,
+      category: row.category,
+      publisher: row.publisher,
+      seriesName: row.series_name,
+      pageCount: row.page_count,
+      deletedAt: row.deleted_at,
+      purchases: (row.purchases ?? []).map((purchase) => ({
+        purchasedAt: purchase.purchased_at,
+        deletedAt: purchase.deleted_at,
+      })),
+      readings: (row.readings ?? []).map((reading) => ({
+        status: reading.status,
+        startedAt: reading.started_at,
+        finishedAt: reading.finished_at,
+        rating: reading.rating,
+        deletedAt: reading.deleted_at,
+      })),
+    }));
+
+    return (
+      <section className="py-6">
+        <h1 className="text-2xl font-bold">Bilan du mois</h1>
+        <div className="mt-4">{segments}</div>
+        <StatsView records={records} />
+      </section>
+    );
+  }
+
+  // Volet Bilan (le livrable mensuel au barème). On charge TOUS les faits une
+  // fois (contrat du moteur : les lectures terminées de tous les mois, pour
+  // l'annulation du malus) et la navigation entre les mois se fait côté client,
+  // sans re-requête — le score est toujours dérivé, jamais stocké (§4.7).
+  // Les objectifs (§4.11) et distinctions (§4.4) suivent le même contrat.
   const [readingsResult, purchasesResult, objectivesResult, picksResult] = await Promise.all([
     // L'inner join sur books élague les livres supprimés en douceur : sans lui,
     // les lectures/achats d'un livre effacé pèseraient au bilan tout en ayant
@@ -74,6 +149,7 @@ export default async function BilanPage() {
   return (
     <section className="py-6">
       <h1 className="text-2xl font-bold">Bilan du mois</h1>
+      <div className="mt-4">{segments}</div>
       <MonthlyReportView readings={readings} purchases={purchases} objectivesByMonth={objectivesByMonth} picks={picks} />
     </section>
   );
