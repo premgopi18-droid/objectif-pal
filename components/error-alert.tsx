@@ -4,7 +4,7 @@
  */
 export function ErrorAlert({ message }: { message: string }) {
   return (
-    <p role="alert" className="rounded-lg border border-red-500/50 bg-red-500/10 p-3 text-sm text-red-500">
+    <p role="alert" className="rounded-xl border border-red/40 bg-red/10 p-3 text-sm text-red">
       {message}
     </p>
   );

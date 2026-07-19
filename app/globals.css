@@ -1,22 +1,77 @@
 @import "tailwindcss";
 
+/*
+ * Les tokens de l'identité « nuit du plateau » (design-specs §2).
+ * Thème sombre unique et assumé : plus de bascule prefers-color-scheme.
+ * Toute couleur de l'app descend d'un de ces tokens — jamais de hex en dur
+ * dans les composants (garde-fou §6).
+ */
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  color-scheme: dark;
+
+  --bg0: #120826; /* Fond profond (body) */
+  --bg1: #1b0f38; /* Fond secondaire (dégradé de scène) */
+  --card: #221345; /* Surfaces (cartes, chips, barres) */
+  --card2: #2b1a55; /* Surface relevée (boutons ghost, jauges) */
+  --line: rgba(255, 255, 255, 0.08); /* Bordures */
+  --ink: #f4effc; /* Texte principal (blanc lavande) */
+  --ink2: #b3a5d6; /* Texte secondaire */
+  --ink3: #9083bc; /* Texte tertiaire / labels — relevé de #8474AC pour AA sur --card (audit #66) */
+  --magenta: #f32fb6; /* Composante du dégradé */
+  --violet: #8c5cf6; /* Composante du dégradé */
+  --cyan: #2bd7f0; /* Composante du dégradé · état « En cours » */
+  --green: #3be596; /* Composante du dégradé · sémantique positif, « Lu » */
+  --amber: #ffb63b; /* Étoiles de notation · « Sans activité » */
+  --red: #ff5470; /* Sémantique négatif (malus, solde qui gonfle) */
+
+  /* Le dégradé signature — LA marque, réservé aux moments qui comptent (§2). */
+  --grad: linear-gradient(100deg, #f32fb6, #8c5cf6 45%, #2bd7f0 75%, #3be596);
+
+  /*
+   * Compatibilité : les écrans actuels lisent encore --background/--foreground
+   * (bg-background, border-foreground/10…). On les fait pointer sur la nuit du
+   * plateau pour qu'ils basculent tout de suite sans casser — leur rhabillage
+   * fin viendra en vague 3.
+   */
+  --background: #120826;
+  --foreground: #f4effc;
 }
 
 @theme inline {
+  /* Les tokens couleur exposés à Tailwind → bg-card, text-ink, border-line, bg-cyan/15… */
+  --color-bg0: var(--bg0);
+  --color-bg1: var(--bg1);
+  --color-card: var(--card);
+  --color-card2: var(--card2);
+  --color-line: var(--line);
+  --color-ink: var(--ink);
+  --color-ink2: var(--ink2);
+  --color-ink3: var(--ink3);
+  --color-magenta: var(--magenta);
+  --color-violet: var(--violet);
+  --color-cyan: var(--cyan);
+  --color-green: var(--green);
+  --color-amber: var(--amber);
+  --color-red: var(--red);
+
+  /* Compat écrans actuels */
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+
+  /* Rayons (§2 « Matière ») : cartes 20px, boutons 12px (= rounded-xl), pills 999px. */
+  --radius-card: 20px;
+
+  /* Ombres teintées violet, réservées au flottant (FAB, toasts) — jamais noires (§2). */
+  --shadow-grad: 0 4px 16px color-mix(in srgb, var(--violet) 40%, transparent);
+  --shadow-float: 0 8px 24px color-mix(in srgb, black 50%, transparent);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+/* Le dégradé signature en utilitaire (c'est un background-image, pas une couleur). */
+@utility bg-grad {
+  background-image: var(--grad);
 }
 
 body {

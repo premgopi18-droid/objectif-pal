@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import { ErrorAlert } from "@/components/error-alert";
+import { Button } from "@/components/ui/button";
 import { recordCoverPhoto } from "@/lib/books/cover-actions";
 import { coverPhotoPath, COVERS_BUCKET, fileToWebpBlob } from "@/lib/books/cover-photo";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
@@ -66,7 +67,7 @@ export function CoverPhotoButton({ bookId, mode = "add" }: CoverPhotoButtonProps
 
   if (isDone) {
     return (
-      <p className="text-sm font-medium text-green-500">
+      <p className="text-sm font-medium text-green">
         {mode === "retake" ? "Couverture remplacée ✓" : "Couverture ajoutée ✓"}
       </p>
     );
@@ -78,7 +79,6 @@ export function CoverPhotoButton({ bookId, mode = "add" }: CoverPhotoButtonProps
     event.target.value = "";
     if (file) handleFile(file);
   };
-  const buttonClass = "flex-1 rounded-full border border-foreground/20 px-3 py-2 text-sm font-medium disabled:opacity-50";
 
   return (
     <div className="flex flex-col gap-2">
@@ -89,15 +89,15 @@ export function CoverPhotoButton({ bookId, mode = "add" }: CoverPhotoButtonProps
       <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFileChosen} />
       <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={onFileChosen} />
       {isUploading ? (
-        <p className="py-2 text-center text-sm opacity-70">Envoi de la photo…</p>
+        <p className="py-2 text-center text-sm text-ink2">Envoi de la photo…</p>
       ) : (
         <div className="flex gap-2">
-          <button type="button" onClick={() => cameraInputRef.current?.click()} className={buttonClass}>
+          <Button type="button" variant="ghost" className="flex-1" onClick={() => cameraInputRef.current?.click()}>
             📷 {mode === "retake" ? "Reprendre une photo" : "Prendre une photo"}
-          </button>
-          <button type="button" onClick={() => galleryInputRef.current?.click()} className={buttonClass}>
+          </Button>
+          <Button type="button" variant="ghost" className="flex-1" onClick={() => galleryInputRef.current?.click()}>
             🖼️ Importer une image
-          </button>
+          </Button>
         </div>
       )}
       {error && <ErrorAlert message={error} />}

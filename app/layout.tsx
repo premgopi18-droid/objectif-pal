@@ -23,11 +23,10 @@ export const metadata: Metadata = {
   },
 };
 
+// Thème sombre unique (design-specs §2) : une seule couleur de barre système,
+// alignée sur --bg0, plus de variante claire/sombre.
 export const viewport: Viewport = {
-  themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#ffffff" },
-    { media: "(prefers-color-scheme: dark)", color: "#0a0a0a" },
-  ],
+  themeColor: "#120826",
 };
 
 export default function RootLayout({

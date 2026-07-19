@@ -33,6 +33,8 @@ const COVER_SIZES = {
     sizes: "48px",
     imageClassName: "h-18 w-12 shrink-0 rounded object-cover",
     placeholderClassName: "flex h-18 w-12 shrink-0 items-center justify-center rounded bg-foreground/10",
+    initialClassName:
+      "flex h-18 w-12 shrink-0 items-center justify-center rounded text-lg font-black text-bg0 ring-1 ring-inset ring-white/15",
   },
   large: {
     width: 96,
@@ -40,19 +42,47 @@ const COVER_SIZES = {
     sizes: "96px",
     imageClassName: "h-36 w-24 shrink-0 rounded-md object-cover",
     placeholderClassName: "flex h-36 w-24 shrink-0 items-center justify-center rounded-md bg-foreground/10 text-3xl",
+    initialClassName:
+      "flex h-36 w-24 shrink-0 items-center justify-center rounded-md text-4xl font-black text-bg0 ring-1 ring-inset ring-white/15",
   },
 } as const;
+
+/**
+ * Le placeholder final « dégradé + initiale » (design-specs §4) : 6 dégradés
+ * de la palette (tokens), choisis par hash du titre → stable d'un rendu à
+ * l'autre. C'est le fond quand il n'y a NI couverture NI photo maison mais
+ * qu'on connaît le titre ; sans titre, on retombe sur l'emoji.
+ */
+const PLACEHOLDER_GRADIENTS = [
+  "linear-gradient(160deg, var(--magenta), var(--violet))",
+  "linear-gradient(160deg, var(--cyan), var(--green))",
+  "linear-gradient(160deg, var(--violet), var(--cyan))",
+  "linear-gradient(160deg, var(--amber), var(--magenta))",
+  "linear-gradient(160deg, var(--green), var(--cyan))",
+  "linear-gradient(160deg, var(--magenta), var(--amber))",
+] as const;
+
+/** Hash stable d'un titre → index de dégradé (déterministe, indépendant du rendu). */
+function gradientIndexForTitle(title: string): number {
+  let hash = 0;
+  for (let index = 0; index < title.length; index++) {
+    hash = (hash * 31 + title.charCodeAt(index)) | 0;
+  }
+  return Math.abs(hash) % PLACEHOLDER_GRADIENTS.length;
+}
 
 type BookCoverProps = {
   coverUrl: string | null;
   size: keyof typeof COVER_SIZES;
-  /** L'emoji affiché quand il n'y a pas de couverture. */
+  /** L'emoji affiché quand il n'y a NI couverture NI titre. */
   placeholderEmoji?: string;
+  /** Le titre — active le placeholder « dégradé + initiale » à défaut de couverture. */
+  title?: string | null;
   /** Le livre en base — sans lui (feuille de scan, saisie), pas de réparation possible. */
   bookId?: string | null;
 };
 
-export function BookCover({ coverUrl, size, placeholderEmoji = "📚", bookId = null }: BookCoverProps) {
+export function BookCover({ coverUrl, size, placeholderEmoji = "📚", title = null, bookId = null }: BookCoverProps) {
   // La réparation locale de CETTE vignette : l'URL en échec → sa remplaçante
   // (null = emoji de secours). Rattachée à l'URL des props : si le parent
   // re-rend avec une autre couverture, l'état ne s'applique plus.
@@ -89,6 +119,19 @@ export function BookCover({ coverUrl, size, placeholderEmoji = "📚", bookId = 
         className={variant.imageClassName}
         onError={handleImageError}
       />
+    );
+  }
+
+  const trimmedTitle = title?.trim();
+  if (trimmedTitle) {
+    return (
+      <div
+        aria-hidden
+        className={variant.initialClassName}
+        style={{ backgroundImage: PLACEHOLDER_GRADIENTS[gradientIndexForTitle(trimmedTitle)] }}
+      >
+        {trimmedTitle.charAt(0).toUpperCase()}
+      </div>
     );
   }
 

@@ -36,7 +36,7 @@ signature, confettis, énergie jeu télévisé.
 | `--line` | `rgba(255,255,255,.08)` | Bordures |
 | `--ink` | `#F4EFFC` | Texte principal (blanc lavande, pas blanc pur) |
 | `--ink2` | `#B3A5D6` | Texte secondaire |
-| `--ink3` | `#8474AC` | Texte tertiaire / labels |
+| `--ink3` | `#9083BC` | Texte tertiaire / labels (relevé de `#8474AC` — audit contraste, voir plus bas) |
 | `--magenta` | `#F32FB6` | Composante du dégradé |
 | `--violet` | `#8C5CF6` | Composante du dégradé |
 | `--cyan` | `#2BD7F0` | Composante du dégradé · état « En cours » |
@@ -52,6 +52,21 @@ c'est ce contraste qui fait tenir le dégradé sans vulgarité.
 
 **Sémantique ≠ accent** : vert/rouge/ambre portent le sens (positif, négatif, note), jamais la déco.
 Attention PAL : un solde **positif** (la pile gonfle) est **rouge**, un solde négatif est **vert**.
+
+### Audit contraste (décisions livrées avec les fondations, #66)
+
+Deux corrections mesurées à l'implémentation, appliquées dans `app/globals.css` et les composants
+`components/ui/` :
+
+1. **Texte et icône des CTA en dégradé : `--bg0` (encre sombre), jamais blanc.** Le blanc sur le cran
+   vert du dégradé (`#3BE596`) tombe à ≈ 1,6:1 (échec AA franc) ; l'encre sombre `--bg0` tient 4,6–10:1
+   sur tous les crans ✓. Concerne le `Button grad`, le segment actif du `SegmentedControl`, le chip actif
+   des `FilterChips`, et le FAB scan (#68 en héritera).
+2. **`--ink3` relevé de `#8474AC` à `#9083BC`.** L'ancienne valeur faisait 4,06:1 sur `--card`, sous les
+   4,5:1 AA pour les labels 11–12px ; la nouvelle fait ≈ 4,9:1 ✓.
+
+Note connexe : la pastille `Badge pile` affiche son magenta **éclairci vers le blanc** (via `color-mix`),
+le magenta pur passant sous 4:1 sur son propre voile à 15 %.
 
 ### Thème
 
