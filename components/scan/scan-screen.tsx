@@ -10,9 +10,11 @@ import { localToday } from "@/lib/dates";
 import { LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
 import { GCD_UNNUMBERED_ISSUE_NUMBER, type IssueCandidate, type ResolvedBook, type ScanLookupResult, type SeriesCandidate } from "@/lib/resolution/types";
+import { Button } from "@/components/ui/button";
 import { BarcodeScanner } from "./barcode-scanner";
 import { BookActionSheet } from "./book-action-sheet";
 import { ManualEntryForm } from "./manual-entry-form";
+import { GradientWord, ScreenTitle } from "./screen-title";
 
 /**
  * L'écran de scan — specs §5.3, dégradation douce : code complet = zéro
@@ -223,17 +225,15 @@ export function ScanScreen() {
   if (state.step === "loading") {
     return (
       <div className="py-24 text-center">
-        <p className="text-sm opacity-70">Résolution en cours…</p>
-        <p className="mt-2 font-mono text-sm opacity-50">
+        <p className="text-sm text-ink2">Résolution en cours…</p>
+        <p className="mt-2 font-mono text-sm text-ink3">
           {state.code} · {state.code.length} chiffres
         </p>
-        <button
-          type="button"
-          onClick={() => skipToManualEntry(state.code)}
-          className="mt-6 rounded-full border border-foreground/20 px-5 py-2.5 text-sm font-medium"
-        >
-          Saisie manuelle
-        </button>
+        <div className="mt-6 flex justify-center">
+          <Button type="button" variant="ghost" onClick={() => skipToManualEntry(state.code)}>
+            Saisie manuelle
+          </Button>
+        </div>
       </div>
     );
   }
@@ -243,7 +243,7 @@ export function ScanScreen() {
       <div className="flex flex-col gap-3">
         {state.error && <ErrorAlert message={state.error} />}
         {state.isInLibrary && (
-          <p className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+          <p className="rounded-card border border-amber/40 bg-amber/10 p-3 text-sm text-ink">
             {state.wasFinished
               ? "Tu l'as déjà lu — tu le relis ?"
               : "Déjà dans ta bibliothèque — tes infos sont pré-remplies."}
@@ -267,23 +267,22 @@ export function ScanScreen() {
   if (state.step === "pick-issue") {
     return (
       <section className="flex flex-col gap-3">
-        <h2 className="text-xl font-bold">{state.seriesName}</h2>
-        <p className="text-sm opacity-70">Quel numéro ?</p>
+        <ScreenTitle subtitle="Quel numéro ?">{state.seriesName}</ScreenTitle>
         <ul className="flex flex-col gap-2">
           {state.issues.map((issue) => (
             <li key={issue.gcdId}>
               <button
                 type="button"
                 onClick={() => resolvePickedIssue(issue.gcdId, state.scannedCode)}
-                className="w-full rounded-lg border border-foreground/20 px-4 py-3 text-left"
+                className="w-full rounded-xl border border-line bg-card px-4 py-3 text-left transition active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
               >
-                <span className="font-semibold">{issueNumberLabel(issue.number)}</span>
-                {issue.title && <span className="ml-2 text-sm opacity-70">{issue.title}</span>}
+                <span className="font-semibold text-ink">{issueNumberLabel(issue.number)}</span>
+                {issue.title && <span className="ml-2 text-sm text-ink2">{issue.title}</span>}
               </button>
             </li>
           ))}
         </ul>
-        <button type="button" onClick={() => setState({ step: "manual", scannedCode: state.scannedCode })} className="py-2 text-sm opacity-60">
+        <button type="button" onClick={() => setState({ step: "manual", scannedCode: state.scannedCode })} className="py-2 text-sm text-ink3">
           Aucun de ceux-là — saisie manuelle
         </button>
       </section>
@@ -293,13 +292,13 @@ export function ScanScreen() {
   if (state.step === "pick-series") {
     return (
       <section className="flex flex-col gap-3">
-        <h2 className="text-xl font-bold">Plusieurs séries partagent ce code</h2>
+        <ScreenTitle>Plusieurs séries partagent ce code</ScreenTitle>
         <ul className="flex flex-col gap-4">
           {state.candidates.map((candidate) => (
             <li key={candidate.seriesId}>
-              <p className="mb-1.5 font-semibold">
+              <p className="mb-1.5 font-semibold text-ink">
                 {candidate.seriesName}
-                {candidate.publisher && <span className="ml-2 text-sm font-normal opacity-70">{candidate.publisher}</span>}
+                {candidate.publisher && <span className="ml-2 text-sm font-normal text-ink2">{candidate.publisher}</span>}
               </p>
               <div className="flex flex-wrap gap-2">
                 {candidate.issues.map((issue) => (
@@ -307,7 +306,7 @@ export function ScanScreen() {
                     key={issue.gcdId}
                     type="button"
                     onClick={() => resolvePickedIssue(issue.gcdId, state.scannedCode)}
-                    className="rounded-full border border-foreground/20 px-3.5 py-1.5 text-sm"
+                    className="rounded-full border border-line bg-card px-3.5 py-1.5 text-sm text-ink transition active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
                   >
                     {issueNumberLabel(issue.number)}
                   </button>
@@ -316,7 +315,7 @@ export function ScanScreen() {
             </li>
           ))}
         </ul>
-        <button type="button" onClick={() => setState({ step: "manual", scannedCode: state.scannedCode })} className="py-2 text-sm opacity-60">
+        <button type="button" onClick={() => setState({ step: "manual", scannedCode: state.scannedCode })} className="py-2 text-sm text-ink3">
           Aucun de ceux-là — saisie manuelle
         </button>
       </section>
@@ -340,8 +339,8 @@ export function ScanScreen() {
         <p className="text-4xl" aria-hidden>
           ✅
         </p>
-        <h2 className="text-xl font-bold">{state.message}</h2>
-        {state.detail && <p className="text-sm opacity-70">{state.detail}</p>}
+        <h2 className="text-xl font-black uppercase italic tracking-tight text-ink">{state.message}</h2>
+        {state.detail && <p className="text-sm text-ink2">{state.detail}</p>}
         {state.error && <ErrorAlert message={state.error} />}
         {state.photoBookId && <CoverPhotoButton bookId={state.photoBookId} />}
         {state.purchaseId && (
@@ -349,18 +348,14 @@ export function ScanScreen() {
             type="button"
             disabled={isSubmitting}
             onClick={() => cancelPurchase(state.purchaseId!)}
-            className="text-sm underline opacity-70 disabled:opacity-40"
+            className="text-sm text-ink3 underline disabled:opacity-50"
           >
             Annuler
           </button>
         )}
-        <button
-          type="button"
-          onClick={() => setState({ step: "scan" })}
-          className="mt-4 rounded-full bg-amber-500 px-6 py-3 font-semibold text-black"
-        >
+        <Button type="button" variant="grad" onClick={() => setState({ step: "scan" })} className="mt-4">
           Scanner un autre bouquin
-        </button>
+        </Button>
       </section>
     );
   }
@@ -368,16 +363,19 @@ export function ScanScreen() {
   // step === "scan"
   return (
     <section className="flex flex-col gap-4">
-      <h1 className="text-2xl font-bold">Scanner un bouquin</h1>
+      <ScreenTitle subtitle="Vise le code-barres, le reste suit.">
+        Scanner <GradientWord>un bouquin</GradientWord>
+      </ScreenTitle>
       {state.notice && (
-        <p role="alert" className="rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-sm">
+        <p role="alert" className="rounded-card border border-amber/40 bg-amber/10 p-3 text-sm text-ink">
           {state.notice}
         </p>
       )}
       <BarcodeScanner onCode={lookup} />
 
+      {/* Le champ « search » du proto (§5) : surface --card, une pill. */}
       <form
-        className="flex gap-2"
+        className="flex items-center gap-2 rounded-2xl border border-line bg-card px-4 py-2.5"
         onSubmit={(event) => {
           event.preventDefault();
           if (manualCode.trim()) lookup(manualCode.trim());
@@ -387,18 +385,22 @@ export function ScanScreen() {
           value={manualCode}
           onChange={(event) => setManualCode(event.target.value)}
           inputMode="numeric"
-          placeholder="…ou saisis le code-barres"
+          placeholder="Ou tape le code-barres…"
           aria-label="Code-barres"
-          className="flex-1 rounded-md border border-foreground/20 bg-transparent px-3 py-2.5 text-sm"
+          className="min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-ink3 focus-visible:outline-none"
         />
-        <button type="submit" disabled={!manualCode.trim()} className="rounded-md border border-foreground/20 px-4 text-sm disabled:opacity-40">
+        <button
+          type="submit"
+          disabled={!manualCode.trim()}
+          className="shrink-0 rounded-lg px-3 py-1.5 text-sm font-semibold text-ink2 transition active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan disabled:opacity-40"
+        >
           Chercher
         </button>
       </form>
 
-      <button type="button" onClick={() => setState({ step: "manual", scannedCode: null })} className="py-1 text-sm underline opacity-60">
+      <Button type="button" variant="ghost" block onClick={() => setState({ step: "manual", scannedCode: null })}>
         Pas de code-barres ? Saisie manuelle
-      </button>
+      </Button>
     </section>
   );
 }

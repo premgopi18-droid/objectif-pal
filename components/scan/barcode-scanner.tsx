@@ -158,7 +158,7 @@ export function BarcodeScanner({ onCode }: BarcodeScannerProps) {
 
   if (cameraError) {
     return (
-      <p role="alert" className="rounded-lg border border-foreground/20 p-4 text-sm opacity-80">
+      <p role="alert" className="rounded-card border border-line bg-card p-4 text-sm text-ink2">
         La caméra est inaccessible (permission refusée ?). Tu peux saisir le code à la main ci-dessous.
       </p>
     );
@@ -166,21 +166,53 @@ export function BarcodeScanner({ onCode }: BarcodeScannerProps) {
 
   if (engineError) {
     return (
-      <p role="alert" className="rounded-lg border border-foreground/20 p-4 text-sm opacity-80">
+      <p role="alert" className="rounded-card border border-line bg-card p-4 text-sm text-ink2">
         Le moteur de scan n&apos;a pas pu se charger — recharge la page ou utilise la saisie manuelle.
       </p>
     );
   }
 
   return (
-    <div className="relative overflow-hidden rounded-2xl bg-black">
+    <div className="relative aspect-[3/3.4] overflow-hidden rounded-card border border-line bg-bg0">
+      {/*
+       * Le viseur (design-specs §5, proto « .viewfinder ») : coins peints au
+       * dégradé signature (border-image) et ligne de scan qui balaie — coupée
+       * sous prefers-reduced-motion (garde-fou §6). L'animation vit dans un
+       * <style> local : globals.css est hors périmètre de ce chantier.
+       */}
+      <style>{`
+        @keyframes scanner-sweep { from { top: 16%; } to { top: 78%; } }
+        .scanner-scanline { top: 20%; }
+        @media (prefers-reduced-motion: no-preference) {
+          .scanner-scanline { animation: scanner-sweep 2.6s ease-in-out infinite alternate; }
+        }
+      `}</style>
       {/* muted + playsInline : indispensables pour l'autoplay mobile. */}
-      <video ref={videoRef} className="aspect-[3/4] w-full object-cover" muted playsInline />
-      {/* Le cadre de visée. */}
-      <div aria-hidden className="pointer-events-none absolute inset-x-8 top-1/2 h-24 -translate-y-1/2 rounded-lg border-2 border-amber-500/80" />
-      {pendingDisplay && (
-        <p className="absolute inset-x-0 bottom-3 text-center text-sm font-medium text-white/90">
-          <code className="font-mono">{pendingDisplay}</code> — cadre aussi les petits chiffres à droite…
+      <video ref={videoRef} className="absolute inset-0 h-full w-full object-cover opacity-90" muted playsInline />
+
+      {/* Les quatre coins en dégradé (border-image : impossible en utilitaire Tailwind). */}
+      <span aria-hidden className="pointer-events-none absolute left-[18px] top-[18px] h-[34px] w-[34px] border-[3px] border-b-0 border-r-0" style={{ borderImage: "var(--grad) 1" }} />
+      <span aria-hidden className="pointer-events-none absolute right-[18px] top-[18px] h-[34px] w-[34px] border-[3px] border-b-0 border-l-0" style={{ borderImage: "var(--grad) 1" }} />
+      <span aria-hidden className="pointer-events-none absolute bottom-[18px] left-[18px] h-[34px] w-[34px] border-[3px] border-r-0 border-t-0" style={{ borderImage: "var(--grad) 1" }} />
+      <span aria-hidden className="pointer-events-none absolute bottom-[18px] right-[18px] h-[34px] w-[34px] border-[3px] border-l-0 border-t-0" style={{ borderImage: "var(--grad) 1" }} />
+
+      {/* La ligne de scan animée. */}
+      <span
+        aria-hidden
+        className="scanner-scanline pointer-events-none absolute inset-x-[26px] h-0.5 rounded-full bg-grad"
+        style={{ boxShadow: "0 0 14px color-mix(in srgb, var(--cyan) 80%, transparent)" }}
+      />
+
+      {/* Le hint discret : le code en attente de son supplément, sinon le rappel de cadrage. */}
+      {pendingDisplay ? (
+        <p className="absolute inset-x-0 bottom-3 text-center text-sm font-medium text-ink">
+          <span className="rounded-full bg-bg0/70 px-2 py-1">
+            <code className="font-mono">{pendingDisplay}</code> — cadre aussi les petits chiffres à droite…
+          </span>
+        </p>
+      ) : (
+        <p className="absolute inset-x-0 bottom-3.5 text-center text-[12.5px] text-ink2">
+          Vise le code-barres · EAN-13 &amp; suppléments
         </p>
       )}
     </div>

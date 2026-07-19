@@ -16,19 +16,24 @@ type CategoryPickerProps = {
 export function CategoryPicker({ value, onChange }: CategoryPickerProps) {
   return (
     <div className="flex flex-wrap gap-2">
-      {ALL_CATEGORIES.map((candidate) => (
-        <button
-          key={candidate}
-          type="button"
-          onClick={() => onChange(candidate)}
-          aria-pressed={value === candidate}
-          className={`rounded-full px-4 py-2 text-sm font-medium transition-colors ${
-            value === candidate ? "bg-amber-500 text-black" : "border border-foreground/20 opacity-70"
-          }`}
-        >
-          {CATEGORY_LABELS[candidate]}
-        </button>
-      ))}
+      {ALL_CATEGORIES.map((candidate) => {
+        const active = value === candidate;
+        return (
+          <button
+            key={candidate}
+            type="button"
+            onClick={() => onChange(candidate)}
+            aria-pressed={active}
+            // Chip actif au dégradé signature (texte en --bg0, audit #66) ; inactif calme
+            // sur surface --card. Corrigeable en un tap (specs §4.1).
+            className={`rounded-full border px-4 py-2 text-sm font-semibold transition focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan ${
+              active ? "bg-grad border-transparent text-bg0" : "border-line bg-card text-ink2"
+            }`}
+          >
+            {CATEGORY_LABELS[candidate]}
+          </button>
+        );
+      })}
     </div>
   );
 }

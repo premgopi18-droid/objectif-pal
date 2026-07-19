@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { BookCover } from "@/components/book-cover";
 import { CategoryPicker } from "@/components/category-picker";
+import { Button } from "@/components/ui/button";
+import { ScreenTitle } from "./screen-title";
 import { loadLastManualSeries, saveLastManualSeries } from "@/lib/books/last-series";
 import { EAN13_LENGTH, isBooklandCode } from "@/lib/resolution/barcode-router";
 import type { BookInput } from "@/lib/books/actions";
@@ -63,62 +65,63 @@ export function ManualEntryForm({ scannedCode, suggestedCoverUrl = null, onSubmi
     });
   }
 
-  const inputClass = "w-full rounded-md border border-foreground/20 bg-transparent px-3 py-2.5";
+  const inputClass =
+    "w-full rounded-xl border border-line bg-card2 px-3 py-2.5 text-ink placeholder:text-ink3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan";
 
   return (
     <section className="flex flex-col gap-4">
-      <h2 className="text-xl font-bold">Saisie manuelle</h2>
+      <ScreenTitle>Saisie manuelle</ScreenTitle>
       {suggestedCoverUrl ? (
-        <div className="flex flex-col gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3">
+        <div className="flex flex-col gap-2 rounded-card border border-line bg-card p-3">
           <div className="flex items-start gap-3">
             <BookCover coverUrl={suggestedCoverUrl} size="large" />
-            <p className="text-sm">
-              On a trouvé la couverture chez les libraires, mais ce livre n'est répertorié dans aucune base
+            <p className="text-sm text-ink2">
+              On a trouvé la couverture chez les libraires, mais ce livre n&apos;est répertorié dans aucune base
               bibliographique — remplis ses infos (elles sont sous tes yeux !) et il sera nickel dans ta PAL.
             </p>
           </div>
           {/* La promesse §5.2 reste visible : le code est gardé, le livre restera re-résolvable. */}
           {scannedCode && (
-            <p className="text-xs opacity-60">
+            <p className="text-xs text-ink3">
               Code <code className="font-mono">{scannedCode}</code> gardé avec le livre.
             </p>
           )}
         </div>
       ) : (
         scannedCode && (
-          <p className="text-sm opacity-70">
+          <p className="text-sm text-ink2">
             Code scanné mais introuvable : <code className="font-mono">{scannedCode}</code> — il sera gardé avec le livre.
           </p>
         )
       )}
 
       <label className="flex flex-col gap-1.5 text-sm">
-        <span className="font-medium opacity-80">Titre *</span>
+        <span className="font-medium text-ink2">Titre *</span>
         <input autoFocus={lastSeries === null} value={title} onChange={(event) => setTitle(event.target.value)} className={inputClass} />
       </label>
       <div className="flex gap-3">
         <label className="flex flex-1 flex-col gap-1.5 text-sm">
-          <span className="font-medium opacity-80">Série</span>
+          <span className="font-medium text-ink2">Série</span>
           <input value={seriesName} onChange={(event) => setSeriesName(event.target.value)} className={inputClass} />
         </label>
         <label className="flex w-24 flex-col gap-1.5 text-sm">
-          <span className="font-medium opacity-80">N°</span>
+          <span className="font-medium text-ink2">N°</span>
           {/* Série pré-remplie → le curseur part sur le numéro : « la 2ᵉ issue prend 3 secondes » (§5.3). */}
           <input autoFocus={lastSeries !== null} value={issueNumber} onChange={(event) => setIssueNumber(event.target.value)} className={inputClass} />
         </label>
       </div>
       <div className="flex gap-3">
         <label className="flex flex-1 flex-col gap-1.5 text-sm">
-          <span className="font-medium opacity-80">Auteur·ice·s</span>
+          <span className="font-medium text-ink2">Auteur·ice·s</span>
           <input value={authors} onChange={(event) => setAuthors(event.target.value)} className={inputClass} />
         </label>
         <label className="flex flex-1 flex-col gap-1.5 text-sm">
-          <span className="font-medium opacity-80">Éditeur</span>
+          <span className="font-medium text-ink2">Éditeur</span>
           <input value={publisher} onChange={(event) => setPublisher(event.target.value)} className={inputClass} />
         </label>
       </div>
       <label className="flex w-32 flex-col gap-1.5 text-sm">
-        <span className="font-medium opacity-80">Pages</span>
+        <span className="font-medium text-ink2">Pages</span>
         <input
           type="number"
           min={1}
@@ -129,20 +132,15 @@ export function ManualEntryForm({ scannedCode, suggestedCoverUrl = null, onSubmi
       </label>
 
       <fieldset>
-        <legend className="mb-2 text-sm font-medium opacity-80">Catégorie</legend>
+        <legend className="mb-2 text-sm font-medium text-ink2">Catégorie</legend>
         <CategoryPicker value={category} onChange={setCategory} />
       </fieldset>
 
       <div className="mt-2 flex gap-3">
-        <button
-          type="button"
-          disabled={!title.trim()}
-          onClick={submit}
-          className="flex-1 rounded-full bg-amber-500 px-6 py-3 font-semibold text-black transition-opacity disabled:opacity-50"
-        >
+        <Button type="button" variant="grad" block disabled={!title.trim()} onClick={submit} className="flex-1">
           Continuer
-        </button>
-        <button type="button" onClick={onCancel} className="px-4 text-sm opacity-60">
+        </Button>
+        <button type="button" onClick={onCancel} className="px-4 text-sm text-ink3">
           Annuler
         </button>
       </div>

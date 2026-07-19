@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { BookCover } from "@/components/book-cover";
 import { CategoryPicker } from "@/components/category-picker";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
 import { displayableIssueNumber, formatBookSubtitle } from "@/lib/books/format";
 import { localToday } from "@/lib/dates";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
@@ -12,13 +14,17 @@ import type { BookCategory } from "@/lib/scoring/types";
 
 /**
  * La feuille d'actions — specs §4.1 : le scan a résolu un livre, l'app DEMANDE
- * l'intention (« je commence » / « je l'achète », deux gros boutons, deux
- * effets opposés sur le score). La catégorie proposée se corrige en un tap,
- * la date est pré-remplie à aujourd'hui mais modifiable.
+ * l'intention (« Commencer la lecture » / « Enregistrer un achat », deux gros
+ * boutons, deux effets opposés sur le score). La catégorie proposée se corrige
+ * en un tap, la date est pré-remplie à aujourd'hui mais modifiable.
  */
 
 /** Le malus affiché vient du barème — jamais recopié en dur (CLAUDE.md). */
 const PENALTY_POINTS = Math.abs(SCORING_SCALE.unreadPurchasePenalty);
+
+/** Les champs de la feuille, stylés une fois sur les tokens (§2). */
+const INPUT_CLASS =
+  "w-full rounded-xl border border-line bg-card2 px-3 py-2.5 text-ink placeholder:text-ink3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan";
 
 type BookActionSheetProps = {
   book: ResolvedBook;
@@ -71,64 +77,73 @@ export function BookActionSheet({
 
   return (
     <section className="flex flex-col gap-5">
-      <div className="flex gap-4">
-        <BookCover coverUrl={book.coverUrl} size="large" />
-        <div className="min-w-0">
+      <Card className="flex gap-4">
+        <BookCover coverUrl={book.coverUrl} size="large" title={title} />
+        <div className="min-w-0 flex-1">
           <input
             aria-label="Titre"
             value={title}
             onChange={(event) => setTitle(event.target.value)}
-            className="w-full rounded-md border border-foreground/20 bg-transparent px-2 py-1.5 font-semibold"
+            className={`${INPUT_CLASS} font-semibold`}
           />
-          <p className="mt-1.5 truncate text-sm opacity-70">
+          <p className="mt-1.5 truncate text-sm text-ink2">
             {formatBookSubtitle(book.seriesName, book.issueNumber, book.publisher)}
           </p>
-          {book.pageCount !== null && <p className="text-sm opacity-70">{book.pageCount} pages</p>}
-          {book.authors && <p className="truncate text-sm opacity-70">{book.authors}</p>}
+          {book.pageCount !== null && <p className="text-sm text-ink2">{book.pageCount} pages</p>}
+          {book.authors && <p className="truncate text-sm text-ink2">{book.authors}</p>}
           {(scannedCode ?? book.barcode) && (
-            <p className="mt-1 font-mono text-xs opacity-50">
+            <p className="mt-1 font-mono text-xs text-ink3">
               {scannedCode ?? book.barcode}
               {scannedCode && ` · ${scannedCode.length} chiffres`}
             </p>
           )}
         </div>
-      </div>
+      </Card>
 
       <fieldset>
-        <legend className="mb-2 text-sm font-medium opacity-80">Catégorie (proposée — corrige si besoin)</legend>
+        <legend className="mb-2 text-sm font-medium text-ink2">Catégorie (proposée — corrige si besoin)</legend>
         <CategoryPicker value={category} onChange={setCategory} />
       </fieldset>
 
       <label className="flex items-center justify-between gap-3 text-sm">
-        <span className="font-medium opacity-80">Date</span>
+        <span className="font-medium text-ink2">Date</span>
         <input
           type="date"
           value={date}
           // Pas de date future : on borne la SÉLECTION côté client (le fuseau local, pas UTC).
           max={localToday()}
           onChange={(event) => setDate(event.target.value)}
-          className="rounded-md border border-foreground/20 bg-transparent px-3 py-2"
+          className="rounded-xl border border-line bg-card2 px-3 py-2 text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
         />
       </label>
 
       <div className="flex flex-col gap-3">
-        <button
+        {/* Le bon geste, au dégradé signature (CTA §2). */}
+        <Button
           type="button"
+          variant="grad"
+          block
           disabled={isSubmitting || !title.trim()}
           onClick={() => onStartReading(buildInput(), date)}
-          className="rounded-full bg-amber-500 px-6 py-4 text-lg font-semibold text-black transition-opacity disabled:opacity-50"
         >
-          {isRereadingPrompt ? "Oui, je le relis" : "Je commence"}
-        </button>
-        <button
+          {isRereadingPrompt ? "Oui, je le relis" : "Commencer la lecture"}
+        </Button>
+        {/* L'achat pèse sur le score : malus en rouge sémantique (§2). */}
+        <Button
           type="button"
+          variant="ghost"
+          block
           disabled={isSubmitting || !title.trim()}
           onClick={() => onPurchase(buildInput(), date)}
-          className="rounded-full border-2 border-amber-500 px-6 py-4 text-lg font-semibold text-amber-500 transition-opacity disabled:opacity-50"
         >
-          Je l&apos;achète <span className="text-sm font-normal opacity-80">(−{PENALTY_POINTS} point, effaçable)</span>
-        </button>
-        <button type="button" onClick={onCancel} disabled={isSubmitting} className="py-2 text-sm opacity-60">
+          Enregistrer un achat <span className="text-sm font-normal text-red">(−{PENALTY_POINTS} point, effaçable)</span>
+        </Button>
+        <button
+          type="button"
+          onClick={onCancel}
+          disabled={isSubmitting}
+          className="py-2 text-sm text-ink3 disabled:opacity-50"
+        >
           Annuler
         </button>
       </div>
