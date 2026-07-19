@@ -23,7 +23,9 @@ export const coverPhotoPath = (userId: string, bookId: string) => `${userId}/${b
  * brute du capteur (souvent plusieurs Mo) sur le réseau.
  */
 export async function fileToWebpBlob(file: File): Promise<Blob> {
-  const bitmap = await createImageBitmap(file);
+  // `from-image` : l'orientation EXIF du capteur est appliquée — sans ça,
+  // une photo prise en portrait peut atterrir couchée selon le navigateur.
+  const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
   const scale = Math.min(1, COVER_PHOTO.maxDimension / Math.max(bitmap.width, bitmap.height));
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));

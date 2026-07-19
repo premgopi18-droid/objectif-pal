@@ -50,15 +50,20 @@ export async function recordCoverPhoto(bookId: string): Promise<CoverActionResul
   }
 
   const { data: publicUrl } = session.supabase.storage.from(COVERS_BUCKET).getPublicUrl(path);
-  const { error: updateError } = await session.supabase
+  // Le filtre `cover_url is null` re-vérifie la règle du filet ultime au
+  // moment de l'écriture (anti-course) — et le count le dit franchement.
+  const { error: updateError, count } = await session.supabase
     .from("books")
-    .update({ cover_url: publicUrl.publicUrl })
+    .update({ cover_url: publicUrl.publicUrl }, { count: "exact" })
     .eq("id", bookId)
     .eq("user_id", session.user.id)
     .is("cover_url", null);
   if (updateError) {
     console.error("[covers] recordCoverPhoto:", updateError.message);
     return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+  if (!count) {
+    return { ok: false, error: "Ce livre a déjà une couverture — la photo est le dernier recours." };
   }
 
   revalidatePath("/journal");
