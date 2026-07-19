@@ -39,8 +39,14 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > infos non » et **alimente `barcode_cache` (source manual)**, le marqueur GCD `#[nn]` est éradiqué, et le
 > **scanner ressuscité** (#60 : le WASM était derrière le mur d'auth → cache SW empoisonné ; post-mortem
 > complet dans l'issue, contrat de test anti-régression + test d'intégration prod) — 198 → 240 tests.
-> La **vue Bibliothèque #49 est livrée** (PR #63). Restent : #30 (prérequis à lever), #32 lot C
-> (différé volontaire).**
+> La **vue Bibliothèque #49 est livrée** (PR #63). **La refonte UX/UI #64 est livrée** (19/07/2026,
+> PRs #75/#77/#79/#81/#82/#83/#85, specs `docs/design-specs.md`) : identité « nuit du plateau » (tokens +
+> dégradé signature, thème sombre unique), **nav 5 onglets avec scan central** (la PAL est un segment de la
+> Biblio, les Stats un segment du Bilan ; `/pal` et `/stats` redirigent), famille de composants
+> `components/ui/`, dérivation partagée de la santé de la PAL (`lib/pal/health.ts`), et micro-interactions
+> (confettis au « Terminé ✓ », `prefers-reduced-motion`) — 240 → 268 tests. Restent : **#74** (icônes PWA à
+> la nouvelle identité — livrable graphique, différé), #30 (prérequis à lever), #32 lot C (différé
+> volontaire), et la dette de suivi #76/#78/#84.**
 
 ## Stack
 
@@ -94,12 +100,12 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **La refonte UX/UI** (décidée le 19/07/2026, specs dans `docs/design-specs.md`, proto
-   `docs/design-proto.html`) : identité de l'émission (nuit violette + dégradé signature), nav
-   **5 onglets avec scan central** (la PAL devient un segment de la Biblio, les Stats un segment du
-   Bilan), famille de composants `components/ui/`. La vue Bibliothèque #49 est livrée (PR #63).
-2. **#30** (analyses avancées §4.5 — prérequis à lever, dont le trigger `occurred_at`).
-3. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
+1. **#74 — icônes PWA à la nouvelle identité** : dernier reliquat de la refonte #64 (livrable graphique
+   PNG/favicon, `background_color`/`theme_color` déjà migrés). Différé, à traiter au moment choisi.
+2. **Dette de suivi de la refonte** : #76 (vitest casse en worktree + scanne `.claude/worktrees`),
+   #78 (extraire `bookToMovement` partagé), #84 (variante `danger` sur `Button`).
+3. **#30** (analyses avancées §4.5 — prérequis à lever, dont le trigger `occurred_at`).
+4. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
    déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ; les filtres #34 migreront
    alors côté requête — l'index de tri est déjà posé).
 
