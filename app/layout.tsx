@@ -4,6 +4,17 @@ import { ServiceWorkerRegistration } from "@/components/service-worker-registrat
 import { SplashScreen } from "@/components/splash-screen";
 import "./globals.css";
 
+// Capte beforeinstallprompt dès le parsing du <body>, avant que React n'attache
+// ses listeners : Chrome peut émettre l'event pendant le chargement, il serait
+// sinon perdu et l'installation guidée (#89) resterait muette. useInstallPrompt
+// (lib/hooks/use-install-prompt.ts) relit window.__deferredInstallPrompt au
+// montage. Script inline via dangerouslySetInnerHTML — l'idiome Next pour le
+// code d'avant-hydratation (docs locales : guides/preventing-flash-before-hydration).
+// Purement additif : ne touche ni au service worker ni au scan (post-mortem #60).
+const installPromptBootScript =
+  "window.__deferredInstallPrompt=null;" +
+  "addEventListener('beforeinstallprompt',function(e){e.preventDefault();window.__deferredInstallPrompt=e})";
+
 const geistSans = Geist({
   variable: "--font-geist-sans",
   subsets: ["latin"],
@@ -41,6 +52,10 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        {/* En tête de <body>, pas dans un <head> manuel : Next gère le <head>
+            lui-même (meta theme-color du viewport) — et parser le script avant
+            tout contenu suffit à capter l'event. */}
+        <script dangerouslySetInnerHTML={{ __html: installPromptBootScript }} />
         {children}
         <SplashScreen />
         <ServiceWorkerRegistration />

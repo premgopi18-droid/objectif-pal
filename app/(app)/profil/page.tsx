@@ -1,3 +1,4 @@
+import { InstallSection } from "@/components/install-section";
 import { LogoutButton } from "@/components/logout-button";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -76,6 +77,11 @@ export default async function ProfilPage() {
           ))}
         </div>
       </section>
+
+      {/* « Application » (#89) : installation guidée de la PWA. Le composant
+          client porte sa propre <section> (titre compris) pour disparaître
+          entièrement une fois l'app installée. */}
+      <InstallSection labelClassName={SECTION_LABEL} />
 
       <section className="flex flex-col gap-3">
         <h2 className={SECTION_LABEL}>Session</h2>
