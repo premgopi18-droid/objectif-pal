@@ -1034,7 +1034,9 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
 
 - **Import rétroactif** : ressaisir les lectures des mois déjà passés à l'antenne pour avoir des courbes
   historiques. Écarté au lancement (on démarre à zéro), mais le modèle de données **doit rester compatible** :
-  dates de lecture toujours libres, jamais figées à la date de saisie.
+  dates de lecture toujours libres, jamais figées à la date de saisie. **Le geste « déjà lu » (#101) en livre
+  le socle** (une lecture rétroactive datée crédite son mois passé) ; seul l'outillage de ressaisie **en
+  masse** reste ici.
 - **« Je possède »** — l'action qui manque pour que l'app devienne vraiment le reflet de la bibliothèque (cf. la
   vision, §1) : scanner une étagère déjà là, **sans malus d'achat**. Sans elle, l'app ne connaîtra que les livres
   entrés après son installation. **Tranché le 20/07/2026 (issue #101, spec complète dedans)** :
@@ -1046,7 +1048,13 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
   - **mode rafale dès la v1** (scan → bip → scan suivant) — c'est le geste réel du scan d'étagère ;
   - **« je ne possède plus »** (don, revente, perte) inclus : sortie de PAL/Biblio, lectures et points intacts
     au bilan — distinct de « Retirer » (§4.12) qui masque toutes les traces ;
-  - possédé mais **déjà terminé** → Biblio, pas PAL (la PAL est « possédé non lu »).
+  - possédé mais **déjà terminé** → Biblio, pas PAL (la PAL est « possédé non lu ») ;
+  - **« j'ai déjà lu »** (même ticket, même pattern) : déclarer une lecture passée en un geste —
+    `status = finished` avec **`finished_at` nullable**. Date connue → points dans le bilan de ce mois **passé**
+    (clos — le mois courant n'est jamais touché, §3 règle 1) et présence dans les courbes ; date vide → badge
+    « Lu », hors PAL, **zéro point nulle part**, absent des séries temporelles. Note et avis capturables.
+    Indépendant de la possession (un livre de médiathèque lu est « lu » sans être « possédé ») ; dans la
+    rafale, un interrupteur « déjà lu » déclare possédé + lu d'un geste.
 - **Wishlist et favoris** : scanner en librairie un bouquin qu'on ne prend pas (wishlist), marquer ses coups de
   cœur (favoris). **L'architecture les accueille déjà** — ce sera un bouton de plus sur la feuille du scan et une
   table par action. Et la wishlist nourrit la santé de la PAL : *ce que je convoite* vs *ce que j'achète* vs *ce
