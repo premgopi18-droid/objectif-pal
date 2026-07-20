@@ -19,6 +19,21 @@ export const COVERS_BUCKET = "covers";
 export const coverPhotoPath = (userId: string, bookId: string) => `${userId}/${bookId}.webp`;
 
 /**
+ * Le chemin d'une photo prise en RAFALE, AVANT qu'un livre n'existe (#108).
+ *
+ * En rafale, un livre sans code-barres est capté dans la boîte de finition
+ * (`scan_inbox`) : il n'y a pas encore de `book_id` pour nommer l'objet. On
+ * l'indexe donc sur un identifiant propre à la photo, préfixé `inbox-` pour ne
+ * jamais heurter le `{user_id}/{book_id}.webp` d'une couverture de livre. Le
+ * dossier reste `{user_id}/` — la RLS d'écriture n'autorise que celui-là (#33).
+ *
+ * L'URL publique qui en résulte vit dans `scan_inbox.cover_url`, passe au livre
+ * à la finalisation, et — vivant dans notre bucket — reste une photo MAISON,
+ * donc reprenable ensuite (`isHouseCoverPhotoUrl`, #47).
+ */
+export const inboxCoverPhotoPath = (userId: string, photoId: string) => `${userId}/inbox-${photoId}.webp`;
+
+/**
  * Vrai si la couverture est une PHOTO MAISON (elle vit dans notre bucket) —
  * la seule qu'on a le droit de reprendre (#47) : une couverture de source
  * (Metron, Google, OpenLibrary, Inventaire) reste intouchable.

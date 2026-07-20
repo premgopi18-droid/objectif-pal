@@ -57,9 +57,13 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > 399 → 416 tests. **#100 est livré le même jour** (specs §4.12) : **édition de fiche** en formulaire complet
 > — indispensable aux livres saisis à la main, qui n'ont pas de code-barres à rescanner — et **fusion de
 > doublons** en une transaction SQL (`merge_books`), qui refuse deux codes-barres différents et transfère le
-> code au livre conservé quand il n'en a pas — 416 → 436 tests. Restent : **#108** (le bouton photo dans la
-> boucle de rafale), **#87** (logo/icônes/splash depuis les visuels HD — livrable graphique), #32 lot C
-> (différé volontaire), et l'idée produit #97 (passerelle League of Comic Geeks).**
+> code au livre conservé quand il n'en a pas — 416 → 436 tests. **#108 est livré le même jour** (specs §4.13) :
+> le **livre sans code-barres photographié dans la boucle** de rafale — le neuvième et dernier cas de
+> l'étagère. Passer à la photo **démonte** le scanner (deux flux caméra ne cohabitent pas) et en revenir le
+> **remonte** (caméra fraîche, reprise « toute seule ») ; la couverture part dans la boîte de finition avec
+> l'intention de la session, indexée `{user_id}/inbox-{uuid}.webp` — 436 → 440 tests. Restent : **#87**
+> (logo/icônes/splash depuis les visuels HD — livrable graphique), #32 lot C (différé volontaire), et l'idée
+> produit #97 (passerelle League of Comic Geeks).**
 
 ## Stack
 
@@ -113,11 +117,8 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **#108 — le bouton photo dans la boucle de rafale** : capturer un livre sans code-barres sans quitter le
-   mode. Le schéma l'accepte déjà ; le geste demande de suspendre la caméra du scan pour ouvrir celle de la
-   photo (deux flux `getUserMedia` ne cohabitent pas) — ticket complet, à tester sur un vrai téléphone.
-2. **#87 — logo, icônes et splash depuis les visuels HD de l'émission** (livrable graphique, différé).
-3. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
+1. **#87 — logo, icônes et splash depuis les visuels HD de l'émission** (livrable graphique, différé).
+2. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
    déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ; les filtres #34 migreront
    alors côté requête — l'index de tri est déjà posé). ⚠️ Le lot B (`purchases!inner`) a été **défait
    volontairement** par #101 (un livre possédé sans achat serait invisible) : le sur-fetch de la PAL est

@@ -609,9 +609,21 @@ interrompre le scan — la mettre dans la boucle l'arrêterait. Un marqueur « ?
 **devinettes VF** (§5.5) : GCD et Metron portent un vrai `series_type`, la VF n'a que des indices. Signaler
 partout reviendrait à ne rien signaler.
 
-**Reste à faire** : le bouton « pas de code-barres → photo » **dans la boucle** de rafale. Le schéma
-l'accepte déjà (code nullable, photo obligatoire à défaut) et la boîte affiche ces éléments, mais le geste
-demande de suspendre la caméra du scan pour ouvrir celle de la photo.
+**Le livre sans code-barres, dans la boucle** (#108, livré le 20/07/2026) — le neuvième cas de l'étagère.
+Les étagères d'avant l'app sont précisément celles des vieux livres, éditions anciennes et occasions, dont
+beaucoup n'ont aucun code-barres lisible. Un bouton « **Pas de code-barres — photographier** » ouvre la prise
+de photo **sans quitter la rafale** : la couverture part dans la boîte de finition (`scan_inbox`,
+`barcode_raw` null, photo obligatoire à défaut) avec l'intention et la date de la session, exactement comme
+les autres captures. La photo n'identifie rien (pas d'OCR) — elle sert d'**identité visuelle** pour la
+finition, où l'utilisateur saisit les infos sous les yeux (même principe que §5.4).
+
+> **Le vrai obstacle, tranché : deux flux caméra ne cohabitent pas.** Le scanner tient un `MediaStream`
+> (`getUserMedia`) ; la capture passe par la caméra native de l'OS (`<input capture>`). Passer à la photo
+> **démonte** donc le scanner (son cleanup libère les pistes du flux) et en revenir le **remonte** — caméra
+> fraîche, reprise « toute seule », jamais deux flux tenus en même temps. Annuler ramène au scan actif sans
+> ligne fantôme. La photo, sans `book_id` encore, est indexée sur `{user_id}/inbox-{uuid}.webp` (préfixe
+> `inbox-` pour ne pas heurter la photo d'un livre) et reste une **photo maison**, donc reprenable plus tard
+> (#47).
 
 ---
 
@@ -1173,10 +1185,11 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
   dates de lecture toujours libres, jamais figées à la date de saisie. **Le geste « déjà lu » (#101) en livre
   le socle** (une lecture rétroactive datée crédite son mois passé) ; seul l'outillage de ressaisie **en
   masse** reste ici.
-- **« Je possède » et « j'ai déjà lu »** — **livrés le 20/07/2026**, voir **§4.13**. Ne reste ici que le
-  **lot C** : le mode **rafale** (scan d'étagère qui ne s'arrête jamais), la **boîte de finition**
-  persistante (`scan_inbox`) pour les scans à compléter, et la **correction de catégorie inline** dans la
-  liste de session. Les 9 cas de la rafale sont analysés dans l'issue #101.
+- **« Je possède » et « j'ai déjà lu »** — **livrés le 20/07/2026**, voir **§4.13**. Le **lot C** aussi : le
+  mode **rafale** (scan d'étagère qui ne s'arrête jamais), la **boîte de finition** persistante (`scan_inbox`)
+  pour les scans à compléter, et la **correction de catégorie inline** dans la liste de session. Le neuvième
+  et dernier cas de la rafale — le **livre sans code-barres photographié dans la boucle** (#108) — a suivi le
+  même jour. Les 9 cas de la rafale sont analysés dans l'issue #101.
 - **Wishlist et favoris** : scanner en librairie un bouquin qu'on ne prend pas (wishlist), marquer ses coups de
   cœur (favoris). **L'architecture les accueille déjà** — ce sera un bouton de plus sur la feuille du scan et une
   table par action. Et la wishlist nourrit la santé de la PAL : *ce que je convoite* vs *ce que j'achète* vs *ce
