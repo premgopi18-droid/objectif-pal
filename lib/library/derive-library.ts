@@ -39,11 +39,14 @@ export type LibraryBookRow = Pick<
  * L'état d'un livre VU DE LA BIBLIOTHÈQUE — un résumé d'étagère, pas le
  * détail du journal. Priorité : une lecture en cours domine tout ; sinon un
  * livre déjà terminé ; sinon possédé non lu (la PAL, §4.6 — l'abandon n'en
- * sort pas) ; sinon abandonné sans possession ; sinon sorti de la bibliothèque
- * (donné, revendu — #101) ; sinon aucune trace active (« sur l'étagère » —
- * exactement les livres invisibles d'avant #49).
+ * sort pas) ; sinon abandonné sans possession ; sinon aucune trace active
+ * (« sur l'étagère » — exactement les livres invisibles d'avant #49).
+ *
+ * Les livres CÉDÉS (donné, revendu — #101) ne sont plus un statut : depuis
+ * #114, « retirer de ma bibliothèque » retire vraiment — ils sortent de la
+ * liste. Leurs lectures et points restent au journal, au bilan et aux stats.
  */
-export type LibraryStatus = "reading" | "finished" | "in-pile" | "abandoned" | "disposed" | "shelved";
+export type LibraryStatus = "reading" | "finished" | "in-pile" | "abandoned" | "shelved";
 
 export type LibraryEntry = {
   bookId: string;
@@ -71,12 +74,18 @@ export type LibraryEntry = {
 };
 
 export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
-  return rows.map((row) => {
+  const entries: LibraryEntry[] = [];
+  for (const row of rows) {
     // Défense en profondeur : la requête filtre déjà les embeds supprimés.
     const readings = (row.readings ?? []).filter((reading) => reading.deleted_at === null);
     const purchases = (row.purchases ?? []).filter((purchase) => purchase.deleted_at === null);
 
     const ownerships = (row.ownerships ?? []).filter((ownership) => ownership.deleted_at === null);
+
+    // « Retirer de ma bibliothèque » retire VRAIMENT (#114) : un livre cédé
+    // (donné, revendu) sort de la liste. Son histoire, elle, ne bouge pas —
+    // lectures au journal, points au bilan, mouvements sur la courbe de PAL.
+    if (ownerships.some((ownership) => ownership.disposed_at !== null)) continue;
 
     // La possession passe par le réducteur PARTAGÉ (#78/#101) : la règle « ce
     // livre est-il dans la pile ? » n'est écrite qu'une fois, dans
@@ -100,9 +109,6 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
       })),
     });
     const isInPile = movement !== null && !movement.exited;
-    // Sorti de la bibliothèque : on ne le possède plus (don, revente, perte).
-    // Distinct de « sans activité » — le livre a bien eu une vie ici.
-    const isDisposed = ownerships.some((ownership) => ownership.disposed_at !== null);
 
     const status: LibraryStatus = readings.some((reading) => reading.status === "reading")
       ? "reading"
@@ -112,11 +118,9 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
           ? "in-pile"
           : readings.some((reading) => reading.status === "abandoned")
             ? "abandoned"
-            : isDisposed
-              ? "disposed"
-              : "shelved";
+            : "shelved";
 
-    return {
+    entries.push({
       bookId: row.id,
       title: row.title,
       seriesName: row.series_name,
@@ -127,19 +131,17 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
       status,
       activeReadingCount: readings.length,
       activePurchaseCount: purchases.length,
-      // Possédé = une possession déclarée non close, ou un achat actif sans
-      // déclaration contraire. C'est ce qui distingue un livre de l'étagère
-      // d'un livre seulement LU (emprunt, médiathèque).
-      isOwned:
-        ownerships.length > 0
-          ? ownerships.some((ownership) => ownership.disposed_at === null)
-          : purchases.length > 0,
+      // Possédé = une possession déclarée, ou un achat actif. Les cédés sont
+      // déjà sortis de la liste (#114) — ce qui distingue ici un livre de
+      // l'étagère d'un livre seulement LU (emprunt, médiathèque).
+      isOwned: ownerships.length > 0 || purchases.length > 0,
       authors: row.authors,
       publisher: row.publisher,
       pageCount: row.page_count,
       hasBarcode: row.barcode_raw !== null,
-    };
-  });
+    });
+  }
+  return entries;
 }
 
 /** Minuscules + accents aplatis : « Astérix » se trouve en tapant « asterix ». */

@@ -43,9 +43,6 @@ const STATUS_BADGES: Record<LibraryStatus, { label: string; state: ComponentProp
   finished: { label: "Lu", state: "done" },
   "in-pile": { label: "Dans la PAL", state: "pile" },
   abandoned: { label: "Abandonné", state: "abandoned" },
-  // #101 : donné, revendu, perdu — un état à part de « sans activité », qui
-  // dirait faussement que le livre n'a jamais rien vécu ici.
-  disposed: { label: "Plus possédé", state: "idle" },
   shelved: { label: "Sans activité", state: "idle" },
 };
 
@@ -68,30 +65,45 @@ export function LibraryView({ entries }: LibraryViewProps) {
     [entries, searchText, sortOrder],
   );
 
-  function confirmRemoval(entry: LibraryEntry) {
-    const traces = [
-      entry.activeReadingCount > 0 ? `${entry.activeReadingCount} lecture(s)` : null,
-      entry.activePurchaseCount > 0 ? `${entry.activePurchaseCount} achat(s)` : null,
-    ]
-      .filter(Boolean)
-      .join(" et ");
-    const consequence = traces
-      ? `Ses ${traces} disparaîtront du journal et du bilan avec lui. `
-      : "";
-    return window.confirm(
-      `Retirer « ${entry.title} » de la bibliothèque ? ${consequence}Rien n'est effacé : le rescanner le fera revenir avec tout son historique.`,
-    );
-  }
-
   /**
-   * La confirmation dit exactement ce que « je ne le possède plus » NE fait
-   * pas — c'est là toute la différence avec « Retirer » juste à côté, et la
-   * confondre coûterait des points au bilan (#101).
+   * UN seul geste de sortie (#114) : « Retirer de ma bibliothèque » = ne plus
+   * posséder — jamais de conséquence sur les lectures ni les points. La
+   * mécanique s'adapte toute seule :
+   *
+   *  - le livre a des traces actives → cession datée (`endOwnership`) : tout
+   *    reste au journal, au bilan et aux stats, seul le livre quitte la liste ;
+   *  - AUCUNE trace → rien à préserver, c'est le livre-erreur : suppression
+   *    douce (`softDeleteBook`), sans fabriquer de fausse possession ni polluer
+   *    les flux du mois — et rescanner le fait revenir (résurrection #10).
+   *
+   * Une lecture erronée se corrige AVANT, au journal (« Supprimer » par
+   * lecture) : plus aucun geste de la Biblio ne peut avaler des stats.
    */
-  function confirmDisposal(entry: LibraryEntry) {
-    return window.confirm(
-      `Tu ne possèdes plus « ${entry.title} » ? Il sortira de ta bibliothèque et de ta PAL, mais ses lectures et ses points restent au journal et au bilan.`,
-    );
+  function removeFromLibrary(entry: LibraryEntry) {
+    const hasTraces = entry.activeReadingCount > 0 || entry.activePurchaseCount > 0;
+    if (!hasTraces) {
+      return {
+        confirmed: () =>
+          window.confirm(
+            `Retirer « ${entry.title} » de ta bibliothèque ? Il n'a ni lecture ni achat — il disparaîtra, et le rescanner le fera revenir.`,
+          ),
+        action: () => softDeleteBook(entry.bookId),
+      };
+    }
+    // Garde-fou achat (#114) : la cession ne touche jamais un achat — s'il
+    // était une erreur, son malus resterait compté. On le dit AVANT, tant que
+    // le livre est encore dans la Pile où vit « Je ne l'ai pas acheté ».
+    const purchaseWarning =
+      entry.activePurchaseCount > 0
+        ? " Si un achat était une erreur, annule-le d'abord depuis la Pile (« Je ne l'ai pas acheté »)."
+        : "";
+    return {
+      confirmed: () =>
+        window.confirm(
+          `Retirer « ${entry.title} » de ta bibliothèque ? Ses lectures et ses points restent au journal et au bilan.${purchaseWarning}`,
+        ),
+      action: () => endOwnership(entry.bookId, localToday()),
+    };
   }
 
   return (
@@ -177,7 +189,9 @@ export function LibraryView({ entries }: LibraryViewProps) {
                   />
                 )}
 
-                <div className="flex items-center gap-3 pl-0.5">
+                {/* `flex-wrap` (#114) : la rangée passe à la ligne sur petit
+                    écran au lieu de s'écraser. */}
+                <div className="flex flex-wrap items-center gap-3 pl-0.5">
                   {entry.status !== "reading" && (
                     <StartReadingButton bookId={entry.bookId} run={run} isPending={isPending} />
                   )}
@@ -199,26 +213,17 @@ export function LibraryView({ entries }: LibraryViewProps) {
                   >
                     {mergingId === entry.bookId ? "Fermer" : "Fusionner"}
                   </button>
-                  {/* « Je ne le possède plus » (#101) — le livre quitte l'étagère,
-                      mais ses lectures et ses points RESTENT au bilan. À ne pas
-                      confondre avec « Retirer », juste à côté, qui masque tout. */}
-                  {entry.isOwned && (
-                    <RemoveButton
-                      label="Je ne le possède plus"
-                      action={() => endOwnership(entry.bookId, localToday())}
-                      run={run}
-                      isPending={isPending}
-                      confirm={() => confirmDisposal(entry)}
-                      tone="muted"
-                      className="text-xs"
-                    />
-                  )}
+                  {/* LE geste de sortie, unique (#114) : retirer = ne plus
+                      posséder, lectures et points toujours conservés. La
+                      mécanique du livre-erreur (aucune trace) est choisie en
+                      interne — plus aucun bouton ne peut avaler des stats. */}
                   <RemoveButton
-                    label="Retirer"
-                    action={() => softDeleteBook(entry.bookId)}
+                    label="Retirer de ma bibliothèque"
+                    action={removeFromLibrary(entry).action}
                     run={run}
                     isPending={isPending}
-                    confirm={() => confirmRemoval(entry)}
+                    confirm={removeFromLibrary(entry).confirmed}
+                    tone="muted"
                     className="ml-auto"
                   />
                 </div>
