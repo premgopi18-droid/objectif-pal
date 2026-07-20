@@ -509,12 +509,20 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
   > **Corriger la catégorie recalcule les bilans passés**, et c'est voulu : le score est toujours dérivé (§7),
   > donc le bilan corrigé est le bon — c'était une erreur de saisie. Le formulaire l'annonce avant
   > d'enregistrer, plutôt que de le faire en douce.
-- **⚠️ À CONSTRUIRE — fusion de doublons** (issue #100, second volet) : re-pointer lectures, achats et
-  possessions vers la fiche conservée, puis soft delete du doublon. Deux pièges connus, à traiter là :
-  l'**index unique partiel** sur `ownerships` interdit deux possessions actives sur un même livre (il faut les
-  **fusionner**, pas les additionner), et l'unicité `(user_id, barcode_raw)` **couvre les supprimés** —
-  rescanner le doublon le ressusciterait et déferait la fusion. Les filtres avancés (catégorie/état/série)
-  restent différés avec la pagination #32 lot C.
+- **Fusion de doublons** (issue #100, livrée le 20/07/2026) : deux **saisies manuelles** du même livre ne
+  sont pas dédoublonnables à l'écriture — sans code-barres, les `NULL` ne s'égalent pas et l'unicité
+  `(user_id, barcode_raw)` ne les bloque pas (§7, voulu). La fusion les réconcilie après coup : lectures,
+  achats et possessions changent de livre, puis le doublon est supprimé en douceur.
+  - **Tout ou rien** : le travail vit dans une fonction SQL (`merge_books`), donc **une transaction**. À
+    moitié faite, elle laisserait des lectures rattachées à un livre effacé, ou deux possessions actives
+    violant l'index unique.
+  - **Deux codes-barres différents = refus** : ce sont deux éditions, pas un doublon. Ça évite aussi qu'un
+    rescan du doublon le **ressuscite** (l'unicité couvre les supprimés, §7) et défasse la fusion.
+  - **Manuel × scanné** : le livre conservé **hérite du code-barres** du doublon s'il n'en avait pas — sans
+    quoi le survivant resterait non-rescannable.
+  - **Les possessions se fusionnent, ne s'additionnent pas** : la plus ancienne acquisition connue l'emporte,
+    et le livre reste possédé si l'une des deux déclarations ne l'a pas vendu.
+  - Les métadonnées **comblent les trous** sans jamais écraser — même règle que le rescan (§4.2).
 - **« Retirer de la bibliothèque »** : suppression douce du **livre seul, sans cascade** — ses lectures et
   achats restent intacts en base mais disparaissent de toutes les vues, car **chaque surface filtre sur
   `books.deleted_at`** (le bilan le faisait déjà ; le journal l'a rejoint — `books!inner` + filtre). 100 %

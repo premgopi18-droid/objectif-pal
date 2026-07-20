@@ -97,6 +97,43 @@ export async function updateBookDetails(bookId: string, input: BookEditInput): P
 }
 
 /**
+ * Fusionner un doublon dans un livre conservé (issue #100, second volet).
+ *
+ * Tout le travail vit dans la fonction SQL `merge_books` — et c'est délibéré :
+ * la fusion re-pointe des faits dans trois tables puis supprime un livre. À
+ * moitié faite, elle laisserait des lectures rattachées à un livre effacé ou
+ * deux possessions actives violant l'index unique. En SQL, le corps entier est
+ * **une transaction** : tout ou rien.
+ *
+ * La fonction vérifie elle-même que les deux livres appartiennent à l'appelant
+ * (elle est `security definer`, donc hors RLS) et refuse deux codes-barres
+ * différents. Les messages qu'elle lève sont écrits pour être montrés.
+ */
+export async function mergeBooks(keepBookId: string, mergeBookId: string): Promise<JournalActionResult> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+
+  const { error } = await session.supabase.rpc("merge_books", {
+    keep_book_id: keepBookId,
+    merge_book_id: mergeBookId,
+  });
+  if (error) {
+    console.error("[library] mergeBooks:", error.message);
+    // Les `raise exception` de la fonction sont des refus MÉTIER rédigés en
+    // français (codes-barres différents, livre introuvable) : les montrer aide
+    // l'utilisateur. On ne remonte que ceux-là — le reste (panne, réseau) part
+    // sur le message générique, pour ne jamais exposer d'interne.
+    const isBusinessRefusal = error.code === "P0001";
+    return { ok: false, error: isBusinessRefusal ? error.message : GENERIC_ERROR_MESSAGE };
+  }
+
+  revalidatePath("/bibliotheque");
+  revalidatePath("/journal");
+  revalidatePath("/bilan");
+  return { ok: true };
+}
+
+/**
  * L'écriture partagée des deux gestes ci-dessus : mêmes gardes (le livre
  * t'appartient et n'est pas supprimé), mêmes revalidations.
  *

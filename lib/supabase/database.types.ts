@@ -585,6 +585,10 @@ export type Database = {
         Args: { max_lookups: number; window_seconds: number }
         Returns: boolean
       }
+      merge_books: {
+        Args: { keep_book_id: string; merge_book_id: string }
+        Returns: undefined
+      }
     }
     Enums: {
       barcode_type: "isbn" | "upc"
