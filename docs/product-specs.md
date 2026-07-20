@@ -583,6 +583,12 @@ préserve l'invariant : *le dernier point vaut toujours la taille réelle de la 
   touché : son malus historique est acquis, le mois est clos.
 - **La possession déclarée fait autorité** quand elle existe — elle seule sait dire « je ne le possède plus »
   d'un livre pourtant acheté.
+- **Le rachat rouvre la possession close** (#117, 20/07/2026) : la cession close un épisode, elle ne condamne
+  pas le livre. Toute acquisition à/depuis la cession — rachat comme redéclaration — remet le livre en pile
+  (sauf s'il a été lu, §3.3), avec **l'entrée datée du rachat**. Un seul mouvement modélisé par livre :
+  l'épisode courant l'emporte, la paire historique entrée/sortie (qui s'annulait dans le solde) n'alimente
+  plus les flux passés. Les portes d'écriture rouvrent la ligne (`disposed_at` remis à nul) ; la dérivation
+  a le même filet pour les faits qui n'y seraient pas passés.
 - Une **fin de lecture non datée prime sur un don** pour la sortie : dater la sortie au don placerait le
   mouvement dans le mauvais mois.
 

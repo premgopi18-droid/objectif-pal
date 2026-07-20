@@ -311,6 +311,24 @@ export async function recordPurchase(input: BookInput, purchasedAt: string): Pro
     return { ok: false, error: GENERIC_ERROR_MESSAGE };
   }
 
+  // Racheter ROUVRE une possession close (#117) — même principe que
+  // `recordOwnership` (« je l'avais donné, je le rachète ») : sans ça, la
+  // cession primait dans la dérivation et le livre racheté manquait à la pile.
+  // APRÈS l'achat, volontairement : réouvrir sans achat inscrit remettrait le
+  // livre en pile sur une écriture à moitié faite. Échec absorbé (log seul) :
+  // le filet de `derivePileStatus` dérive juste même si cette ligne reste close.
+  const closedOwnership = pileFacts.ownerships.find(
+    (ownership) => ownership.deleted_at === null && ownership.disposed_at !== null,
+  );
+  if (closedOwnership) {
+    const { error: reopenError } = await supabase
+      .from("ownerships")
+      .update({ disposed_at: null })
+      .eq("id", closedOwnership.id)
+      .eq("user_id", user.id);
+    if (reopenError) console.error("[books] recordPurchase (réouverture):", reopenError.message);
+  }
+
   revalidatePath("/journal");
   revalidatePath("/bilan");
   revalidatePath("/bibliotheque"); // l'achat fait entrer le livre dans la pile (volet Pile)

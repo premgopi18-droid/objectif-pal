@@ -112,6 +112,35 @@ export function derivePileStatus({
   // (ou déclarer) un livre déjà terminé ne fait pas grossir la pile.
   const entryDate = datedAcquisitions.find((acquiredAt) => !finished.some((end) => end <= acquiredAt)) ?? null;
 
+  // LE RACHAT (#117) : une acquisition datée survenue à/depuis la cession
+  // ROUVRE la pile — la cession close un épisode de possession, elle ne
+  // condamne pas le livre. Sans cette règle, la sortie de possession primait
+  // sur tout : un livre cédé non lu puis racheté était « sorti avant d'être
+  // entré », donc absent d'une pile où il est physiquement.
+  //
+  // On ne modélise qu'UN mouvement par livre : c'est l'épisode COURANT qui
+  // l'emporte (entrée au rachat), et la paire historique entrée/sortie — qui
+  // s'annulait dans le solde — n'alimente plus les flux passés. Les portes
+  // d'écriture rouvrent d'ailleurs la possession au rachat (`recordOwnership`
+  // comme `recordPurchase`) : cette branche est le filet pour les faits qui
+  // n'y seraient pas passés.
+  const disposedDate = ownership?.disposedAt ?? null;
+  if (disposedDate !== null) {
+    const reacquiredAt =
+      datedAcquisitions.find(
+        (acquiredAt) => acquiredAt >= disposedDate && !finished.some((end) => end <= acquiredAt),
+      ) ?? null;
+    if (reacquiredAt !== null) {
+      const finishExit = finished.find((end) => end >= reacquiredAt) ?? null;
+      // Même convention que l'épisode simple : une fin sans date sort le livre
+      // sans qu'on puisse la placer.
+      if (finishExit === null && hasUndatedFinish) {
+        return { entered: true, entryDate: reacquiredAt, exited: true, exitDate: null };
+      }
+      return { entered: true, entryDate: reacquiredAt, exited: finishExit !== null, exitDate: finishExit };
+    }
+  }
+
   if (entryDate === null) {
     // Aucune acquisition datable ne fait entrer le livre. Une acquisition SANS
     // date ne le fait entrer que si le livre n'a JAMAIS été terminé : sinon on

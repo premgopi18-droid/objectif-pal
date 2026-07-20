@@ -312,6 +312,65 @@ describe("« je ne le possède plus » — la sortie de possession (#101)", () =
   });
 });
 
+describe("le rachat d'un livre cédé (#117) — la cession ne condamne pas le livre", () => {
+  // Avant le fix, la sortie de possession primait sur tout : un livre cédé non
+  // lu puis racheté était « sorti avant d'être entré » — absent d'une pile où
+  // il est physiquement. Une acquisition datée à/depuis la cession ROUVRE la
+  // pile. Les portes d'écriture rouvrent d'ailleurs la possession au rachat
+  // (`recordOwnership` et `recordPurchase`) : ceci est le filet dérivé, pour
+  // les faits qui n'y seraient pas passés.
+
+  it("l'étagère d'avant cédée, puis rachetée : de retour en pile, entrée au rachat", () => {
+    const result = derivePal([
+      book({
+        ownerships: [owns({ disposedAt: "2026-07-20" })],
+        purchases: [bought("2027-01-10")],
+      }),
+    ]);
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].enteredAt).toBe("2027-01-10");
+    // UN mouvement par livre : c'est l'épisode COURANT qui l'emporte — la
+    // paire historique entrée/sortie (qui s'annulait dans le solde) ne compte
+    // plus dans les flux.
+    expect(result.entryDates).toEqual(["2027-01-10"]);
+    expect(result.exitDates).toEqual([]);
+  });
+
+  it("acheté, revendu non lu, racheté : de retour en pile", () => {
+    const result = derivePal([
+      book({
+        purchases: [bought("2026-06-01"), bought("2027-01-10")],
+        ownerships: [owns({ disposedAt: "2026-07-20" })],
+      }),
+    ]);
+    expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].enteredAt).toBe("2027-01-10");
+  });
+
+  it("racheté le jour même de la cession : possédé, donc en pile", () => {
+    const result = derivePal([
+      book({
+        ownerships: [owns({ ownedSince: "2026-05-01", disposedAt: "2026-07-20" })],
+        purchases: [bought("2026-07-20")],
+      }),
+    ]);
+    expect(result.entries).toHaveLength(1);
+  });
+
+  it("lu, cédé, puis racheté : toujours pas d'entrée — racheter un déjà-lu ne remplit pas la pile (§3.3)", () => {
+    const result = derivePal([
+      book({
+        purchases: [bought("2026-05-01"), bought("2027-01-10")],
+        readings: [finished("2026-05-20")],
+        ownerships: [owns({ disposedAt: "2026-07-12" })],
+      }),
+    ]);
+    expect(result.entries).toEqual([]);
+    // L'histoire simple reste racontée : entré à l'achat, sorti par la lecture.
+    expect(result.exitDates).toEqual(["2026-05-20"]);
+  });
+});
+
 describe("l'ordre d'affichage avec des entrées non datées (#101)", () => {
   it("l'étagère d'avant (sans date) passe avant les entrées datées", () => {
     const result = derivePal([
