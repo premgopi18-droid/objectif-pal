@@ -49,6 +49,14 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
     const readings = (row.readings ?? []).filter((reading) => reading.deleted_at === null);
     const purchases = (row.purchases ?? []).filter((purchase) => purchase.deleted_at === null);
 
+    // ⚠️ #101 lot B — DETTE : la possession est réimplémentée ici (« un achat
+    // actif = possédé ») au lieu de passer par le réducteur partagé
+    // `derivePileStatus` (lib/pal/derive-pal), contrairement au principe de
+    // #78. Conséquence dès que « je possède » existera : un livre possédé SANS
+    // achat sera classé `shelved` (« Sans activité ») — précisément l'angle
+    // mort que #49 voulait supprimer. À brancher sur le réducteur partagé, pas
+    // à rafistoler avec un `|| ownerships.length > 0` (ce serait une QUATRIÈME
+    // écriture de la même règle).
     const status: LibraryStatus = readings.some((reading) => reading.status === "reading")
       ? "reading"
       : readings.some((reading) => reading.status === "finished")

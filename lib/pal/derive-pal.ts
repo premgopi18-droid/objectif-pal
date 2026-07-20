@@ -79,8 +79,12 @@ export type PileStatus = {
   exitDate: IsoDate | null;
 };
 
-/** Jamais entré : emprunt, ou acquisition d'un livre déjà lu (§3.3). */
-const NEVER_IN_PILE: PileStatus = { entered: false, entryDate: null, exited: false, exitDate: null };
+/**
+ * Jamais entré : emprunt, ou acquisition d'un livre déjà lu (§3.3). Une
+ * FABRIQUE, pas une constante partagée : deux livres hors pile ne doivent
+ * jamais se retrouver à pointer le même objet.
+ */
+const neverInPile = (): PileStatus => ({ entered: false, entryDate: null, exited: false, exitDate: null });
 
 /** Dans la pile MAINTENANT : entré et pas encore ressorti. */
 export const isInPileNow = (status: PileStatus): boolean => status.entered && !status.exited;
@@ -102,7 +106,7 @@ export function derivePileStatus({
   const hasUndatedAcquisition = ownership !== null && ownership.ownedSince === null;
 
   // Rien qui fasse posséder le livre : une lecture d'emprunt n'entre pas en pile.
-  if (datedAcquisitions.length === 0 && !hasUndatedAcquisition) return NEVER_IN_PILE;
+  if (datedAcquisitions.length === 0 && !hasUndatedAcquisition) return neverInPile();
 
   // ENTRÉE : la première acquisition qui n'était pas déjà lue (§3.3) — racheter
   // (ou déclarer) un livre déjà terminé ne fait pas grossir la pile.
@@ -113,7 +117,7 @@ export function derivePileStatus({
     // date ne le fait entrer que si le livre n'a JAMAIS été terminé : sinon on
     // ne saurait ni la placer, ni dire qu'elle a précédé la lecture — et « je
     // possède un livre que j'ai déjà lu » n'est pas une entrée en pile (§3.3).
-    if (!hasUndatedAcquisition || hasAnyFinish) return NEVER_IN_PILE;
+    if (!hasUndatedAcquisition || hasAnyFinish) return neverInPile();
     // Entré, date inconnue. Sa seule sortie possible est une fin de possession
     // (il n'a aucune lecture terminée, cf. la garde ci-dessus).
     const disposedAt = ownership?.disposedAt ?? null;
@@ -255,12 +259,18 @@ export function bookToMovement<
   // le geste le plus précis (et le seul annulable en un tap). Sinon, c'est la
   // possession déclarée — y compris quand l'entrée n'a pas de date.
   const entryPurchase = activePurchases.find((purchase) => purchase.purchasedAt === status.entryDate) ?? null;
-  const entryVia: BookMovement<P, O>["entryVia"] =
+
+  // Entré sans achat correspondant → c'est la possession déclarée qui l'a fait
+  // entrer. Garde EXPLICITE plutôt qu'une assertion : l'invariant qui rend ce
+  // cas impossible vit dans derivePileStatus, loin d'ici — une troisième source
+  // d'acquisition ajoutée un jour doit se voir ici, pas produire un `undefined`.
+  const entryVia: BookMovement<P, O>["entryVia"] | null =
     entryPurchase !== null
       ? { kind: "purchase", purchase: entryPurchase }
-      : // Entré sans achat → la possession existe forcément (sinon derivePileStatus
-        // n'aurait pas fait entrer le livre).
-        { kind: "ownership", ownership: ownership! };
+      : ownership !== null
+        ? { kind: "ownership", ownership }
+        : null;
+  if (entryVia === null) return null;
 
   return { entryDate: status.entryDate, exited: status.exited, exitDate: status.exitDate, entryVia };
 }
