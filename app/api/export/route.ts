@@ -23,6 +23,7 @@ const EXPORT_TABLES: Record<
   | "reading_events"
   | "purchases"
   | "ownerships"
+  | "scan_inbox"
   | "monthly_objectives"
   | "objective_targets"
   | "monthly_picks",
@@ -43,6 +44,14 @@ const EXPORT_TABLES: Record<
   // livres sont à moi — or « tout » veut dire tout (§4.10).
   ownerships: {
     columns: "id, book_id, owned_since, disposed_at, created_at, deleted_at",
+    orderBy: "created_at",
+  },
+  // La boîte de finition (#101 lot C) : des scans captés avec leur intention,
+  // pas encore devenus des livres — ce sont des données de l'utilisateur au
+  // même titre que le reste. Le jsonb passe en JSON dans le CSV (escapeField).
+  scan_inbox: {
+    columns:
+      "id, barcode_raw, barcode_type, cover_url, resolved_metadata, intent, owned_since, finished_at, status, created_at, completed_at, deleted_at",
     orderBy: "created_at",
   },
   monthly_objectives: { columns: "id, month, created_at", orderBy: "month" },
@@ -102,6 +111,7 @@ export async function GET(request: Request) {
       readingEvents,
       purchases,
       ownerships,
+      scanInbox,
       monthlyObjectives,
       objectiveTargets,
       monthlyPicks,
@@ -111,6 +121,7 @@ export async function GET(request: Request) {
       fetchTable("reading_events"),
       fetchTable("purchases"),
       fetchTable("ownerships"),
+      fetchTable("scan_inbox"),
       fetchTable("monthly_objectives"),
       fetchTable("objective_targets"),
       fetchTable("monthly_picks"),
@@ -125,6 +136,7 @@ export async function GET(request: Request) {
       reading_events: readingEvents,
       purchases,
       ownerships,
+      scan_inbox: scanInbox,
       monthly_objectives: monthlyObjectives,
       objective_targets: objectiveTargets,
       monthly_picks: monthlyPicks,

@@ -179,6 +179,14 @@ export function BookActionSheet({
           />
           Je ne sais plus quand
         </label>
+        {/* La portée de la case, dite explicitement (review #104) : le champ
+            « Date » au-dessus sert AUSSI à la lecture et à l'achat — cocher
+            ici ne doit pas laisser croire qu'il est ignoré partout. */}
+        {dateUnknown && (
+          <p className="text-xs text-ink3">
+            Vaut pour ces deux boutons — la date au-dessus reste utilisée pour « Commencer » et « Acheter ».
+          </p>
+        )}
 
         <div className="flex flex-col gap-2.5 sm:flex-row">
           <Button

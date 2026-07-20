@@ -54,9 +54,9 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > Le **lot C** suit le même jour : **scan d'étagère en rafale** — la chaîne ne s'arrête jamais (capture
 > découplée de la résolution), **boîte de finition** persistante (`scan_inbox`) où atterrit tout ce qui
 > demande de l'attention, et **correction de catégorie inline** avec marqueur sur les devinettes VF —
-> 399 → 416 tests. Restent : **#74** (icônes PWA à la nouvelle identité — livrable graphique, différé),
-> **#100** (édition de fiche + fusion de doublons), le bouton photo dans la boucle de rafale, #30
-> (prérequis à lever), #32 lot C (différé volontaire), et la dette de suivi #76/#84.**
+> 399 → 416 tests. Restent : **#100** (édition de fiche + fusion de doublons), **#108** (le bouton photo
+> dans la boucle de rafale), **#87** (logo/icônes/splash depuis les visuels HD — livrable graphique),
+> #32 lot C (différé volontaire), et l'idée produit #97 (passerelle League of Comic Geeks).**
 
 ## Stack
 
@@ -113,18 +113,15 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 1. **#100 — gestion de la Biblio** : édition de fiche en formulaire complet (indispensable aux livres saisis
    à la main, qui n'ont pas de code-barres à rescanner) + fusion de doublons. `updateBookCategory` existe
    déjà (posée par le lot C) — #100 la généralise à toute la fiche.
-2. **Le bouton photo dans la boucle de rafale** (#101, reliquat) : capturer un livre sans code-barres sans
-   quitter le mode rafale. Le schéma l'accepte déjà ; le geste demande de suspendre la caméra du scan pour
-   ouvrir celle de la photo.
-3. **#74 — icônes PWA à la nouvelle identité** : dernier reliquat de la refonte #64 (livrable graphique
-   PNG/favicon, `background_color`/`theme_color` déjà migrés). Différé, à traiter au moment choisi.
-4. **Dette de suivi de la refonte** : #76 (vitest casse en worktree + scanne `.claude/worktrees`),
-   #84 (variante `danger` sur `Button`). **#78 est résolu** : `bookToMovement` est le réducteur partagé, et
-   #101 l'a étendu aux trois surfaces.
-5. **#30** (analyses avancées §4.5 — prérequis à lever, dont le trigger `occurred_at`).
-6. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
+2. **#108 — le bouton photo dans la boucle de rafale** : capturer un livre sans code-barres sans quitter le
+   mode. Le schéma l'accepte déjà ; le geste demande de suspendre la caméra du scan pour ouvrir celle de la
+   photo (deux flux `getUserMedia` ne cohabitent pas) — ticket complet, à tester sur un vrai téléphone.
+3. **#87 — logo, icônes et splash depuis les visuels HD de l'émission** (livrable graphique, différé).
+4. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
    déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ; les filtres #34 migreront
-   alors côté requête — l'index de tri est déjà posé).
+   alors côté requête — l'index de tri est déjà posé). ⚠️ Le lot B (`purchases!inner`) a été **défait
+   volontairement** par #101 (un livre possédé sans achat serait invisible) : le sur-fetch de la PAL est
+   revenu, assumé à l'échelle solo, et se retraitera au lot C avec `ownerships` dans l'équation.
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs
 roman) à partir de Google Books — on n'a que des indices (éditeur, pages, langue). La catégorie proposée doit
