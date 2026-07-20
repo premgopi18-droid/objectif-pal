@@ -22,9 +22,12 @@ export const NO_JOURNAL_FILTERS: JournalFilters = { status: "all", category: "al
 
 /**
  * Le mois d'une entrée : celui de sa FIN si elle existe (c'est elle qui date
- * les points), sinon celui de son début (ticket #34).
+ * les points), sinon celui de son début (ticket #34). `null` quand la lecture
+ * n'a aucune date connue (« déjà lu » de l'étagère d'avant, #101) : elle
+ * n'appartient à aucun mois, et n'apparaît donc sous aucun filtre de mois.
  */
-export const journalEntryMonth = (entry: JournalEntry): Month => (entry.finishedAt ?? entry.startedAt).slice(0, 7);
+export const journalEntryMonth = (entry: JournalEntry): Month | null =>
+  (entry.finishedAt ?? entry.startedAt)?.slice(0, 7) ?? null;
 
 export function filterJournalEntries(entries: JournalEntry[], filters: JournalFilters): JournalEntry[] {
   return entries.filter(
@@ -49,7 +52,8 @@ export function distinctSeriesNames(entries: JournalEntry[]): string[] {
 export function distinctMonths(entries: JournalEntry[]): Month[] {
   const months = new Set<Month>();
   for (const entry of entries) {
-    months.add(journalEntryMonth(entry));
+    const month = journalEntryMonth(entry);
+    if (month !== null) months.add(month);
   }
   return [...months].sort().reverse();
 }

@@ -49,6 +49,27 @@ function finished(finishedAt: string, overrides: Partial<StatBookRecord["reading
   };
 }
 
+/** « Je possède » (#101) — sans date par défaut : l'étagère d'avant l'app. */
+function owns(overrides: { ownedSince?: string | null; disposedAt?: string | null } = {}) {
+  return {
+    ownedSince: overrides.ownedSince ?? null,
+    disposedAt: overrides.disposedAt ?? null,
+    deletedAt: null,
+  };
+}
+
+/** « Je l'ai déjà lu », sans savoir quand (#101) : terminée, aucune date. */
+function finishedUndated(overrides: Partial<StatBookRecord["readings"][number]> = {}) {
+  return {
+    status: "finished" as const,
+    startedAt: null,
+    finishedAt: null,
+    rating: null,
+    deletedAt: null,
+    ...overrides,
+  };
+}
+
 /** Le même livre, dans la forme que consomme `derivePal` — pour le test de cohérence. */
 function toPalRecord(record: StatBookRecord, index: number): PalBookRecord {
   return {
@@ -68,6 +89,12 @@ function toPalRecord(record: StatBookRecord, index: number): PalBookRecord {
       status: reading.status,
       finished_at: reading.finishedAt,
       deleted_at: reading.deletedAt,
+    })),
+    ownerships: (record.ownerships ?? []).map((ownership, ownershipIndex) => ({
+      id: `ownership-${index}-${ownershipIndex}`,
+      owned_since: ownership.ownedSince,
+      disposed_at: ownership.disposedAt,
+      deleted_at: ownership.deletedAt,
     })),
   };
 }
@@ -298,12 +325,112 @@ describe("la santé de la PAL", () => {
       book({ purchases: [bought("2026-05-05")], readings: [finished("2026-05-01")] }),
       book({ readings: [finished("2026-06-01")] }),
       book({ purchases: [bought("2026-06-15")], readings: [finished("2026-06-20"), finished("2026-07-01")] }),
+      // Les quatre situations de #101, mêlées aux achats : la cohérence doit
+      // tenir avec du non-daté dans le lot, sinon le mécanisme ne sert à rien.
+      book({ ownerships: [owns()] }),
+      book({ ownerships: [owns({ ownedSince: "2024-03-15" })] }),
+      book({ ownerships: [owns()], readings: [finishedUndated()] }),
+      book({ ownerships: [owns({ ownedSince: "2025-01-10", disposedAt: "2026-02-02" })] }),
     ];
     const stats = computeStats(records, CURRENT_MONTH);
     const pal = derivePal(records.map(toPalRecord));
     expect(stats.pal.currentSize).toBe(pal.entries.length);
     // Et le dernier point de la courbe EST la taille à date.
     expect(stats.pal.cumulativeByMonth.at(-1)?.size).toBe(stats.pal.currentSize);
+  });
+});
+
+describe("la PAL avec des mouvements sans date (#101)", () => {
+  it("l'étagère scannée : la pile grossit, aucun mois ne bouge, la courbe reste vide", () => {
+    const shelf = Array.from({ length: 12 }, () => book({ ownerships: [owns()] }));
+    const result = computeStats(shelf, CURRENT_MONTH);
+    expect(result.pal.currentSize).toBe(12);
+    expect(result.pal.monthEntries).toBe(0);
+    expect(result.pal.monthBalance).toBe(0);
+    // Aucun mois n'a de mouvement : il n'y a rien à tracer.
+    expect(result.pal.cumulativeByMonth).toEqual([]);
+  });
+
+  it("LIGNE DE BASE : les non-datés décalent la courbe, qui finit sur la vraie pile", () => {
+    // 3 livres de l'étagère (sans date) + 1 acheté en juillet : la courbe ne
+    // doit pas démarrer à 1 en juillet, sinon elle raconte une pile de 1 alors
+    // qu'il y en a 4 — et le dernier point mentirait sur le stock réel.
+    const result = computeStats(
+      [
+        book({ ownerships: [owns()] }),
+        book({ ownerships: [owns()] }),
+        book({ ownerships: [owns()] }),
+        book({ purchases: [bought("2026-07-03")] }),
+      ],
+      CURRENT_MONTH,
+    );
+    expect(result.pal.currentSize).toBe(4);
+    expect(result.pal.cumulativeByMonth).toEqual([{ month: "2026-07", size: 4 }]);
+    expect(result.pal.cumulativeByMonth.at(-1)?.size).toBe(result.pal.currentSize);
+  });
+
+  it("l'invariant tient aussi quand une sortie n'est pas datée", () => {
+    const result = computeStats(
+      [
+        book({ ownerships: [owns()] }),
+        book({ purchases: [bought("2026-07-03")], readings: [finishedUndated()] }),
+      ],
+      CURRENT_MONTH,
+    );
+    expect(result.pal.currentSize).toBe(1);
+    expect(result.pal.cumulativeByMonth.at(-1)?.size).toBe(result.pal.currentSize);
+  });
+
+  it("un livre possédé (déclaré) et lu n'est PAS un emprunt", () => {
+    const result = computeStats([book({ ownerships: [owns()], readings: [finished("2026-07-05")] })], CURRENT_MONTH);
+    expect(result.pal.readOutsidePalCount).toBe(0);
+  });
+});
+
+describe("les lectures sans date de fin — « déjà lu » (#101)", () => {
+  it("comptent dans le volume TOTAL, dans aucun mois ni aucune année", () => {
+    // C'est un fait de lecture : il compte. Mais il n'appartient à aucune
+    // période — lui en inventer une fausserait le bilan et les courbes.
+    const result = computeStats([book({ readings: [finishedUndated()] })], CURRENT_MONTH);
+    expect(result.volume.finishedTotal).toBe(1);
+    expect(result.volume.finishedThisMonth).toBe(0);
+    expect(result.volume.finishedThisYear).toBe(0);
+  });
+
+  it("n'apparaissent dans aucun mois du volume temporel", () => {
+    const result = computeStats(
+      [book({ readings: [finishedUndated()] }), book({ readings: [finished("2026-07-05")] })],
+      CURRENT_MONTH,
+    );
+    expect(result.monthly.finishedByMonth).toEqual([{ month: "2026-07", count: 1 }]);
+  });
+
+  it("ne fabriquent pas une durée de lecture de zéro jour", () => {
+    const result = computeStats([book({ readings: [finishedUndated()] })], CURRENT_MONTH);
+    expect(result.rythme.averageDurationDays).toBeNull();
+    expect(result.rythme.readingsWithoutDuration).toBe(1);
+  });
+
+  it("leur NOTE pèse dans les moyennes (la note est un fait, pas une date)", () => {
+    const result = computeStats([book({ readings: [finishedUndated({ rating: 4 })] })], CURRENT_MONTH);
+    expect(result.ratings.averageOverall).toBe(4);
+    // …mais pas dans les moyennes DATÉES : la lecture n'a ni mois ni année.
+    expect(result.ratings.averageThisMonth).toBeNull();
+    expect(result.ratings.averageThisYear).toBeNull();
+  });
+
+  it("restent hors du CLASSEMENT, qui affiche une date de lecture", () => {
+    const rated = Array.from({ length: MIN_RATED_READINGS_TO_RANK }, () =>
+      book({ publisher: "Glénat", readings: [finished("2026-07-05", { rating: 5 })] }),
+    );
+    const result = computeStats(
+      [...rated, book({ publisher: "Glénat", readings: [finishedUndated({ rating: 1 })] })],
+      CURRENT_MONTH,
+    );
+    expect(result.tastes.ranking).toHaveLength(MIN_RATED_READINGS_TO_RANK);
+    // La note non datée pèse quand même dans la moyenne de l'éditeur.
+    const glenat = result.tastes.publishers.find((group) => group.name === "Glénat");
+    expect(glenat?.ratedCount).toBe(MIN_RATED_READINGS_TO_RANK + 1);
   });
 });
 

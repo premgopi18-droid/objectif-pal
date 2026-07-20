@@ -44,10 +44,25 @@ import {
  * reprise sont réversibles ; les dates, la note et l'avis s'éditent après coup.
  */
 
+/**
+ * La ligne de dates d'une lecture. Depuis #101, les deux bouts peuvent manquer :
+ * un « je l'ai déjà lu » de l'étagère d'avant n'a ni début ni fin connus. On
+ * dit alors ce qu'on sait, sans inventer de date.
+ */
+function readingDatesLabel(entry: JournalEntry): string {
+  const finished = entry.finishedAt === null ? null : `terminé le ${formatDateFrench(entry.finishedAt)}`;
+  if (entry.startedAt === null) return finished === null ? "Date inconnue" : capitalize(finished);
+  const started = `Commencé le ${formatDateFrench(entry.startedAt)}`;
+  return finished === null ? started : `${started} · ${finished}`;
+}
+
+const capitalize = (text: string): string => text.charAt(0).toUpperCase() + text.slice(1);
+
 export type JournalEntry = {
   id: string;
   status: ReadingStatus;
-  startedAt: string;
+  /** Nullable depuis #101 : une lecture rétroactive n'a pas de début connu. */
+  startedAt: string | null;
   finishedAt: string | null;
   rating: number | null;
   comment: string | null;
@@ -234,10 +249,7 @@ function JournalItem({
           <>
             {subtitle && <div className="truncate">{subtitle}</div>}
             <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-ink3">
-              <span className="tabular-nums">
-                Commencé le {formatDateFrench(entry.startedAt)}
-                {entry.finishedAt && ` · terminé le ${formatDateFrench(entry.finishedAt)}`}
-              </span>
+              <span className="tabular-nums">{readingDatesLabel(entry)}</span>
               {entry.rating !== null && <Stars rating={entry.rating} />}
             </div>
           </>
@@ -318,7 +330,8 @@ function EditPanel({
   onError: (message: string) => void;
   onDone: () => void;
 }) {
-  const [startedAt, setStartedAt] = useState(entry.startedAt);
+  // Vide si la lecture n'a pas de début connu (#101) — l'input date accepte "".
+  const [startedAt, setStartedAt] = useState(entry.startedAt ?? "");
   const [finishedAt, setFinishedAt] = useState(entry.finishedAt ?? "");
   const [rating, setRating] = useState(entry.rating === null ? "" : String(entry.rating));
   const [comment, setComment] = useState(entry.comment ?? "");

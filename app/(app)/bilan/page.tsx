@@ -48,6 +48,12 @@ export default async function BilanPage({
     const [{ data, error }, sessionResult] = await Promise.all([
       supabase
         .from("books")
+        // ⚠️ #101 lot B : cette requête n'embarque pas encore `ownerships`, donc
+        // la PAL des stats (taille, courbe, solde) ignorera les possessions
+        // déclarées — alors que le volet Pile, lui, les verra. Deuxième des
+        // TROIS surfaces à brancher ensemble (avec bibliotheque/page.tsx et
+        // lib/library/derive-library.ts), sous peine de trois vues qui
+        // racontent trois histoires différentes (§4.5).
         .select(
           `id, title, category, publisher, series_name, page_count, deleted_at,
          metadata_source, metadata_source_id,

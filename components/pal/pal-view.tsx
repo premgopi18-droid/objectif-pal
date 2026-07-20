@@ -20,21 +20,45 @@ import { computePalHealth } from "@/lib/pal/health";
  * pile. La sémantique (entrées, sorties, rachats) vit dans lib/pal/derive-pal.
  */
 
+/**
+ * Ce qui date l'entrée en pile, selon sa SOURCE (#101) : un achat se dit
+ * « acheté le », une possession déclarée « possédé depuis » — et quand la date
+ * est inconnue (l'étagère d'avant l'app), on ne l'invente pas.
+ */
+function entryLabel(entry: PalEntry): string {
+  if (entry.enteredAt === null) return "Déjà dans ma bibliothèque";
+  return entry.entrySource.kind === "purchase"
+    ? `Acheté le ${formatDateFrench(entry.enteredAt)}`
+    : `Possédé depuis le ${formatDateFrench(entry.enteredAt)}`;
+}
+
+/** Capture l'id hors du JSX : le narrowing d'un champ ne survit pas à la closure. */
+const softDeletePurchaseAction = (purchaseId: string) => () => softDeletePurchase(purchaseId);
+
 type PalViewProps = {
   entries: PalEntry[];
-  /** Les dates d'ENTRÉE de pile (les achats, hors rachats de déjà-lus — cf. derivePal). */
-  purchaseDates: string[];
-  /** Les dates de SORTIE de pile (une par livre possédé : sa première fin). */
-  ownedFinishedDates: string[];
+  /** Les dates d'ENTRÉE de pile connues (hors acquisitions de déjà-lus — cf. derivePal). */
+  entryDates: string[];
+  /** Les dates de SORTIE de pile connues (une par livre possédé : sa première fin). */
+  exitDates: string[];
+  /** Les livres entrés/sortis à une date inconnue (#101) — du stock, jamais du flux. */
+  undatedEntryCount?: number;
+  undatedExitCount?: number;
 };
 
-export function PalView({ entries, purchaseDates, ownedFinishedDates }: PalViewProps) {
+export function PalView({
+  entries,
+  entryDates,
+  exitDates,
+  undatedEntryCount,
+  undatedExitCount,
+}: PalViewProps) {
   const { run, isPending, error } = useBookGestures();
 
   // La santé du mois — dérivation PARTAGÉE (lib/pal/health), calculée avec le
   // mois LOCAL de l'appareil. La vue ne recompte plus rien elle-même.
   const { pileSize, monthEntries, monthExits, monthBalance } = computePalHealth(
-    { entryDates: purchaseDates, exitDates: ownedFinishedDates },
+    { entryDates, exitDates, undatedEntryCount, undatedExitCount },
     localCurrentMonth(),
   );
 
@@ -71,17 +95,21 @@ export function PalView({ entries, purchaseDates, ownedFinishedDates }: PalViewP
                       {formatBookSubtitle(entry.seriesName, entry.issueNumber, CATEGORY_LABELS[entry.category])}
                     </div>
                     <div className="mt-0.5 flex items-center gap-2 text-ink3">
-                      <span>Acheté le {formatDateFrench(entry.purchasedAt)}</span>
+                      <span>{entryLabel(entry)}</span>
                       {/* « Je ne l'ai pas acheté » : annule l'achat qui a fait entrer le
-                          livre en pile (§4.6). Réversible → pas de confirmation. */}
-                      <RemoveButton
-                        label="Je ne l'ai pas acheté"
-                        action={() => softDeletePurchase(entry.purchaseId)}
-                        run={run}
-                        isPending={isPending}
-                        tone="muted"
-                        className="text-xs"
-                      />
+                          livre en pile (§4.6). Réversible → pas de confirmation. Un livre
+                          entré par « je possède » (#101) n'a pas d'achat à annuler : son
+                          geste de retrait arrive avec le lot B. */}
+                      {entry.entrySource.kind === "purchase" && (
+                        <RemoveButton
+                          label="Je ne l'ai pas acheté"
+                          action={softDeletePurchaseAction(entry.entrySource.purchaseId)}
+                          run={run}
+                          isPending={isPending}
+                          tone="muted"
+                          className="text-xs"
+                        />
+                      )}
                     </div>
                   </>
                 }

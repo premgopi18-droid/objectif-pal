@@ -322,6 +322,51 @@ export type Database = {
           },
         ]
       }
+      ownerships: {
+        Row: {
+          book_id: string
+          created_at: string
+          deleted_at: string | null
+          disposed_at: string | null
+          id: string
+          owned_since: string | null
+          user_id: string
+        }
+        Insert: {
+          book_id: string
+          created_at?: string
+          deleted_at?: string | null
+          disposed_at?: string | null
+          id?: string
+          owned_since?: string | null
+          user_id: string
+        }
+        Update: {
+          book_id?: string
+          created_at?: string
+          deleted_at?: string | null
+          disposed_at?: string | null
+          id?: string
+          owned_since?: string | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "ownerships_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "books"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "ownerships_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       profiles: {
         Row: {
           created_at: string
@@ -385,21 +430,21 @@ export type Database = {
       reading_events: {
         Row: {
           id: number
-          occurred_at: string
+          occurred_at: string | null
           reading_id: string
           status: Database["public"]["Enums"]["reading_status"]
           user_id: string
         }
         Insert: {
           id?: never
-          occurred_at?: string
+          occurred_at?: string | null
           reading_id: string
           status: Database["public"]["Enums"]["reading_status"]
           user_id: string
         }
         Update: {
           id?: never
-          occurred_at?: string
+          occurred_at?: string | null
           reading_id?: string
           status?: Database["public"]["Enums"]["reading_status"]
           user_id?: string
@@ -430,7 +475,7 @@ export type Database = {
           finished_at: string | null
           id: string
           rating: number | null
-          started_at: string
+          started_at: string | null
           status: Database["public"]["Enums"]["reading_status"]
           user_id: string
         }
@@ -442,7 +487,7 @@ export type Database = {
           finished_at?: string | null
           id?: string
           rating?: number | null
-          started_at: string
+          started_at?: string | null
           status?: Database["public"]["Enums"]["reading_status"]
           user_id: string
         }
@@ -454,7 +499,7 @@ export type Database = {
           finished_at?: string | null
           id?: string
           rating?: number | null
-          started_at?: string
+          started_at?: string | null
           status?: Database["public"]["Enums"]["reading_status"]
           user_id?: string
         }

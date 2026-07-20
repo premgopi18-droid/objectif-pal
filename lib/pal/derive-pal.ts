@@ -8,14 +8,21 @@ import type { BookCategory, IsoDate } from "@/lib/scoring/types";
  * de doute, c'est la sémantique du moteur qui fait foi.
  *
  * Les règles de pile, alignées sur le moteur :
- *  - possédé = le livre a un achat ; une lecture sans achat (emprunt,
- *    médiathèque) n'est JAMAIS dans la pile (§4.5, les deux dénominateurs) ;
- *  - un achat n'est une ENTRÉE que si le livre n'avait AUCUNE lecture terminée
- *    à une date ≤ la date d'achat — racheter un livre déjà lu ne fait pas
- *    grossir la pile (§3.3, même règle que l'annulation du malus) ;
+ *  - possédé = le livre a un achat actif, OU une possession déclarée « je
+ *    possède » (#101). Une lecture sans possession (emprunt, médiathèque) n'est
+ *    JAMAIS dans la pile (§4.5, les deux dénominateurs) ;
+ *  - acquérir un livre DÉJÀ LU ne fait pas grossir la pile (§3.3, même règle
+ *    que l'annulation du malus) — vrai d'un achat comme d'une déclaration ;
  *  - UNE sortie par livre : la PREMIÈRE fin de lecture d'un livre alors en
- *    pile. Une relecture re-rapporte ses points mais ne re-vide pas la pile,
- *    et une fin antérieure à toute entrée ne sort rien (décision du 14/07/2026).
+ *    pile, ou sa sortie de possession (don, revente). Une relecture re-rapporte
+ *    ses points mais ne re-vide pas la pile, et une fin antérieure à toute
+ *    entrée ne sort rien (décision du 14/07/2026).
+ *
+ * **Les dates peuvent manquer (#101), et c'est structurant.** L'étagère d'avant
+ * l'app n'a ni date d'acquisition ni date de lecture connue. On ne les invente
+ * pas : l'APPARTENANCE à la pile (un booléen) est dérivée sans date, et seuls
+ * les mouvements DATÉS alimentent les flux du mois et la courbe. Un livre entré
+ * sans date compte donc dans le STOCK, jamais dans les FLUX.
  *
  * Comme partout : dates ISO `YYYY-MM-DD`, comparaison lexicographique =
  * comparaison chronologique, jamais de `Date`.
@@ -29,46 +36,110 @@ export type PalEntry = {
   issueNumber: string | null;
   category: BookCategory;
   coverUrl: string | null;
-  purchasedAt: IsoDate;
-  /** L'achat qui a fait entrer le livre en pile — celui qu'annule « je ne l'ai pas acheté ». */
-  purchaseId: string;
+  /** La date d'entrée en pile — `null` si elle est inconnue (« je possède » sans date, #101). */
+  enteredAt: IsoDate | null;
+  /**
+   * Comment le livre est entré en pile — c'est lui qui décide du geste de
+   * retrait : on n'annule pas un achat qui n'existe pas (#101).
+   */
+  entrySource:
+    | { kind: "purchase"; purchaseId: string }
+    | { kind: "ownership"; ownershipId: string };
   isInProgress: boolean;
 };
 
 /**
  * Le cœur de la règle de pile pour UN livre — partagé entre la vue PAL et le
  * garde du doublon d'achat (lib/books/pile-guard.ts), pour que les deux
- * racontent la MÊME histoire. Reçoit les dates d'achat ACTIVES et les dates de
- * fin de lecture du livre (dans n'importe quel ordre — la fonction les trie).
+ * racontent la MÊME histoire.
  */
-export type PileStatus = {
+export type PileInput = {
+  /** Les dates d'achat ACTIVES (dans n'importe quel ordre — la fonction trie). */
+  purchaseDates: IsoDate[];
   /**
-   * La date d'ENTRÉE en pile : le premier achat qui n'était pas déjà lu.
-   * `null` = jamais entré (aucun achat, ou rachat d'un déjà-lu §3.3).
+   * La possession DÉCLARÉE active du livre, ou `null` s'il n'y en a pas. Quand
+   * elle existe, elle fait autorité sur la possession (elle seule sait dire
+   * « je ne le possède plus » d'un livre pourtant acheté).
    */
+  ownership: { ownedSince: IsoDate | null; disposedAt: IsoDate | null } | null;
+  /** Les dates de fin des lectures terminées DATÉES. */
+  finishedDates: IsoDate[];
+  /** Au moins une lecture terminée sans date connue (« déjà lu », #101). */
+  hasUndatedFinish: boolean;
+};
+
+export type PileStatus = {
+  /** Le livre est-il entré en pile un jour ? */
+  entered: boolean;
+  /** Sa date d'ENTRÉE — `null` avec `entered` à vrai = entré à une date inconnue. */
   entryDate: IsoDate | null;
-  /** La première fin survenue alors que le livre était en pile — sa SORTIE —, ou `null` s'il y est encore. */
+  /** En est-il ressorti (lu, donné, revendu) ? */
+  exited: boolean;
+  /** Sa date de SORTIE — `null` avec `exited` à vrai = sorti à une date inconnue. */
   exitDate: IsoDate | null;
 };
 
-export function derivePileStatus(activePurchaseDates: IsoDate[], finishedDates: IsoDate[]): PileStatus {
-  // Pas d'achat = pas possédé : jamais dans la pile, même lu (emprunt) — §4.5.
-  if (activePurchaseDates.length === 0) return { entryDate: null, exitDate: null };
-  const purchases = [...activePurchaseDates].sort();
+/**
+ * Jamais entré : emprunt, ou acquisition d'un livre déjà lu (§3.3). Une
+ * FABRIQUE, pas une constante partagée : deux livres hors pile ne doivent
+ * jamais se retrouver à pointer le même objet.
+ */
+const neverInPile = (): PileStatus => ({ entered: false, entryDate: null, exited: false, exitDate: null });
+
+/** Dans la pile MAINTENANT : entré et pas encore ressorti. */
+export const isInPileNow = (status: PileStatus): boolean => status.entered && !status.exited;
+
+export function derivePileStatus({
+  purchaseDates,
+  ownership,
+  finishedDates,
+  hasUndatedFinish,
+}: PileInput): PileStatus {
   const finished = [...finishedDates].sort();
+  const hasAnyFinish = finished.length > 0 || hasUndatedFinish;
 
-  // ENTRÉES : un achat n'entre que si aucune lecture n'était terminée à une
-  // date ≤ la date d'achat — sinon c'est le rachat d'un déjà-lu (§3.3).
-  const entryDates = purchases.filter(
-    (purchasedAt) => !finished.some((finishedAt) => finishedAt <= purchasedAt),
-  );
-  if (entryDates.length === 0) return { entryDate: null, exitDate: null };
-  const entryDate = entryDates[0];
+  // ACQUISITIONS : les achats actifs et la possession déclarée. Une déclaration
+  // sans `ownedSince` est une acquisition à date INCONNUE (l'étagère d'avant).
+  const datedAcquisitions = [...purchaseDates];
+  if (ownership?.ownedSince != null) datedAcquisitions.push(ownership.ownedSince);
+  datedAcquisitions.sort();
+  const hasUndatedAcquisition = ownership !== null && ownership.ownedSince === null;
 
-  // SORTIE : la première fin survenue alors que le livre était en pile.
-  // (Une fin ≤ la première entrée aurait empêché cette entrée d'exister.)
-  const exitDate = finished.find((finishedAt) => finishedAt >= entryDate) ?? null;
-  return { entryDate, exitDate };
+  // Rien qui fasse posséder le livre : une lecture d'emprunt n'entre pas en pile.
+  if (datedAcquisitions.length === 0 && !hasUndatedAcquisition) return neverInPile();
+
+  // ENTRÉE : la première acquisition qui n'était pas déjà lue (§3.3) — racheter
+  // (ou déclarer) un livre déjà terminé ne fait pas grossir la pile.
+  const entryDate = datedAcquisitions.find((acquiredAt) => !finished.some((end) => end <= acquiredAt)) ?? null;
+
+  if (entryDate === null) {
+    // Aucune acquisition datable ne fait entrer le livre. Une acquisition SANS
+    // date ne le fait entrer que si le livre n'a JAMAIS été terminé : sinon on
+    // ne saurait ni la placer, ni dire qu'elle a précédé la lecture — et « je
+    // possède un livre que j'ai déjà lu » n'est pas une entrée en pile (§3.3).
+    if (!hasUndatedAcquisition || hasAnyFinish) return neverInPile();
+    // Entré, date inconnue. Sa seule sortie possible est une fin de possession
+    // (il n'a aucune lecture terminée, cf. la garde ci-dessus).
+    const disposedAt = ownership?.disposedAt ?? null;
+    return { entered: true, entryDate: null, exited: disposedAt !== null, exitDate: disposedAt };
+  }
+
+  // SORTIE : le premier événement qui vide le livre de la pile — une fin de
+  // lecture survenue alors qu'il y était, ou une sortie de possession. (Une fin
+  // antérieure à l'entrée aurait empêché cette entrée d'exister.)
+  const datedFinishExit = finished.find((end) => end >= entryDate) ?? null;
+
+  // Une fin sans date sort le livre de la pile sans qu'on puisse la dater. Elle
+  // prime sur la sortie de possession : on lit un livre avant de s'en séparer,
+  // et dater cette sortie au don placerait le mouvement dans le mauvais mois.
+  if (datedFinishExit === null && hasUndatedFinish) {
+    return { entered: true, entryDate, exited: true, exitDate: null };
+  }
+
+  const disposedAt = ownership?.disposedAt ?? null;
+  const datedExits = [datedFinishExit, disposedAt].filter((date): date is IsoDate => date !== null).sort();
+  const exitDate = datedExits[0] ?? null;
+  return { entered: true, entryDate, exited: exitDate !== null, exitDate };
 }
 
 /**
@@ -79,10 +150,12 @@ export function derivePileStatus(activePurchaseDates: IsoDate[], finishedDates: 
  */
 export type PurchaseFact = { purchasedAt: string; deletedAt: string | null };
 export type ReadingFact = { status: string; finishedAt: string | null; deletedAt: string | null };
+export type OwnershipFact = { ownedSince: string | null; disposedAt: string | null; deletedAt: string | null };
 
 /**
  * Les achats ACTIFS (non annulés par « je ne l'ai pas acheté »), triés du plus
- * ancien au plus récent — LE filtre de possession, écrit une seule fois (#78).
+ * ancien au plus récent — LE filtre de possession par achat, écrit une seule
+ * fois (#78).
  */
 export function activePurchasesOf<P extends PurchaseFact>(purchases: P[]): P[] {
   return purchases
@@ -91,70 +164,127 @@ export function activePurchasesOf<P extends PurchaseFact>(purchases: P[]): P[] {
 }
 
 /**
+ * La possession DÉCLARÉE active du livre (#101), ou `null`. La base garantit
+ * qu'il n'y en a qu'une (index unique partiel `ownerships_active_book_idx`) ;
+ * on prend la première non supprimée sans rien supposer de plus.
+ */
+export function activeOwnershipOf<O extends OwnershipFact>(ownerships: O[]): O | null {
+  return ownerships.find((ownership) => ownership.deletedAt === null) ?? null;
+}
+
+/**
  * Les lectures TERMINÉES actives — les seules qui comptent comme FINS pour la
  * pile (§4.5/§4.6 : l'abandon n'est pas une fin, une lecture supprimée non
- * plus). LE filtre de fin, écrit une seule fois (#78). Le type se resserre au
- * passage : une lecture terminée a toujours sa date.
+ * plus). LE filtre de fin, écrit une seule fois (#78). Attention : depuis #101
+ * une lecture terminée peut n'avoir AUCUNE date (« déjà lu »), d'où le second
+ * filtre ci-dessous — ne pas supposer ici que `finishedAt` est renseignée.
  */
-export function finishedReadingsOf<R extends ReadingFact>(readings: R[]): (R & { finishedAt: IsoDate })[] {
-  return readings.filter(
-    (reading): reading is R & { finishedAt: IsoDate } =>
-      reading.deletedAt === null && reading.status === "finished" && reading.finishedAt !== null,
-  );
+export function finishedReadingsOf<R extends ReadingFact>(readings: R[]): R[] {
+  return readings.filter((reading) => reading.deletedAt === null && reading.status === "finished");
+}
+
+/** Les fins DATÉES — celles qui peuvent alimenter un mois (flux, courbe, points). */
+export function finishedDatesOf<R extends ReadingFact>(readings: R[]): IsoDate[] {
+  return finishedReadingsOf(readings)
+    .map((reading) => reading.finishedAt)
+    .filter((finishedAt): finishedAt is IsoDate => finishedAt !== null);
 }
 
 /**
  * Les lectures EN COURS actives — celles qui font dire « je suis dedans » à la
  * vue PAL, et « ça traîne » aux stats (#30 lot A) quand elles durent. Même
- * esprit que les deux filtres ci-dessus : écrit une seule fois, jamais recopié.
+ * esprit que les filtres ci-dessus : écrit une seule fois, jamais recopié.
  */
 export function inProgressReadingsOf<R extends ReadingFact>(readings: R[]): R[] {
   return readings.filter((reading) => reading.deletedAt === null && reading.status === "reading");
 }
 
-/** Le mouvement de pile d'UN livre entré : son entrée, sa sortie éventuelle, l'achat d'entrée. */
-export type BookMovement<P extends PurchaseFact> = {
-  /** La date d'ENTRÉE en pile (le premier achat pas-déjà-lu). */
-  entryDate: IsoDate;
-  /** La première fin survenue en pile — sa SORTIE —, ou `null` s'il y est encore. */
+/**
+ * Le mouvement de pile d'UN livre entré : son entrée, sa sortie éventuelle, et
+ * ce qui l'a fait entrer.
+ */
+export type BookMovement<P extends PurchaseFact, O extends OwnershipFact> = {
+  /** La date d'ENTRÉE en pile — `null` si elle est inconnue (#101). */
+  entryDate: IsoDate | null;
+  /** Est-il ressorti de la pile ? */
+  exited: boolean;
+  /** Sa date de SORTIE — `null` s'il est encore en pile, ou sorti sans date connue. */
   exitDate: IsoDate | null;
-  /** L'achat qui a fait entrer le livre — celui qu'annule « je ne l'ai pas acheté ». */
-  entryPurchase: P;
+  /**
+   * Ce qui a fait entrer le livre : l'achat qu'annule « je ne l'ai pas acheté »,
+   * ou la possession déclarée que retire « je ne le possède plus ». La vue PAL
+   * en déduit le bon geste — jamais annuler un achat inexistant (#101).
+   */
+  entryVia: { kind: "purchase"; purchase: P } | { kind: "ownership"; ownership: O };
 };
 
 /**
  * Le réducteur PARTAGÉ faits → mouvement (issue #78) : filtrer les achats
- * actifs et les fins de lecture terminées, puis dériver le statut de pile.
- * `derivePal` (vue PAL), `computeStats` (stats) et les tests de santé passent
- * TOUS par ici — un futur critère de filtrage ne s'ajoute qu'à un endroit.
- * Rend `null` si le livre n'est jamais entré en pile (aucun achat actif, ou
- * rachat d'un déjà-lu §3.3).
+ * actifs, la possession déclarée et les fins de lecture, puis dériver le statut
+ * de pile. `derivePal` (vue PAL), `computeStats` (stats) et le garde du doublon
+ * passent TOUS par ici — un futur critère de filtrage ne s'ajoute qu'à un
+ * endroit. Rend `null` si le livre n'est jamais entré en pile (ni achat ni
+ * possession, ou acquisition d'un déjà-lu §3.3).
  */
-export function bookToMovement<P extends PurchaseFact, R extends ReadingFact>(book: {
+export function bookToMovement<
+  P extends PurchaseFact,
+  R extends ReadingFact,
+  O extends OwnershipFact,
+>(book: {
   purchases: P[];
   readings: R[];
-}): BookMovement<P> | null {
+  ownerships?: O[] | null;
+}): BookMovement<P, O> | null {
   const activePurchases = activePurchasesOf(book.purchases);
-  const finishedDates = finishedReadingsOf(book.readings).map((reading) => reading.finishedAt);
+  const ownership = activeOwnershipOf(book.ownerships ?? []);
+  const finishedReadings = finishedReadingsOf(book.readings);
+  const finishedDates = finishedDatesOf(book.readings);
 
   // La règle de pile vit dans le cœur partagé (derivePileStatus).
-  const { entryDate, exitDate } = derivePileStatus(
-    activePurchases.map((purchase) => purchase.purchasedAt as IsoDate),
+  const status = derivePileStatus({
+    purchaseDates: activePurchases.map((purchase) => purchase.purchasedAt as IsoDate),
+    ownership:
+      ownership === null
+        ? null
+        : {
+            ownedSince: ownership.ownedSince as IsoDate | null,
+            disposedAt: ownership.disposedAt as IsoDate | null,
+          },
     finishedDates,
-  );
-  if (entryDate === null) return null;
+    hasUndatedFinish: finishedReadings.length > finishedDates.length,
+  });
+  if (!status.entered) return null;
 
-  // L'achat d'entrée : le plus ancien achat actif à la date d'entrée (liste triée).
-  const entryPurchase = activePurchases.find((purchase) => purchase.purchasedAt === entryDate)!;
-  return { entryDate, exitDate, entryPurchase };
+  // Ce qui a fait entrer le livre. Un achat à la date d'entrée l'emporte : c'est
+  // le geste le plus précis (et le seul annulable en un tap). Sinon, c'est la
+  // possession déclarée — y compris quand l'entrée n'a pas de date.
+  const entryPurchase = activePurchases.find((purchase) => purchase.purchasedAt === status.entryDate) ?? null;
+
+  // Entré sans achat correspondant → c'est la possession déclarée qui l'a fait
+  // entrer. Garde EXPLICITE plutôt qu'une assertion : l'invariant qui rend ce
+  // cas impossible vit dans derivePileStatus, loin d'ici — une troisième source
+  // d'acquisition ajoutée un jour doit se voir ici, pas produire un `undefined`.
+  const entryVia: BookMovement<P, O>["entryVia"] | null =
+    entryPurchase !== null
+      ? { kind: "purchase", purchase: entryPurchase }
+      : ownership !== null
+        ? { kind: "ownership", ownership }
+        : null;
+  if (entryVia === null) return null;
+
+  return { entryDate: status.entryDate, exited: status.exited, exitDate: status.exitDate, entryVia };
 }
 
 type Tables = Database["public"]["Tables"];
 
 /**
- * Un livre tel que la page le charge — achats et lectures embarqués.
+ * Un livre tel que la page le charge — achats, lectures et possession embarqués.
  * Dérivé des Rows générés : la forme reste explicite (fonction pure, entrée
  * assumée), mais chaque champ est garanti aligné sur le schéma.
+ *
+ * `ownerships` est OPTIONNEL : les requêtes qui ne l'embarquent pas encore
+ * continuent de compiler et de dériver la pile depuis les seuls achats — le
+ * comportement d'avant #101, à l'identique.
  */
 export type PalBookRecord = Pick<
   Tables["books"]["Row"],
@@ -162,22 +292,29 @@ export type PalBookRecord = Pick<
 > & {
   purchases: Pick<Tables["purchases"]["Row"], "id" | "purchased_at" | "deleted_at">[] | null;
   readings: Pick<Tables["readings"]["Row"], "status" | "finished_at" | "deleted_at">[] | null;
+  ownerships?: Pick<Tables["ownerships"]["Row"], "id" | "owned_since" | "disposed_at" | "deleted_at">[] | null;
 };
 
 /** Exactement ce que `PalView` consomme. */
 export type PalDerivation = {
-  /** Les livres encore dans la pile, du plus ancien achat au plus récent. */
+  /** Les livres encore dans la pile, du plus ancien connu au plus récent. */
   entries: PalEntry[];
-  /** Les dates d'ENTRÉE de pile (une par livre : son premier achat pas-encore-lu). */
-  purchaseDates: IsoDate[];
-  /** Les dates de SORTIE de pile (une par livre : sa première fin). */
-  ownedFinishedDates: IsoDate[];
+  /** Les dates d'ENTRÉE de pile connues (une par livre entré à une date connue). */
+  entryDates: IsoDate[];
+  /** Les dates de SORTIE de pile connues (une par livre sorti à une date connue). */
+  exitDates: IsoDate[];
+  /** Les livres entrés à une date INCONNUE — du stock, jamais du flux (#101). */
+  undatedEntryCount: number;
+  /** Les livres sortis à une date INCONNUE — du stock, jamais du flux (#101). */
+  undatedExitCount: number;
 };
 
 export function derivePal(books: PalBookRecord[]): PalDerivation {
   const entries: PalEntry[] = [];
-  const purchaseDates: IsoDate[] = [];
-  const ownedFinishedDates: IsoDate[] = [];
+  const entryDates: IsoDate[] = [];
+  const exitDates: IsoDate[] = [];
+  let undatedEntryCount = 0;
+  let undatedExitCount = 0;
 
   for (const book of books) {
     // Suppression douce : un livre retiré n'existe plus pour la pile.
@@ -185,8 +322,8 @@ export function derivePal(books: PalBookRecord[]): PalDerivation {
 
     // Le réducteur partagé (#78), via un adaptateur fin snake_case → camelCase :
     // les Rows de la base parlent snake_case, le réducteur parle la langue des
-    // moteurs. L'id d'achat traverse le filtre (générique) : c'est l'achat
-    // d'ENTRÉE qu'annulera « je ne l'ai pas acheté » depuis la vue PAL.
+    // moteurs. Les identifiants traversent le filtre (générique) : ce sont eux
+    // qui portent le geste de retrait depuis la vue PAL.
     const movement = bookToMovement({
       purchases: (book.purchases ?? []).map((purchase) => ({
         id: purchase.id,
@@ -198,16 +335,25 @@ export function derivePal(books: PalBookRecord[]): PalDerivation {
         finishedAt: reading.finished_at,
         deletedAt: reading.deleted_at,
       })),
+      ownerships: (book.ownerships ?? []).map((ownership) => ({
+        id: ownership.id,
+        ownedSince: ownership.owned_since,
+        disposedAt: ownership.disposed_at,
+        deletedAt: ownership.deleted_at,
+      })),
     });
-    if (movement === null) continue; // jamais entré : rachat d'un déjà-lu, rien à afficher
+    if (movement === null) continue; // jamais entré : emprunt ou acquisition d'un déjà-lu
+
     // UNE entrée par livre : la pile compte des LIVRES à lire, pas des
     // exemplaires — deux achats du même livre ne la font grossir qu'une fois,
     // exactement comme une seule lecture annule leurs deux malus au bilan
     // (§3.3). Le solde du mois reste ainsi cohérent avec la pile affichée.
-    purchaseDates.push(movement.entryDate);
+    if (movement.entryDate !== null) entryDates.push(movement.entryDate);
+    else undatedEntryCount += 1;
 
-    if (movement.exitDate !== null) {
-      ownedFinishedDates.push(movement.exitDate);
+    if (movement.exited) {
+      if (movement.exitDate !== null) exitDates.push(movement.exitDate);
+      else undatedExitCount += 1;
       continue; // sorti de la pile — l'achat, lui, reste dans l'historique
     }
 
@@ -218,9 +364,11 @@ export function derivePal(books: PalBookRecord[]): PalDerivation {
       issueNumber: book.issue_number,
       category: book.category,
       coverUrl: book.cover_url,
-      // La plus ancienne entrée date l'arrivée dans la pile.
-      purchasedAt: movement.entryDate,
-      purchaseId: movement.entryPurchase.id,
+      enteredAt: movement.entryDate,
+      entrySource:
+        movement.entryVia.kind === "purchase"
+          ? { kind: "purchase", purchaseId: movement.entryVia.purchase.id }
+          : { kind: "ownership", ownershipId: movement.entryVia.ownership.id },
       isInProgress:
         inProgressReadingsOf(
           (book.readings ?? []).map((reading) => ({
@@ -232,7 +380,13 @@ export function derivePal(books: PalBookRecord[]): PalDerivation {
     });
   }
 
-  entries.sort((left, right) => left.purchasedAt.localeCompare(right.purchasedAt));
+  // Les entrées sans date connue d'abord (l'étagère d'avant, par définition
+  // antérieure), puis les autres du plus ancien au plus récent.
+  entries.sort((left, right) => {
+    if (left.enteredAt === null) return right.enteredAt === null ? 0 : -1;
+    if (right.enteredAt === null) return 1;
+    return left.enteredAt.localeCompare(right.enteredAt);
+  });
 
-  return { entries, purchaseDates, ownedFinishedDates };
+  return { entries, entryDates, exitDates, undatedEntryCount, undatedExitCount };
 }

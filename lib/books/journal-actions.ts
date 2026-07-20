@@ -46,7 +46,9 @@ export async function finishReading(readingId: string, finishedAt: string): Prom
     return { ok: false, error: GENERIC_ERROR_MESSAGE };
   }
   if (!current) return { ok: false, error: "Lecture introuvable." };
-  if (finishedAt < current.started_at) {
+  // `started_at` est nullable depuis #101 (lecture rétroactive sans date de
+  // début) : sans début connu, il n'y a pas d'ordre à faire respecter.
+  if (current.started_at !== null && finishedAt < current.started_at) {
     return { ok: false, error: "La date de fin ne peut pas précéder la date de début." };
   }
 

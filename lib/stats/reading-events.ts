@@ -66,6 +66,11 @@ export function summarizeReadingEvents(events: ReadingEventFact[]): ReadingEvent
     const isFirstEvent = !startedReadings.has(event.readingId);
     startedReadings.add(event.readingId);
 
+    // Un événement sans date (#101 : « déjà lu » sans date de fin) ne peut être
+    // rangé dans aucun mois. Il reste au journal — rien n'est jamais effacé
+    // (§7) — mais ne compte nulle part plutôt que de fausser un mois.
+    if (event.occurredAt === null) continue;
+
     if (event.status === "abandoned") {
       increment(abandonsByMonth, monthOf(event.occurredAt));
     } else if (event.status === "reading" && !isFirstEvent) {
