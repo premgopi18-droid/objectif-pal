@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { ErrorAlert } from "@/components/error-alert";
 import { COVERS_BUCKET, fileToWebpBlob, inboxCoverPhotoPath } from "@/lib/books/cover-photo";
@@ -42,6 +42,15 @@ export function BurstPhotoCapture({
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Le panneau REMPLACE le scanner : sans déplacer le focus, un lecteur d'écran
+  // ne saurait pas que le contexte a changé (review #112). Le titre le reçoit
+  // au montage — donc à l'entrée en mode photo — et l'annonce (`tabIndex={-1}` :
+  // focusable par programme, jamais dans l'ordre de tabulation).
+  const headingRef = useRef<HTMLHeadingElement>(null);
+  useEffect(() => {
+    headingRef.current?.focus();
+  }, []);
 
   async function handleFile(file: File) {
     setIsUploading(true);
@@ -88,7 +97,11 @@ export function BurstPhotoCapture({
   return (
     <div className="flex flex-col gap-3 rounded-card border border-line bg-card p-4">
       <div>
-        <p className="font-medium text-ink">Livre sans code-barres</p>
+        {/* Vrai titre de niveau 2 (le <h1> est « Scan d'étagère ») : reçoit le
+            focus au montage pour annoncer l'entrée en mode photo. */}
+        <h2 ref={headingRef} tabIndex={-1} className="font-medium text-ink outline-none">
+          Livre sans code-barres
+        </h2>
         <p className="mt-0.5 text-sm text-ink2">
           Photographie la couverture : elle servira à le reconnaître dans la boîte de finition, où tu
           renseigneras ses infos.
