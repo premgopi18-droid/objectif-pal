@@ -136,22 +136,23 @@ describe("la possession déclarée dans la bibliothèque (#101)", () => {
     expect(entry.isOwned).toBe(true);
   });
 
-  it("donné ou revendu : « Plus possédé » — pas « Sans activité »", () => {
-    // La nuance compte : le livre a eu une vie ici, il n'est pas un oubli.
-    const [entry] = deriveLibrary([bookRow({ ownerships: [owns({ disposedAt: "2026-07-12" })] })]);
-    expect(entry.status).toBe("disposed");
-    expect(entry.isOwned).toBe(false);
+  it("donné ou revendu : SORTI de la liste — « retirer » retire vraiment (#114)", () => {
+    // Décision du 20/07/2026 : la Biblio raconte ce qu'on possède (et ce qu'on
+    // a lu sans posséder). Un livre cédé la quitte ; son histoire — lectures,
+    // points, mouvements — vit au journal, au bilan et aux stats, pas ici.
+    expect(deriveLibrary([bookRow({ ownerships: [owns({ disposedAt: "2026-07-12" })] })])).toEqual([]);
   });
 
-  it("acheté PUIS déclaré « je ne le possède plus » : la possession fait autorité", () => {
-    const [entry] = deriveLibrary([
+  it("acheté PUIS cédé : la possession fait autorité — sorti aussi (#114)", () => {
+    // L'achat actif ne retient pas le livre dans la liste : elle seule sait
+    // dire « je ne le possède plus » d'un livre pourtant acheté.
+    const entries = deriveLibrary([
       bookRow({
         purchases: [{ purchased_at: "2026-06-01", deleted_at: null }],
         ownerships: [owns({ disposedAt: "2026-07-12" })],
       }),
     ]);
-    expect(entry.status).toBe("disposed");
-    expect(entry.isOwned).toBe(false);
+    expect(entries).toEqual([]);
   });
 
   it("une lecture sans possession reste un emprunt — jamais dans la PAL", () => {

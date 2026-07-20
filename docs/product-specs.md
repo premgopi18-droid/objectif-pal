@@ -528,12 +528,22 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
     quels : le barème sait gérer les exemplaires multiples (§3.3), « je ne l'ai pas acheté » corrige un vrai
     doublon de saisie.
   - Les métadonnées **comblent les trous** sans jamais écraser — même règle que le rescan (§4.2).
-- **« Retirer de la bibliothèque »** : suppression douce du **livre seul, sans cascade** — ses lectures et
-  achats restent intacts en base mais disparaissent de toutes les vues, car **chaque surface filtre sur
-  `books.deleted_at`** (le bilan le faisait déjà ; le journal l'a rejoint — `books!inner` + filtre). 100 %
-  réversible : **rescanner le livre le ressuscite avec tout son historique** (résurrection #10), photo
-  comprise (l'objet Storage n'est pas touché — rien n'est jamais effacé, §7). La confirmation annonce les
-  traces actives qui vont disparaître. L'export (§4.10) continue d'inclure les lignes supprimées.
+- **« Retirer de ma bibliothèque »** (décision du 20/07/2026, #114) : **un seul geste de sortie, jamais de
+  conséquence sur les lectures ni les points.** Retirer = ne plus posséder — le livre quitte la liste (les
+  cédés n'y figurent plus), ses lectures restent au journal, ses points au bilan, ses mouvements sur la
+  courbe. La mécanique s'adapte toute seule :
+  - le livre a des **traces actives** (lecture ou achat) → **cession datée** du jour (`endOwnership`) ;
+  - **aucune trace** → c'est le livre-erreur : **suppression douce** (`softDeleteBook`) — rien à préserver,
+    pas de fausse possession fabriquée, pas de bruit dans les flux du mois, et **rescanner le fait revenir**
+    (résurrection #10, photo comprise — rien n'est jamais effacé, §7). L'export (§4.10) inclut toujours tout.
+  - Une **lecture erronée** se corrige AVANT, au journal (« Supprimer » par lecture) ; un **achat erroné**
+    s'annule depuis la Pile (« Je ne l'ai pas acheté ») — la confirmation le rappelle quand le livre a un
+    achat actif, car la cession ne touche jamais un achat (son malus resterait compté).
+  > L'ancien bouton « Retirer » (suppression douce du livre et masquage de toutes ses traces, à côté d'un
+  > « Je ne le possède plus ») a été **supprimé** : deux gestes proches pour deux sémantiques opposées, et le
+  > plus destructeur était le plus visible — confondre les deux avalait des lectures et des points en
+  > silence. Le « × » de la rafale, lui, garde la suppression douce : c'est l'annulation immédiate d'un scan
+  > de la session, l'erreur y est certaine.
 
 ### 4.13 La possession — « je possède » et « j'ai déjà lu » (issue #101, livré le 20/07/2026)
 
@@ -567,10 +577,10 @@ préserve l'invariant : *le dernier point vaut toujours la taille réelle de la 
   moi ») et sur la rafale ; la case « **C'était un emprunt — je ne le possède pas** » bascule en lecture
   seule : un livre de médiathèque lu il y a deux ans est « lu » sans être « possédé », aucune possession
   fabriquée.
-- **« Je ne le possède plus »** (don, revente, perte) — le livre sort de la PAL et de la biblio possédée, mais
-  **ses lectures et ses points restent au bilan**. À ne pas confondre avec « Retirer » (§4.12), qui masque le
-  livre et toutes ses traces. L'achat n'est **jamais** touché : son malus historique est acquis, le mois est
-  clos.
+- **« Je ne le possède plus »** (don, revente, perte) — le livre sort de la PAL et de la Biblio, mais
+  **ses lectures et ses points restent au bilan**. C'est le même geste que « Retirer de ma bibliothèque »
+  (§4.12, #114) : depuis le 20/07/2026, il n'y a plus qu'UN geste de sortie. L'achat n'est **jamais**
+  touché : son malus historique est acquis, le mois est clos.
 - **La possession déclarée fait autorité** quand elle existe — elle seule sait dire « je ne le possède plus »
   d'un livre pourtant acheté.
 - Une **fin de lecture non datée prime sur un don** pour la sortie : dater la sortie au don placerait le
