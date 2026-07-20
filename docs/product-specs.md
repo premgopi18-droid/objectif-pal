@@ -498,7 +498,8 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
   couverture (#33/#47). L'édition des métadonnées reste au rescan.
 - **Badge d'état** (priorité) : En cours > Lu > Dans la PAL (possédé non lu — l'abandon n'en sort pas,
   §4.6) > Abandonné > **Sans activité** (l'angle mort, enfin visible).
-- **Décisions du 20/07/2026 (issue #100)** : l'édition de fiche ne reste pas au rescan — **formulaire
+- **⚠️ À CONSTRUIRE — décisions du 20/07/2026, issue #100** (rien de ce paragraphe n'existe encore dans
+  l'app) : l'édition de fiche ne restera pas au rescan — **formulaire
   complet** depuis la Biblio (titre, série, numéro, auteurs, éditeur, pages, catégorie ; la **catégorie
   corrigeable en un tap**, c'est elle qui fait les points ; les champs code-barres/source restent
   intouchables — c'est le pont de re-résolution, §7) + **fusion de doublons** (re-pointage des faits vers la
