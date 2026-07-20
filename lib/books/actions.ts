@@ -405,17 +405,19 @@ export async function endOwnership(bookId: string, disposedAt: string): Promise<
 
   if (!isValidIsoDate(disposedAt)) return { ok: false, error: "Date de sortie invalide." };
 
-  const { data: existing, error: readError } = await supabase
-    .from("ownerships")
-    .select("id, owned_since")
-    .eq("user_id", user.id)
-    .eq("book_id", bookId)
-    .is("deleted_at", null)
-    .maybeSingle();
-  if (readError) {
-    console.error("[books] endOwnership:", readError.message);
-    return { ok: false, error: GENERIC_ERROR_MESSAGE };
-  }
+  const facts = await loadPileFacts(supabase, user.id, bookId);
+  if ("error" in facts) return { ok: false, error: facts.error };
+
+  const existing = facts.ownerships.find((ownership) => ownership.deleted_at === null) ?? null;
+  const hasActivePurchase = facts.purchases.some((purchase) => purchase.deleted_at === null);
+
+  // On ne sort pas d'une possession qui n'existe pas. Sans cette garde, insérer
+  // une ligne « possédé à une date inconnue, puis donné » sur un livre jamais
+  // possédé fabriquerait une SORTIE de pile datée pour un livre qui n'y est
+  // jamais entré : la taille resterait juste, mais le solde du mois afficherait
+  // une sortie fantôme — un chiffre faux, et lu à l'antenne.
+  const isOwned = existing !== null ? existing.disposed_at === null : hasActivePurchase;
+  if (!isOwned) return { ok: false, error: "Ce livre n'est pas dans ta bibliothèque." };
 
   // La sortie ne peut pas précéder l'acquisition (contrainte en base — le
   // message est plus clair ici).
@@ -478,6 +480,26 @@ export async function recordPastReading(
   // depuis le journal (décision du 20/07/2026).
   const inProgressError = await getReadingInProgressError(supabase, user.id, book.bookId);
   if (inProgressError) return { ok: false, error: inProgressError };
+
+  // Garde du doublon, comme les autres gestes en ont une. On ne refuse QUE le
+  // cas non ambigu : une lecture terminée SANS date existe déjà, donc en
+  // redéclarer une n'ajoute aucune information. Une relecture DATÉE reste
+  // légitime (§4.2 — relire est un fait de plus, pas un doublon).
+  if (finishedAt === null) {
+    const { count, error: duplicateError } = await supabase
+      .from("readings")
+      .select("id", { count: "exact", head: true })
+      .eq("user_id", user.id)
+      .eq("book_id", book.bookId)
+      .eq("status", "finished")
+      .is("finished_at", null)
+      .is("deleted_at", null);
+    if (duplicateError) {
+      console.error("[books] recordPastReading:", duplicateError.message);
+      return { ok: false, error: GENERIC_ERROR_MESSAGE };
+    }
+    if ((count ?? 0) > 0) return { ok: false, error: "Ce livre est déjà marqué comme lu." };
+  }
 
   // `started_at` reste NULL : une lecture rétroactive n'a pas de début connu,
   // et on ne lui en invente pas un (la contrainte
