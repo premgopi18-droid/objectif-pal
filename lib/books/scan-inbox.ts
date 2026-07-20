@@ -95,6 +95,8 @@ export function toScanInboxDraft(item: ScanInboxItem): ScanInboxDraft {
 export const INTENT_LABELS: Record<ScanIntent, string> = {
   own: "À ajouter à ma bibliothèque",
   own_read: "À marquer comme déjà lu",
+  // L'emprunt (#113) : lu, jamais possédé — médiathèque, prêt d'un ami.
+  read: "À marquer comme lu — emprunt",
 };
 
 /**

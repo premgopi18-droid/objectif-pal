@@ -7,7 +7,7 @@ import { ErrorAlert } from "@/components/error-alert";
 import { CategoryDrawer } from "./category-drawer";
 import { BarcodeScanner } from "./barcode-scanner";
 import { BurstPhotoCapture } from "./burst-photo-capture";
-import { recordOwnership, recordOwnedPastReading, type BookInput } from "@/lib/books/actions";
+import { recordOwnership, recordOwnedPastReading, recordPastReading, type BookInput } from "@/lib/books/actions";
 import { addToScanInbox, dismissScanInboxItem } from "@/lib/books/scan-inbox-actions";
 import { softDeleteBook } from "@/lib/books/library-actions";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
@@ -67,7 +67,10 @@ const STATUS_BADGE = {
 
 const INTENT_OPTIONS: { value: ScanIntent; label: string }[] = [
   { value: "own", label: "Je possède" },
-  { value: "own_read", label: "Déjà lu" },
+  // « Déjà lu » sur une étagère = possédé ET lu (§4.13) — le libellé le dit.
+  { value: "own_read", label: "Possédé, déjà lu" },
+  // L'emprunt (#113) : le retour de médiathèque — lu, jamais possédé.
+  { value: "read", label: "Lu — emprunt" },
 ];
 
 /** Un livre résolu → l'entrée d'écriture, catégorie proposée acceptée telle quelle. */
@@ -161,7 +164,9 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
             resolvedMetadata: metadata,
             intent: capturedIntent,
             ownedSince: capturedIntent === "own" ? shelfDate : null,
-            finishedAt: capturedIntent === "own_read" ? shelfDate : null,
+            // La date de la session est une date de FIN pour les deux
+            // intentions de lecture — possédée (own_read) ou empruntée (read).
+            finishedAt: capturedIntent === "own" ? null : shelfDate,
           });
           if (!result.ok) {
             patch(key, { status: "error", message: result.error });
@@ -187,13 +192,16 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
           if (lookup.kind === "resolved" || lookup.kind === "in-library") {
             const book = lookup.book;
             const input = resolvedToInput(book, lookup.kind === "in-library" ? null : code);
-            // « Déjà lu » sur une étagère veut dire possédé ET lu : les deux
-            // faits, en un appel (§4.13). Sans la possession, le livre serait
-            // indiscernable d'un emprunt de médiathèque.
+            // « Possédé, déjà lu » veut dire possédé ET lu : les deux faits, en
+            // un appel (§4.13) — sans la possession, le livre serait
+            // indiscernable d'un emprunt. « Lu — emprunt » (#113), lui, est
+            // PRÉCISÉMENT cet emprunt : lecture seule, aucune possession.
             const written =
               capturedIntent === "own_read"
                 ? await recordOwnedPastReading(input, shelfDate)
-                : await recordOwnership(input, shelfDate);
+                : capturedIntent === "read"
+                  ? await recordPastReading(input, shelfDate)
+                  : await recordOwnership(input, shelfDate);
             if (!written.ok) {
               // « Déjà dans ta bibliothèque » n'est pas un échec en rafale :
               // c'est le livre qu'on a déjà rangé. On continue, sans bruit.
@@ -264,7 +272,9 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
             resolvedMetadata: null,
             intent: capturedIntent,
             ownedSince: capturedIntent === "own" ? shelfDate : null,
-            finishedAt: capturedIntent === "own_read" ? shelfDate : null,
+            // La date de la session est une date de FIN pour les deux
+            // intentions de lecture — possédée (own_read) ou empruntée (read).
+            finishedAt: capturedIntent === "own" ? null : shelfDate,
           });
           if (!result.ok) {
             patch(key, { status: "error", message: result.error });

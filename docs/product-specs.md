@@ -561,9 +561,12 @@ préserve l'invariant : *le dernier point vaut toujours la taille réelle de la 
 - **« Je possède »** — date d'acquisition **facultative**. Acquérir un livre **déjà lu** ne le fait pas entrer
   en pile (§3, règle 3 — vrai d'un achat comme d'une déclaration) : il va en Biblio, pas en PAL.
 - **« J'ai déjà lu »** — date de fin **facultative**, note et avis capturables. Date connue → les points
-  tombent dans le bilan de ce mois-là (déjà clos) ; date vide → aucun mois, aucun point. **Indépendant de la
-  possession** : un livre de médiathèque lu il y a deux ans est « lu » sans être « possédé ». Refus doux si
-  une lecture est **en cours** (le geste juste est « Terminer » au journal).
+  tombent dans le bilan de ce mois-là (déjà clos) ; date vide → aucun mois, aucun point. Refus doux si
+  une lecture est **en cours** (le geste juste est « Terminer » au journal). **Depuis #113 (20/07/2026), le
+  geste déclare AUSSI la possession par défaut** — aligné sur son titre de section (« Ce livre est déjà à
+  moi ») et sur la rafale ; la case « **C'était un emprunt — je ne le possède pas** » bascule en lecture
+  seule : un livre de médiathèque lu il y a deux ans est « lu » sans être « possédé », aucune possession
+  fabriquée.
 - **« Je ne le possède plus »** (don, revente, perte) — le livre sort de la PAL et de la biblio possédée, mais
   **ses lectures et ses points restent au bilan**. À ne pas confondre avec « Retirer » (§4.12), qui masque le
   livre et toutes ses traces. L'achat n'est **jamais** touché : son malus historique est acquis, le mois est
@@ -600,9 +603,12 @@ Déclarer un livre à la fois ne tient pas à l'échelle d'une étagère : le ge
 - **Aucun scan n'est perdu.** Introuvable, choix de numéro, « image oui infos non », réseau coupé : tout part
   dans la **boîte de finition** (`scan_inbox`) **avec l'intention déjà déclarée**, qui n'est donc jamais
   redemandée. On scanne à la cave, on complète le soir : la boîte survit aux sessions.
-- **L'intention vaut pour toute la session** — on range une étagère de possédés, puis une de déjà-lus. Sur
-  « Déjà lu », les deux faits sont enregistrés : **possédé ET lu**. Sans la possession, le livre serait
-  indiscernable d'un emprunt de médiathèque.
+- **L'intention vaut pour toute la session** — on range une étagère de possédés, puis une de déjà-lus, puis
+  le retour de médiathèque. **Trois intentions** (#113, 20/07/2026) : « Je possède » (possession seule),
+  « **Possédé, déjà lu** » (les deux faits — sans la possession, le livre serait indiscernable d'un emprunt)
+  et « **Lu — emprunt** » (lecture seule, **aucune possession fabriquée** : médiathèque, prêt d'un ami — le
+  livre n'entre jamais dans la pile §4.5, et sa lecture datée crédite son mois comme n'importe quelle autre :
+  lire = lire, seul l'achat a un malus).
 
 **La catégorie se corrige inline** dans la liste de session (une puce, un tiroir partagé), sans jamais
 interrompre le scan — la mettre dans la boucle l'arrêterait. Un marqueur « ? » ne s'affiche que sur les

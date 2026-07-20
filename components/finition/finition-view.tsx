@@ -8,8 +8,19 @@ import { ErrorAlert } from "@/components/error-alert";
 import { ManualEntryForm } from "@/components/scan/manual-entry-form";
 import { completeScanInboxItem, dismissScanInboxItem } from "@/lib/books/scan-inbox-actions";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
-import { INTENT_LABELS, toScanInboxDraft, type ScanInboxItem } from "@/lib/books/scan-inbox";
+import { INTENT_LABELS, toScanInboxDraft, type ScanInboxItem, type ScanIntent } from "@/lib/books/scan-inbox";
 import type { BookInput } from "@/lib/books/actions";
+
+/**
+ * Le bouton de finalisation, par intention — exhaustif par construction
+ * (`Record<ScanIntent, …>`) : une quatrième intention sans libellé casserait
+ * le build, comme pour `INTENT_LABELS` (review #115).
+ */
+const SUBMIT_LABELS: Record<ScanIntent, string> = {
+  own: "Ajouter à ma bibliothèque",
+  own_read: "Marquer comme lu",
+  read: "Marquer comme lu (emprunt)",
+};
 
 /**
  * La boîte de finition (#101 lot C, specs §4.13) — le corollaire de « la
@@ -95,7 +106,10 @@ export function FinitionView({ items }: { items: ScanInboxItem[] }) {
                     scannedCode={draft.barcodeRaw}
                     suggestedCoverUrl={draft.coverUrl}
                     initialValues={draft}
-                    submitLabel={item.intent === "own_read" ? "Marquer comme lu" : "Ajouter à ma bibliothèque"}
+                    // Le libellé suit l'INTENTION, comme l'action (review #115) :
+                    // un emprunt ne doit jamais afficher « Ajouter à ma
+                    // bibliothèque » — c'est la possession que l'intention refuse.
+                    submitLabel={SUBMIT_LABELS[item.intent]}
                     hideHeading
                     isSubmitting={isBusy}
                     onSubmit={(input: BookInput) => {
