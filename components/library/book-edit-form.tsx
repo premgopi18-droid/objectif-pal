@@ -66,7 +66,7 @@ export function BookEditForm({
   };
 
   return (
-    <div className="flex flex-col gap-3 rounded-card border border-line bg-card2 p-3">
+    <div id={`edit-${entry.bookId}`} className="flex flex-col gap-3 rounded-card border border-line bg-card2 p-3">
       {!entry.hasBarcode && (
         <p className="text-xs text-ink3">
           Ce livre n&apos;a pas de code-barres : l&apos;édition est le seul moyen de corriger sa fiche.
@@ -75,7 +75,10 @@ export function BookEditForm({
 
       <label className="flex flex-col gap-1.5 text-sm">
         <span className="font-medium text-ink2">Titre *</span>
-        <input value={title} onChange={(event) => setTitle(event.target.value)} className={INPUT_CLASS} />
+        {/* Le focus part sur le premier champ à l'ouverture (même geste que
+            `manual-entry-form`) : au clavier, « Modifier » doit mener quelque
+            part — le formulaire est rendu AVANT le bouton dans le DOM. */}
+        <input autoFocus value={title} onChange={(event) => setTitle(event.target.value)} className={INPUT_CLASS} />
       </label>
 
       <div className="flex gap-3">

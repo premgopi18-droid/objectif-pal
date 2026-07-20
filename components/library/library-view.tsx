@@ -166,6 +166,8 @@ export function LibraryView({ entries }: LibraryViewProps) {
                   )}
                   <button
                     type="button"
+                    aria-expanded={editingId === entry.bookId}
+                    aria-controls={`edit-${entry.bookId}`}
                     onClick={() => setEditingId(editingId === entry.bookId ? null : entry.bookId)}
                     className="text-sm text-ink2 underline underline-offset-2"
                   >

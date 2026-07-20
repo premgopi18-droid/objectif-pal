@@ -4,8 +4,14 @@ import { revalidatePath } from "next/cache";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
 import { getSessionOrError } from "@/lib/supabase/server";
-import { ALL_CATEGORIES, type BookCategory } from "@/lib/scoring/types";
-import { prepareBookEdit, type BookEditInput, type BookEditPayload } from "@/lib/books/book-edit";
+import type { BookCategory } from "@/lib/scoring/types";
+import {
+  isValidCategory,
+  prepareBookEdit,
+  UNKNOWN_CATEGORY_MESSAGE,
+  type BookEditInput,
+  type BookEditPayload,
+} from "@/lib/books/book-edit";
 
 /**
  * « Retirer de la bibliothèque » (issue #49) — suppression douce du LIVRE
@@ -60,8 +66,9 @@ export async function updateBookCategory(bookId: string, category: BookCategory)
   const session = await getSessionOrError();
   if (!session) return { ok: false, error: "Authentification requise." };
 
-  // Validation serveur : la valeur vient du client, et elle pèse sur le score.
-  if (!ALL_CATEGORIES.includes(category)) return { ok: false, error: "Catégorie inconnue." };
+  // Validation serveur, par le prédicat PARTAGÉ : la valeur vient du client,
+  // et elle pèse sur le score.
+  if (!isValidCategory(category)) return { ok: false, error: UNKNOWN_CATEGORY_MESSAGE };
 
   return writeBookFields(session, bookId, { category }, "updateBookCategory");
 }

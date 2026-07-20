@@ -42,6 +42,19 @@ export type BookEditPayload = {
 
 export type BookEditResult = { ok: true; payload: BookEditPayload } | { ok: false; error: string };
 
+/**
+ * La catégorie reçue est-elle du barème ? Prédicat PARTAGÉ — trois chemins la
+ * valident désormais (ce formulaire, `updateBookCategory` de la correction
+ * inline, et la lecture du jsonb de la boîte de finition), et ils doivent
+ * refuser exactement la même chose. Elle détermine les points (§3) : on ne
+ * fait jamais confiance au client, même à notre propre écran.
+ */
+export const isValidCategory = (value: unknown): value is BookCategory =>
+  typeof value === "string" && (ALL_CATEGORIES as readonly string[]).includes(value);
+
+/** Le refus, écrit une fois : le message doit rester le même partout. */
+export const UNKNOWN_CATEGORY_MESSAGE = "Catégorie inconnue.";
+
 /** Une chaîne de formulaire → une valeur de base : vide et espaces valent « pas de valeur ». */
 const trimmedOrNull = (value: string): string | null => {
   const trimmed = value.trim();
@@ -56,9 +69,7 @@ export function prepareBookEdit(input: BookEditInput): BookEditResult {
   const title = input.title.trim();
   if (title === "") return { ok: false, error: "Le titre est obligatoire." };
 
-  // La catégorie vient du client et **pèse sur le score** : on ne fait jamais
-  // confiance à la valeur reçue, même envoyée par notre propre formulaire.
-  if (!ALL_CATEGORIES.includes(input.category)) return { ok: false, error: "Catégorie inconnue." };
+  if (!isValidCategory(input.category)) return { ok: false, error: UNKNOWN_CATEGORY_MESSAGE };
 
   const rawPageCount = input.pageCount.trim();
   let pageCount: number | null = null;
