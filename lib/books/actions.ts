@@ -489,25 +489,31 @@ export async function recordPastReading(
   const inProgressError = await getReadingInProgressError(supabase, user.id, book.bookId);
   if (inProgressError) return { ok: false, error: inProgressError };
 
-  // Garde du doublon, comme les autres gestes en ont une. On ne refuse QUE le
-  // cas non ambigu : une lecture terminée SANS date existe déjà, donc en
-  // redéclarer une n'ajoute aucune information. Une relecture DATÉE reste
-  // légitime (§4.2 — relire est un fait de plus, pas un doublon).
-  if (finishedAt === null) {
-    const { count, error: duplicateError } = await supabase
-      .from("readings")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("book_id", book.bookId)
-      .eq("status", "finished")
-      .is("finished_at", null)
-      .is("deleted_at", null);
-    if (duplicateError) {
-      console.error("[books] recordPastReading:", duplicateError.message);
-      return { ok: false, error: GENERIC_ERROR_MESSAGE };
-    }
-    if ((count ?? 0) > 0) return { ok: false, error: "Ce livre est déjà marqué comme lu." };
+  // Garde du doublon, comme les autres gestes en ont une. On refuse les deux
+  // cas NON AMBIGUS, et eux seuls :
+  //  - une lecture terminée sans date existe déjà → en redéclarer une
+  //    n'ajoute aucune information ;
+  //  - une lecture terminée à la MÊME date existe déjà → on ne finit pas deux
+  //    fois le même livre le même jour. Sans cette seconde garde, rescanner un
+  //    livre pendant une rafale datée créait une seconde lecture, comptée
+  //    comme une relecture : **des points en double au bilan** (§3).
+  // Une relecture à une AUTRE date reste légitime (§4.2 — relire est un fait
+  // de plus, pas un doublon).
+  const duplicateQuery = supabase
+    .from("readings")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("book_id", book.bookId)
+    .eq("status", "finished")
+    .is("deleted_at", null);
+  const { count, error: duplicateError } = await (finishedAt === null
+    ? duplicateQuery.is("finished_at", null)
+    : duplicateQuery.eq("finished_at", finishedAt));
+  if (duplicateError) {
+    console.error("[books] recordPastReading:", duplicateError.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
   }
+  if ((count ?? 0) > 0) return { ok: false, error: "Ce livre est déjà marqué comme lu." };
 
   // `started_at` reste NULL : une lecture rétroactive n'a pas de début connu,
   // et on ne lui en invente pas un (la contrainte

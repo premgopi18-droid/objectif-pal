@@ -7,7 +7,8 @@ import { ErrorAlert } from "@/components/error-alert";
 import { CategoryDrawer } from "./category-drawer";
 import { BarcodeScanner } from "./barcode-scanner";
 import { recordOwnership, recordOwnedPastReading, type BookInput } from "@/lib/books/actions";
-import { addToScanInbox } from "@/lib/books/scan-inbox-actions";
+import { addToScanInbox, dismissScanInboxItem } from "@/lib/books/scan-inbox-actions";
+import { softDeleteBook } from "@/lib/books/library-actions";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { localToday } from "@/lib/dates";
@@ -50,6 +51,8 @@ type BurstItem = {
   /** Vrai quand la catégorie est une DEVINETTE (§5.5) — c'est là qu'on veut l'œil. */
   categoryGuessed: boolean;
   bookId: string | null;
+  /** L'élément de la boîte de finition, quand le scan y a atterri — ce qu'écarte « Retirer ». */
+  inboxId: string | null;
   message: string | null;
 };
 
@@ -91,6 +94,8 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
   const [items, setItems] = useState<BurstItem[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ key: number; bookId: string; category: BookCategory } | null>(null);
+  /** La ligne en cours de retrait — évite le double tap pendant l'aller-retour. */
+  const [removingKey, setRemovingKey] = useState<number | null>(null);
 
   const nextKeyRef = useRef(0);
   // Les réglages dans une ref : la callback du scanner est mémoïsée (la
@@ -112,12 +117,28 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
       const { intent: capturedIntent, dateKnown: capturedDateKnown, date: capturedDate } = settingsRef.current;
       const shelfDate = capturedDateKnown ? capturedDate : null;
 
-      // La ligne apparaît AVANT toute requête : c'est ce qui rend la main
-      // immédiatement et permet d'enchaîner. Tout le reste se met à jour après.
-      setItems((current) => [
-        { key, code, status: "resolving", title: null, category: null, categoryGuessed: false, bookId: null, message: null },
-        ...current,
-      ]);
+      // Le même livre rescanné plus tard dans la session ne crée PAS une
+      // seconde ligne : on signale sur celle qui existe déjà. Le scanner filtre
+      // les relectures immédiates (livre encore dans le cadre), mais pas celui
+      // qu'on reprend dix minutes après — et deux lignes pour un livre feraient
+      // douter de ce qui a réellement été enregistré.
+      let isDuplicateOfVisibleLine = false;
+      setItems((current) => {
+        const existing = current.find((item) => item.code === code);
+        if (existing) {
+          isDuplicateOfVisibleLine = true;
+          return current.map((item) =>
+            item.code === code ? { ...item, message: "Déjà scanné dans cette session." } : item,
+          );
+        }
+        // La ligne apparaît AVANT toute requête : c'est ce qui rend la main
+        // immédiatement et permet d'enchaîner. Le reste se met à jour après.
+        return [
+          { key, code, status: "resolving", title: null, category: null, categoryGuessed: false, bookId: null, inboxId: null, message: null },
+          ...current,
+        ];
+      });
+      if (isDuplicateOfVisibleLine) return;
 
       // Volontairement NON attendu : la chaîne continue pendant que ça tourne.
       void (async () => {
@@ -141,6 +162,7 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
           }
           patch(key, {
             status: result.duplicate ? "duplicate" : "inbox",
+            inboxId: result.id,
             message: result.duplicate ? "Déjà dans la boîte de finition." : null,
           });
         };
@@ -209,6 +231,42 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
 
   const addedCount = items.filter((item) => item.status === "added").length;
   const toCompleteCount = items.filter((item) => item.status === "inbox" || item.status === "error").length;
+
+  /**
+   * « Je me suis trompé de livre » — on défait ce que le scan vient de créer.
+   *
+   * Pour un livre ajouté, c'est exactement « Retirer de la bibliothèque »
+   * (§4.12) : le livre et ses traces disparaissent de toutes les vues, et
+   * **rescanner le ressuscite avec tout son historique**. Rien n'est effacé en
+   * base (§7) — c'est le geste réversible, pas une destruction.
+   */
+  const removeItem = (item: BurstItem) => {
+    const undo =
+      item.status === "added" && item.bookId !== null
+        ? softDeleteBook(item.bookId)
+        : item.inboxId !== null
+          ? dismissScanInboxItem(item.inboxId)
+          : null;
+
+    // Rien à défaire côté serveur (ligne en erreur, ou capture jamais aboutie) :
+    // on retire juste la ligne.
+    if (undo === null) {
+      setItems((current) => current.filter((entry) => entry.key !== item.key));
+      return;
+    }
+
+    setRemovingKey(item.key);
+    void undo
+      .then((result) => {
+        if (!result.ok) {
+          setError(result.error);
+          return;
+        }
+        setItems((current) => current.filter((entry) => entry.key !== item.key));
+      })
+      .catch(() => setError(NETWORK_ERROR_MESSAGE))
+      .finally(() => setRemovingKey(null));
+  };
 
   return (
     <section className="flex flex-col gap-4">
@@ -308,6 +366,21 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
                   </button>
                 )}
                 <Badge state={badge.state}>{badge.label}</Badge>
+
+                {/* Le rattrapage d'erreur : on scanne vite, on se trompe de
+                    livre. Réversible (rescanner le ressuscite), donc pas de
+                    confirmation — elle casserait la cadence. */}
+                {item.status !== "resolving" && (
+                  <button
+                    type="button"
+                    aria-label={`Retirer ${item.title ?? item.code ?? "cette ligne"}`}
+                    disabled={removingKey === item.key}
+                    onClick={() => removeItem(item)}
+                    className="shrink-0 px-1 text-lg leading-none text-ink3 disabled:opacity-40"
+                  >
+                    ×
+                  </button>
+                )}
               </li>
             );
           })}
