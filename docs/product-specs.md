@@ -522,6 +522,11 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
     quoi le survivant resterait non-rescannable.
   - **Les possessions se fusionnent, ne s'additionnent pas** : la plus ancienne acquisition connue l'emporte,
     et le livre reste possédé si l'une des deux déclarations ne l'a pas vendu.
+  - **Les lectures terminées identiques sont dédoublonnées** (même date de fin, les deux sans date comprises) :
+    deux saisies « déjà lu » du même livre ne sont pas deux lectures, et compteraient double au bilan — on
+    garde la plus ancienne, on marque les autres (jamais d'effacement, §7). Les **achats**, eux, restent tels
+    quels : le barème sait gérer les exemplaires multiples (§3.3), « je ne l'ai pas acheté » corrige un vrai
+    doublon de saisie.
   - Les métadonnées **comblent les trous** sans jamais écraser — même règle que le rescan (§4.2).
 - **« Retirer de la bibliothèque »** : suppression douce du **livre seul, sans cascade** — ses lectures et
   achats restent intacts en base mais disparaissent de toutes les vues, car **chaque surface filtre sur

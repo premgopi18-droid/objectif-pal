@@ -97,6 +97,31 @@ export async function updateBookDetails(bookId: string, input: BookEditInput): P
 }
 
 /**
+ * Le préfixe qui marque un `raise exception` SQL **destiné à l'écran**.
+ *
+ * Sans convention explicite, tout `raise exception` finirait affiché à
+ * l'utilisateur — y compris celui qu'un futur contributeur ajouterait pour une
+ * raison technique. On ne remonte donc QUE les messages qui se présentent, et
+ * on retire le préfixe avant l'affichage.
+ */
+const SQL_USER_MESSAGE_PREFIX = "UX: ";
+/** Le code PostgreSQL d'un `raise exception` sans `errcode` explicite. */
+const POSTGRES_RAISE_EXCEPTION = "P0001";
+
+/**
+ * Un échec de RPC → le message à montrer. Tout ce qui n'est pas un refus
+ * métier explicitement marqué part sur le message générique : une panne ne
+ * doit jamais exposer d'interne (§8).
+ */
+function userFacingSqlError(code: string | undefined, message: string): string {
+  if (code !== POSTGRES_RAISE_EXCEPTION || !message.includes(SQL_USER_MESSAGE_PREFIX)) {
+    return GENERIC_ERROR_MESSAGE;
+  }
+  // PostgREST peut préfixer le message ; on repart du marqueur, pas du début.
+  return message.slice(message.indexOf(SQL_USER_MESSAGE_PREFIX) + SQL_USER_MESSAGE_PREFIX.length).trim();
+}
+
+/**
  * Fusionner un doublon dans un livre conservé (issue #100, second volet).
  *
  * Tout le travail vit dans la fonction SQL `merge_books` — et c'est délibéré :
@@ -119,12 +144,7 @@ export async function mergeBooks(keepBookId: string, mergeBookId: string): Promi
   });
   if (error) {
     console.error("[library] mergeBooks:", error.message);
-    // Les `raise exception` de la fonction sont des refus MÉTIER rédigés en
-    // français (codes-barres différents, livre introuvable) : les montrer aide
-    // l'utilisateur. On ne remonte que ceux-là — le reste (panne, réseau) part
-    // sur le message générique, pour ne jamais exposer d'interne.
-    const isBusinessRefusal = error.code === "P0001";
-    return { ok: false, error: isBusinessRefusal ? error.message : GENERIC_ERROR_MESSAGE };
+    return { ok: false, error: userFacingSqlError(error.code, error.message) };
   }
 
   revalidatePath("/bibliotheque");
