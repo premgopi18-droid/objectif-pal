@@ -858,6 +858,24 @@ comportement voulu (on ne peut pas dédupliquer ce qui n'a pas de code).
 > `rating` et `comment` sont **facultatifs** : une lecture terminée sans note rapporte ses points normalement.
 > Mais les **colonnes existent dès la première version** — une note non capturée est perdue pour toujours.
 
+> **⚠️ `started_at` et `finished_at` sont nullables — décision du 20/07/2026 (#101), et elle a un prix.**
+> Le geste « j'ai déjà lu » (§12) doit pouvoir enregistrer une lecture de l'étagère d'avant **sans inventer de
+> date**. Deux contraintes d'origine sont donc tombées : `readings_finished_has_date` et le `NOT NULL` sur
+> `started_at`. La règle « pas de date → pas de points » est désormais portée par le **moteur** (les points sont
+> datés par `finished_at`, §3 règle 1), plus par le schéma.
+>
+> **Ce que ça coûte, et ce qui le compense.** La base ne rattrapait plus une lecture normalement suivie dans
+> l'app qui perdrait sa date de fin — des points disparus du bilan, en silence. Un filet **affiné** l'a
+> remplacée : *une lecture terminée sans date de fin doit aussi être sans date de début*
+> (`readings_undated_finish_has_no_start`). Une lecture commencée dans l'app a forcément un `started_at` : le
+> seul cas fautif casse, les quatre cas légitimes passent (en cours ; suivie de bout en bout ; « déjà lu » avec
+> fin connue ; « déjà lu » sans rien). Les gardes applicatives restent en première ligne.
+>
+> Corollaire sur `reading_events.occurred_at`, que le trigger dérive de ces deux colonnes : **nullable** aussi.
+> Un événement sans date reste au journal (rien n'est jamais effacé) mais **ne compte dans aucun mois** — une
+> date inventée polluerait les comptages d'abandons et de reprises (§4.5), et plus rien ne la distinguerait
+> ensuite d'une vraie.
+
 **`reading_events`** — le **journal d'états, en append-only** : `reading_id`, `status`, `occurred_at`. Une ligne
 à chaque changement, **jamais d'effacement**. C'est lui qui permet de compter les **abandons** et les
 **reprises**, et de supporter plusieurs cycles sur un même bouquin. `readings.status` n'est que le **dernier
