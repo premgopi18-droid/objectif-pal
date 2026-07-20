@@ -97,6 +97,8 @@ export const INTENT_LABELS: Record<ScanIntent, string> = {
   own_read: "À marquer comme déjà lu",
   // L'emprunt (#113) : lu, jamais possédé — médiathèque, prêt d'un ami.
   read: "À marquer comme lu — emprunt",
+  // Le retour de librairie (#120) : un achat, avec son malus.
+  purchase: "À enregistrer comme achat (−1)",
 };
 
 /**

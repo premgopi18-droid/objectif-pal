@@ -8,6 +8,7 @@ import {
   recordOwnership,
   recordOwnedPastReading,
   recordPastReading,
+  recordPurchase,
   type BookInput,
   type ScanActionResult,
 } from "@/lib/books/actions";
@@ -67,6 +68,11 @@ export async function addToScanInbox(
   // plus clair ici : sans code ni photo, il ne resterait rien à identifier.
   if (capture.barcodeRaw === null && capture.coverUrl === null) {
     return { ok: false, error: "Sans code-barres, une photo est nécessaire." };
+  }
+  // Un achat a TOUJOURS une date (#120) — la rafale l'envoie (session, défaut
+  // aujourd'hui) ; sans elle, la finition ne saurait pas dater le malus.
+  if (capture.intent === "purchase" && capture.ownedSince === null) {
+    return { ok: false, error: "Un achat a besoin d'une date." };
   }
 
   if (capture.barcodeRaw !== null) {
@@ -154,7 +160,13 @@ export async function completeScanInboxItem(itemId: string, input: BookInput): P
       : item.intent === "read"
         ? // L'emprunt (#113) : lu, jamais possédé — aucune possession fabriquée.
           await recordPastReading(input, item.finished_at)
-        : await recordOwnership(input, item.owned_since);
+        : item.intent === "purchase"
+          ? // Le retour de librairie (#120) : l'achat daté, malus compris. La
+            // date vit dans owned_since (une acquisition) — exigée à la capture.
+            item.owned_since === null
+            ? { ok: false as const, error: "Un achat a besoin d'une date." }
+            : await recordPurchase(input, item.owned_since)
+          : await recordOwnership(input, item.owned_since);
   if (!result.ok) return result;
 
   const { error: updateError } = await supabase

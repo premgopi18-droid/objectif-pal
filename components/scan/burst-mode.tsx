@@ -7,7 +7,8 @@ import { ErrorAlert } from "@/components/error-alert";
 import { CategoryDrawer } from "./category-drawer";
 import { BarcodeScanner } from "./barcode-scanner";
 import { BurstPhotoCapture } from "./burst-photo-capture";
-import { recordOwnership, recordOwnedPastReading, recordPastReading, type BookInput } from "@/lib/books/actions";
+import { recordOwnership, recordOwnedPastReading, recordPastReading, recordPurchase, type BookInput } from "@/lib/books/actions";
+import { SCORING_SCALE } from "@/lib/scoring/scale";
 import { addToScanInbox, dismissScanInboxItem } from "@/lib/books/scan-inbox-actions";
 import { softDeleteBook } from "@/lib/books/library-actions";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
@@ -65,12 +66,18 @@ const STATUS_BADGE = {
   error: { label: "À compléter", state: "pile" as const },
 };
 
+/** Le malus affiché vient du barème — jamais recopié en dur (CLAUDE.md). */
+const PENALTY_POINTS = Math.abs(SCORING_SCALE.unreadPurchasePenalty);
+
 const INTENT_OPTIONS: { value: ScanIntent; label: string }[] = [
   { value: "own", label: "Je possède" },
   // « Déjà lu » sur une étagère = possédé ET lu (§4.13) — le libellé le dit.
   { value: "own_read", label: "Possédé, déjà lu" },
   // L'emprunt (#113) : le retour de médiathèque — lu, jamais possédé.
   { value: "read", label: "Lu — emprunt" },
+  // Le retour de librairie (#120) : l'achat, MALUS AFFICHÉ avant de scanner —
+  // c'est la seule intention de rafale qui touche au barème, et elle le dit.
+  { value: "purchase", label: `J'achète · −${PENALTY_POINTS}/livre` },
 ];
 
 /** Un livre résolu → l'entrée d'écriture, catégorie proposée acceptée telle quelle. */
@@ -126,6 +133,9 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
       const key = nextKeyRef.current++;
       const { intent: capturedIntent, dateKnown: capturedDateKnown, date: capturedDate } = settingsRef.current;
       const shelfDate = capturedDateKnown ? capturedDate : null;
+      // Un achat a TOUJOURS une date (#120) : celle de la session si cochée,
+      // sinon aujourd'hui — le cas réel, on rentre de la librairie.
+      const purchaseDate = shelfDate ?? localToday();
 
       // Le même livre rescanné plus tard dans la session ne crée PAS une
       // seconde ligne : on signale sur celle qui existe déjà. Le scanner filtre
@@ -163,10 +173,12 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
             coverUrl,
             resolvedMetadata: metadata,
             intent: capturedIntent,
-            ownedSince: capturedIntent === "own" ? shelfDate : null,
-            // La date de la session est une date de FIN pour les deux
-            // intentions de lecture — possédée (own_read) ou empruntée (read).
-            finishedAt: capturedIntent === "own" ? null : shelfDate,
+            // La date de la session est une date d'ACQUISITION pour « je
+            // possède » et « j'achète » (l'achat l'exige — défaut aujourd'hui),
+            // une date de FIN pour les deux intentions de lecture.
+            ownedSince:
+              capturedIntent === "own" ? shelfDate : capturedIntent === "purchase" ? purchaseDate : null,
+            finishedAt: capturedIntent === "own_read" || capturedIntent === "read" ? shelfDate : null,
           });
           if (!result.ok) {
             patch(key, { status: "error", message: result.error });
@@ -196,12 +208,17 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
             // un appel (§4.13) — sans la possession, le livre serait
             // indiscernable d'un emprunt. « Lu — emprunt » (#113), lui, est
             // PRÉCISÉMENT cet emprunt : lecture seule, aucune possession.
+            // « J'achète » (#120) : l'achat daté, malus compris — la garde
+            // « déjà dans ta PAL » refuse doucement le −2 silencieux, traité
+            // comme un doublon ci-dessous.
             const written =
               capturedIntent === "own_read"
                 ? await recordOwnedPastReading(input, shelfDate)
                 : capturedIntent === "read"
                   ? await recordPastReading(input, shelfDate)
-                  : await recordOwnership(input, shelfDate);
+                  : capturedIntent === "purchase"
+                    ? await recordPurchase(input, purchaseDate)
+                    : await recordOwnership(input, shelfDate);
             if (!written.ok) {
               // « Déjà dans ta bibliothèque » n'est pas un échec en rafale :
               // c'est le livre qu'on a déjà rangé. On continue, sans bruit.
@@ -257,6 +274,8 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
       const key = nextKeyRef.current++;
       const { intent: capturedIntent, dateKnown: capturedDateKnown, date: capturedDate } = settingsRef.current;
       const shelfDate = capturedDateKnown ? capturedDate : null;
+      // Même règle que le scan : un achat a toujours une date (#120).
+      const purchaseDate = shelfDate ?? localToday();
 
       setItems((current) => [
         { key, code: null, status: "resolving", title: "Livre photographié", category: null, categoryGuessed: false, bookId: null, inboxId: null, message: null },
@@ -271,10 +290,12 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
             coverUrl,
             resolvedMetadata: null,
             intent: capturedIntent,
-            ownedSince: capturedIntent === "own" ? shelfDate : null,
-            // La date de la session est une date de FIN pour les deux
-            // intentions de lecture — possédée (own_read) ou empruntée (read).
-            finishedAt: capturedIntent === "own" ? null : shelfDate,
+            // La date de la session est une date d'ACQUISITION pour « je
+            // possède » et « j'achète » (l'achat l'exige — défaut aujourd'hui),
+            // une date de FIN pour les deux intentions de lecture.
+            ownedSince:
+              capturedIntent === "own" ? shelfDate : capturedIntent === "purchase" ? purchaseDate : null,
+            finishedAt: capturedIntent === "own_read" || capturedIntent === "read" ? shelfDate : null,
           });
           if (!result.ok) {
             patch(key, { status: "error", message: result.error });
