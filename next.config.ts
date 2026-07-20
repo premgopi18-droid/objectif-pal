@@ -25,6 +25,11 @@ const nextConfig: NextConfig = {
     ];
   },
   images: {
+    // Une couverture de livre est immuable en pratique (nos photos maison sont
+    // versionnées par `?v=`), mais certains CDN (epagine, BnF) envoient des
+    // Cache-Control courts → Vercel re-fetchait/re-transformait la même image.
+    // 31 jours de plancher (#126, audit perf du 20/07/2026).
+    minimumCacheTTL: 2678400,
     // Les couvertures distantes de la cascade (specs §5.4) : Metron pour la VO,
     // Google Books puis OpenLibrary, Inventaire, BnF Couvertures et epagine
     // pour l'ISBN (décisions du 19/07/2026). Les photos maison passeront par
