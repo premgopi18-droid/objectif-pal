@@ -5,7 +5,6 @@ import { Button } from "@/components/ui/button";
 import { ErrorAlert } from "@/components/error-alert";
 import { COVERS_BUCKET, fileToWebpBlob, inboxCoverPhotoPath } from "@/lib/books/cover-photo";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
-import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 /**
  * « Pas de code-barres → photo » DANS la boucle de rafale (#108, specs §4.13).
@@ -58,6 +57,10 @@ export function BurstPhotoCapture({
     try {
       // On n'uploade jamais les plusieurs Mo du capteur : WebP compressé (#33).
       const blob = await fileToWebpBlob(file);
+      // Import DYNAMIQUE (#123) : le chunk Supabase (63 KB gz) ne doit pas
+      // peser sur le First Load de `/` (l'écran scanner) pour un geste rare —
+      // il ne se charge qu'à la capture. Échec couvert par le catch existant.
+      const { createBrowserSupabaseClient } = await import("@/lib/supabase/browser");
       const supabase = createBrowserSupabaseClient();
       const {
         data: { user },

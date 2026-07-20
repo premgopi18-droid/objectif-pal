@@ -3,7 +3,6 @@
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 export function LogoutButton() {
   const router = useRouter();
@@ -27,6 +26,10 @@ export function LogoutButton() {
         // La purge ne doit jamais bloquer la déconnexion elle-même.
       }
     }
+    // Import DYNAMIQUE (#123) : le chunk @supabase/supabase-js (63 KB gz) ne
+    // doit pas être dans le First Load de /profil pour un bouton cliqué une
+    // fois par lune — il ne part sur le réseau qu'au geste.
+    const { createBrowserSupabaseClient } = await import("@/lib/supabase/browser");
     await createBrowserSupabaseClient().auth.signOut();
     router.push("/login");
     router.refresh();
