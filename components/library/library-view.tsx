@@ -25,12 +25,12 @@ import {
 import type { ComponentProps } from "react";
 
 /**
- * La vue Bibliothèque (issue #49) — tous les livres, recherche en mémoire
- * (même réserve que les filtres du journal #34 : client tant que pas de
- * pagination #32), et les gestes existants : commencer une lecture, photo de
- * couverture, et « retirer de la bibliothèque » (suppression douce du livre —
- * réversible par rescan, résurrection #10). Gestes « Je commence » / retrait /
- * photo mutualisés (design-specs §3).
+ * La vue Bibliothèque (issue #49) — les livres possédés ou lus, recherche en
+ * mémoire (même réserve que les filtres du journal #34 : client tant que pas
+ * de pagination #32), et les gestes : commencer une lecture, photo de
+ * couverture, éditer/fusionner (#100), et « Retirer de ma bibliothèque »
+ * (#114) — LE geste de sortie unique, qui ne touche jamais ni lectures ni
+ * points. Gestes « Je commence » / retrait / photo mutualisés (design-specs §3).
  */
 
 /**
@@ -144,6 +144,9 @@ export function LibraryView({ entries }: LibraryViewProps) {
             const badge = STATUS_BADGES[entry.status];
             const needsPhoto = entry.coverUrl === null;
             const canRetakePhoto = isHouseCoverPhotoUrl(entry.coverUrl);
+            // Un SEUL appel (review #116) : action et confirmation viennent de
+            // la même décision — pas deux calculs qui pourraient diverger.
+            const removal = removeFromLibrary(entry);
             return (
               <li key={entry.bookId} className="flex flex-col gap-2.5">
                 <BookRow
@@ -219,10 +222,10 @@ export function LibraryView({ entries }: LibraryViewProps) {
                       interne — plus aucun bouton ne peut avaler des stats. */}
                   <RemoveButton
                     label="Retirer de ma bibliothèque"
-                    action={removeFromLibrary(entry).action}
+                    action={removal.action}
                     run={run}
                     isPending={isPending}
-                    confirm={removeFromLibrary(entry).confirmed}
+                    confirm={removal.confirmed}
                     tone="muted"
                     className="ml-auto"
                   />
