@@ -1050,7 +1050,8 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
     est asynchrone, et tout ce qui demande de l'attention (introuvable, « image oui, infos non », pas de
     code-barres → photo comme capture) part dans une **boîte de finition** persistante (`scan_inbox`) qu'on
     traite après — saisie pré-remplie, intention jamais redemandée. Aucun scan perdu, aucun échec sec (les
-    9 cas sont analysés dans l'issue #101) ;
+    9 cas sont analysés dans l'issue #101). La **catégorie se corrige inline** dans la liste de session
+    (puce → tiroir partagé, jamais bloquant), avec un marqueur discret sur les devinettes VF (§5.5) ;
   - **« je ne possède plus »** (don, revente, perte) inclus : sortie de PAL/Biblio, lectures et points intacts
     au bilan — distinct de « Retirer » (§4.12) qui masque toutes les traces ;
   - possédé mais **déjà terminé** → Biblio, pas PAL (la PAL est « possédé non lu ») ;
