@@ -50,7 +50,7 @@ export function SplashScreen() {
     >
       {/* Le logo complet (emblème + « OBJECTIF PAL »). <img> simple : une splash
           n'a pas besoin de l'optimiseur, et on la veut peinte au plus tôt. */}
-      <img src="/brand/logo-full.png" alt="" style={{ width: "min(78vw, 460px)", height: "auto" }} />
+      <img src="/brand/logo-full.webp" alt="" style={{ width: "min(78vw, 460px)", height: "auto" }} />
     </div>
   );
 }
