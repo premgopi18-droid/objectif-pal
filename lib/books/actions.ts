@@ -554,7 +554,12 @@ export async function recordOwnedPastReading(
   input: BookInput,
   finishedAt: string | null,
 ): Promise<ScanActionResult> {
-  const ownership = await recordOwnership(input, finishedAt);
+  // La possession part SANS date : la date connue est celle de la LECTURE, pas
+  // de l'acquisition — on ne fabrique pas de donnée (audit post-#101 ; même
+  // principe que partout dans §4.13 : une date inconnue reste inconnue). La
+  // dérivation ne change pas (un livre déjà lu n'entre pas en pile, §3.3),
+  // seule la donnée stockée reste honnête.
+  const ownership = await recordOwnership(input, null);
   // Le seul échec qu'on absorbe : le livre était déjà déclaré. Tout autre
   // (auth, validation, base) doit remonter — il empêcherait aussi la lecture.
   if (!ownership.ok && ownership.error !== ALREADY_OWNED_MESSAGE) return ownership;

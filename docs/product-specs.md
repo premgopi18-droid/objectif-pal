@@ -468,7 +468,8 @@ Ce n'est pas cosmétique : sans ça, pas d'icône sur l'écran d'accueil et un a
 
 ### 4.10 Export de mes données (P0)
 
-Un bouton « exporter » qui sort **tout** — livres, **possessions** (§4.13), lectures (**notes et commentaires compris**), historique des
+Un bouton « exporter » qui sort **tout** — livres, **possessions** (§4.13), **scans à finaliser** (la boîte
+de finition, §4.13), lectures (**notes et commentaires compris**), historique des
 changements d'état, achats, objectifs, distinctions — en **JSON et CSV**.
 
 Deux raisons, et la seconde est la vraie :
