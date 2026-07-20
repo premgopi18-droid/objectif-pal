@@ -1,0 +1,11 @@
+-- L'intention « lu — emprunt » en rafale (issue #113).
+--
+-- Un livre lu à la médiathèque ou prêté n'est PAS possédé : le déclarer « déjà
+-- lu » ne doit fabriquer aucune possession. La rafale n'avait que deux
+-- intentions (posséder, posséder + lu) — la troisième couvre le retour de
+-- médiathèque : 5 emprunts se scannent d'affilée, aucun n'entre en pile.
+--
+-- Migration volontairement SEULE : une valeur d'enum ajoutée ne peut pas être
+-- utilisée dans la transaction qui la crée (PostgreSQL) — tout usage vit dans
+-- le code applicatif, après régénération des types.
+alter type scan_intent add value 'read';

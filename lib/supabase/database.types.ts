@@ -597,7 +597,7 @@ export type Database = {
       pick_kind: "favorite" | "good_surprise" | "bad_surprise"
       reading_status: "reading" | "finished" | "abandoned"
       scan_inbox_status: "pending" | "completed"
-      scan_intent: "own" | "own_read"
+      scan_intent: "own" | "own_read" | "read"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -731,7 +731,7 @@ export const Constants = {
       pick_kind: ["favorite", "good_surprise", "bad_surprise"],
       reading_status: ["reading", "finished", "abandoned"],
       scan_inbox_status: ["pending", "completed"],
-      scan_intent: ["own", "own_read"],
+      scan_intent: ["own", "own_read", "read"],
     },
   },
 } as const

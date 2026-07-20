@@ -40,8 +40,16 @@ type BookActionSheetProps = {
   onPurchase: (input: BookInput, date: string) => void;
   /** « Je le possède » — l'étagère d'avant l'app (#101). Date d'acquisition facultative. */
   onOwn: (input: BookInput, ownedSince: string | null) => void;
-  /** « Je l'ai déjà lu » — une lecture passée (#101). Date de fin facultative. */
+  /**
+   * « Je l'ai déjà lu » avec la case EMPRUNT cochée (#113) : lecture seule,
+   * aucune possession — le livre de médiathèque, le prêt d'un ami.
+   */
   onPastReading: (input: BookInput, finishedAt: string | null) => void;
+  /**
+   * « Je l'ai déjà lu » par DÉFAUT (#113) : possédé ET lu — aligné sur le titre
+   * de la section (« Ce livre est déjà à moi ») et sur la rafale (§4.13).
+   */
+  onOwnedPastReading: (input: BookInput, finishedAt: string | null) => void;
   onCancel: () => void;
   isSubmitting: boolean;
 };
@@ -54,6 +62,7 @@ export function BookActionSheet({
   onPurchase,
   onOwn,
   onPastReading,
+  onOwnedPastReading,
   onCancel,
   isSubmitting,
 }: BookActionSheetProps) {
@@ -68,6 +77,8 @@ export function BookActionSheet({
   // sans date, le livre compte dans le stock de la PAL sans peser sur les flux
   // du mois, et une lecture passée ne crédite aucun bilan.
   const [dateUnknown, setDateUnknown] = useState(false);
+  // L'emprunt (#113) : « déjà lu » sans jamais posséder — médiathèque, prêt.
+  const [isBorrowed, setIsBorrowed] = useState(false);
   const shelfDate = dateUnknown ? null : date;
 
   const buildInput = (): BookInput => ({
@@ -179,6 +190,20 @@ export function BookActionSheet({
           />
           Je ne sais plus quand
         </label>
+
+        {/* L'emprunt (#113) : « déjà lu » sans rien posséder. Cochée, la case
+            neutralise « Je le possède » (on ne possède pas un emprunt) et
+            bascule « Déjà lu » en lecture seule — aucune possession fabriquée,
+            le livre n'entre jamais dans la pile (§4.5). */}
+        <label className="flex items-center gap-2.5 text-sm text-ink2">
+          <input
+            type="checkbox"
+            checked={isBorrowed}
+            onChange={(event) => setIsBorrowed(event.target.checked)}
+            className="size-4 rounded border-line bg-card2 accent-cyan"
+          />
+          C&apos;était un emprunt — je ne le possède pas
+        </label>
         {/* La portée de la case, dite explicitement (review #104) : le champ
             « Date » au-dessus sert AUSSI à la lecture et à l'achat — cocher
             ici ne doit pas laisser croire qu'il est ignoré partout. */}
@@ -193,7 +218,7 @@ export function BookActionSheet({
             type="button"
             variant="ghost"
             block
-            disabled={isSubmitting || !title.trim()}
+            disabled={isSubmitting || !title.trim() || isBorrowed}
             onClick={() => onOwn(buildInput(), shelfDate)}
           >
             Je le possède
@@ -203,7 +228,9 @@ export function BookActionSheet({
             variant="ghost"
             block
             disabled={isSubmitting || !title.trim()}
-            onClick={() => onPastReading(buildInput(), shelfDate)}
+            onClick={() =>
+              isBorrowed ? onPastReading(buildInput(), shelfDate) : onOwnedPastReading(buildInput(), shelfDate)
+            }
           >
             Je l&apos;ai déjà lu
           </Button>

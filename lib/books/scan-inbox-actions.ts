@@ -4,7 +4,13 @@ import { revalidatePath } from "next/cache";
 import { getSessionOrError } from "@/lib/supabase/server";
 import { isValidIsoDate } from "@/lib/dates";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
-import { recordOwnership, recordOwnedPastReading, type BookInput, type ScanActionResult } from "@/lib/books/actions";
+import {
+  recordOwnership,
+  recordOwnedPastReading,
+  recordPastReading,
+  type BookInput,
+  type ScanActionResult,
+} from "@/lib/books/actions";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
 import type { ScanIntent } from "@/lib/books/scan-inbox";
 import type { Json } from "@/lib/supabase/database.types";
@@ -145,7 +151,10 @@ export async function completeScanInboxItem(itemId: string, input: BookInput): P
       ? // Possédé ET lu — les deux, comme en rafale (§4.13) : la boîte
         // rejoue l'intention à l'identique, sans la réinterpréter.
         await recordOwnedPastReading(input, item.finished_at)
-      : await recordOwnership(input, item.owned_since);
+      : item.intent === "read"
+        ? // L'emprunt (#113) : lu, jamais possédé — aucune possession fabriquée.
+          await recordPastReading(input, item.finished_at)
+        : await recordOwnership(input, item.owned_since);
   if (!result.ok) return result;
 
   const { error: updateError } = await supabase

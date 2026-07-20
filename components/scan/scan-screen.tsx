@@ -7,6 +7,7 @@ import {
   startReading,
   recordPurchase,
   recordOwnership,
+  recordOwnedPastReading,
   recordPastReading,
   softDeletePurchase,
   type BookInput,
@@ -280,8 +281,19 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: numb
             performAction(recordOwnership, input, ownedSince, "Ajouté à ta bibliothèque.")
           }
           onPastReading={(input, finishedAt) =>
+            // L'emprunt (#113) : lecture seule, aucune possession fabriquée.
             performAction(
               recordPastReading,
+              input,
+              finishedAt,
+              finishedAt === null ? "Marqué comme lu (emprunt)." : "Lecture d'emprunt enregistrée.",
+            )
+          }
+          onOwnedPastReading={(input, finishedAt) =>
+            // Par défaut, « déjà lu » range AUSSI le livre dans l'étagère —
+            // aligné sur la rafale et le titre de section (#113, §4.13).
+            performAction(
+              recordOwnedPastReading,
               input,
               finishedAt,
               finishedAt === null ? "Marqué comme lu." : "Lecture enregistrée.",
