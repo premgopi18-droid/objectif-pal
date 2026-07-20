@@ -27,6 +27,16 @@ export async function createServerSupabaseClient() {
   });
 }
 
+/**
+ * La frontière d'authentification (#125) — qui vérifie quoi :
+ *  - le PROXY vérifie le JWT LOCALEMENT (`getClaims()`, clé publique ES256) et
+ *    porte le refresh de session — zéro réseau sur le chemin nominal ;
+ *  - les gardes ci-dessous (`getUser()`) font la vérification serveur COMPLÈTE
+ *    — révocation immédiate comprise — car ils protègent des ÉCRITURES et des
+ *    lectures de données. Ne pas les « optimiser » en getClaims : sur une
+ *    action, les ~100 ms valent la certitude.
+ */
+
 /** L'utilisateur de la requête courante, ou null — le garde des Route Handlers. */
 export async function getAuthenticatedUser() {
   const supabase = await createServerSupabaseClient();

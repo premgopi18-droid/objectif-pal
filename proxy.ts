@@ -34,11 +34,15 @@ export async function proxy(request: NextRequest) {
     },
   );
 
-  // getUser() valide le JWT et déclenche le refresh si besoin — le seul appel
-  // auth réseau du cycle de requête.
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  // getClaims() (#125) : vérification LOCALE du JWT contre la clé publique
+  // ES256 du projet (JWKS, mise en cache par le SDK) — plus d'aller-retour
+  // réseau vers Supabase Auth à chaque requête (~100-150 ms gagnés). Le
+  // REFRESH d'une session expirée reste déclenché par cet appel (c'est le
+  // vrai rôle du proxy), et lui seul repart sur le réseau, quand il le faut.
+  // La vérification serveur COMPLÈTE (révocation immédiate) reste dans les
+  // server actions d'écriture via getUser() — cf. lib/supabase/server.ts.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims ?? null;
 
   // La liste des chemins publics vit dans lib/auth/public-paths.ts — pure et
   // TESTÉE (le contrat anti-régression de l'issue #60).
