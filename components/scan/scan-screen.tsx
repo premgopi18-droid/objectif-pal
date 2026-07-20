@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { CoverPhotoButton } from "@/components/cover-photo-button";
 import { ErrorAlert } from "@/components/error-alert";
 import {
@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { BarcodeScanner } from "./barcode-scanner";
 import { BookActionSheet } from "./book-action-sheet";
 import { BurstMode } from "./burst-mode";
+import { hasBurstSession } from "./burst-session";
 import { ManualEntryForm } from "./manual-entry-form";
 import { GradientWord, ScreenTitle } from "./screen-title";
 
@@ -79,6 +80,19 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: numb
   const [state, setState] = useState<ScanState>({ step: "scan" });
   const [manualCode, setManualCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
+
+  // Une session de rafale interrompue par une navigation (aller compléter la
+  // boîte de finition) REPREND toute seule (#131) — en effet, pas dans
+  // l'initialisation : l'HTML serveur ne connaît pas sessionStorage, et un
+  // état initial divergent casserait l'hydratation.
+  useEffect(() => {
+    // Un seul re-rendu, une seule fois au montage, sur condition rare : le
+    // « cascading render » que la règle craint n'existe pas ici — et
+    // l'alternative (initialiser l'état depuis sessionStorage) diverge du HTML
+    // serveur et casse l'hydratation.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (hasBurstSession()) setState({ step: "burst" });
+  }, []);
 
   // Le compteur de requêtes en vol : « Saisie manuelle » pendant la résolution
   // incrémente le compteur, et la réponse d'une requête périmée est IGNORÉE

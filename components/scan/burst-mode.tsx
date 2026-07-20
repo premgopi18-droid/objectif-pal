@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorAlert } from "@/components/error-alert";
@@ -20,6 +21,7 @@ import type { ResolvedBook, ScanLookupResult } from "@/lib/resolution/types";
 import type { BookCategory } from "@/lib/scoring/types";
 import type { ScanIntent } from "@/lib/books/scan-inbox";
 import type { Json } from "@/lib/supabase/database.types";
+import { clearBurstSession, loadBurstSession, saveBurstSession } from "./burst-session";
 
 /**
  * Le scan d'étagère en rafale (#101 lot C, specs §4.13).
@@ -39,7 +41,7 @@ import type { Json } from "@/lib/supabase/database.types";
  */
 
 /** Ce qu'une ligne de la liste de session raconte. */
-type BurstItem = {
+export type BurstItem = {
   key: number;
   code: string | null;
   /**
@@ -98,11 +100,16 @@ const resolvedToInput = (book: ResolvedBook, scannedCode: string | null): BookIn
 });
 
 export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; pendingInboxCount: number }) {
-  const [intent, setIntent] = useState<ScanIntent>("own");
+  // La session survit à la navigation (#131) : aller compléter la boîte de
+  // finition puis revenir retrouve la liste et les réglages tels quels.
+  // Initialisation PARESSEUSE (une seule lecture) — BurstMode ne monte que
+  // côté client, sessionStorage est toujours là.
+  const [restored] = useState(() => loadBurstSession());
+  const [intent, setIntent] = useState<ScanIntent>(restored?.intent ?? "own");
   // L'étagère d'avant n'a pas de date connue : c'est le défaut, pas l'exception.
-  const [dateKnown, setDateKnown] = useState(false);
-  const [date, setDate] = useState(localToday());
-  const [items, setItems] = useState<BurstItem[]>([]);
+  const [dateKnown, setDateKnown] = useState(restored?.dateKnown ?? false);
+  const [date, setDate] = useState(restored?.date ?? localToday());
+  const [items, setItems] = useState<BurstItem[]>(restored?.items ?? []);
   const [error, setError] = useState<string | null>(null);
   const [editing, setEditing] = useState<{ key: number; bookId: string; category: BookCategory } | null>(null);
   /** La ligne en cours de retrait — évite le double tap pendant l'aller-retour. */
@@ -114,7 +121,13 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
    */
   const [photoMode, setPhotoMode] = useState(false);
 
-  const nextKeyRef = useRef(0);
+  const nextKeyRef = useRef(restored?.nextKey ?? 0);
+
+  // Chaque mutation persiste la session (#131) — écriture synchrone minuscule,
+  // et le confort est optionnel : un échec de stockage ne casse jamais la rafale.
+  useEffect(() => {
+    saveBurstSession({ intent, dateKnown, date, items, nextKey: nextKeyRef.current });
+  }, [intent, dateKnown, date, items]);
   // Les réglages dans une ref : la callback du scanner est mémoïsée (la
   // remplacer redémarrerait la caméra), elle ne doit donc pas capturer un état
   // périmé — on change d'intention en pleine session. Synchronisée dans un
@@ -360,7 +373,16 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
           <h1 className="text-xl font-bold">Scan d&apos;étagère</h1>
           <p className="mt-0.5 text-sm text-ink2">Enchaîne les livres — rien ne s&apos;arrête, rien ne se perd.</p>
         </div>
-        <Button type="button" variant="ghost" onClick={onExit}>
+        {/* « Terminer » CLÔT la session (#131) : le prochain mode rafale
+            repart à vide — contrairement à une navigation, qui la préserve. */}
+        <Button
+          type="button"
+          variant="ghost"
+          onClick={() => {
+            clearBurstSession();
+            onExit();
+          }}
+        >
           Terminer
         </Button>
       </div>
@@ -428,14 +450,19 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
         {toCompleteCount > 0 && ` · ${toCompleteCount} à compléter`}
       </p>
 
+      {/* `Link` et non `<a>` (#131) : un ancre brut rechargeait TOUTE l'app
+          (splash comprise). La phrase vit dans UNE expression : le découpage
+          JSX mangeait l'espace avant « à » (#130). Le total inclut la boîte
+          d'AVANT la session — on le dit, sinon il a l'air doublé (#130). */}
       {(toCompleteCount > 0 || pendingInboxCount > 0) && (
-        <a
+        <Link
           href="/finition"
           className="rounded-card border border-amber/40 bg-amber/10 p-3 text-sm text-ink underline underline-offset-2"
         >
-          {toCompleteCount + pendingInboxCount} livre{toCompleteCount + pendingInboxCount > 1 ? "s" : ""} à
-          compléter — à faire quand tu veux, rien n&apos;est perdu.
-        </a>
+          {`${toCompleteCount + pendingInboxCount} livre${toCompleteCount + pendingInboxCount > 1 ? "s" : ""} à compléter${
+            pendingInboxCount > 0 && toCompleteCount > 0 ? ` (dont ${pendingInboxCount} d'avant cette session)` : ""
+          } — à faire quand tu veux, rien n'est perdu.`}
+        </Link>
       )}
 
       {items.length > 0 && (
