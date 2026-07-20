@@ -45,7 +45,7 @@ plus large :
 |---|---|
 | Posséder sans avoir lu | ✅ la PAL (`purchases` sans `readings`) |
 | Avoir lu sans posséder (emprunt, médiathèque) | ✅ une lecture sans achat |
-| **Posséder sans avoir acheté dans l'app** (les étagères d'avant) | ❌ **manquant** |
+| **Posséder sans avoir acheté dans l'app** (les étagères d'avant) | ❌ **manquant** — spécifié le 20/07/2026, issue #101 |
 
 Ce dernier cas, c'est **l'essentiel d'une vraie biblio**. Il faudra une action « **je possède** » — scanner une
 étagère entière **sans que ça compte comme un achat du mois** (pas de −1, sinon le score plonge à −80). C'est du
@@ -495,9 +495,17 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
 - **v1** : liste (vignette, titre, sous-titre, badge d'état), **recherche en mémoire** titre/série
   (insensible casse et accents — même réserve que les filtres du journal : client tant que pas de
   pagination #32), tri « récents / A→Z », et les **gestes existants** : « je commence », photo de
-  couverture (#33/#47). L'édition des métadonnées reste au rescan.
+  couverture (#33/#47). L'édition des métadonnées reste au rescan **(v1 livrée — voir la puce « à
+  construire » ci-dessous, qui la remplace)**.
 - **Badge d'état** (priorité) : En cours > Lu > Dans la PAL (possédé non lu — l'abandon n'en sort pas,
   §4.6) > Abandonné > **Sans activité** (l'angle mort, enfin visible).
+- **⚠️ À CONSTRUIRE — décisions du 20/07/2026, issue #100** (rien de ce paragraphe n'existe encore dans
+  l'app) : l'édition de fiche ne restera pas au rescan — **formulaire
+  complet** depuis la Biblio (titre, série, numéro, auteurs, éditeur, pages, catégorie ; la **catégorie
+  corrigeable en un tap**, c'est elle qui fait les points ; les champs code-barres/source restent
+  intouchables — c'est le pont de re-résolution, §7) + **fusion de doublons** (re-pointage des faits vers la
+  fiche conservée, soft delete du doublon). Les filtres avancés (catégorie/état/série) restent différés avec
+  la pagination #32 lot C.
 - **« Retirer de la bibliothèque »** : suppression douce du **livre seul, sans cascade** — ses lectures et
   achats restent intacts en base mais disparaissent de toutes les vues, car **chaque surface filtre sur
   `books.deleted_at`** (le bilan le faisait déjà ; le journal l'a rejoint — `books!inner` + filtre). 100 %
@@ -852,6 +860,24 @@ comportement voulu (on ne peut pas dédupliquer ce qui n'a pas de code).
 > `rating` et `comment` sont **facultatifs** : une lecture terminée sans note rapporte ses points normalement.
 > Mais les **colonnes existent dès la première version** — une note non capturée est perdue pour toujours.
 
+> **⚠️ `started_at` et `finished_at` sont nullables — décision du 20/07/2026 (#101), et elle a un prix.**
+> Le geste « j'ai déjà lu » (§12) doit pouvoir enregistrer une lecture de l'étagère d'avant **sans inventer de
+> date**. Deux contraintes d'origine sont donc tombées : `readings_finished_has_date` et le `NOT NULL` sur
+> `started_at`. La règle « pas de date → pas de points » est désormais portée par le **moteur** (les points sont
+> datés par `finished_at`, §3 règle 1), plus par le schéma.
+>
+> **Ce que ça coûte, et ce qui le compense.** La base ne rattrapait plus une lecture normalement suivie dans
+> l'app qui perdrait sa date de fin — des points disparus du bilan, en silence. Un filet **affiné** l'a
+> remplacée : *une lecture terminée sans date de fin doit aussi être sans date de début*
+> (`readings_undated_finish_has_no_start`). Une lecture commencée dans l'app a forcément un `started_at` : le
+> seul cas fautif casse, les quatre cas légitimes passent (en cours ; suivie de bout en bout ; « déjà lu » avec
+> fin connue ; « déjà lu » sans rien). Les gardes applicatives restent en première ligne.
+>
+> Corollaire sur `reading_events.occurred_at`, que le trigger dérive de ces deux colonnes : **nullable** aussi.
+> Un événement sans date reste au journal (rien n'est jamais effacé) mais **ne compte dans aucun mois** — une
+> date inventée polluerait les comptages d'abandons et de reprises (§4.5), et plus rien ne la distinguerait
+> ensuite d'une vraie.
+
 **`reading_events`** — le **journal d'états, en append-only** : `reading_id`, `status`, `occurred_at`. Une ligne
 à chaque changement, **jamais d'effacement**. C'est lui qui permet de compter les **abandons** et les
 **reprises**, et de supporter plusieurs cycles sur un même bouquin. `readings.status` n'est que le **dernier
@@ -1028,10 +1054,42 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
 
 - **Import rétroactif** : ressaisir les lectures des mois déjà passés à l'antenne pour avoir des courbes
   historiques. Écarté au lancement (on démarre à zéro), mais le modèle de données **doit rester compatible** :
-  dates de lecture toujours libres, jamais figées à la date de saisie.
+  dates de lecture toujours libres, jamais figées à la date de saisie. **Le geste « déjà lu » (#101) en livre
+  le socle** (une lecture rétroactive datée crédite son mois passé) ; seul l'outillage de ressaisie **en
+  masse** reste ici.
 - **« Je possède »** — l'action qui manque pour que l'app devienne vraiment le reflet de la bibliothèque (cf. la
   vision, §1) : scanner une étagère déjà là, **sans malus d'achat**. Sans elle, l'app ne connaîtra que les livres
-  entrés après son installation.
+  entrés après son installation. **Tranché le 20/07/2026 (issue #101, spec complète dedans)**.
+  > **⚠️ CETTE ENTRÉE N'EST PLUS DU BACKLOG dès le merge des lots A et B de #101** (PRs #103/#104) :
+  > la possession et « déjà lu » seront **construits**. À déplacer alors en section §4.x, avec le tableau
+  > §1 passé en ✅ et le bloc « Statut » de `CLAUDE.md` mis à jour — issue de suivi #105.
+  - table `ownerships` (`owned_since` **date nullable**, `disposed_at` date nullable, soft delete) — une ligne
+    active max par (user, livre) ; **zéro impact barème**, les ownerships n'atteignent jamais le scoring ;
+  - **stock vs flux** : `owned_since` renseignée → le livre entre dans la courbe et les flux à cette date ;
+    vide → il compte dans le stock de la PAL mais pas dans les entrées/sorties du mois (pas de pic en scannant
+    une étagère) ;
+  - **mode rafale dès la v1** (scan → bip → scan suivant) — c'est le geste réel du scan d'étagère. **La rafale
+    ne s'arrête jamais** : chaque scan est capté (le code-barres est toujours enregistré, §7), la résolution
+    est asynchrone, et tout ce qui demande de l'attention (introuvable, « image oui, infos non », pas de
+    code-barres → photo comme capture) part dans une **boîte de finition** persistante (`scan_inbox`) qu'on
+    traite après — saisie pré-remplie, intention jamais redemandée. Aucun scan perdu, aucun échec sec (les
+    9 cas sont analysés dans l'issue #101). La **catégorie se corrige inline** dans la liste de session
+    (puce → tiroir partagé, jamais bloquant), avec un marqueur discret sur les devinettes VF (§5.5) ;
+  - **« je ne possède plus »** (don, revente, perte) inclus : sortie de PAL/Biblio, lectures et points intacts
+    au bilan — distinct de « Retirer » (§4.12) qui masque toutes les traces ;
+  - possédé mais **déjà terminé** → Biblio, pas PAL (la PAL est « possédé non lu ») ;
+  - **« j'ai déjà lu »** (même ticket, même pattern) : déclarer une lecture passée en un geste —
+    `status = finished` avec **`finished_at` nullable**. Date connue → points dans le bilan de ce mois **passé**
+    (clos — le mois courant n'est jamais touché, §3 règle 1) et présence dans les courbes ; date vide → badge
+    « Lu », hors PAL, **zéro point nulle part**, absent des séries temporelles. Note et avis capturables.
+    **Ce qu'une lecture non datée compte quand même** (tranché à l'implémentation, 20/07/2026) : elle pèse
+    dans les totaux qui ne se datent pas — **volume total lu**, répartition par catégorie, pages, et
+    **moyennes de notes** par série et par éditeur. Elle est exclue de tout ce qui se date : mois, année,
+    durée de lecture, courbe de PAL, et le **classement** (qui affiche une date de lecture). Conséquence à
+    connaître : « j'ai lu N bouquins » inclut désormais les lectures rétroactives — c'est voulu (ce sont de
+    vraies lectures), mais le chiffre ne veut plus dire « depuis que j'utilise l'app ».
+    Indépendant de la possession (un livre de médiathèque lu est « lu » sans être « possédé ») ; dans la
+    rafale, un interrupteur « déjà lu » déclare possédé + lu d'un geste.
 - **Wishlist et favoris** : scanner en librairie un bouquin qu'on ne prend pas (wishlist), marquer ses coups de
   cœur (favoris). **L'architecture les accueille déjà** — ce sera un bouton de plus sur la feuille du scan et une
   table par action. Et la wishlist nourrit la santé de la PAL : *ce que je convoite* vs *ce que j'achète* vs *ce
