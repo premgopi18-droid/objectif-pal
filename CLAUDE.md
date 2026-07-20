@@ -110,9 +110,10 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **#100 — gestion de la Biblio** : édition de fiche en formulaire complet (indispensable aux livres saisis
-   à la main, qui n'ont pas de code-barres à rescanner) + fusion de doublons. `updateBookCategory` existe
-   déjà (posée par le lot C) — #100 la généralise à toute la fiche.
+1. **#100 — reste la fusion de doublons** : l'édition de fiche est livrée (20/07/2026, specs §4.12). La
+   fusion doit re-pointer lectures/achats/possessions puis soft-delete le doublon — attention à l'index
+   unique partiel sur `ownerships` (fusionner les lignes, pas les additionner) et à l'unicité
+   `(user_id, barcode_raw)` qui couvre les supprimés (rescanner le doublon le ressusciterait).
 2. **#108 — le bouton photo dans la boucle de rafale** : capturer un livre sans code-barres sans quitter le
    mode. Le schéma l'accepte déjà ; le geste demande de suspendre la caméra du scan pour ouvrir celle de la
    photo (deux flux `getUserMedia` ne cohabitent pas) — ticket complet, à tester sur un vrai téléphone.

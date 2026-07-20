@@ -40,7 +40,11 @@ export default async function BibliothequePage({
     const { data, error } = await supabase
       .from("books")
       .select(
+        // `authors`, `publisher` et `page_count` ne s'affichent pas dans la
+        // liste : ils alimentent le formulaire d'édition (#100), qui doit
+        // ouvrir déjà rempli sans une requête de plus par livre.
         `id, title, series_name, issue_number, category, cover_url, created_at,
+         authors, publisher, page_count, barcode_raw,
          readings (status, finished_at, deleted_at),
          purchases (purchased_at, deleted_at),
          ownerships (owned_since, disposed_at, deleted_at)`,

@@ -501,13 +501,20 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
   construire » ci-dessous, qui la remplace)**.
 - **Badge d'état** (priorité) : En cours > Lu > Dans la PAL (possédé non lu — l'abandon n'en sort pas,
   §4.6) > Abandonné > **Sans activité** (l'angle mort, enfin visible).
-- **⚠️ À CONSTRUIRE — décisions du 20/07/2026, issue #100** (rien de ce paragraphe n'existe encore dans
-  l'app) : l'édition de fiche ne restera pas au rescan — **formulaire
-  complet** depuis la Biblio (titre, série, numéro, auteurs, éditeur, pages, catégorie ; la **catégorie
-  corrigeable en un tap**, c'est elle qui fait les points ; les champs code-barres/source restent
-  intouchables — c'est le pont de re-résolution, §7) + **fusion de doublons** (re-pointage des faits vers la
-  fiche conservée, soft delete du doublon). Les filtres avancés (catégorie/état/série) restent différés avec
-  la pagination #32 lot C.
+- **Édition de fiche** (issue #100, livrée le 20/07/2026) : **formulaire complet** depuis la Biblio — titre,
+  série, numéro, auteurs, éditeur, pages, catégorie. Elle **ne remplace pas le rescan**, elle couvre ce que le
+  rescan ne peut pas : un livre **saisi à la main n'a pas de code-barres**, donc rien à rescanner, et sa fiche
+  resterait fausse pour toujours. Les champs **code-barres et source restent intouchables** — c'est le pont de
+  re-résolution (§7), une saisie humaine dessus le casserait en silence.
+  > **Corriger la catégorie recalcule les bilans passés**, et c'est voulu : le score est toujours dérivé (§7),
+  > donc le bilan corrigé est le bon — c'était une erreur de saisie. Le formulaire l'annonce avant
+  > d'enregistrer, plutôt que de le faire en douce.
+- **⚠️ À CONSTRUIRE — fusion de doublons** (issue #100, second volet) : re-pointer lectures, achats et
+  possessions vers la fiche conservée, puis soft delete du doublon. Deux pièges connus, à traiter là :
+  l'**index unique partiel** sur `ownerships` interdit deux possessions actives sur un même livre (il faut les
+  **fusionner**, pas les additionner), et l'unicité `(user_id, barcode_raw)` **couvre les supprimés** —
+  rescanner le doublon le ressusciterait et déferait la fusion. Les filtres avancés (catégorie/état/série)
+  restent différés avec la pagination #32 lot C.
 - **« Retirer de la bibliothèque »** : suppression douce du **livre seul, sans cascade** — ses lectures et
   achats restent intacts en base mais disparaissent de toutes les vues, car **chaque surface filtre sur
   `books.deleted_at`** (le bilan le faisait déjà ; le journal l'a rejoint — `books!inner` + filtre). 100 %

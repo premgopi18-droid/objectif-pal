@@ -1,5 +1,6 @@
 import { EAN13_LENGTH } from "@/lib/resolution/barcode-router";
 import type { Database } from "@/lib/supabase/database.types";
+import { isValidCategory } from "@/lib/books/book-edit";
 import type { BookCategory } from "@/lib/scoring/types";
 
 /**
@@ -32,7 +33,6 @@ export type ScanInboxDraft = {
   isbn: string | null;
 };
 
-const CATEGORIES: readonly BookCategory[] = ["issue", "manga", "bd", "comics", "omnibus", "roman"];
 
 /** Une valeur jsonb → une string exploitable, ou `null`. Jamais `"undefined"`. */
 const text = (value: unknown): string | null => {
@@ -47,9 +47,14 @@ const positiveInteger = (value: unknown): number | null => {
   return Number.isInteger(parsed) && parsed > 0 ? parsed : null;
 };
 
-/** Une valeur jsonb → une catégorie du barème, ou `null` si ce n'en est pas une. */
-const category = (value: unknown): BookCategory | null =>
-  typeof value === "string" && (CATEGORIES as readonly string[]).includes(value) ? (value as BookCategory) : null;
+/**
+ * Une valeur jsonb → une catégorie du barème, ou `null` si ce n'en est pas
+ * une. Le prédicat est PARTAGÉ (`isValidCategory`) et la liste vient de
+ * `ALL_CATEGORIES`, **jamais recopiée** (CLAUDE.md : pas de valeur magique) —
+ * une copie locale rejetterait silencieusement une septième catégorie le jour
+ * où elle existera, sans rien lever.
+ */
+const category = (value: unknown): BookCategory | null => (isValidCategory(value) ? value : null);
 
 /**
  * Le brouillon de finition : ce que la cascade avait trouvé de partiel, remis

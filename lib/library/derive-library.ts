@@ -15,7 +15,18 @@ type Tables = Database["public"]["Tables"];
 /** Exactement la forme de la requête de la page — types dérivés de la base, comme derivePal. */
 export type LibraryBookRow = Pick<
   Tables["books"]["Row"],
-  "id" | "title" | "series_name" | "issue_number" | "category" | "cover_url" | "created_at"
+  | "id"
+  | "title"
+  | "series_name"
+  | "issue_number"
+  | "category"
+  | "cover_url"
+  | "created_at"
+  // Non affichés dans la liste — ils remplissent le formulaire d'édition (#100).
+  | "authors"
+  | "publisher"
+  | "page_count"
+  | "barcode_raw"
 > & {
   // `finished_at` et `purchased_at` sont nécessaires au réducteur de pile
   // partagé (il raisonne sur des dates, pas sur des comptages).
@@ -48,6 +59,15 @@ export type LibraryEntry = {
   activePurchaseCount: number;
   /** Le livre est-il possédé aujourd'hui ? Sinon c'est un emprunt, ou un livre parti (#101). */
   isOwned: boolean;
+  /** Les champs éditables (#100) — portés jusqu'au formulaire, jamais affichés en liste. */
+  authors: string | null;
+  publisher: string | null;
+  pageCount: number | null;
+  /**
+   * Un livre SANS code-barres ne peut pas être rescanné : l'édition est sa
+   * seule voie de correction (#100). La vue s'en sert pour le dire.
+   */
+  hasBarcode: boolean;
 };
 
 export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
@@ -114,6 +134,10 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
         ownerships.length > 0
           ? ownerships.some((ownership) => ownership.disposed_at === null)
           : purchases.length > 0,
+      authors: row.authors,
+      publisher: row.publisher,
+      pageCount: row.page_count,
+      hasBarcode: row.barcode_raw !== null,
     };
   });
 }
