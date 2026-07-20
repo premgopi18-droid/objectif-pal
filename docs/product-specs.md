@@ -1045,7 +1045,12 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
   - **stock vs flux** : `owned_since` renseignée → le livre entre dans la courbe et les flux à cette date ;
     vide → il compte dans le stock de la PAL mais pas dans les entrées/sorties du mois (pas de pic en scannant
     une étagère) ;
-  - **mode rafale dès la v1** (scan → bip → scan suivant) — c'est le geste réel du scan d'étagère ;
+  - **mode rafale dès la v1** (scan → bip → scan suivant) — c'est le geste réel du scan d'étagère. **La rafale
+    ne s'arrête jamais** : chaque scan est capté (le code-barres est toujours enregistré, §7), la résolution
+    est asynchrone, et tout ce qui demande de l'attention (introuvable, « image oui, infos non », pas de
+    code-barres → photo comme capture) part dans une **boîte de finition** persistante (`scan_inbox`) qu'on
+    traite après — saisie pré-remplie, intention jamais redemandée. Aucun scan perdu, aucun échec sec (les
+    9 cas sont analysés dans l'issue #101) ;
   - **« je ne possède plus »** (don, revente, perte) inclus : sortie de PAL/Biblio, lectures et points intacts
     au bilan — distinct de « Retirer » (§4.12) qui masque toutes les traces ;
   - possédé mais **déjà terminé** → Biblio, pas PAL (la PAL est « possédé non lu ») ;
