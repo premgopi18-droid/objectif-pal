@@ -45,7 +45,7 @@ plus large :
 |---|---|
 | Posséder sans avoir lu | ✅ la PAL (`purchases` sans `readings`) |
 | Avoir lu sans posséder (emprunt, médiathèque) | ✅ une lecture sans achat |
-| **Posséder sans avoir acheté dans l'app** (les étagères d'avant) | ❌ **manquant** |
+| **Posséder sans avoir acheté dans l'app** (les étagères d'avant) | ❌ **manquant** — spécifié le 20/07/2026, issue #101 |
 
 Ce dernier cas, c'est **l'essentiel d'une vraie biblio**. Il faudra une action « **je possède** » — scanner une
 étagère entière **sans que ça compte comme un achat du mois** (pas de −1, sinon le score plonge à −80). C'est du
@@ -498,6 +498,12 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
   couverture (#33/#47). L'édition des métadonnées reste au rescan.
 - **Badge d'état** (priorité) : En cours > Lu > Dans la PAL (possédé non lu — l'abandon n'en sort pas,
   §4.6) > Abandonné > **Sans activité** (l'angle mort, enfin visible).
+- **Décisions du 20/07/2026 (issue #100)** : l'édition de fiche ne reste pas au rescan — **formulaire
+  complet** depuis la Biblio (titre, série, numéro, auteurs, éditeur, pages, catégorie ; la **catégorie
+  corrigeable en un tap**, c'est elle qui fait les points ; les champs code-barres/source restent
+  intouchables — c'est le pont de re-résolution, §7) + **fusion de doublons** (re-pointage des faits vers la
+  fiche conservée, soft delete du doublon). Les filtres avancés (catégorie/état/série) restent différés avec
+  la pagination #32 lot C.
 - **« Retirer de la bibliothèque »** : suppression douce du **livre seul, sans cascade** — ses lectures et
   achats restent intacts en base mais disparaissent de toutes les vues, car **chaque surface filtre sur
   `books.deleted_at`** (le bilan le faisait déjà ; le journal l'a rejoint — `books!inner` + filtre). 100 %
@@ -1031,7 +1037,16 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
   dates de lecture toujours libres, jamais figées à la date de saisie.
 - **« Je possède »** — l'action qui manque pour que l'app devienne vraiment le reflet de la bibliothèque (cf. la
   vision, §1) : scanner une étagère déjà là, **sans malus d'achat**. Sans elle, l'app ne connaîtra que les livres
-  entrés après son installation.
+  entrés après son installation. **Tranché le 20/07/2026 (issue #101, spec complète dedans)** :
+  - table `ownerships` (`owned_since` **date nullable**, `disposed_at` date nullable, soft delete) — une ligne
+    active max par (user, livre) ; **zéro impact barème**, les ownerships n'atteignent jamais le scoring ;
+  - **stock vs flux** : `owned_since` renseignée → le livre entre dans la courbe et les flux à cette date ;
+    vide → il compte dans le stock de la PAL mais pas dans les entrées/sorties du mois (pas de pic en scannant
+    une étagère) ;
+  - **mode rafale dès la v1** (scan → bip → scan suivant) — c'est le geste réel du scan d'étagère ;
+  - **« je ne possède plus »** (don, revente, perte) inclus : sortie de PAL/Biblio, lectures et points intacts
+    au bilan — distinct de « Retirer » (§4.12) qui masque toutes les traces ;
+  - possédé mais **déjà terminé** → Biblio, pas PAL (la PAL est « possédé non lu »).
 - **Wishlist et favoris** : scanner en librairie un bouquin qu'on ne prend pas (wishlist), marquer ses coups de
   cœur (favoris). **L'architecture les accueille déjà** — ce sera un bouton de plus sur la feuille du scan et une
   table par action. Et la wishlist nourrit la santé de la PAL : *ce que je convoite* vs *ce que j'achète* vs *ce
