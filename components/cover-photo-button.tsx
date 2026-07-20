@@ -6,7 +6,6 @@ import { Button } from "@/components/ui/button";
 import { recordCoverPhoto } from "@/lib/books/cover-actions";
 import { coverPhotoPath, COVERS_BUCKET, fileToWebpBlob } from "@/lib/books/cover-photo";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
-import { createBrowserSupabaseClient } from "@/lib/supabase/browser";
 
 /**
  * « Prendre une photo / Importer une image » — le filet ultime (specs §5.4,
@@ -35,6 +34,11 @@ export function CoverPhotoButton({ bookId, mode = "add" }: CoverPhotoButtonProps
     setError(null);
     try {
       const blob = await fileToWebpBlob(file);
+      // Import DYNAMIQUE (#123) : ce composant est monté sur le journal, la
+      // Biblio et le scan, mais le client Supabase (63 KB gz) ne sert qu'à
+      // l'UPLOAD — il ne se charge qu'au geste. Un échec de chargement du
+      // chunk (réseau coupé) tombe dans le catch existant, jamais muet.
+      const { createBrowserSupabaseClient } = await import("@/lib/supabase/browser");
       const supabase = createBrowserSupabaseClient();
       const {
         data: { user },
