@@ -495,7 +495,8 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
 - **v1** : liste (vignette, titre, sous-titre, badge d'état), **recherche en mémoire** titre/série
   (insensible casse et accents — même réserve que les filtres du journal : client tant que pas de
   pagination #32), tri « récents / A→Z », et les **gestes existants** : « je commence », photo de
-  couverture (#33/#47). L'édition des métadonnées reste au rescan.
+  couverture (#33/#47). L'édition des métadonnées reste au rescan **(v1 livrée — voir la puce « à
+  construire » ci-dessous, qui la remplace)**.
 - **Badge d'état** (priorité) : En cours > Lu > Dans la PAL (possédé non lu — l'abandon n'en sort pas,
   §4.6) > Abandonné > **Sans activité** (l'angle mort, enfin visible).
 - **⚠️ À CONSTRUIRE — décisions du 20/07/2026, issue #100** (rien de ce paragraphe n'existe encore dans
@@ -1058,7 +1059,10 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
   masse** reste ici.
 - **« Je possède »** — l'action qui manque pour que l'app devienne vraiment le reflet de la bibliothèque (cf. la
   vision, §1) : scanner une étagère déjà là, **sans malus d'achat**. Sans elle, l'app ne connaîtra que les livres
-  entrés après son installation. **Tranché le 20/07/2026 (issue #101, spec complète dedans)** :
+  entrés après son installation. **Tranché le 20/07/2026 (issue #101, spec complète dedans)**.
+  > **⚠️ CETTE ENTRÉE N'EST PLUS DU BACKLOG dès le merge des lots A et B de #101** (PRs #103/#104) :
+  > la possession et « déjà lu » seront **construits**. À déplacer alors en section §4.x, avec le tableau
+  > §1 passé en ✅ et le bloc « Statut » de `CLAUDE.md` mis à jour — issue de suivi #105.
   - table `ownerships` (`owned_since` **date nullable**, `disposed_at` date nullable, soft delete) — une ligne
     active max par (user, livre) ; **zéro impact barème**, les ownerships n'atteignent jamais le scoring ;
   - **stock vs flux** : `owned_since` renseignée → le livre entre dans la courbe et les flux à cette date ;
@@ -1078,6 +1082,12 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
     `status = finished` avec **`finished_at` nullable**. Date connue → points dans le bilan de ce mois **passé**
     (clos — le mois courant n'est jamais touché, §3 règle 1) et présence dans les courbes ; date vide → badge
     « Lu », hors PAL, **zéro point nulle part**, absent des séries temporelles. Note et avis capturables.
+    **Ce qu'une lecture non datée compte quand même** (tranché à l'implémentation, 20/07/2026) : elle pèse
+    dans les totaux qui ne se datent pas — **volume total lu**, répartition par catégorie, pages, et
+    **moyennes de notes** par série et par éditeur. Elle est exclue de tout ce qui se date : mois, année,
+    durée de lecture, courbe de PAL, et le **classement** (qui affiche une date de lecture). Conséquence à
+    connaître : « j'ai lu N bouquins » inclut désormais les lectures rétroactives — c'est voulu (ce sont de
+    vraies lectures), mais le chiffre ne veut plus dire « depuis que j'utilise l'app ».
     Indépendant de la possession (un livre de médiathèque lu est « lu » sans être « possédé ») ; dans la
     rafale, un interrupteur « déjà lu » déclare possédé + lu d'un geste.
 - **Wishlist et favoris** : scanner en librairie un bouquin qu'on ne prend pas (wishlist), marquer ses coups de
