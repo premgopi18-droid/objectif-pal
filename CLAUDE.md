@@ -61,7 +61,14 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > le **livre sans code-barres photographié dans la boucle** de rafale — le neuvième et dernier cas de
 > l'étagère. Passer à la photo **démonte** le scanner (deux flux caméra ne cohabitent pas) et en revenir le
 > **remonte** (caméra fraîche, reprise « toute seule ») ; la couverture part dans la boîte de finition avec
-> l'intention de la session, indexée `{user_id}/inbox-{uuid}.webp` — 436 → 440 tests. Restent : **#87**
+> l'intention de la session, indexée `{user_id}/inbox-{uuid}.webp` — 436 → 440 tests. **La soirée du
+> 20/07/2026 clarifie la possession (#113, #114, #117)** : l'**emprunt** existe enfin (« Lu — emprunt » en
+> rafale, 3ᵉ valeur de `scan_intent` ; à l'unité « Je l'ai déjà lu » déclare la possession par défaut avec
+> case « c'était un emprunt »), la Biblio n'a plus qu'**UN geste de sortie** (« Retirer de ma bibliothèque »
+> = ne plus posséder, lectures et points TOUJOURS conservés ; le livre-erreur sans trace disparaît proprement,
+> les cédés sortent de la liste — l'ancien bouton « Retirer » destructeur est supprimé, specs §4.12), et le
+> **rachat rouvre la possession close** (#117, bug débusqué en review : les 3 portes d'acquisition rouvrent
+> `disposed_at`, avec filet pur dans `derivePileStatus`) — 440 → 445 tests. Restent : **#87**
 > (logo/icônes/splash depuis les visuels HD — livrable graphique), #32 lot C (différé volontaire), et l'idée
 > produit #97 (passerelle League of Comic Geeks).**
 
