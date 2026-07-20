@@ -1,0 +1,11 @@
+-- L'intention « j'achète » en rafale (issue #120).
+--
+-- Le retour de librairie, c'est 8 achats d'un coup : les scanner un par un est
+-- la rupture de chaîne éliminée partout ailleurs. Entorse ASSUMÉE au principe
+-- « la rafale ne touche pas au barème » : une session d'achats doit y toucher —
+-- le principe devient « l'intention de session décide, et elle est affichée ».
+--
+-- Migration seule : une valeur d'enum ne s'utilise pas dans la transaction qui
+-- la crée. La date d'achat des captures vit dans `owned_since` (c'est une date
+-- d'acquisition) — pas de colonne nouvelle.
+alter type scan_intent add value 'purchase';

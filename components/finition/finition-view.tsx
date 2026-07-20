@@ -20,6 +20,7 @@ const SUBMIT_LABELS: Record<ScanIntent, string> = {
   own: "Ajouter à ma bibliothèque",
   own_read: "Marquer comme lu",
   read: "Marquer comme lu (emprunt)",
+  purchase: "Enregistrer l'achat (−1)",
 };
 
 /**

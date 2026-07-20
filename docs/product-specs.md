@@ -620,11 +620,14 @@ Déclarer un livre à la fois ne tient pas à l'échelle d'une étagère : le ge
   dans la **boîte de finition** (`scan_inbox`) **avec l'intention déjà déclarée**, qui n'est donc jamais
   redemandée. On scanne à la cave, on complète le soir : la boîte survit aux sessions.
 - **L'intention vaut pour toute la session** — on range une étagère de possédés, puis une de déjà-lus, puis
-  le retour de médiathèque. **Trois intentions** (#113, 20/07/2026) : « Je possède » (possession seule),
-  « **Possédé, déjà lu** » (les deux faits — sans la possession, le livre serait indiscernable d'un emprunt)
-  et « **Lu — emprunt** » (lecture seule, **aucune possession fabriquée** : médiathèque, prêt d'un ami — le
-  livre n'entre jamais dans la pile §4.5, et sa lecture datée crédite son mois comme n'importe quelle autre :
-  lire = lire, seul l'achat a un malus).
+  le retour de médiathèque, puis celui de librairie. **Quatre intentions** (#113/#120, 20/07/2026) :
+  « Je possède » (possession seule), « **Possédé, déjà lu** » (les deux faits — sans la possession, le livre
+  serait indiscernable d'un emprunt), « **Lu — emprunt** » (lecture seule, **aucune possession fabriquée** :
+  médiathèque, prêt d'un ami — le livre n'entre jamais dans la pile §4.5, et sa lecture datée crédite son
+  mois : lire = lire) et « **J'achète** » (#120 — l'achat daté, **malus compris et affiché sur le segment**,
+  date de session à défaut d'aujourd'hui ; un livre déjà en pile est refusé doucement, jamais de −2
+  silencieux). Entorse ASSUMÉE au principe « la rafale ne touche pas au barème » : une session d'achats doit
+  y toucher — le principe devient **« l'intention de session décide, et elle est affichée »**.
 
 **La catégorie se corrige inline** dans la liste de session (une puce, un tiroir partagé), sans jamais
 interrompre le scan — la mettre dans la boucle l'arrêterait. Un marqueur « ? » ne s'affiche que sur les
