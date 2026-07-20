@@ -132,3 +132,19 @@ describe("sortByCompletionEffort — vider la boîte vite", () => {
     expect(items.map((entry) => entry.id)).toEqual(snapshot);
   });
 });
+
+describe("l'ISBN reconstitué du code (review #107)", () => {
+  it("tronque le supplément prix : un ISBN fait 13 chiffres, pas 18", () => {
+    // Le code scanné porte souvent 5 chiffres de supplément prix. Les garder
+    // produirait un « ISBN » qui ne correspond à rien.
+    const draft = toScanInboxDraft(item({ barcode_raw: "978220508724650695", barcode_type: "isbn" }));
+    expect(draft.isbn).toBe("9782205087246");
+    // Le code BRUT, lui, est conservé tel quel — c'est le pont de re-résolution (§7).
+    expect(draft.barcodeRaw).toBe("978220508724650695");
+  });
+
+  it("un ISBN donné par la source l'emporte sur la reconstitution", () => {
+    const draft = toScanInboxDraft(item({ resolved_metadata: { isbn: "9781234567897" } }));
+    expect(draft.isbn).toBe("9781234567897");
+  });
+});

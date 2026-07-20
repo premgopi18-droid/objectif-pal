@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { getSessionOrError } from "@/lib/supabase/server";
 import { isValidIsoDate } from "@/lib/dates";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
-import { recordOwnership, recordPastReading, type BookInput, type ScanActionResult } from "@/lib/books/actions";
+import { recordOwnership, recordOwnedPastReading, type BookInput, type ScanActionResult } from "@/lib/books/actions";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
 import type { ScanIntent } from "@/lib/books/scan-inbox";
 import type { Json } from "@/lib/supabase/database.types";
@@ -98,7 +98,13 @@ export async function addToScanInbox(
     return { ok: false, error: GENERIC_ERROR_MESSAGE };
   }
 
-  revalidatePath("/");
+  // PAS de `revalidatePath("/")` ici, volontairement : `/` est l'écran sur
+  // lequel on se trouve en pleine rafale, et capter un livre déclencherait un
+  // rendu serveur de cet écran à chaque scan non résolu — des dizaines par
+  // étagère, pendant que la caméra tourne. La pastille de `/` n'a pas besoin
+  // d'être juste PENDANT la session (la rafale tient son propre compteur, en
+  // local) : elle sert à ne pas oublier la boîte en revenant, et le compteur
+  // est alors recalculé au chargement de la page.
   revalidatePath("/finition");
   return { ok: true, id: inserted.id, duplicate: false };
 }
@@ -136,7 +142,9 @@ export async function completeScanInboxItem(itemId: string, input: BookInput): P
   // toutes leurs gardes (doublon de pile, lecture en cours, dates) valent ici.
   const result =
     item.intent === "own_read"
-      ? await recordPastReading(input, item.finished_at)
+      ? // Possédé ET lu — les deux, comme en rafale (§4.13) : la boîte
+        // rejoue l'intention à l'identique, sans la réinterpréter.
+        await recordOwnedPastReading(input, item.finished_at)
       : await recordOwnership(input, item.owned_since);
   if (!result.ok) return result;
 

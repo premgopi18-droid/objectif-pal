@@ -6,11 +6,12 @@ import { Button } from "@/components/ui/button";
 import { ErrorAlert } from "@/components/error-alert";
 import { CategoryDrawer } from "./category-drawer";
 import { BarcodeScanner } from "./barcode-scanner";
-import { recordOwnership, recordPastReading, type BookInput } from "@/lib/books/actions";
+import { recordOwnership, recordOwnedPastReading, type BookInput } from "@/lib/books/actions";
 import { addToScanInbox } from "@/lib/books/scan-inbox-actions";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { localToday } from "@/lib/dates";
+import { isBooklandCode } from "@/lib/resolution/barcode-router";
 import { isCategoryGuessed } from "@/lib/resolution/guess-category";
 import type { ResolvedBook, ScanLookupResult } from "@/lib/resolution/types";
 import type { BookCategory } from "@/lib/scoring/types";
@@ -124,7 +125,10 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
         const capture = async (coverUrl: string | null, metadata: Json | null) => {
           const result = await addToScanInbox({
             barcodeRaw: code,
-            barcodeType: null,
+            // Le type se DÉDUIT du code (même règle que la saisie manuelle) :
+            // sans lui, la finition ne saurait pas reconstituer l'ISBN, alors
+            // que le code est là.
+            barcodeType: isBooklandCode(code) ? "isbn" : "upc",
             coverUrl,
             resolvedMetadata: metadata,
             intent: capturedIntent,
@@ -154,9 +158,12 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
           if (lookup.kind === "resolved" || lookup.kind === "in-library") {
             const book = lookup.book;
             const input = resolvedToInput(book, lookup.kind === "in-library" ? null : code);
+            // « Déjà lu » sur une étagère veut dire possédé ET lu : les deux
+            // faits, en un appel (§4.13). Sans la possession, le livre serait
+            // indiscernable d'un emprunt de médiathèque.
             const written =
               capturedIntent === "own_read"
-                ? await recordPastReading(input, shelfDate)
+                ? await recordOwnedPastReading(input, shelfDate)
                 : await recordOwnership(input, shelfDate);
             if (!written.ok) {
               // « Déjà dans ta bibliothèque » n'est pas un échec en rafale :

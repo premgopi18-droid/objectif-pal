@@ -1,3 +1,4 @@
+import { EAN13_LENGTH } from "@/lib/resolution/barcode-router";
 import type { Database } from "@/lib/supabase/database.types";
 import type { BookCategory } from "@/lib/scoring/types";
 
@@ -78,7 +79,10 @@ export function toScanInboxDraft(item: ScanInboxItem): ScanInboxDraft {
     category: category(metadata.suggestedCategory),
     barcodeRaw: item.barcode_raw,
     barcodeType: item.barcode_type === "isbn" || item.barcode_type === "upc" ? item.barcode_type : null,
-    isbn: text(metadata.isbn) ?? (item.barcode_type === "isbn" ? item.barcode_raw : null),
+    // À défaut d'ISBN fourni par la source, on le reconstitue du code — tronqué
+    // à l'EAN-13 : un code scanné peut porter un supplément prix de 5 chiffres,
+    // qui n'appartient pas à l'ISBN (même règle que la saisie manuelle).
+    isbn: text(metadata.isbn) ?? (item.barcode_type === "isbn" && item.barcode_raw !== null ? item.barcode_raw.slice(0, EAN13_LENGTH) : null),
   };
 }
 
