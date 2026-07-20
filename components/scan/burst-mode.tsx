@@ -58,6 +58,12 @@ export type BurstItem = {
   /** L'élément de la boîte de finition, quand le scan y a atterri — ce qu'écarte « Retirer ». */
   inboxId: string | null;
   message: string | null;
+  /**
+   * Ligne RESTAURÉE d'une session précédente (#131) : sa capture est déjà dans
+   * le compteur de la boîte chargé au montage — la recompter doublerait le
+   * total du bandeau (#130, vu en prod).
+   */
+  restored?: boolean;
 };
 
 const STATUS_BADGE = {
@@ -329,6 +335,16 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
 
   const addedCount = items.filter((item) => item.status === "added").length;
   const toCompleteCount = items.filter((item) => item.status === "inbox" || item.status === "error").length;
+  /**
+   * Ce que le bandeau vers /finition annonce : UNIQUEMENT ce qui est réellement
+   * dans la boîte (#130 — en prod, « 4 livres » pour 2 réels). Trois pièges
+   * évités : les lignes « error » n'ont PAS de capture en boîte (échec), les
+   * doublons rendent l'id d'une ligne déjà comptée, et les lignes restaurées
+   * (#131) sont déjà dans le compteur chargé au montage. Seules comptent en
+   * PLUS du stock : les captures neuves de CETTE session.
+   */
+  const sessionBoxCount = items.filter((item) => item.status === "inbox" && !item.restored).length;
+  const boxTotal = pendingInboxCount + sessionBoxCount;
 
   /**
    * « Je me suis trompé de livre » — on défait ce que le scan vient de créer.
@@ -454,13 +470,13 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
           (splash comprise). La phrase vit dans UNE expression : le découpage
           JSX mangeait l'espace avant « à » (#130). Le total inclut la boîte
           d'AVANT la session — on le dit, sinon il a l'air doublé (#130). */}
-      {(toCompleteCount > 0 || pendingInboxCount > 0) && (
+      {boxTotal > 0 && (
         <Link
           href="/finition"
           className="rounded-card border border-amber/40 bg-amber/10 p-3 text-sm text-ink underline underline-offset-2"
         >
-          {`${toCompleteCount + pendingInboxCount} livre${toCompleteCount + pendingInboxCount > 1 ? "s" : ""} à compléter${
-            pendingInboxCount > 0 && toCompleteCount > 0 ? ` (dont ${pendingInboxCount} d'avant cette session)` : ""
+          {`${boxTotal} livre${boxTotal > 1 ? "s" : ""} à compléter${
+            pendingInboxCount > 0 && sessionBoxCount > 0 ? ` (dont ${pendingInboxCount} d'avant cette session)` : ""
           } — à faire quand tu veux, rien n'est perdu.`}
         </Link>
       )}

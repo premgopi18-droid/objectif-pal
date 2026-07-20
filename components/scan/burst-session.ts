@@ -46,11 +46,16 @@ export function loadBurstSession(): BurstSessionSnapshot | null {
       // jamais : sa continuation async est morte avec la page. Le serveur a
       // peut-être capté le scan (la boîte fait foi) — on la marque « À
       // compléter », jamais un spinner fantôme (#131).
-      items: parsed.items.map((item) =>
-        item.status === "resolving"
-          ? { ...item, status: "error" as const, message: "Interrompu — vérifie la boîte de finition." }
-          : item,
-      ),
+      // `restored: true` sur chaque ligne : après un rechargement, ces
+      // captures sont DÉJÀ dans le compteur de la boîte chargé au montage —
+      // les recompter doublerait le total du bandeau (#130, vu en prod).
+      items: parsed.items.map((item) => ({
+        ...item,
+        restored: true,
+        ...(item.status === "resolving"
+          ? { status: "error" as const, message: "Interrompu — vérifie la boîte de finition." }
+          : {}),
+      })),
     };
   } catch {
     return null;
