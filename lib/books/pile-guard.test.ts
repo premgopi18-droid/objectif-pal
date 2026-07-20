@@ -46,3 +46,32 @@ describe("isBookInPile", () => {
     expect(isBookInPile([bought("2026-07-03")], [reading])).toBe(true);
   });
 });
+
+describe("isBookInPile avec la possession déclarée (#101)", () => {
+  const owns = (overrides: { ownedSince?: string | null; disposedAt?: string | null } = {}) => ({
+    owned_since: overrides.ownedSince ?? null,
+    disposed_at: overrides.disposedAt ?? null,
+    deleted_at: null,
+  });
+
+  it("possédé sans achat et pas lu : dans la pile — « je l'achète » serait un doublon", () => {
+    expect(isBookInPile([], [], [owns()])).toBe(true);
+  });
+
+  it("possédé et déjà lu SANS date : hors pile — pas de sortie datable, mais bien une sortie", () => {
+    const readUndated = { status: "finished" as const, finished_at: null, deleted_at: null };
+    expect(isBookInPile([], [readUndated], [owns()])).toBe(false);
+  });
+
+  it("possédé puis donné : hors pile — le livre n'est plus là", () => {
+    expect(isBookInPile([], [], [owns({ disposedAt: "2026-07-12" })])).toBe(false);
+  });
+
+  it("acheté MAIS déclaré « je ne le possède plus » : hors pile, la possession fait autorité", () => {
+    expect(isBookInPile([bought("2026-06-02")], [], [owns({ disposedAt: "2026-07-12" })])).toBe(false);
+  });
+
+  it("le paramètre est optionnel : les appelants d'avant #101 gardent leur comportement", () => {
+    expect(isBookInPile([bought("2026-07-03")], [])).toBe(true);
+  });
+});

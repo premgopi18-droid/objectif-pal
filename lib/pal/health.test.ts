@@ -25,11 +25,15 @@ const CURRENT_MONTH = "2026-07";
 type BookFacts = {
   purchases?: { purchasedAt: string; deletedAt?: string | null }[];
   readings?: { status: "finished" | "reading" | "abandoned"; finishedAt?: string | null; deletedAt?: string | null }[];
+  /** La possession déclarée (#101) — sans elle, on est dans le monde d'avant. */
+  ownerships?: { ownedSince?: string | null; disposedAt?: string | null; deletedAt?: string | null }[];
 };
 
 function movementsFrom(books: BookFacts[]): PalMovements {
   const entryDates: string[] = [];
   const exitDates: string[] = [];
+  let undatedEntryCount = 0;
+  let undatedExitCount = 0;
   for (const book of books) {
     const movement = bookToMovement({
       purchases: (book.purchases ?? []).map((purchase) => ({
@@ -41,12 +45,23 @@ function movementsFrom(books: BookFacts[]): PalMovements {
         finishedAt: reading.finishedAt ?? null,
         deletedAt: reading.deletedAt ?? null,
       })),
+      ownerships: (book.ownerships ?? []).map((ownership) => ({
+        ownedSince: ownership.ownedSince ?? null,
+        disposedAt: ownership.disposedAt ?? null,
+        deletedAt: ownership.deletedAt ?? null,
+      })),
     });
     if (movement === null) continue;
-    entryDates.push(movement.entryDate);
-    if (movement.exitDate !== null) exitDates.push(movement.exitDate);
+    // Datés d'un côté, non datés de l'autre : c'est toute la règle #101 —
+    // le stock compte tout le monde, les flux seulement ce qui a une date.
+    if (movement.entryDate !== null) entryDates.push(movement.entryDate);
+    else undatedEntryCount += 1;
+    if (movement.exited) {
+      if (movement.exitDate !== null) exitDates.push(movement.exitDate);
+      else undatedExitCount += 1;
+    }
   }
-  return { entryDates, exitDates };
+  return { entryDates, exitDates, undatedEntryCount, undatedExitCount };
 }
 
 describe("computePalHealth — contrat brut (sur des mouvements)", () => {
@@ -167,5 +182,64 @@ describe("computePalHealth — via le pipeline (faits → derivePileStatus → s
     // La sortie a eu lieu en mai, pas en juillet : le mois de référence n'en voit rien.
     expect(health.monthExits).toBe(0);
     expect(health.pileSize).toBe(0);
+  });
+});
+
+describe("les mouvements sans date — le stock sans les flux (#101)", () => {
+  it("contrat brut : les non-datés comptent dans la pile, jamais dans le solde", () => {
+    const health = computePalHealth(
+      { entryDates: [], exitDates: [], undatedEntryCount: 12, undatedExitCount: 0 },
+      CURRENT_MONTH,
+    );
+    expect(health).toEqual({ pileSize: 12, monthEntries: 0, monthExits: 0, monthBalance: 0 });
+  });
+
+  it("le champ est optionnel : les appelants d'avant #101 ne changent pas de résultat", () => {
+    expect(computePalHealth({ entryDates: ["2026-07-03"], exitDates: [] }, CURRENT_MONTH)).toEqual({
+      pileSize: 1,
+      monthEntries: 1,
+      monthExits: 0,
+      monthBalance: 1,
+    });
+  });
+
+  it("scanner son étagère : 80 livres possédés sans date → pile à 80, solde à 0", () => {
+    // LE cas qui justifie tout le mécanisme. Compter ces 80 livres comme des
+    // entrées du mois afficherait « +80 » au bilan de santé et raconterait une
+    // explosion de la PAL qui n'a pas eu lieu.
+    const shelf = Array.from({ length: 80 }, () => ({ ownerships: [{}] }));
+    const health = computePalHealth(movementsFrom(shelf), CURRENT_MONTH);
+    expect(health).toEqual({ pileSize: 80, monthEntries: 0, monthExits: 0, monthBalance: 0 });
+  });
+
+  it("l'étagère mélangée : les possédés non datés s'ajoutent aux achats du mois", () => {
+    const health = computePalHealth(
+      movementsFrom([
+        { ownerships: [{}] },
+        { ownerships: [{}] },
+        { purchases: [{ purchasedAt: "2026-07-03" }] },
+      ]),
+      CURRENT_MONTH,
+    );
+    // 3 livres dans la pile, mais un seul mouvement du mois : l'achat.
+    expect(health).toEqual({ pileSize: 3, monthEntries: 1, monthExits: 0, monthBalance: 1 });
+  });
+
+  it("« déjà lu » sans date sur un livre acheté : la pile se vide, le solde ne bouge pas", () => {
+    const health = computePalHealth(
+      movementsFrom([{ purchases: [{ purchasedAt: "2026-07-03" }], readings: [{ status: "finished" }] }]),
+      CURRENT_MONTH,
+    );
+    // Entré ce mois-ci (daté), sorti à une date inconnue : la pile est vide,
+    // et la sortie ne se voit dans aucun mois — on ne l'invente pas.
+    expect(health).toEqual({ pileSize: 0, monthEntries: 1, monthExits: 0, monthBalance: 1 });
+  });
+
+  it("possédé sans date puis donné : la sortie datée compte, l'entrée non", () => {
+    const health = computePalHealth(
+      movementsFrom([{ ownerships: [{ disposedAt: "2026-07-12" }] }]),
+      CURRENT_MONTH,
+    );
+    expect(health).toEqual({ pileSize: 0, monthEntries: 0, monthExits: 1, monthBalance: -1 });
   });
 });

@@ -32,8 +32,17 @@ export type ReadingFact = {
   bookId: string;
   category: BookCategory;
   status: ReadingStatus;
-  startedAt: IsoDate;
-  /** Renseignée uniquement quand `status` = `finished` — c'est elle qui date les points. */
+  /**
+   * Nullable depuis #101 : une lecture rétroactive (« je l'ai déjà lu », pour
+   * l'étagère d'avant l'app) n'a pas de date de début connue — on ne l'invente
+   * pas. Le score n'en dépend pas : seule `finishedAt` date les points (§3).
+   */
+  startedAt: IsoDate | null;
+  /**
+   * Renseignée uniquement quand `status` = `finished` — c'est elle qui date les
+   * points. NULLE pour un « déjà lu » sans date (#101) : cette lecture est un
+   * fait de bibliothèque, elle ne crédite alors aucun mois.
+   */
   finishedAt: IsoDate | null;
 };
 

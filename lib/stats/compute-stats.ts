@@ -1,5 +1,6 @@
 import { daysBetween, monthsBetween } from "@/lib/dates";
 import {
+  activeOwnershipOf,
   activePurchasesOf,
   bookToMovement,
   finishedReadingsOf,
@@ -35,6 +36,7 @@ type Tables = Database["public"]["Tables"];
 type BookRow = Tables["books"]["Row"];
 type PurchaseRow = Tables["purchases"]["Row"];
 type ReadingRow = Tables["readings"]["Row"];
+type OwnershipRow = Tables["ownerships"]["Row"];
 
 /**
  * Un livre tel que la page stats le charge — achats et lectures embarqués.
@@ -64,6 +66,16 @@ export type StatBookRecord = {
     finishedAt: ReadingRow["finished_at"];
     rating: ReadingRow["rating"];
     deletedAt: ReadingRow["deleted_at"];
+  }[];
+  /**
+   * La possession déclarée (« je possède », #101) — OPTIONNELLE : les requêtes
+   * qui ne l'embarquent pas encore dérivent la pile depuis les seuls achats,
+   * exactement comme avant.
+   */
+  ownerships?: {
+    ownedSince: OwnershipRow["owned_since"];
+    disposedAt: OwnershipRow["disposed_at"];
+    deletedAt: OwnershipRow["deleted_at"];
   }[];
 };
 
@@ -300,6 +312,9 @@ export function computeStats(
   // qui alimentent ensuite la dérivation partagée (taille + solde) ET la courbe.
   const palEntryDates: IsoDate[] = [];
   const palExitDates: IsoDate[] = [];
+  // Les mouvements dont la date est inconnue (#101) : du stock, jamais du flux.
+  let palUndatedEntryCount = 0;
+  let palUndatedExitCount = 0;
   let readOutsidePalCount = 0;
 
   // Analyses avancées (#30) — mêmes accumulateurs, MÊME passe : rien ne se
@@ -323,13 +338,20 @@ export function computeStats(
     // Suppression douce : un livre retiré n'existe plus, achats et lectures compris.
     if (book.deletedAt !== null) continue;
 
-    // Possédé = au moins un achat actif — le filtre partagé (lib/pal, #78),
-    // jamais réécrit ici.
-    const isOwned = activePurchasesOf(book.purchases).length > 0;
+    // Possédé = au moins un achat actif, OU une possession déclarée (#101) —
+    // même une possession terminée (don, revente) prouve qu'on l'a eu, donc
+    // que la lecture n'était pas un emprunt. Filtres partagés (lib/pal, #78),
+    // jamais réécrits ici.
+    const isOwned =
+      activePurchasesOf(book.purchases).length > 0 || activeOwnershipOf(book.ownerships ?? []) !== null;
 
     const finishedReadings = finishedReadingsOf(book.readings);
 
     for (const reading of finishedReadings) {
+      // Depuis #101, une lecture terminée peut n'avoir AUCUNE date (« déjà lu »,
+      // l'étagère d'avant). Elle est un fait de lecture — elle compte dans les
+      // totaux — mais n'appartient à aucun mois : tout ce qui se date l'ignore,
+      // plutôt que de lui inventer une place dans le temps.
       const finishedAt = reading.finishedAt;
 
       // Chaque lecture est un fait : une relecture compte deux fois ici
@@ -337,8 +359,8 @@ export function computeStats(
       // règle « une sortie par livre » vit dans derivePileStatus.
       finishedTotal += 1;
       finishedByCategory[book.category] += 1;
-      const inCurrentMonth = monthOf(finishedAt) === currentMonth;
-      const inCurrentYear = yearOf(finishedAt) === currentYear;
+      const inCurrentMonth = finishedAt !== null && monthOf(finishedAt) === currentMonth;
+      const inCurrentYear = finishedAt !== null && yearOf(finishedAt) === currentYear;
       if (inCurrentMonth) finishedThisMonth += 1;
       if (inCurrentYear) finishedThisYear += 1;
 
@@ -370,7 +392,7 @@ export function computeStats(
       // — Lot A, le rythme : une durée n'est mesurable que si le début est
       // connu ET antérieur ou égal à la fin (une saisie incohérente ne compte
       // pas comme « 0 jour », elle rejoint le dénominateur des non datées).
-      if (reading.startedAt !== null && reading.startedAt <= finishedAt) {
+      if (finishedAt !== null && reading.startedAt !== null && reading.startedAt <= finishedAt) {
         const duration = daysBetween(reading.startedAt, finishedAt);
         durationOverall.sum += duration;
         durationOverall.count += 1;
@@ -380,21 +402,30 @@ export function computeStats(
         readingsWithoutDuration += 1;
       }
 
-      // — Lot D, le volume temporel : une fin, un mois.
-      const finishedMonth = monthOf(finishedAt);
-      finishedCountByMonth.set(finishedMonth, (finishedCountByMonth.get(finishedMonth) ?? 0) + 1);
+      // — Lot D, le volume temporel : une fin, un mois. Sans date, aucun mois
+      // à créditer (#101) — la courbe ne doit porter que du mesuré.
+      if (finishedAt !== null) {
+        const finishedMonth = monthOf(finishedAt);
+        finishedCountByMonth.set(finishedMonth, (finishedCountByMonth.get(finishedMonth) ?? 0) + 1);
+      }
 
-      // — Lot C, les goûts avancés : seules les lectures NOTÉES pèsent.
+      // — Lot C, les goûts avancés : seules les lectures NOTÉES pèsent. Les
+      // moyennes par série et éditeur ne se datent pas : une lecture non datée
+      // y compte normalement (la note est le fait, pas la date).
       if (reading.rating !== null) {
-        ranking.push({
-          bookId: book.id,
-          title: book.title,
-          category: book.category,
-          rating: reading.rating,
-          finishedAt,
-        });
         if (book.seriesName !== null) addRating(ratingsBySeries, book.seriesName, reading.rating);
         if (book.publisher !== null) addRating(ratingsByPublisher, book.publisher, reading.rating);
+        // Le classement, lui, AFFICHE la date de lecture : sans elle, la
+        // lecture pèse dans les moyennes ci-dessus mais ne peut pas y figurer.
+        if (finishedAt !== null) {
+          ranking.push({
+            bookId: book.id,
+            title: book.title,
+            category: book.category,
+            rating: reading.rating,
+            finishedAt,
+          });
+        }
       }
 
       // Jamais possédé = jamais dans la pile (§4.5) : cette lecture est un emprunt.
@@ -437,17 +468,28 @@ export function computeStats(
     // une entrée et au plus une sortie par livre.
     const movement = bookToMovement(book);
     if (movement === null) continue;
-    palEntryDates.push(movement.entryDate);
-    if (movement.exitDate !== null) palExitDates.push(movement.exitDate);
+    if (movement.entryDate !== null) palEntryDates.push(movement.entryDate);
+    else palUndatedEntryCount += 1;
+    if (movement.exited) {
+      if (movement.exitDate !== null) palExitDates.push(movement.exitDate);
+      else palUndatedExitCount += 1;
+    }
   }
 
   // Taille de pile et solde du mois : la dérivation PARTAGÉE (lib/pal/health),
   // pour que les stats, la vue PAL et le bilan racontent la même histoire (§4.5).
-  const health = computePalHealth({ entryDates: palEntryDates, exitDates: palExitDates }, currentMonth);
+  const health = computePalHealth(
+    {
+      entryDates: palEntryDates,
+      exitDates: palExitDates,
+      undatedEntryCount: palUndatedEntryCount,
+      undatedExitCount: palUndatedExitCount,
+    },
+    currentMonth,
+  );
 
   // La courbe cumulée : +1 au mois d'entrée, −1 au mois de sortie, mois à
-  // mouvement triés, cumul chronologique. Sa somme finale EST `health.pileSize`
-  // (les livres entrés jamais sortis) — même dérivation, deux lectures.
+  // mouvement triés, cumul chronologique.
   const pileDeltaByMonth = new Map<Month, number>();
   for (const entryDate of palEntryDates) {
     const entryMonth = monthOf(entryDate);
@@ -457,7 +499,14 @@ export function computeStats(
     const exitMonth = monthOf(exitDate);
     pileDeltaByMonth.set(exitMonth, (pileDeltaByMonth.get(exitMonth) ?? 0) - 1);
   }
-  let runningSize = 0;
+
+  // Les mouvements NON DATÉS (« je possède » / « déjà lu » sans date, #101)
+  // n'appartiennent à aucun mois : ils forment une LIGNE DE BASE, le niveau de
+  // la pile avant le premier mois mesurable — l'étagère d'avant, en somme.
+  // C'est ce qui garde l'invariant : le dernier point de la courbe vaut
+  // toujours `health.pileSize`, quelle que soit la part de non-daté.
+  const baseline = palUndatedEntryCount - palUndatedExitCount;
+  let runningSize = baseline;
   const cumulativeByMonth = [...pileDeltaByMonth.keys()].sort().map((month) => {
     runningSize += pileDeltaByMonth.get(month)!;
     return { month, size: runningSize };

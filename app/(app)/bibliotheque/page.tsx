@@ -75,6 +75,11 @@ export default async function BibliothequePage({
       // pile, §4.5), on ne les transfère plus. Combiné au filtre deleted_at
       // sur l'embed, un livre dont tous les achats sont annulés est exclu dès
       // la requête, exactement comme derivePal l'aurait exclu.
+      // ⚠️ #101 lot B : `purchases!inner` exclut les livres possédés SANS achat
+      // (« je possède »). Quand le geste existera, cette jointure devra devenir
+      // large (ou passer par un `or` sur ownerships) et embarquer
+      // `ownerships (id, owned_since, disposed_at, deleted_at)` — la dérivation
+      // les accepte déjà (champ optionnel), la requête pas encore.
       `id, title, series_name, issue_number, category, cover_url, deleted_at,
        purchases!inner (id, purchased_at, deleted_at),
        readings (status, finished_at, deleted_at)`,
@@ -89,13 +94,19 @@ export default async function BibliothequePage({
     return <PageLoadError title="Bibliothèque" message="Impossible de charger la pile — réessaie." />;
   }
 
-  const { entries, purchaseDates, ownedFinishedDates } = derivePal(data ?? []);
+  const { entries, entryDates, exitDates, undatedEntryCount, undatedExitCount } = derivePal(data ?? []);
 
   return (
     <section className="py-6">
       <h1 className="text-2xl font-bold">Bibliothèque</h1>
       <div className="mt-4">{segments}</div>
-      <PalView entries={entries} purchaseDates={purchaseDates} ownedFinishedDates={ownedFinishedDates} />
+      <PalView
+        entries={entries}
+        entryDates={entryDates}
+        exitDates={exitDates}
+        undatedEntryCount={undatedEntryCount}
+        undatedExitCount={undatedExitCount}
+      />
     </section>
   );
 }

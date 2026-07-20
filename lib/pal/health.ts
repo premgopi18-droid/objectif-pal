@@ -30,10 +30,19 @@ import type { IsoDate, Month } from "@/lib/scoring/types";
  * par livre qui en est sorti (jamais plus, cf. `derivePileStatus`).
  */
 export type PalMovements = {
-  /** Une date d'ENTRÉE par livre entré (son premier achat pas-déjà-lu). */
+  /** Une date d'ENTRÉE par livre entré à une date connue. */
   entryDates: IsoDate[];
-  /** Une date de SORTIE par livre sorti (sa première fin survenue en pile). */
+  /** Une date de SORTIE par livre sorti à une date connue. */
   exitDates: IsoDate[];
+  /**
+   * Les livres entrés en pile à une date INCONNUE — « je possède » sans date
+   * d'acquisition (#101). Ils comptent dans le STOCK (`pileSize`) et jamais
+   * dans les FLUX du mois : scanner son étagère un samedi ne doit pas afficher
+   * 80 entrées ce mois-là. Optionnel : les appelants d'avant #101 n'en ont pas.
+   */
+  undatedEntryCount?: number;
+  /** Symétrique : les livres sortis à une date inconnue (« déjà lu », #101). */
+  undatedExitCount?: number;
 };
 
 /** La santé de la PAL : taille de pile à date et solde du mois de référence. */
@@ -58,11 +67,17 @@ const monthOf = (date: IsoDate): Month => date.slice(0, 7);
  * `derivePileStatus` ne rend qu'une entrée et au plus une sortie par livre),
  * donc la taille à date est exactement « entrés − sortis ».
  */
-export function computePalHealth({ entryDates, exitDates }: PalMovements, month: Month): PalHealth {
+export function computePalHealth(
+  { entryDates, exitDates, undatedEntryCount = 0, undatedExitCount = 0 }: PalMovements,
+  month: Month,
+): PalHealth {
+  // Les flux ne comptent QUE les mouvements datés : un mouvement sans date
+  // n'appartient à aucun mois, et lui en inventer un fausserait le solde (#101).
   const monthEntries = entryDates.filter((date) => monthOf(date) === month).length;
   const monthExits = exitDates.filter((date) => monthOf(date) === month).length;
   return {
-    pileSize: entryDates.length - exitDates.length,
+    // Le stock, lui, compte TOUT le monde : datés et non datés.
+    pileSize: entryDates.length + undatedEntryCount - exitDates.length - undatedExitCount,
     monthEntries,
     monthExits,
     monthBalance: monthEntries - monthExits,
