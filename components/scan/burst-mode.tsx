@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { ErrorAlert } from "@/components/error-alert";
 import { CategoryDrawer } from "./category-drawer";
 import { BarcodeScanner } from "./barcode-scanner";
+import { BurstPhotoCapture } from "./burst-photo-capture";
 import { recordOwnership, recordOwnedPastReading, type BookInput } from "@/lib/books/actions";
 import { addToScanInbox, dismissScanInboxItem } from "@/lib/books/scan-inbox-actions";
 import { softDeleteBook } from "@/lib/books/library-actions";
@@ -96,6 +97,12 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
   const [editing, setEditing] = useState<{ key: number; bookId: string; category: BookCategory } | null>(null);
   /** La ligne en cours de retrait — évite le double tap pendant l'aller-retour. */
   const [removingKey, setRemovingKey] = useState<number | null>(null);
+  /**
+   * Le livre sans code-barres (#108) : on bascule sur la capture photo, ce qui
+   * DÉMONTE le scanner — deux flux caméra ne cohabitent pas. Le remonter à la
+   * sortie relance une caméra fraîche : c'est la reprise « toute seule ».
+   */
+  const [photoMode, setPhotoMode] = useState(false);
 
   const nextKeyRef = useRef(0);
   // Les réglages dans une ref : la callback du scanner est mémoïsée (la
@@ -229,6 +236,53 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
     [patch],
   );
 
+  /**
+   * Une photo de rafale vient d'être uploadée (#108) : on remonte le scanner
+   * TOUT DE SUITE (la caméra reprend pendant que la capture part en
+   * arrière-plan, exactement comme un scan de code-barres) et on capte dans la
+   * boîte avec l'intention et la date de la session — barcodeRaw null, la photo
+   * pour seule identité.
+   */
+  const handlePhotoUploaded = useCallback(
+    (coverUrl: string) => {
+      setPhotoMode(false);
+      const key = nextKeyRef.current++;
+      const { intent: capturedIntent, dateKnown: capturedDateKnown, date: capturedDate } = settingsRef.current;
+      const shelfDate = capturedDateKnown ? capturedDate : null;
+
+      setItems((current) => [
+        { key, code: null, status: "resolving", title: "Livre photographié", category: null, categoryGuessed: false, bookId: null, inboxId: null, message: null },
+        ...current,
+      ]);
+
+      void (async () => {
+        try {
+          const result = await addToScanInbox({
+            barcodeRaw: null,
+            barcodeType: null,
+            coverUrl,
+            resolvedMetadata: null,
+            intent: capturedIntent,
+            ownedSince: capturedIntent === "own" ? shelfDate : null,
+            finishedAt: capturedIntent === "own_read" ? shelfDate : null,
+          });
+          if (!result.ok) {
+            patch(key, { status: "error", message: result.error });
+            return;
+          }
+          patch(key, {
+            status: "inbox",
+            inboxId: result.id,
+            message: "Photo enregistrée — à compléter dans la boîte.",
+          });
+        } catch {
+          patch(key, { status: "error", message: NETWORK_ERROR_MESSAGE });
+        }
+      })();
+    },
+    [patch],
+  );
+
   const addedCount = items.filter((item) => item.status === "added").length;
   const toCompleteCount = items.filter((item) => item.status === "inbox" || item.status === "error").length;
 
@@ -322,7 +376,21 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
         )}
       </div>
 
-      <BarcodeScanner onCode={handleCode} continuous />
+      {/* Le scanner et la capture photo ne coexistent JAMAIS : passer à la
+          photo démonte le scanner (deux flux caméra ne cohabitent pas, #108),
+          et en revenir le remonte — caméra fraîche, reprise « toute seule ». */}
+      {photoMode ? (
+        <BurstPhotoCapture onUploaded={handlePhotoUploaded} onCancel={() => setPhotoMode(false)} />
+      ) : (
+        <>
+          <BarcodeScanner onCode={handleCode} continuous />
+          {/* Le neuvième cas de l'étagère : le livre sans code-barres, sans
+              quitter la rafale (#108). */}
+          <Button type="button" variant="ghost" onClick={() => setPhotoMode(true)}>
+            Pas de code-barres — photographier
+          </Button>
+        </>
+      )}
 
       <p className="text-sm text-ink2" aria-live="polite">
         <strong className="text-ink">{addedCount}</strong> ajouté{addedCount > 1 ? "s" : ""}
