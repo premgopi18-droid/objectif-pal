@@ -520,6 +520,62 @@ export type Database = {
           },
         ]
       }
+      scan_inbox: {
+        Row: {
+          barcode_raw: string | null
+          barcode_type: string | null
+          completed_at: string | null
+          cover_url: string | null
+          created_at: string
+          deleted_at: string | null
+          finished_at: string | null
+          id: string
+          intent: Database["public"]["Enums"]["scan_intent"]
+          owned_since: string | null
+          resolved_metadata: Json | null
+          status: Database["public"]["Enums"]["scan_inbox_status"]
+          user_id: string
+        }
+        Insert: {
+          barcode_raw?: string | null
+          barcode_type?: string | null
+          completed_at?: string | null
+          cover_url?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          finished_at?: string | null
+          id?: string
+          intent: Database["public"]["Enums"]["scan_intent"]
+          owned_since?: string | null
+          resolved_metadata?: Json | null
+          status?: Database["public"]["Enums"]["scan_inbox_status"]
+          user_id: string
+        }
+        Update: {
+          barcode_raw?: string | null
+          barcode_type?: string | null
+          completed_at?: string | null
+          cover_url?: string | null
+          created_at?: string
+          deleted_at?: string | null
+          finished_at?: string | null
+          id?: string
+          intent?: Database["public"]["Enums"]["scan_intent"]
+          owned_since?: string | null
+          resolved_metadata?: Json | null
+          status?: Database["public"]["Enums"]["scan_inbox_status"]
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scan_inbox_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Views: {
       [_ in never]: never
@@ -536,6 +592,8 @@ export type Database = {
       metadata_source: "gcd" | "bnf" | "google_books" | "metron" | "manual"
       pick_kind: "favorite" | "good_surprise" | "bad_surprise"
       reading_status: "reading" | "finished" | "abandoned"
+      scan_inbox_status: "pending" | "completed"
+      scan_intent: "own" | "own_read"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -668,6 +726,8 @@ export const Constants = {
       metadata_source: ["gcd", "bnf", "google_books", "metron", "manual"],
       pick_kind: ["favorite", "good_surprise", "bad_surprise"],
       reading_status: ["reading", "finished", "abandoned"],
+      scan_inbox_status: ["pending", "completed"],
+      scan_intent: ["own", "own_read"],
     },
   },
 } as const

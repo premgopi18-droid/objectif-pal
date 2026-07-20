@@ -1,4 +1,5 @@
 import type { BookCategory } from "@/lib/scoring/types";
+import type { MetadataSource } from "@/lib/resolution/types";
 
 /**
  * Deviner la catégorie du barème — specs §5.5. La catégorie est PROPOSÉE,
@@ -27,6 +28,20 @@ const FRANCO_BELGIAN_PUBLISHERS = ["dargaud", "dupuis", "lombard", "casterman", 
 const COMICS_PUBLISHERS_FR = ["panini", "urban"] as const;
 
 /** Catégorie proposée à partir du seul éditeur (signal BnF / Google Books). */
+/**
+ * La catégorie proposée est-elle une DEVINETTE ? (specs §5.5, #101 lot C)
+ *
+ * GCD et Metron portent un vrai `series_type` : la catégorie en découle, elle
+ * n'est pas inférée. La VF, elle, n'a que des indices — éditeur, pages, langue,
+ * rayons Google Books —, et c'est le point ouvert connu des specs.
+ *
+ * Sert à marquer d'un « ? » les seules lignes où le doute existe : en rafale,
+ * signaler partout revient à ne rien signaler.
+ */
+export function isCategoryGuessed(source: MetadataSource): boolean {
+  return source !== "gcd" && source !== "metron";
+}
+
 export function guessCategoryFromPublisher(publisher: string | null): BookCategory | null {
   if (!publisher) return null;
   const normalized = normalizePublisherName(publisher);

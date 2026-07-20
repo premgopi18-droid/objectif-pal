@@ -3,6 +3,7 @@ import {
   guessCategoryFromGoogleBooksCategories,
   guessCategoryFromMetronSeriesType,
   guessCategoryFromPublisher,
+  isCategoryGuessed,
 } from "./guess-category";
 
 describe("la devinette de catégorie (specs §5.5)", () => {
@@ -41,5 +42,21 @@ describe("la devinette de catégorie (specs §5.5)", () => {
     expect(guessCategoryFromGoogleBooksCategories(["Comics & Graphic Novels"])).toBe("comics");
     expect(guessCategoryFromGoogleBooksCategories(["Cooking"])).toBeNull();
     expect(guessCategoryFromGoogleBooksCategories(null)).toBeNull();
+  });
+});
+
+describe("isCategoryGuessed — où mettre le marqueur de doute (#101 lot C)", () => {
+  it("GCD et Metron portent un vrai series_type : aucune devinette", () => {
+    expect(isCategoryGuessed("gcd")).toBe(false);
+    expect(isCategoryGuessed("metron")).toBe(false);
+  });
+
+  it("la VF n'a que des indices (§5.5) : c'est là qu'on veut l'œil", () => {
+    expect(isCategoryGuessed("bnf")).toBe(true);
+    expect(isCategoryGuessed("google_books")).toBe(true);
+  });
+
+  it("une saisie manuelle reste corrigeable — on la marque aussi", () => {
+    expect(isCategoryGuessed("manual")).toBe(true);
   });
 });
