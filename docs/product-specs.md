@@ -568,10 +568,29 @@ trois surfaces qui l'affichent y passent : la **Pile** (§4.6), les **Stats** (�
 C'est ce qui garantit qu'elles racontent la même histoire — et c'est ce qui a permis d'ajouter la possession
 sans réécrire quoi que ce soit.
 
-**Reste à construire (lot C, #101)** : le **mode rafale** (scan → bip → scan suivant, sans jamais s'arrêter),
-la **boîte de finition** persistante (`scan_inbox`) pour tout ce qui demande de l'attention — introuvable,
-« image oui, infos non », pas de code-barres → photo comme capture —, et la **correction de catégorie inline**
-dans la liste de session. Les 9 cas de la rafale sont analysés dans l'issue #101.
+#### Le scan d'étagère — la rafale (lot C, livré le 20/07/2026)
+
+Déclarer un livre à la fois ne tient pas à l'échelle d'une étagère : le geste réel, c'est 50 scans d'affilée.
+**La chaîne ne s'arrête jamais**, et trois choix en découlent.
+
+- **La capture est découplée de la résolution.** La ligne apparaît dans la liste de session **avant toute
+  requête** ; la cascade tourne en arrière-plan et met la ligne à jour quand elle revient. Le scan n'attend
+  jamais le réseau. (Cette architecture préfigure le mode hors ligne du §11, sans le livrer.)
+- **Aucun scan n'est perdu.** Introuvable, choix de numéro, « image oui infos non », réseau coupé : tout part
+  dans la **boîte de finition** (`scan_inbox`) **avec l'intention déjà déclarée**, qui n'est donc jamais
+  redemandée. On scanne à la cave, on complète le soir : la boîte survit aux sessions.
+- **L'intention vaut pour toute la session** — on range une étagère de possédés, puis une de déjà-lus. Sur
+  « Déjà lu », les deux faits sont enregistrés : **possédé ET lu**. Sans la possession, le livre serait
+  indiscernable d'un emprunt de médiathèque.
+
+**La catégorie se corrige inline** dans la liste de session (une puce, un tiroir partagé), sans jamais
+interrompre le scan — la mettre dans la boucle l'arrêterait. Un marqueur « ? » ne s'affiche que sur les
+**devinettes VF** (§5.5) : GCD et Metron portent un vrai `series_type`, la VF n'a que des indices. Signaler
+partout reviendrait à ne rien signaler.
+
+**Reste à faire** : le bouton « pas de code-barres → photo » **dans la boucle** de rafale. Le schéma
+l'accepte déjà (code nullable, photo obligatoire à défaut) et la boîte affiche ces éléments, mais le geste
+demande de suspendre la caméra du scan pour ouvrir celle de la photo.
 
 ---
 

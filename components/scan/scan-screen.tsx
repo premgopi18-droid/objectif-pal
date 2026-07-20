@@ -21,6 +21,7 @@ import { GCD_UNNUMBERED_ISSUE_NUMBER, type IssueCandidate, type ResolvedBook, ty
 import { Button } from "@/components/ui/button";
 import { BarcodeScanner } from "./barcode-scanner";
 import { BookActionSheet } from "./book-action-sheet";
+import { BurstMode } from "./burst-mode";
 import { ManualEntryForm } from "./manual-entry-form";
 import { GradientWord, ScreenTitle } from "./screen-title";
 
@@ -46,7 +47,9 @@ type ScanState =
   // arme le bouton « Annuler ». error : l'échec d'une annulation, affiché sur
   // place. photoBookId : le livre vient d'être enregistré SANS couverture —
   // on propose la photo, le filet ultime (specs §5.4, #33).
-  | { step: "done"; message: string; detail: string | null; purchaseId?: string; error?: string; photoBookId?: string };
+  | { step: "done"; message: string; detail: string | null; purchaseId?: string; error?: string; photoBookId?: string }
+  // Le scan d'étagère (#101 lot C) : un mode plein écran, sa propre boucle.
+  | { step: "burst" };
 
 /** Le malus affiché vient du barème — jamais recopié en dur (CLAUDE.md). */
 const PENALTY_POINTS = Math.abs(SCORING_SCALE.unreadPurchasePenalty);
@@ -71,7 +74,7 @@ const manualInputToBook = (input: BookInput): ResolvedBook => ({
   isbn: input.isbn,
 });
 
-export function ScanScreen() {
+export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: number }) {
   const [state, setState] = useState<ScanState>({ step: "scan" });
   const [manualCode, setManualCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -231,6 +234,10 @@ export function ScanScreen() {
     }
     // L'achat annulé : plus de purchaseId, le bouton « Annuler » disparaît.
     setState({ step: "done", message: "Achat annulé.", detail: null });
+  }
+
+  if (state.step === "burst") {
+    return <BurstMode pendingInboxCount={pendingInboxCount} onExit={() => setState({ step: "scan" })} />;
   }
 
   if (state.step === "loading") {
@@ -423,6 +430,22 @@ export function ScanScreen() {
       <Button type="button" variant="ghost" block onClick={() => setState({ step: "manual", scannedCode: null })}>
         Pas de code-barres ? Saisie manuelle
       </Button>
+
+      {/* L'entrée du scan d'étagère (#101 lot C) — un mode à part, pas un
+          réglage du scan normal : l'intention y vaut pour toute la session. */}
+      <Button type="button" variant="ghost" block onClick={() => setState({ step: "burst" })}>
+        Scanner une étagère (rafale)
+      </Button>
+
+      {/* La pastille : impossible d'oublier ce qui attend, jamais intrusive. */}
+      {pendingInboxCount > 0 && (
+        <a
+          href="/finition"
+          className="rounded-card border border-amber/40 bg-amber/10 p-3 text-center text-sm text-ink underline underline-offset-2"
+        >
+          {pendingInboxCount} livre{pendingInboxCount > 1 ? "s" : ""} à compléter
+        </a>
+      )}
     </section>
   );
 }

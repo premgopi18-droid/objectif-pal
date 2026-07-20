@@ -24,25 +24,59 @@ import type { BookCategory } from "@/lib/scoring/types";
  * se pré-remplit, le curseur part sur le numéro — écrasable librement.
  */
 
+/** Ce que la boîte de finition sait déjà du livre (#101 lot C) — un brouillon, pas un contrat. */
+export type ManualEntryInitialValues = {
+  title?: string;
+  seriesName?: string | null;
+  issueNumber?: string | null;
+  authors?: string | null;
+  publisher?: string | null;
+  pageCount?: number | null;
+  category?: BookCategory | null;
+};
+
 type ManualEntryFormProps = {
   scannedCode: string | null;
   /** La couverture trouvée par la chaîne malgré l'identification ratée (#55). */
   suggestedCoverUrl?: string | null;
+  /**
+   * Pré-remplissage (#101 lot C) : ce que la cascade avait trouvé de partiel au
+   * moment du scan en rafale. Prioritaire sur la mémoire de série — un élément
+   * de la boîte sait mieux que le dernier livre saisi.
+   */
+  initialValues?: ManualEntryInitialValues;
+  /** Le libellé du CTA — « Continuer » au scan, autre chose à la finition. */
+  submitLabel?: string;
+  /** Masque le titre d'écran quand le formulaire est intégré dans une carte. */
+  hideHeading?: boolean;
+  isSubmitting?: boolean;
   onSubmit: (input: BookInput) => void;
   onCancel: () => void;
 };
 
-export function ManualEntryForm({ scannedCode, suggestedCoverUrl = null, onSubmit, onCancel }: ManualEntryFormProps) {
+export function ManualEntryForm({
+  scannedCode,
+  suggestedCoverUrl = null,
+  initialValues,
+  submitLabel = "Continuer",
+  hideHeading = false,
+  isSubmitting = false,
+  onSubmit,
+  onCancel,
+}: ManualEntryFormProps) {
   // Lue UNE fois à l'ouverture (le formulaire ne monte que côté client) : la
-  // valeur pré-remplie appartient ensuite à l'utilisateur.
+  // valeur pré-remplie appartient ensuite à l'utilisateur. Un pré-remplissage
+  // explicite l'emporte : il vient de CE livre, pas du précédent.
   const lastSeries = useMemo(() => loadLastManualSeries(), []);
-  const [title, setTitle] = useState("");
-  const [seriesName, setSeriesName] = useState(lastSeries?.seriesName ?? "");
-  const [issueNumber, setIssueNumber] = useState("");
-  const [authors, setAuthors] = useState("");
-  const [publisher, setPublisher] = useState("");
-  const [pageCount, setPageCount] = useState("");
-  const [category, setCategory] = useState<BookCategory>(lastSeries?.category ?? "bd");
+  const [title, setTitle] = useState(initialValues?.title ?? "");
+  const [seriesName, setSeriesName] = useState(initialValues?.seriesName ?? lastSeries?.seriesName ?? "");
+  const [issueNumber, setIssueNumber] = useState(initialValues?.issueNumber ?? "");
+  const [authors, setAuthors] = useState(initialValues?.authors ?? "");
+  const [publisher, setPublisher] = useState(initialValues?.publisher ?? "");
+  const [pageCount, setPageCount] = useState(initialValues?.pageCount != null ? String(initialValues.pageCount) : "");
+  const [category, setCategory] = useState<BookCategory>(
+    initialValues?.category ?? lastSeries?.category ?? "bd",
+  );
 
   function submit() {
     // La saisie validée devient la mémoire — ou l'efface si elle est sans série.
@@ -70,7 +104,7 @@ export function ManualEntryForm({ scannedCode, suggestedCoverUrl = null, onSubmi
 
   return (
     <section className="flex flex-col gap-4">
-      <ScreenTitle>Saisie manuelle</ScreenTitle>
+      {!hideHeading && <ScreenTitle>Saisie manuelle</ScreenTitle>}
       {suggestedCoverUrl ? (
         <div className="flex flex-col gap-2 rounded-card border border-line bg-card p-3">
           <div className="flex items-start gap-3">
@@ -137,10 +171,17 @@ export function ManualEntryForm({ scannedCode, suggestedCoverUrl = null, onSubmi
       </fieldset>
 
       <div className="mt-2 flex gap-3">
-        <Button type="button" variant="grad" block disabled={!title.trim()} onClick={submit} className="flex-1">
-          Continuer
+        <Button
+          type="button"
+          variant="grad"
+          block
+          disabled={!title.trim() || isSubmitting}
+          onClick={submit}
+          className="flex-1"
+        >
+          {submitLabel}
         </Button>
-        <button type="button" onClick={onCancel} className="px-4 text-sm text-ink3">
+        <button type="button" onClick={onCancel} disabled={isSubmitting} className="px-4 text-sm text-ink3 disabled:opacity-50">
           Annuler
         </button>
       </div>

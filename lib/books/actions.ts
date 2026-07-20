@@ -63,6 +63,14 @@ export type ScanActionResult =
 const BARCODE_PREFIX_LENGTH = 12;
 
 /**
+ * Le refus de `recordOwnership` quand le livre est déjà là. Constante parce
+ * qu'un appelant a besoin de le DISTINGUER d'un vrai échec (cf.
+ * `recordOwnedPastReading`) — comparer des littéraux se serait cassé au
+ * premier ajustement de formulation.
+ */
+const ALREADY_OWNED_MESSAGE = "Ce livre est déjà dans ta bibliothèque.";
+
+/**
  * La date vient TOUJOURS du client (la date locale de l'appareil, modifiable) :
  * le serveur tourne en UTC, son « aujourd'hui » peut être hier ou demain à
  * Paris — exactement le bug de bilan que les specs §7 interdisent.
@@ -346,7 +354,7 @@ export async function recordOwnership(input: BookInput, ownedSince: string | nul
   // Déjà possédé et pas encore lu : le redéclarer ne veut rien dire. Même
   // garde que « je l'achète », même message d'esprit (§4.6).
   if (isBookInPile(facts.purchases, facts.readings, facts.ownerships)) {
-    return { ok: false, error: "Ce livre est déjà dans ta bibliothèque." };
+    return { ok: false, error: ALREADY_OWNED_MESSAGE };
   }
 
   // La base ne tolère qu'UNE déclaration active par livre (index unique
@@ -481,25 +489,31 @@ export async function recordPastReading(
   const inProgressError = await getReadingInProgressError(supabase, user.id, book.bookId);
   if (inProgressError) return { ok: false, error: inProgressError };
 
-  // Garde du doublon, comme les autres gestes en ont une. On ne refuse QUE le
-  // cas non ambigu : une lecture terminée SANS date existe déjà, donc en
-  // redéclarer une n'ajoute aucune information. Une relecture DATÉE reste
-  // légitime (§4.2 — relire est un fait de plus, pas un doublon).
-  if (finishedAt === null) {
-    const { count, error: duplicateError } = await supabase
-      .from("readings")
-      .select("id", { count: "exact", head: true })
-      .eq("user_id", user.id)
-      .eq("book_id", book.bookId)
-      .eq("status", "finished")
-      .is("finished_at", null)
-      .is("deleted_at", null);
-    if (duplicateError) {
-      console.error("[books] recordPastReading:", duplicateError.message);
-      return { ok: false, error: GENERIC_ERROR_MESSAGE };
-    }
-    if ((count ?? 0) > 0) return { ok: false, error: "Ce livre est déjà marqué comme lu." };
+  // Garde du doublon, comme les autres gestes en ont une. On refuse les deux
+  // cas NON AMBIGUS, et eux seuls :
+  //  - une lecture terminée sans date existe déjà → en redéclarer une
+  //    n'ajoute aucune information ;
+  //  - une lecture terminée à la MÊME date existe déjà → on ne finit pas deux
+  //    fois le même livre le même jour. Sans cette seconde garde, rescanner un
+  //    livre pendant une rafale datée créait une seconde lecture, comptée
+  //    comme une relecture : **des points en double au bilan** (§3).
+  // Une relecture à une AUTRE date reste légitime (§4.2 — relire est un fait
+  // de plus, pas un doublon).
+  const duplicateQuery = supabase
+    .from("readings")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("book_id", book.bookId)
+    .eq("status", "finished")
+    .is("deleted_at", null);
+  const { count, error: duplicateError } = await (finishedAt === null
+    ? duplicateQuery.is("finished_at", null)
+    : duplicateQuery.eq("finished_at", finishedAt));
+  if (duplicateError) {
+    console.error("[books] recordPastReading:", duplicateError.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
   }
+  if ((count ?? 0) > 0) return { ok: false, error: "Ce livre est déjà marqué comme lu." };
 
   // `started_at` reste NULL : une lecture rétroactive n'a pas de début connu,
   // et on ne lui en invente pas un (la contrainte
@@ -521,6 +535,31 @@ export async function recordPastReading(
 
   revalidateLibrarySurfaces();
   return { ok: true, bookId: book.bookId, bookAlreadyExisted: book.alreadyExisted };
+}
+
+/**
+ * « Je le possède ET je l'ai déjà lu » — le geste de l'interrupteur « Déjà lu »
+ * du scan d'étagère (#101 lot C, specs §4.13).
+ *
+ * Les deux faits en un appel, et pas deux actions enchaînées depuis le client :
+ * un aller-retour au lieu de deux, et surtout aucun état intermédiaire visible
+ * (un livre « lu mais pas possédé » ressemblerait à un emprunt de médiathèque
+ * — exactement ce que ce geste n'est pas).
+ *
+ * La possession d'abord : si l'enregistrement de la lecture échoue, le livre
+ * est au moins dans la bibliothèque. Et « déjà possédé » n'est PAS un échec
+ * ici — on redéclare simplement une lecture sur un livre déjà à soi.
+ */
+export async function recordOwnedPastReading(
+  input: BookInput,
+  finishedAt: string | null,
+): Promise<ScanActionResult> {
+  const ownership = await recordOwnership(input, finishedAt);
+  // Le seul échec qu'on absorbe : le livre était déjà déclaré. Tout autre
+  // (auth, validation, base) doit remonter — il empêcherait aussi la lecture.
+  if (!ownership.ok && ownership.error !== ALREADY_OWNED_MESSAGE) return ownership;
+
+  return recordPastReading(input, finishedAt);
 }
 
 /**

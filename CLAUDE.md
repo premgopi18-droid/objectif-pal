@@ -51,9 +51,12 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > structure tout : **l'appartenance à la pile se dérive sans date, seuls les mouvements datés alimentent les
 > flux** — scanner 80 livres n'affiche aucun pic. Table `ownerships`, `finished_at`/`started_at` nullables,
 > et la règle de pile désormais partagée par les **trois** surfaces (Pile, Stats, Biblio) — 268 → 399 tests.
-> Restent : **#74** (icônes PWA à la nouvelle identité — livrable graphique, différé), **#101 lot C**
-> (rafale + boîte de finition), **#100** (édition de fiche + fusion de doublons), #30 (prérequis à lever),
-> #32 lot C (différé volontaire), et la dette de suivi #76/#78/#84.**
+> Le **lot C** suit le même jour : **scan d'étagère en rafale** — la chaîne ne s'arrête jamais (capture
+> découplée de la résolution), **boîte de finition** persistante (`scan_inbox`) où atterrit tout ce qui
+> demande de l'attention, et **correction de catégorie inline** avec marqueur sur les devinettes VF —
+> 399 → 416 tests. Restent : **#74** (icônes PWA à la nouvelle identité — livrable graphique, différé),
+> **#100** (édition de fiche + fusion de doublons), le bouton photo dans la boucle de rafale, #30
+> (prérequis à lever), #32 lot C (différé volontaire), et la dette de suivi #76/#84.**
 
 ## Stack
 
@@ -107,14 +110,12 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **#101 lot C — la rafale** : mode scan d'étagère qui ne s'arrête jamais (résolution asynchrone, capture
-   systématique), **boîte de finition** persistante (`scan_inbox`) pour les scans à compléter — introuvable,
-   « image oui, infos non », pas de code-barres → photo comme capture —, et **correction de catégorie
-   inline** dans la liste de session. Les 9 cas sont analysés dans l'issue. C'est ce qui rend le scan
-   d'étagère réellement utilisable (§4.13).
-2. **#100 — gestion de la Biblio** : édition de fiche en formulaire complet (indispensable aux livres saisis
-   à la main, qui n'ont pas de code-barres à rescanner) + fusion de doublons. Rend le lot C plus confortable
-   (la catégorie proposée devient corrigeable partout).
+1. **#100 — gestion de la Biblio** : édition de fiche en formulaire complet (indispensable aux livres saisis
+   à la main, qui n'ont pas de code-barres à rescanner) + fusion de doublons. `updateBookCategory` existe
+   déjà (posée par le lot C) — #100 la généralise à toute la fiche.
+2. **Le bouton photo dans la boucle de rafale** (#101, reliquat) : capturer un livre sans code-barres sans
+   quitter le mode rafale. Le schéma l'accepte déjà ; le geste demande de suspendre la caméra du scan pour
+   ouvrir celle de la photo.
 3. **#74 — icônes PWA à la nouvelle identité** : dernier reliquat de la refonte #64 (livrable graphique
    PNG/favicon, `background_color`/`theme_color` déjà migrés). Différé, à traiter au moment choisi.
 4. **Dette de suivi de la refonte** : #76 (vitest casse en worktree + scanne `.claude/worktrees`),

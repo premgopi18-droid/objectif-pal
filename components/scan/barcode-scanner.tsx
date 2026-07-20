@@ -32,11 +32,27 @@ const DECODE_INTERVAL_MILLISECONDS = 180;
 /** Autant de rejets de readBarcodes SANS jamais un succès = le module WASM ne se charge pas. */
 const WASM_FAILURE_THRESHOLD = 3;
 
+/**
+ * Le temps pendant lequel le scanner reste sourd après une lecture, en mode
+ * continu (#101 lot C). Il couvre deux choses : le geste de retirer le livre du
+ * cadre, et le fait qu'un code-barres encore visible serait relu en boucle.
+ */
+const REARM_DELAY_MILLISECONDS = 1200;
+/** Le même code relu dans cette fenêtre est ignoré : c'est le livre qu'on n'a pas encore rangé. */
+const SAME_CODE_MUTE_MILLISECONDS = 4000;
+
 type BarcodeScannerProps = {
   onCode: (code: string) => void;
+  /**
+   * Mode rafale (#101 lot C) : le scanner se RÉARME après chaque lecture au
+   * lieu de s'arrêter, pour enchaîner une étagère entière sans retoucher
+   * l'écran. Sans lui, le comportement historique est inchangé — un scan, une
+   * émission, puis plus rien jusqu'au démontage.
+   */
+  continuous?: boolean;
 };
 
-export function BarcodeScanner({ onCode }: BarcodeScannerProps) {
+export function BarcodeScanner({ onCode, continuous = false }: BarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cameraError, setCameraError] = useState(false);
   /** Le moteur WASM n'a pas pu s'initialiser — l'utilisateur doit le SAVOIR, pas fixer une caméra muette. */
@@ -52,6 +68,15 @@ export function BarcodeScanner({ onCode }: BarcodeScannerProps) {
   useEffect(() => {
     onCodeRef.current = onCode;
   }, [onCode]);
+
+  // Dans des refs, comme `onCode` : basculer en rafale ne doit pas redémarrer
+  // la caméra (l'utilisateur perdrait la mise au point en plein scan).
+  const continuousRef = useRef(continuous);
+  useEffect(() => {
+    continuousRef.current = continuous;
+  }, [continuous]);
+  const rearmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const lastEmittedRef = useRef<{ code: string; at: number } | null>(null);
 
   useEffect(() => {
     const video = videoRef.current;
@@ -70,10 +95,29 @@ export function BarcodeScanner({ onCode }: BarcodeScannerProps) {
 
     const emit = (code: string) => {
       if (hasEmittedRef.current) return;
+
+      // En rafale, le livre qu'on vient de scanner reste souvent dans le cadre
+      // une seconde de trop : sans cette garde, il partirait deux ou trois fois
+      // dans la chaîne. Le doublon serait rattrapé plus loin (garde de pile,
+      // boîte de finition), mais il polluerait la liste de session.
+      const now = performance.now();
+      const last = lastEmittedRef.current;
+      if (continuousRef.current && last?.code === code && now - last.at < SAME_CODE_MUTE_MILLISECONDS) {
+        return;
+      }
+
       hasEmittedRef.current = true;
+      lastEmittedRef.current = { code, at: now };
       if (pendingRef.current) clearTimeout(pendingRef.current.timer);
       pendingRef.current = null;
       onCodeRef.current(code);
+
+      // Le cœur de la rafale : on se réarme au lieu de s'arrêter.
+      if (continuousRef.current) {
+        rearmTimerRef.current = setTimeout(() => {
+          hasEmittedRef.current = false;
+        }, REARM_DELAY_MILLISECONDS);
+      }
     };
 
     const decodeFrame = async () => {
@@ -152,6 +196,10 @@ export function BarcodeScanner({ onCode }: BarcodeScannerProps) {
       if (intervalId) clearInterval(intervalId);
       if (pendingRef.current) clearTimeout(pendingRef.current.timer);
       pendingRef.current = null;
+      // Le timer de réarmement survivrait au démontage et rallumerait un
+      // scanner qui n'existe plus.
+      if (rearmTimerRef.current) clearTimeout(rearmTimerRef.current);
+      rearmTimerRef.current = null;
       stream?.getTracks().forEach((track) => track.stop());
     };
   }, []);
