@@ -38,6 +38,10 @@ type BookActionSheetProps = {
   isRereadingPrompt?: boolean;
   onStartReading: (input: BookInput, date: string) => void;
   onPurchase: (input: BookInput, date: string) => void;
+  /** « Je le possède » — l'étagère d'avant l'app (#101). Date d'acquisition facultative. */
+  onOwn: (input: BookInput, ownedSince: string | null) => void;
+  /** « Je l'ai déjà lu » — une lecture passée (#101). Date de fin facultative. */
+  onPastReading: (input: BookInput, finishedAt: string | null) => void;
   onCancel: () => void;
   isSubmitting: boolean;
 };
@@ -48,6 +52,8 @@ export function BookActionSheet({
   isRereadingPrompt = false,
   onStartReading,
   onPurchase,
+  onOwn,
+  onPastReading,
   onCancel,
   isSubmitting,
 }: BookActionSheetProps) {
@@ -58,6 +64,11 @@ export function BookActionSheet({
   const [title, setTitle] = useState(defaultTitle);
   const [category, setCategory] = useState<BookCategory>(book.suggestedCategory);
   const [date, setDate] = useState(localToday());
+  // L'étagère d'avant l'app n'a pas de date connue (#101). On ne l'invente pas :
+  // sans date, le livre compte dans le stock de la PAL sans peser sur les flux
+  // du mois, et une lecture passée ne crédite aucun bilan.
+  const [dateUnknown, setDateUnknown] = useState(false);
+  const shelfDate = dateUnknown ? null : date;
 
   const buildInput = (): BookInput => ({
     title,
@@ -147,6 +158,49 @@ export function BookActionSheet({
           Annuler
         </button>
       </div>
+
+      {/* L'étagère d'avant l'app (#101) — volontairement en second rang : ces
+          gestes servent au rattrapage, pas au quotidien. Aucun des deux ne
+          touche au score. */}
+      <section className="flex flex-col gap-3 border-t border-line pt-5">
+        <div>
+          <h2 className="text-sm font-medium text-ink2">Ce livre est déjà à moi</h2>
+          <p className="mt-0.5 text-xs text-ink3">
+            Pour les étagères d&apos;avant l&apos;app — aucun effet sur le score.
+          </p>
+        </div>
+
+        <label className="flex items-center gap-2.5 text-sm text-ink2">
+          <input
+            type="checkbox"
+            checked={dateUnknown}
+            onChange={(event) => setDateUnknown(event.target.checked)}
+            className="size-4 rounded border-line bg-card2 accent-cyan"
+          />
+          Je ne sais plus quand
+        </label>
+
+        <div className="flex flex-col gap-2.5 sm:flex-row">
+          <Button
+            type="button"
+            variant="ghost"
+            block
+            disabled={isSubmitting || !title.trim()}
+            onClick={() => onOwn(buildInput(), shelfDate)}
+          >
+            Je le possède
+          </Button>
+          <Button
+            type="button"
+            variant="ghost"
+            block
+            disabled={isSubmitting || !title.trim()}
+            onClick={() => onPastReading(buildInput(), shelfDate)}
+          >
+            Je l&apos;ai déjà lu
+          </Button>
+        </div>
+      </section>
     </section>
   );
 }

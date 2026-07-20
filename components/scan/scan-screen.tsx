@@ -3,7 +3,15 @@
 import { useCallback, useRef, useState } from "react";
 import { CoverPhotoButton } from "@/components/cover-photo-button";
 import { ErrorAlert } from "@/components/error-alert";
-import { startReading, recordPurchase, softDeletePurchase, type BookInput, type ScanActionResult } from "@/lib/books/actions";
+import {
+  startReading,
+  recordPurchase,
+  recordOwnership,
+  recordPastReading,
+  softDeletePurchase,
+  type BookInput,
+  type ScanActionResult,
+} from "@/lib/books/actions";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
 import { FUTURE_DATE_MESSAGE, NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { localToday } from "@/lib/dates";
@@ -158,15 +166,18 @@ export function ScanScreen() {
     setState({ step: "manual", scannedCode });
   }, []);
 
-  async function performAction(
-    action: (input: BookInput, date: string) => Promise<ScanActionResult>,
+  // `D` couvre les deux familles de gestes : ceux qui EXIGENT une date (lecture,
+  // achat) et ceux de #101 où elle est facultative (« je possède », « déjà lu »
+  // — l'étagère d'avant n'a pas de date connue, et on ne l'invente pas).
+  async function performAction<D extends string | null>(
+    action: (input: BookInput, date: D) => Promise<ScanActionResult>,
     input: BookInput,
-    date: string,
+    date: D,
     doneMessage: string,
   ) {
     // Garde « pas de date future » : le max de l'input ne bloque pas une valeur
     // tapée à la main — on la refuse ici, contre le today LOCAL (pas d'UTC).
-    if (date > localToday()) {
+    if (date !== null && date > localToday()) {
       setState((previous) => (previous.step === "sheet" ? { ...previous, error: FUTURE_DATE_MESSAGE } : previous));
       return;
     }
@@ -257,6 +268,17 @@ export function ScanScreen() {
           onStartReading={(input, date) => performAction(startReading, input, date, "Lecture commencée !")}
           onPurchase={(input, date) =>
             performAction(recordPurchase, input, date, `Achat enregistré (−${PENALTY_POINTS}, effaçable).`)
+          }
+          onOwn={(input, ownedSince) =>
+            performAction(recordOwnership, input, ownedSince, "Ajouté à ta bibliothèque.")
+          }
+          onPastReading={(input, finishedAt) =>
+            performAction(
+              recordPastReading,
+              input,
+              finishedAt,
+              finishedAt === null ? "Marqué comme lu." : "Lecture enregistrée.",
+            )
           }
           onCancel={() => setState({ step: "scan" })}
         />

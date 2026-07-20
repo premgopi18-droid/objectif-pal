@@ -24,8 +24,8 @@ describe("la dérivation de la bibliothèque (#49)", () => {
   it("une lecture en cours domine tout — même un achat actif", () => {
     const [entry] = deriveLibrary([
       bookRow({
-        readings: [{ status: "reading", deleted_at: null }],
-        purchases: [{ deleted_at: null }],
+        readings: [{ status: "reading", finished_at: null, deleted_at: null }],
+        purchases: [{ purchased_at: "2026-06-01", deleted_at: null }],
       }),
     ]);
     expect(entry.status).toBe("reading");
@@ -34,8 +34,8 @@ describe("la dérivation de la bibliothèque (#49)", () => {
   it("terminé > possédé : un livre lu ET racheté s'affiche « Lu »", () => {
     const [entry] = deriveLibrary([
       bookRow({
-        readings: [{ status: "finished", deleted_at: null }],
-        purchases: [{ deleted_at: null }],
+        readings: [{ status: "finished", finished_at: "2026-06-15", deleted_at: null }],
+        purchases: [{ purchased_at: "2026-06-01", deleted_at: null }],
       }),
     ]);
     expect(entry.status).toBe("finished");
@@ -44,23 +44,23 @@ describe("la dérivation de la bibliothèque (#49)", () => {
   it("possédé non lu = dans la PAL — l'abandon n'en sort pas (§4.6)", () => {
     const [entry] = deriveLibrary([
       bookRow({
-        readings: [{ status: "abandoned", deleted_at: null }],
-        purchases: [{ deleted_at: null }],
+        readings: [{ status: "abandoned", finished_at: null, deleted_at: null }],
+        purchases: [{ purchased_at: "2026-06-01", deleted_at: null }],
       }),
     ]);
     expect(entry.status).toBe("in-pile");
   });
 
   it("abandonné sans possession reste « Abandonné »", () => {
-    const [entry] = deriveLibrary([bookRow({ readings: [{ status: "abandoned", deleted_at: null }] })]);
+    const [entry] = deriveLibrary([bookRow({ readings: [{ status: "abandoned", finished_at: null, deleted_at: null }] })]);
     expect(entry.status).toBe("abandoned");
   });
 
   it("aucune trace active = « Sans activité » — l'angle mort que la vue rend visible", () => {
     const [entry] = deriveLibrary([
       bookRow({
-        readings: [{ status: "finished", deleted_at: "2026-07-10T00:00:00Z" }],
-        purchases: [{ deleted_at: "2026-07-10T00:00:00Z" }],
+        readings: [{ status: "finished", finished_at: "2026-06-15", deleted_at: "2026-07-10T00:00:00Z" }],
+        purchases: [{ purchased_at: "2026-06-01", deleted_at: "2026-07-10T00:00:00Z" }],
       }),
     ]);
     expect(entry.status).toBe("shelved");
@@ -103,5 +103,72 @@ describe("le tri", () => {
     const before = entries.map((entry) => entry.bookId);
     sortLibraryEntries(entries, "alphabetical");
     expect(entries.map((entry) => entry.bookId)).toEqual(before);
+  });
+});
+
+describe("la possession déclarée dans la bibliothèque (#101)", () => {
+  const owns = (overrides: { ownedSince?: string | null; disposedAt?: string | null } = {}) => ({
+    owned_since: overrides.ownedSince ?? null,
+    disposed_at: overrides.disposedAt ?? null,
+    deleted_at: null,
+  });
+
+  it("possédé sans achat = dans la PAL — l'angle mort de #49, enfin visible", () => {
+    // Avant #101 ce livre s'affichait « Sans activité » : il n'avait pas
+    // d'achat, donc la Biblio le croyait sans vie. C'est LE cas du ticket.
+    const [entry] = deriveLibrary([bookRow({ ownerships: [owns()] })]);
+    expect(entry.status).toBe("in-pile");
+    expect(entry.isOwned).toBe(true);
+  });
+
+  it("possédé ET déjà lu (sans date) : « Lu », et plus dans la PAL", () => {
+    const [entry] = deriveLibrary([
+      bookRow({
+        ownerships: [owns()],
+        readings: [{ status: "finished", finished_at: null, deleted_at: null }],
+      }),
+    ]);
+    expect(entry.status).toBe("finished");
+    expect(entry.isOwned).toBe(true);
+  });
+
+  it("donné ou revendu : « Plus possédé » — pas « Sans activité »", () => {
+    // La nuance compte : le livre a eu une vie ici, il n'est pas un oubli.
+    const [entry] = deriveLibrary([bookRow({ ownerships: [owns({ disposedAt: "2026-07-12" })] })]);
+    expect(entry.status).toBe("disposed");
+    expect(entry.isOwned).toBe(false);
+  });
+
+  it("acheté PUIS déclaré « je ne le possède plus » : la possession fait autorité", () => {
+    const [entry] = deriveLibrary([
+      bookRow({
+        purchases: [{ purchased_at: "2026-06-01", deleted_at: null }],
+        ownerships: [owns({ disposedAt: "2026-07-12" })],
+      }),
+    ]);
+    expect(entry.status).toBe("disposed");
+    expect(entry.isOwned).toBe(false);
+  });
+
+  it("une lecture sans possession reste un emprunt — jamais dans la PAL", () => {
+    const [entry] = deriveLibrary([
+      bookRow({ readings: [{ status: "finished", finished_at: "2026-06-15", deleted_at: null }] }),
+    ]);
+    expect(entry.status).toBe("finished");
+    expect(entry.isOwned).toBe(false);
+  });
+
+  it("la règle de pile n'est pas réécrite ici : acquérir un déjà-lu n'entre pas en PAL (§3.3)", () => {
+    // Le livre a été lu AVANT d'être acheté : le réducteur partagé refuse
+    // l'entrée en pile, et la Biblio doit dire la même chose que la vue Pile.
+    const [entry] = deriveLibrary([
+      bookRow({
+        purchases: [{ purchased_at: "2026-07-05", deleted_at: null }],
+        readings: [{ status: "abandoned", finished_at: null, deleted_at: null }],
+        ownerships: [owns({ ownedSince: "2026-07-05" })],
+      }),
+    ]);
+    // Pas de fin ici : l'abandon ne sort pas de la pile, le livre y est bien.
+    expect(entry.status).toBe("in-pile");
   });
 });

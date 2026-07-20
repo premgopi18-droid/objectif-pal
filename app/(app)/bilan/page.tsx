@@ -48,23 +48,19 @@ export default async function BilanPage({
     const [{ data, error }, sessionResult] = await Promise.all([
       supabase
         .from("books")
-        // ⚠️ #101 lot B : cette requête n'embarque pas encore `ownerships`, donc
-        // la PAL des stats (taille, courbe, solde) ignorera les possessions
-        // déclarées — alors que le volet Pile, lui, les verra. Deuxième des
-        // TROIS surfaces à brancher ensemble (avec bibliotheque/page.tsx et
-        // lib/library/derive-library.ts), sous peine de trois vues qui
-        // racontent trois histoires différentes (§4.5).
         .select(
           `id, title, category, publisher, series_name, page_count, deleted_at,
          metadata_source, metadata_source_id,
          purchases (purchased_at, deleted_at),
-         readings (status, started_at, finished_at, rating, deleted_at)`,
+         readings (status, started_at, finished_at, rating, deleted_at),
+         ownerships (owned_since, disposed_at, deleted_at)`,
         )
         .is("deleted_at", null)
         // Les filtres sur les embeds élaguent dès la requête — le moteur refiltre
         // de toute façon (défense en profondeur, même patron que la PAL).
         .is("purchases.deleted_at", null)
-        .is("readings.deleted_at", null),
+        .is("readings.deleted_at", null)
+        .is("ownerships.deleted_at", null),
       supabase.auth.getUser(),
     ]);
 
@@ -95,6 +91,13 @@ export default async function BilanPage({
         finishedAt: reading.finished_at,
         rating: reading.rating,
         deletedAt: reading.deleted_at,
+      })),
+      // La possession déclarée (#101) : sans elle, la PAL des stats ignorerait
+      // les livres possédés sans achat et divergerait du volet Pile (§4.5).
+      ownerships: (row.ownerships ?? []).map((ownership) => ({
+        ownedSince: ownership.owned_since,
+        disposedAt: ownership.disposed_at,
+        deletedAt: ownership.deleted_at,
       })),
     }));
 

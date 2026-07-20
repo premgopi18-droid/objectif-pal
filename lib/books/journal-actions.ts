@@ -227,7 +227,12 @@ export async function reopenReading(readingId: string): Promise<JournalActionRes
 export async function updateReadingDetails(
   readingId: string,
   details: {
-    startedAt: string;
+    /**
+     * Nullable depuis #101 : une lecture rétroactive (« je l'ai déjà lu ») n'a
+     * pas de début connu. Sans ça, éditer sa note ou son avis échouerait sur
+     * une date que l'utilisateur n'a jamais saisie.
+     */
+    startedAt: string | null;
     finishedAt: string | null;
     rating: number | null;
     comment: string | null;
@@ -236,15 +241,18 @@ export async function updateReadingDetails(
   const session = await getSessionOrError();
   if (!session) return { ok: false, error: "Authentification requise." };
 
-  if (!isValidIsoDate(details.startedAt)) return { ok: false, error: "Date de début invalide." };
+  if (details.startedAt !== null && !isValidIsoDate(details.startedAt)) {
+    return { ok: false, error: "Date de début invalide." };
+  }
   if (details.finishedAt !== null && !isValidIsoDate(details.finishedAt)) {
     return { ok: false, error: "Date de fin invalide." };
   }
   if (details.rating !== null && !isValidRating(details.rating)) {
     return { ok: false, error: "La note va de 0,5 à 5, par demi-étoile." };
   }
-  // Fin ≥ début (contrainte en base — le message est plus clair ici).
-  if (details.finishedAt !== null && details.finishedAt < details.startedAt) {
+  // Fin ≥ début (contrainte en base — le message est plus clair ici). Sans
+  // début connu (#101), il n'y a pas d'ordre à faire respecter.
+  if (details.finishedAt !== null && details.startedAt !== null && details.finishedAt < details.startedAt) {
     return { ok: false, error: "La date de fin ne peut pas précéder la date de début." };
   }
 

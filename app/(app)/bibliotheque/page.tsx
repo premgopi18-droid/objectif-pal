@@ -41,14 +41,16 @@ export default async function BibliothequePage({
       .from("books")
       .select(
         `id, title, series_name, issue_number, category, cover_url, created_at,
-         readings (status, deleted_at),
-         purchases (deleted_at)`,
+         readings (status, finished_at, deleted_at),
+         purchases (purchased_at, deleted_at),
+         ownerships (owned_since, disposed_at, deleted_at)`,
       )
       .is("deleted_at", null)
       // Les embeds supprimés en douceur sont élagués dès la requête —
       // deriveLibrary refiltre de toute façon (défense en profondeur).
       .is("readings.deleted_at", null)
-      .is("purchases.deleted_at", null);
+      .is("purchases.deleted_at", null)
+      .is("ownerships.deleted_at", null);
 
     if (error) {
       return <PageLoadError title="Bibliothèque" message="Impossible de charger la bibliothèque — réessaie." />;
@@ -70,25 +72,26 @@ export default async function BibliothequePage({
   const { data, error } = await supabase
     .from("books")
     .select(
-      // `purchases!inner` : seuls les livres POSSÉDÉS remontent (issue #32,
-      // lot B) — derivePal jetait de toute façon les emprunts (jamais dans la
-      // pile, §4.5), on ne les transfère plus. Combiné au filtre deleted_at
-      // sur l'embed, un livre dont tous les achats sont annulés est exclu dès
-      // la requête, exactement comme derivePal l'aurait exclu.
-      // ⚠️ #101 lot B : `purchases!inner` exclut les livres possédés SANS achat
-      // (« je possède »). Quand le geste existera, cette jointure devra devenir
-      // large (ou passer par un `or` sur ownerships) et embarquer
-      // `ownerships (id, owned_since, disposed_at, deleted_at)` — la dérivation
-      // les accepte déjà (champ optionnel), la requête pas encore.
+      // La jointure sur `purchases` était `!inner` (issue #32, lot B) : seuls
+      // les livres achetés remontaient, puisqu'eux seuls pouvaient être en
+      // pile. Depuis #101, un livre peut être POSSÉDÉ sans achat — l'inner
+      // join l'aurait rendu invisible. On charge donc large et on laisse
+      // `derivePal` trancher, comme avant #32.
+      // Compromis assumé : on transfère aussi les emprunts (livres seulement
+      // lus), que la dérivation jette. À l'échelle actuelle (une bibliothèque
+      // personnelle) c'est sans effet ; la pagination #32 lot C reprendra le
+      // sujet, et c'est là qu'un filtre serveur « possédé » aura sa place.
       `id, title, series_name, issue_number, category, cover_url, deleted_at,
-       purchases!inner (id, purchased_at, deleted_at),
-       readings (status, finished_at, deleted_at)`,
+       purchases (id, purchased_at, deleted_at),
+       readings (status, finished_at, deleted_at),
+       ownerships (id, owned_since, disposed_at, deleted_at)`,
     )
     .is("deleted_at", null)
     // Les filtres sur les embeds élaguent les lignes supprimées en douceur dès
     // la requête — derivePal refiltre de toute façon (défense en profondeur).
     .is("purchases.deleted_at", null)
-    .is("readings.deleted_at", null);
+    .is("readings.deleted_at", null)
+    .is("ownerships.deleted_at", null);
 
   if (error) {
     return <PageLoadError title="Bibliothèque" message="Impossible de charger la pile — réessaie." />;
