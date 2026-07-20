@@ -155,6 +155,20 @@ describe("la possession déclarée dans la bibliothèque (#101)", () => {
     expect(entries).toEqual([]);
   });
 
+  it("cédé puis RACHETÉ : de retour dans la liste, en pile (#117)", () => {
+    // Le filet du rachat (derivePileStatus) remet le livre en pile même si la
+    // ligne de possession est restée close : la Biblio doit raconter la même
+    // histoire que le volet Pile du même écran (review #118).
+    const [entry] = deriveLibrary([
+      bookRow({
+        purchases: [{ purchased_at: "2027-01-10", deleted_at: null }],
+        ownerships: [owns({ disposedAt: "2026-07-20" })],
+      }),
+    ]);
+    expect(entry.status).toBe("in-pile");
+    expect(entry.isOwned).toBe(true);
+  });
+
   it("une lecture sans possession reste un emprunt — jamais dans la PAL", () => {
     const [entry] = deriveLibrary([
       bookRow({ readings: [{ status: "finished", finished_at: "2026-06-15", deleted_at: null }] }),

@@ -82,10 +82,7 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
 
     const ownerships = (row.ownerships ?? []).filter((ownership) => ownership.deleted_at === null);
 
-    // « Retirer de ma bibliothèque » retire VRAIMENT (#114) : un livre cédé
-    // (donné, revendu) sort de la liste. Son histoire, elle, ne bouge pas —
-    // lectures au journal, points au bilan, mouvements sur la courbe de PAL.
-    if (ownerships.some((ownership) => ownership.disposed_at !== null)) continue;
+    const isDisposed = ownerships.some((ownership) => ownership.disposed_at !== null);
 
     // La possession passe par le réducteur PARTAGÉ (#78/#101) : la règle « ce
     // livre est-il dans la pile ? » n'est écrite qu'une fois, dans
@@ -109,6 +106,14 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
       })),
     });
     const isInPile = movement !== null && !movement.exited;
+
+    // « Retirer de ma bibliothèque » retire VRAIMENT (#114) : un livre cédé
+    // (donné, revendu) sort de la liste — son histoire, elle, ne bouge pas
+    // (lectures au journal, points au bilan, mouvements sur la courbe).
+    // SAUF s'il est revenu en pile par le filet du rachat (#117, review #118) :
+    // la ligne de possession peut être restée close alors que le mouvement dit
+    // « racheté » — le masquer contredirait le volet Pile du même écran.
+    if (isDisposed && !isInPile) continue;
 
     const status: LibraryStatus = readings.some((reading) => reading.status === "reading")
       ? "reading"
