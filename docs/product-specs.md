@@ -45,12 +45,13 @@ plus large :
 |---|---|
 | Posséder sans avoir lu | ✅ la PAL (`purchases` sans `readings`) |
 | Avoir lu sans posséder (emprunt, médiathèque) | ✅ une lecture sans achat |
-| **Posséder sans avoir acheté dans l'app** (les étagères d'avant) | ❌ **manquant** — spécifié le 20/07/2026, issue #101 |
+| **Posséder sans avoir acheté dans l'app** (les étagères d'avant) | ✅ **« je possède »** (§4.13, livré le 20/07/2026) |
 
-Ce dernier cas, c'est **l'essentiel d'une vraie biblio**. Il faudra une action « **je possède** » — scanner une
-étagère entière **sans que ça compte comme un achat du mois** (pas de −1, sinon le score plonge à −80). C'est du
-**backlog, pas du MVP**, et ça se rajoutera en une migration : **une table de plus, un bouton de plus.** Rien à
-réécrire, parce que `books` existe **indépendamment** de ce qu'on fait du livre.
+Ce dernier cas, c'est **l'essentiel d'une vraie biblio**. L'action « **je possède** » (§4.13) permet de scanner une
+étagère entière **sans que ça compte comme un achat du mois** (pas de −1, sinon le score plonge à −80). Livré le
+**20/07/2026**, et la prédiction s'est vérifiée — c'est ce qui valide la conception : **une table de plus
+(`ownerships`), deux gestes de plus**, rien à réécrire. Parce que `books` existe **indépendamment** de ce qu'on
+fait du livre, et parce que la règle de pile n'était écrite qu'à **un seul endroit** (`lib/pal/derive-pal.ts`).
 
 > **La seule précaution à prendre dès maintenant, et elle est gratuite — une question de vocabulaire.**
 > La PAL, c'est **« ce que je possède et que je n'ai pas lu »**. Aujourd'hui on la calcule à partir des
@@ -467,7 +468,7 @@ Ce n'est pas cosmétique : sans ça, pas d'icône sur l'écran d'accueil et un a
 
 ### 4.10 Export de mes données (P0)
 
-Un bouton « exporter » qui sort **tout** — livres, lectures (**notes et commentaires compris**), historique des
+Un bouton « exporter » qui sort **tout** — livres, **possessions** (§4.13), lectures (**notes et commentaires compris**), historique des
 changements d'état, achats, objectifs, distinctions — en **JSON et CSV**.
 
 Deux raisons, et la seconde est la vraie :
@@ -512,6 +513,65 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
   réversible : **rescanner le livre le ressuscite avec tout son historique** (résurrection #10), photo
   comprise (l'objet Storage n'est pas touché — rien n'est jamais effacé, §7). La confirmation annonce les
   traces actives qui vont disparaître. L'export (§4.10) continue d'inclure les lignes supprimées.
+
+### 4.13 La possession — « je possède » et « j'ai déjà lu » (issue #101, livré le 20/07/2026)
+
+Le cas manquant depuis le premier jour (§1) : **posséder sans avoir acheté dans l'app**, c'est-à-dire les
+étagères d'avant. Sans lui, constituer sa PAL initiale imposait de déclarer 80 « achats », donc 80 malus −1 :
+le score plongeait à −80.
+
+**Deux gestes, aucun effet sur le barème.** Une possession n'est pas un achat (pas de malus), et une lecture
+sans date de fin ne crédite aucun mois — les points sont datés par `finished_at` (§3, règle 1). `lib/scoring/`
+n'a pas été touché : les possessions ne l'atteignent jamais.
+
+#### Le principe : appartenance sans date, flux datés
+
+L'étagère d'avant n'a ni date d'acquisition ni date de lecture connue, et **on ne les invente pas** :
+
+- l'**appartenance** à la pile est un booléen, dérivé sans date ;
+- seuls les mouvements **datés** alimentent les entrées/sorties du mois et la courbe de PAL.
+
+Un livre entré sans date connue compte donc dans le **stock** (« Dans la pile ») mais jamais dans les **flux**
+— scanner 80 livres un samedi n'affiche aucun pic. La courbe porte une **ligne de base** (les non-datés) qui
+préserve l'invariant : *le dernier point vaut toujours la taille réelle de la pile*.
+
+#### Les règles
+
+- **« Je possède »** — date d'acquisition **facultative**. Acquérir un livre **déjà lu** ne le fait pas entrer
+  en pile (§3, règle 3 — vrai d'un achat comme d'une déclaration) : il va en Biblio, pas en PAL.
+- **« J'ai déjà lu »** — date de fin **facultative**, note et avis capturables. Date connue → les points
+  tombent dans le bilan de ce mois-là (déjà clos) ; date vide → aucun mois, aucun point. **Indépendant de la
+  possession** : un livre de médiathèque lu il y a deux ans est « lu » sans être « possédé ». Refus doux si
+  une lecture est **en cours** (le geste juste est « Terminer » au journal).
+- **« Je ne le possède plus »** (don, revente, perte) — le livre sort de la PAL et de la biblio possédée, mais
+  **ses lectures et ses points restent au bilan**. À ne pas confondre avec « Retirer » (§4.12), qui masque le
+  livre et toutes ses traces. L'achat n'est **jamais** touché : son malus historique est acquis, le mois est
+  clos.
+- **La possession déclarée fait autorité** quand elle existe — elle seule sait dire « je ne le possède plus »
+  d'un livre pourtant acheté.
+- Une **fin de lecture non datée prime sur un don** pour la sortie : dater la sortie au don placerait le
+  mouvement dans le mauvais mois.
+
+#### Ce qu'une lecture non datée compte quand même
+
+Elle pèse dans les totaux qui **ne se datent pas** — volume total lu, répartition par catégorie, pages, et
+moyennes de notes par série et par éditeur. Elle est exclue de tout ce qui se date : mois, année, durée de
+lecture, courbe de PAL, et le **classement** (qui affiche une date de lecture).
+
+> ⚠️ **Conséquence à connaître** : « j'ai lu N bouquins » inclut désormais les lectures rétroactives. C'est
+> voulu (ce sont de vraies lectures), mais le chiffre ne veut plus dire « depuis que j'utilise l'app ».
+
+#### Une seule règle de pile, trois surfaces
+
+La question « ce livre est-il dans la pile ? » n'est écrite **qu'une fois** (`lib/pal/derive-pal.ts`), et les
+trois surfaces qui l'affichent y passent : la **Pile** (§4.6), les **Stats** (§4.5) et la **Biblio** (§4.12).
+C'est ce qui garantit qu'elles racontent la même histoire — et c'est ce qui a permis d'ajouter la possession
+sans réécrire quoi que ce soit.
+
+**Reste à construire (lot C, #101)** : le **mode rafale** (scan → bip → scan suivant, sans jamais s'arrêter),
+la **boîte de finition** persistante (`scan_inbox`) pour tout ce qui demande de l'attention — introuvable,
+« image oui, infos non », pas de code-barres → photo comme capture —, et la **correction de catégorie inline**
+dans la liste de session. Les 9 cas de la rafale sont analysés dans l'issue #101.
 
 ---
 
@@ -885,6 +945,22 @@ comportement voulu (on ne peut pas dédupliquer ce qui n'a pas de code).
 
 **`purchases`** — un achat : `user_id`, `book_id`, `purchased_at` (date).
 
+**`ownerships`** — la **possession déclarée** (§4.13), indépendante de l'achat.
+
+| Colonne | Rôle |
+|---|---|
+| `user_id`, `book_id` | |
+| `owned_since` | date **nullable** — l'étagère d'avant n'a pas de date d'acquisition connue. Renseignée : le livre entre dans la courbe et les flux ; vide : il compte dans le **stock** seulement |
+| `disposed_at` | date **nullable** — renseignée = « je ne le possède plus » (don, revente, perte) |
+
+**Une seule déclaration active par livre** (index unique partiel sur `(user_id, book_id) where deleted_at is
+null`) : la possession est un **état**, pas un historique d'exemplaires. Quand elle existe, elle **fait
+autorité** sur la possession — elle seule sait dire « je ne le possède plus » d'un livre pourtant acheté ;
+sinon, un achat actif vaut possession.
+
+> **Aucune lecture de cette table par le moteur de score.** C'est ce qui garantit qu'une possession ne peut
+> pas peser sur le barème, quoi qu'il arrive ensuite.
+
 **`monthly_picks`** (P1) — les **distinctions du mois** : `user_id`, `month` (1er du mois), `kind` (**enum** :
 `favorite` / `good_surprise` / `bad_surprise`), `reading_id`, `comment`. Une distinction de chaque type par mois
 au maximum (unicité sur `(user_id, month, kind)`).
@@ -1057,39 +1133,10 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
   dates de lecture toujours libres, jamais figées à la date de saisie. **Le geste « déjà lu » (#101) en livre
   le socle** (une lecture rétroactive datée crédite son mois passé) ; seul l'outillage de ressaisie **en
   masse** reste ici.
-- **« Je possède »** — l'action qui manque pour que l'app devienne vraiment le reflet de la bibliothèque (cf. la
-  vision, §1) : scanner une étagère déjà là, **sans malus d'achat**. Sans elle, l'app ne connaîtra que les livres
-  entrés après son installation. **Tranché le 20/07/2026 (issue #101, spec complète dedans)**.
-  > **⚠️ CETTE ENTRÉE N'EST PLUS DU BACKLOG dès le merge des lots A et B de #101** (PRs #103/#104) :
-  > la possession et « déjà lu » seront **construits**. À déplacer alors en section §4.x, avec le tableau
-  > §1 passé en ✅ et le bloc « Statut » de `CLAUDE.md` mis à jour — issue de suivi #105.
-  - table `ownerships` (`owned_since` **date nullable**, `disposed_at` date nullable, soft delete) — une ligne
-    active max par (user, livre) ; **zéro impact barème**, les ownerships n'atteignent jamais le scoring ;
-  - **stock vs flux** : `owned_since` renseignée → le livre entre dans la courbe et les flux à cette date ;
-    vide → il compte dans le stock de la PAL mais pas dans les entrées/sorties du mois (pas de pic en scannant
-    une étagère) ;
-  - **mode rafale dès la v1** (scan → bip → scan suivant) — c'est le geste réel du scan d'étagère. **La rafale
-    ne s'arrête jamais** : chaque scan est capté (le code-barres est toujours enregistré, §7), la résolution
-    est asynchrone, et tout ce qui demande de l'attention (introuvable, « image oui, infos non », pas de
-    code-barres → photo comme capture) part dans une **boîte de finition** persistante (`scan_inbox`) qu'on
-    traite après — saisie pré-remplie, intention jamais redemandée. Aucun scan perdu, aucun échec sec (les
-    9 cas sont analysés dans l'issue #101). La **catégorie se corrige inline** dans la liste de session
-    (puce → tiroir partagé, jamais bloquant), avec un marqueur discret sur les devinettes VF (§5.5) ;
-  - **« je ne possède plus »** (don, revente, perte) inclus : sortie de PAL/Biblio, lectures et points intacts
-    au bilan — distinct de « Retirer » (§4.12) qui masque toutes les traces ;
-  - possédé mais **déjà terminé** → Biblio, pas PAL (la PAL est « possédé non lu ») ;
-  - **« j'ai déjà lu »** (même ticket, même pattern) : déclarer une lecture passée en un geste —
-    `status = finished` avec **`finished_at` nullable**. Date connue → points dans le bilan de ce mois **passé**
-    (clos — le mois courant n'est jamais touché, §3 règle 1) et présence dans les courbes ; date vide → badge
-    « Lu », hors PAL, **zéro point nulle part**, absent des séries temporelles. Note et avis capturables.
-    **Ce qu'une lecture non datée compte quand même** (tranché à l'implémentation, 20/07/2026) : elle pèse
-    dans les totaux qui ne se datent pas — **volume total lu**, répartition par catégorie, pages, et
-    **moyennes de notes** par série et par éditeur. Elle est exclue de tout ce qui se date : mois, année,
-    durée de lecture, courbe de PAL, et le **classement** (qui affiche une date de lecture). Conséquence à
-    connaître : « j'ai lu N bouquins » inclut désormais les lectures rétroactives — c'est voulu (ce sont de
-    vraies lectures), mais le chiffre ne veut plus dire « depuis que j'utilise l'app ».
-    Indépendant de la possession (un livre de médiathèque lu est « lu » sans être « possédé ») ; dans la
-    rafale, un interrupteur « déjà lu » déclare possédé + lu d'un geste.
+- **« Je possède » et « j'ai déjà lu »** — **livrés le 20/07/2026**, voir **§4.13**. Ne reste ici que le
+  **lot C** : le mode **rafale** (scan d'étagère qui ne s'arrête jamais), la **boîte de finition**
+  persistante (`scan_inbox`) pour les scans à compléter, et la **correction de catégorie inline** dans la
+  liste de session. Les 9 cas de la rafale sont analysés dans l'issue #101.
 - **Wishlist et favoris** : scanner en librairie un bouquin qu'on ne prend pas (wishlist), marquer ses coups de
   cœur (favoris). **L'architecture les accueille déjà** — ce sera un bouton de plus sur la feuille du scan et une
   table par action. Et la wishlist nourrit la santé de la PAL : *ce que je convoite* vs *ce que j'achète* vs *ce

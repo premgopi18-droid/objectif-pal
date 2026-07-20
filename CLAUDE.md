@@ -44,9 +44,16 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > dégradé signature, thème sombre unique), **nav 5 onglets avec scan central** (la PAL est un segment de la
 > Biblio, les Stats un segment du Bilan ; `/pal` et `/stats` redirigent), famille de composants
 > `components/ui/`, dérivation partagée de la santé de la PAL (`lib/pal/health.ts`), et micro-interactions
-> (confettis au « Terminé ✓ », `prefers-reduced-motion`) — 240 → 268 tests. Restent : **#74** (icônes PWA à
-> la nouvelle identité — livrable graphique, différé), #30 (prérequis à lever), #32 lot C (différé
-> volontaire), et la dette de suivi #76/#78/#84.**
+> (confettis au « Terminé ✓ », `prefers-reduced-motion`) — 240 → 268 tests.
+> **La possession est livrée le 20/07/2026** (#101 lots A et B, PRs #103/#104, specs §4.13) : l'app connaît
+> enfin **l'étagère d'avant** — « je possède » (sans malus), « j'ai déjà lu » (lecture passée, date
+> facultative) et « je ne le possède plus » (don, revente, les points restant au bilan). Le principe qui
+> structure tout : **l'appartenance à la pile se dérive sans date, seuls les mouvements datés alimentent les
+> flux** — scanner 80 livres n'affiche aucun pic. Table `ownerships`, `finished_at`/`started_at` nullables,
+> et la règle de pile désormais partagée par les **trois** surfaces (Pile, Stats, Biblio) — 268 → 399 tests.
+> Restent : **#74** (icônes PWA à la nouvelle identité — livrable graphique, différé), **#101 lot C**
+> (rafale + boîte de finition), **#100** (édition de fiche + fusion de doublons), #30 (prérequis à lever),
+> #32 lot C (différé volontaire), et la dette de suivi #76/#78/#84.**
 
 ## Stack
 
@@ -100,12 +107,21 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **#74 — icônes PWA à la nouvelle identité** : dernier reliquat de la refonte #64 (livrable graphique
+1. **#101 lot C — la rafale** : mode scan d'étagère qui ne s'arrête jamais (résolution asynchrone, capture
+   systématique), **boîte de finition** persistante (`scan_inbox`) pour les scans à compléter — introuvable,
+   « image oui, infos non », pas de code-barres → photo comme capture —, et **correction de catégorie
+   inline** dans la liste de session. Les 9 cas sont analysés dans l'issue. C'est ce qui rend le scan
+   d'étagère réellement utilisable (§4.13).
+2. **#100 — gestion de la Biblio** : édition de fiche en formulaire complet (indispensable aux livres saisis
+   à la main, qui n'ont pas de code-barres à rescanner) + fusion de doublons. Rend le lot C plus confortable
+   (la catégorie proposée devient corrigeable partout).
+3. **#74 — icônes PWA à la nouvelle identité** : dernier reliquat de la refonte #64 (livrable graphique
    PNG/favicon, `background_color`/`theme_color` déjà migrés). Différé, à traiter au moment choisi.
-2. **Dette de suivi de la refonte** : #76 (vitest casse en worktree + scanne `.claude/worktrees`),
-   #78 (extraire `bookToMovement` partagé), #84 (variante `danger` sur `Button`).
-3. **#30** (analyses avancées §4.5 — prérequis à lever, dont le trigger `occurred_at`).
-4. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
+4. **Dette de suivi de la refonte** : #76 (vitest casse en worktree + scanne `.claude/worktrees`),
+   #84 (variante `danger` sur `Button`). **#78 est résolu** : `bookToMovement` est le réducteur partagé, et
+   #101 l'a étendu aux trois surfaces.
+5. **#30** (analyses avancées §4.5 — prérequis à lever, dont le trigger `occurred_at`).
+6. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
    déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ; les filtres #34 migreront
    alors côté requête — l'index de tri est déjà posé).
 
