@@ -73,9 +73,12 @@ export function PalView({
       <dl className="grid grid-cols-2 gap-3">
         {/* Solde POSITIF = la pile gonfle = rouge ; négatif = vert (specs design §2). */}
         <StatTile label="Dans la pile" value={pileSize} hint={`livre${pileSize > 1 ? "s" : ""} non lu${pileSize > 1 ? "s" : ""}`} />
+        {/* La tuile parle de LIVRES, jamais d'un nombre signé nu (#133,
+            found-in-prod) : « −8 » se lisait comme un score de −8 points,
+            alors que c'est le flux de la pile — le score vit au Bilan. */}
         <StatTile
-          label="Solde du mois"
-          value={monthBalance > 0 ? `+${monthBalance}` : monthBalance}
+          label="Pile ce mois-ci"
+          value={`${monthBalance > 0 ? `+${monthBalance}` : monthBalance} livre${Math.abs(monthBalance) > 1 ? "s" : ""}`}
           tone={monthBalance > 0 ? "bad" : "good"}
           hint={`${monthEntries} entrée${monthEntries > 1 ? "s" : ""} · ${monthExits} sortie${monthExits > 1 ? "s" : ""}`}
         />
