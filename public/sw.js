@@ -12,7 +12,7 @@
 // binaire en cache, désynchronisé du JS — erreurs imprévisibles au scan.
 // v3 (issue #60) : purge les caches où la redirection d'auth avait remplacé
 // le binaire WASM par le HTML de /login (SW installé hors session).
-const CACHE_NAME = "objectif-pal-shell-v3";
+const CACHE_NAME = "objectif-pal-shell-v4"; // v4 : icônes recompressées (#124) — sans bump, les anciennes resteraient précachées
 // ⚠️ "/" est du HTML AUTHENTIFIÉ : la déconnexion purge tous les caches
 // (components/logout-button.tsx). Icônes et WASM se re-remplissent au fil des
 // fetchs ; la coquille "/", elle, n'est re-précachée qu'à la prochaine
