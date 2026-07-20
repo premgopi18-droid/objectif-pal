@@ -41,6 +41,15 @@ const REARM_DELAY_MILLISECONDS = 1200;
 /** Le même code relu dans cette fenêtre est ignoré : c'est le livre qu'on n'a pas encore rangé. */
 const SAME_CODE_MUTE_MILLISECONDS = 4000;
 
+/**
+ * La fraction de hauteur réellement décodée (#122) : la bande CENTRALE, celle
+ * que le viseur cadre de toute façon. Divise par deux les pixels copiés
+ * (getImageData passait 8,3 Mo par frame en 1080p) et décodés, SANS toucher à
+ * la résolution horizontale — celle dont les barres minuscules du supplément
+ * ont besoin (specs §5.3, la mesure qui a exigé 1080p reste respectée).
+ */
+const DECODE_BAND_HEIGHT_FRACTION = 0.5;
+
 type BarcodeScannerProps = {
   onCode: (code: string) => void;
   /**
@@ -92,6 +101,11 @@ export function BarcodeScanner({ onCode, continuous = false }: BarcodeScannerPro
     let hasEverDecoded = false;
     let consecutiveFailures = 0;
     const canvas = document.createElement("canvas");
+    // Contexte créé UNE fois (#122) — le redemander par frame était inutile,
+    // et surtout réassigner canvas.width/height à chaque frame RÉINITIALISE le
+    // canvas (réallocation du backing store 1920×1080, même à valeur
+    // identique) : pression GC continue pour rien.
+    const context = canvas.getContext("2d", { willReadFrequently: true });
 
     const emit = (code: string) => {
       if (hasEmittedRef.current) return;
@@ -121,14 +135,19 @@ export function BarcodeScanner({ onCode, continuous = false }: BarcodeScannerPro
     };
 
     const decodeFrame = async () => {
-      if (isDecoding || hasEmittedRef.current || video.readyState < video.HAVE_CURRENT_DATA) return;
+      if (isDecoding || hasEmittedRef.current || video.readyState < video.HAVE_CURRENT_DATA || !context) return;
       isDecoding = true;
       try {
-        canvas.width = video.videoWidth;
-        canvas.height = video.videoHeight;
-        const context = canvas.getContext("2d", { willReadFrequently: true });
-        if (!context) return;
-        context.drawImage(video, 0, 0);
+        // La bande centrale seulement (#122) — cf. DECODE_BAND_HEIGHT_FRACTION.
+        const bandHeight = Math.max(1, Math.round(video.videoHeight * DECODE_BAND_HEIGHT_FRACTION));
+        const bandTop = Math.round((video.videoHeight - bandHeight) / 2);
+        // Redimensionné UNIQUEMENT quand la résolution vidéo change réellement
+        // (rotation, changement de caméra) — jamais par frame.
+        if (canvas.width !== video.videoWidth || canvas.height !== bandHeight) {
+          canvas.width = video.videoWidth;
+          canvas.height = bandHeight;
+        }
+        context.drawImage(video, 0, bandTop, video.videoWidth, bandHeight, 0, 0, video.videoWidth, bandHeight);
         const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
         const results = await readBarcodes(imageData, {
