@@ -7,10 +7,12 @@ import { Button } from "@/components/ui/button";
 import { CoverPhotoButton } from "@/components/cover-photo-button";
 import { ErrorAlert } from "@/components/error-alert";
 import { RemoveButton, StartReadingButton, useBookGestures } from "@/components/library/book-gestures";
+import { endOwnership } from "@/lib/books/actions";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
 import { formatBookSubtitle } from "@/lib/books/format";
 import { softDeleteBook } from "@/lib/books/library-actions";
+import { localToday } from "@/lib/dates";
 import {
   filterLibraryEntries,
   sortLibraryEntries,
@@ -39,6 +41,9 @@ const STATUS_BADGES: Record<LibraryStatus, { label: string; state: ComponentProp
   finished: { label: "Lu", state: "done" },
   "in-pile": { label: "Dans la PAL", state: "pile" },
   abandoned: { label: "Abandonné", state: "abandoned" },
+  // #101 : donné, revendu, perdu — un état à part de « sans activité », qui
+  // dirait faussement que le livre n'a jamais rien vécu ici.
+  disposed: { label: "Plus possédé", state: "idle" },
   shelved: { label: "Sans activité", state: "idle" },
 };
 
@@ -68,6 +73,17 @@ export function LibraryView({ entries }: LibraryViewProps) {
       : "";
     return window.confirm(
       `Retirer « ${entry.title} » de la bibliothèque ? ${consequence}Rien n'est effacé : le rescanner le fera revenir avec tout son historique.`,
+    );
+  }
+
+  /**
+   * La confirmation dit exactement ce que « je ne le possède plus » NE fait
+   * pas — c'est là toute la différence avec « Retirer » juste à côté, et la
+   * confondre coûterait des points au bilan (#101).
+   */
+  function confirmDisposal(entry: LibraryEntry) {
+    return window.confirm(
+      `Tu ne possèdes plus « ${entry.title} » ? Il sortira de ta bibliothèque et de ta PAL, mais ses lectures et ses points restent au journal et au bilan.`,
     );
   }
 
@@ -129,6 +145,20 @@ export function LibraryView({ entries }: LibraryViewProps) {
                 <div className="flex items-center gap-3 pl-0.5">
                   {entry.status !== "reading" && (
                     <StartReadingButton bookId={entry.bookId} run={run} isPending={isPending} />
+                  )}
+                  {/* « Je ne le possède plus » (#101) — le livre quitte l'étagère,
+                      mais ses lectures et ses points RESTENT au bilan. À ne pas
+                      confondre avec « Retirer », juste à côté, qui masque tout. */}
+                  {entry.isOwned && (
+                    <RemoveButton
+                      label="Je ne le possède plus"
+                      action={() => endOwnership(entry.bookId, localToday())}
+                      run={run}
+                      isPending={isPending}
+                      confirm={() => confirmDisposal(entry)}
+                      tone="muted"
+                      className="text-xs"
+                    />
                   )}
                   <RemoveButton
                     label="Retirer"

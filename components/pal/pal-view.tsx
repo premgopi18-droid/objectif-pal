@@ -5,10 +5,10 @@ import { BookRow } from "@/components/ui/book-row";
 import { StatTile } from "@/components/ui/stat-tile";
 import { ErrorAlert } from "@/components/error-alert";
 import { RemoveButton, StartReadingButton, useBookGestures } from "@/components/library/book-gestures";
-import { softDeletePurchase } from "@/lib/books/actions";
+import { endOwnership, softDeletePurchase } from "@/lib/books/actions";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { formatBookSubtitle } from "@/lib/books/format";
-import { formatDateFrench, localCurrentMonth } from "@/lib/dates";
+import { formatDateFrench, localCurrentMonth, localToday } from "@/lib/dates";
 import type { PalEntry } from "@/lib/pal/derive-pal";
 import { computePalHealth } from "@/lib/pal/health";
 
@@ -34,6 +34,12 @@ function entryLabel(entry: PalEntry): string {
 
 /** Capture l'id hors du JSX : le narrowing d'un champ ne survit pas à la closure. */
 const softDeletePurchaseAction = (purchaseId: string) => () => softDeletePurchase(purchaseId);
+
+/**
+ * « Je ne le possède plus » depuis la pile — le livre n'a jamais été lu, donc
+ * la sortie est datée d'aujourd'hui (fuseau LOCAL, jamais l'UTC du serveur).
+ */
+const endOwnershipAction = (bookId: string) => () => endOwnership(bookId, localToday());
 
 type PalViewProps = {
   entries: PalEntry[];
@@ -96,14 +102,25 @@ export function PalView({
                     </div>
                     <div className="mt-0.5 flex items-center gap-2 text-ink3">
                       <span>{entryLabel(entry)}</span>
-                      {/* « Je ne l'ai pas acheté » : annule l'achat qui a fait entrer le
-                          livre en pile (§4.6). Réversible → pas de confirmation. Un livre
-                          entré par « je possède » (#101) n'a pas d'achat à annuler : son
-                          geste de retrait arrive avec le lot B. */}
-                      {entry.entrySource.kind === "purchase" && (
+                      {/* Le geste de retrait suit la SOURCE d'entrée (#101) : on
+                          n'annule pas un achat qui n'existe pas.
+                          — entré par un achat → « Je ne l'ai pas acheté », qui annule
+                            l'achat (§4.6). Réversible → pas de confirmation.
+                          — entré par « je possède » → « Je ne le possède plus », qui
+                            clôt la possession sans toucher à l'historique. */}
+                      {entry.entrySource.kind === "purchase" ? (
                         <RemoveButton
                           label="Je ne l'ai pas acheté"
                           action={softDeletePurchaseAction(entry.entrySource.purchaseId)}
+                          run={run}
+                          isPending={isPending}
+                          tone="muted"
+                          className="text-xs"
+                        />
+                      ) : (
+                        <RemoveButton
+                          label="Je ne le possède plus"
+                          action={endOwnershipAction(entry.bookId)}
                           run={run}
                           isPending={isPending}
                           tone="muted"

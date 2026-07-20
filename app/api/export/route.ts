@@ -8,7 +8,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
  * avis compris, journal d'événements compris.
  *
  *   /api/export                 → JSON complet (un seul fichier)
- *   /api/export?format=csv&table=books|readings|reading_events|purchases
+ *   /api/export?format=csv&table=books|readings|reading_events|purchases|ownerships
  *
  * Client SESSION : la RLS garantit qu'on n'exporte que SES données.
  */
@@ -18,7 +18,14 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 // L'annotation élargit `columns` en string : sans ça, le parseur de types de
 // supabase-js tente d'analyser chaque littéral et rend un ParserError.
 const EXPORT_TABLES: Record<
-  "books" | "readings" | "reading_events" | "purchases" | "monthly_objectives" | "objective_targets" | "monthly_picks",
+  | "books"
+  | "readings"
+  | "reading_events"
+  | "purchases"
+  | "ownerships"
+  | "monthly_objectives"
+  | "objective_targets"
+  | "monthly_picks",
   { columns: string; orderBy: string }
 > = {
   books: {
@@ -32,6 +39,12 @@ const EXPORT_TABLES: Record<
   },
   reading_events: { columns: "id, reading_id, status, occurred_at", orderBy: "id" },
   purchases: { columns: "id, book_id, purchased_at, created_at, deleted_at", orderBy: "created_at" },
+  // La possession déclarée (#101) : sans elle, l'export ne dirait pas quels
+  // livres sont à moi — or « tout » veut dire tout (§4.10).
+  ownerships: {
+    columns: "id, book_id, owned_since, disposed_at, created_at, deleted_at",
+    orderBy: "created_at",
+  },
   monthly_objectives: { columns: "id, month, created_at", orderBy: "month" },
   objective_targets: { columns: "id, objective_id, category, target_count", orderBy: "id" },
   monthly_picks: { columns: "id, month, kind, reading_id, comment, created_at", orderBy: "month" },
@@ -83,16 +96,25 @@ export async function GET(request: Request) {
       });
     }
 
-    const [books, readings, readingEvents, purchases, monthlyObjectives, objectiveTargets, monthlyPicks] =
-      await Promise.all([
-        fetchTable("books"),
-        fetchTable("readings"),
-        fetchTable("reading_events"),
-        fetchTable("purchases"),
-        fetchTable("monthly_objectives"),
-        fetchTable("objective_targets"),
-        fetchTable("monthly_picks"),
-      ]);
+    const [
+      books,
+      readings,
+      readingEvents,
+      purchases,
+      ownerships,
+      monthlyObjectives,
+      objectiveTargets,
+      monthlyPicks,
+    ] = await Promise.all([
+      fetchTable("books"),
+      fetchTable("readings"),
+      fetchTable("reading_events"),
+      fetchTable("purchases"),
+      fetchTable("ownerships"),
+      fetchTable("monthly_objectives"),
+      fetchTable("objective_targets"),
+      fetchTable("monthly_picks"),
+    ]);
 
     const payload = {
       exported_at: new Date().toISOString(),
@@ -102,6 +124,7 @@ export async function GET(request: Request) {
       readings,
       reading_events: readingEvents,
       purchases,
+      ownerships,
       monthly_objectives: monthlyObjectives,
       objective_targets: objectiveTargets,
       monthly_picks: monthlyPicks,

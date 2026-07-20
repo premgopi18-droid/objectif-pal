@@ -398,13 +398,19 @@ function EditPanel({
             // Garde « pas de date future » (le max de l'input ne bloque pas la
             // saisie manuelle) : contre le today LOCAL, avant de soumettre.
             const editedFinishedAt = entry.status === "finished" ? finishedAt || null : entry.finishedAt;
-            if (startedAt > localToday() || (editedFinishedAt !== null && editedFinishedAt > localToday())) {
+            // Champ vide = date INCONNUE, pas date invalide (#101) : une lecture
+            // rétroactive n'a pas de début, et sa note doit rester éditable.
+            const editedStartedAt = startedAt || null;
+            if (
+              (editedStartedAt !== null && editedStartedAt > localToday()) ||
+              (editedFinishedAt !== null && editedFinishedAt > localToday())
+            ) {
               onError(FUTURE_DATE_MESSAGE);
               return;
             }
             run(() =>
               updateReadingDetails(entry.id, {
-                startedAt,
+                startedAt: editedStartedAt,
                 finishedAt: editedFinishedAt,
                 rating: rating === "" ? null : Number(rating),
                 comment: comment || null,

@@ -1,3 +1,4 @@
+import { bookToMovement } from "@/lib/pal/derive-pal";
 import type { BookCategory } from "@/lib/scoring/types";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -16,18 +17,22 @@ export type LibraryBookRow = Pick<
   Tables["books"]["Row"],
   "id" | "title" | "series_name" | "issue_number" | "category" | "cover_url" | "created_at"
 > & {
-  readings: Pick<Tables["readings"]["Row"], "status" | "deleted_at">[] | null;
-  purchases: Pick<Tables["purchases"]["Row"], "deleted_at">[] | null;
+  // `finished_at` et `purchased_at` sont nécessaires au réducteur de pile
+  // partagé (il raisonne sur des dates, pas sur des comptages).
+  readings: Pick<Tables["readings"]["Row"], "status" | "finished_at" | "deleted_at">[] | null;
+  purchases: Pick<Tables["purchases"]["Row"], "purchased_at" | "deleted_at">[] | null;
+  ownerships?: Pick<Tables["ownerships"]["Row"], "owned_since" | "disposed_at" | "deleted_at">[] | null;
 };
 
 /**
  * L'état d'un livre VU DE LA BIBLIOTHÈQUE — un résumé d'étagère, pas le
  * détail du journal. Priorité : une lecture en cours domine tout ; sinon un
  * livre déjà terminé ; sinon possédé non lu (la PAL, §4.6 — l'abandon n'en
- * sort pas) ; sinon abandonné sans possession ; sinon aucune trace active
- * (« sur l'étagère » — exactement les livres invisibles d'avant #49).
+ * sort pas) ; sinon abandonné sans possession ; sinon sorti de la bibliothèque
+ * (donné, revendu — #101) ; sinon aucune trace active (« sur l'étagère » —
+ * exactement les livres invisibles d'avant #49).
  */
-export type LibraryStatus = "reading" | "finished" | "in-pile" | "abandoned" | "shelved";
+export type LibraryStatus = "reading" | "finished" | "in-pile" | "abandoned" | "disposed" | "shelved";
 
 export type LibraryEntry = {
   bookId: string;
@@ -41,6 +46,8 @@ export type LibraryEntry = {
   /** Les traces actives — le geste « retirer » les annonce avant de masquer. */
   activeReadingCount: number;
   activePurchaseCount: number;
+  /** Le livre est-il possédé aujourd'hui ? Sinon c'est un emprunt, ou un livre parti (#101). */
+  isOwned: boolean;
 };
 
 export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
@@ -49,23 +56,45 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
     const readings = (row.readings ?? []).filter((reading) => reading.deleted_at === null);
     const purchases = (row.purchases ?? []).filter((purchase) => purchase.deleted_at === null);
 
-    // ⚠️ #101 lot B — DETTE : la possession est réimplémentée ici (« un achat
-    // actif = possédé ») au lieu de passer par le réducteur partagé
-    // `derivePileStatus` (lib/pal/derive-pal), contrairement au principe de
-    // #78. Conséquence dès que « je possède » existera : un livre possédé SANS
-    // achat sera classé `shelved` (« Sans activité ») — précisément l'angle
-    // mort que #49 voulait supprimer. À brancher sur le réducteur partagé, pas
-    // à rafistoler avec un `|| ownerships.length > 0` (ce serait une QUATRIÈME
-    // écriture de la même règle).
+    const ownerships = (row.ownerships ?? []).filter((ownership) => ownership.deleted_at === null);
+
+    // La possession passe par le réducteur PARTAGÉ (#78/#101) : la règle « ce
+    // livre est-il dans la pile ? » n'est écrite qu'une fois, dans
+    // lib/pal/derive-pal — la Biblio, la Pile et les stats répondent donc
+    // toujours la même chose (§4.5). `movement` est nul quand le livre n'est
+    // jamais entré en pile (emprunt, ou acquisition d'un déjà-lu §3.3).
+    const movement = bookToMovement({
+      purchases: purchases.map((purchase) => ({
+        purchasedAt: purchase.purchased_at,
+        deletedAt: purchase.deleted_at,
+      })),
+      readings: readings.map((reading) => ({
+        status: reading.status,
+        finishedAt: reading.finished_at,
+        deletedAt: reading.deleted_at,
+      })),
+      ownerships: ownerships.map((ownership) => ({
+        ownedSince: ownership.owned_since,
+        disposedAt: ownership.disposed_at,
+        deletedAt: ownership.deleted_at,
+      })),
+    });
+    const isInPile = movement !== null && !movement.exited;
+    // Sorti de la bibliothèque : on ne le possède plus (don, revente, perte).
+    // Distinct de « sans activité » — le livre a bien eu une vie ici.
+    const isDisposed = ownerships.some((ownership) => ownership.disposed_at !== null);
+
     const status: LibraryStatus = readings.some((reading) => reading.status === "reading")
       ? "reading"
       : readings.some((reading) => reading.status === "finished")
         ? "finished"
-        : purchases.length > 0
+        : isInPile
           ? "in-pile"
           : readings.some((reading) => reading.status === "abandoned")
             ? "abandoned"
-            : "shelved";
+            : isDisposed
+              ? "disposed"
+              : "shelved";
 
     return {
       bookId: row.id,
@@ -78,6 +107,13 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
       status,
       activeReadingCount: readings.length,
       activePurchaseCount: purchases.length,
+      // Possédé = une possession déclarée non close, ou un achat actif sans
+      // déclaration contraire. C'est ce qui distingue un livre de l'étagère
+      // d'un livre seulement LU (emprunt, médiathèque).
+      isOwned:
+        ownerships.length > 0
+          ? ownerships.some((ownership) => ownership.disposed_at === null)
+          : purchases.length > 0,
     };
   });
 }
