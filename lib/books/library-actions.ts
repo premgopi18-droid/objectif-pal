@@ -5,6 +5,7 @@ import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
 import { getSessionOrError } from "@/lib/supabase/server";
 import { ALL_CATEGORIES, type BookCategory } from "@/lib/scoring/types";
+import { prepareBookEdit, type BookEditInput, type BookEditPayload } from "@/lib/books/book-edit";
 
 /**
  * « Retirer de la bibliothèque » (issue #49) — suppression douce du LIVRE
@@ -62,19 +63,59 @@ export async function updateBookCategory(bookId: string, category: BookCategory)
   // Validation serveur : la valeur vient du client, et elle pèse sur le score.
   if (!ALL_CATEGORIES.includes(category)) return { ok: false, error: "Catégorie inconnue." };
 
+  return writeBookFields(session, bookId, { category }, "updateBookCategory");
+}
+
+/**
+ * L'édition complète d'une fiche (issue #100) — le geste qui manquait aux
+ * livres **saisis à la main** : sans code-barres, ils n'ont pas de rescan pour
+ * se corriger, et leur fiche restait fausse pour toujours (§4.12).
+ *
+ * Ce qu'elle ne touche PAS, volontairement : `barcode_raw`, `barcode_type`,
+ * `barcode_prefix`, `metadata_source`, `metadata_source_id`. C'est le pont de
+ * re-résolution (§7) — le modifier à la main le casserait en silence. Le
+ * rescan, lui, continue de rafraîchir les métadonnées (§4.2).
+ *
+ * La validation vit dans `prepareBookEdit` (pure, testée) : la même règle vaut
+ * ici et à l'écran, sans être écrite deux fois.
+ */
+export async function updateBookDetails(bookId: string, input: BookEditInput): Promise<JournalActionResult> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+
+  const prepared = prepareBookEdit(input);
+  if (!prepared.ok) return { ok: false, error: prepared.error };
+
+  return writeBookFields(session, bookId, prepared.payload, "updateBookDetails");
+}
+
+/**
+ * L'écriture partagée des deux gestes ci-dessus : mêmes gardes (le livre
+ * t'appartient et n'est pas supprimé), mêmes revalidations.
+ *
+ * ⚠️ Les revalidations couvrent le **bilan et le journal**, pas seulement la
+ * Biblio : changer une catégorie change les points des lectures PASSÉES de ce
+ * livre (le score est toujours dérivé, jamais stocké — §7). C'est assumé : le
+ * bilan corrigé est le bon, c'était une erreur de saisie.
+ */
+async function writeBookFields(
+  session: NonNullable<Awaited<ReturnType<typeof getSessionOrError>>>,
+  bookId: string,
+  fields: Partial<BookEditPayload>,
+  label: string,
+): Promise<JournalActionResult> {
   const { error, count } = await session.supabase
     .from("books")
-    .update({ category }, { count: "exact" })
+    .update(fields, { count: "exact" })
     .eq("id", bookId)
     .eq("user_id", session.user.id)
     .is("deleted_at", null);
   if (error) {
-    console.error("[library] updateBookCategory:", error.message);
+    console.error(`[library] ${label}:`, error.message);
     return { ok: false, error: GENERIC_ERROR_MESSAGE };
   }
   if (!count) return { ok: false, error: "Livre introuvable." };
 
-  // La catégorie pèse sur le bilan et les stats, pas seulement sur l'affichage.
   revalidatePath("/bibliotheque");
   revalidatePath("/journal");
   revalidatePath("/bilan");

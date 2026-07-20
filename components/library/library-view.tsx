@@ -6,6 +6,7 @@ import { BookRow } from "@/components/ui/book-row";
 import { Button } from "@/components/ui/button";
 import { CoverPhotoButton } from "@/components/cover-photo-button";
 import { ErrorAlert } from "@/components/error-alert";
+import { BookEditForm } from "@/components/library/book-edit-form";
 import { RemoveButton, StartReadingButton, useBookGestures } from "@/components/library/book-gestures";
 import { endOwnership } from "@/lib/books/actions";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
@@ -55,6 +56,9 @@ export function LibraryView({ entries }: LibraryViewProps) {
   const [searchText, setSearchText] = useState("");
   const [sortOrder, setSortOrder] = useState<LibrarySortOrder>("recent");
   const { run, isPending, error } = useBookGestures();
+  /** La fiche ouverte en édition — une seule à la fois (#100). */
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [editError, setEditError] = useState<string | null>(null);
 
   const visible = useMemo(
     () => sortLibraryEntries(filterLibraryEntries(entries, searchText), sortOrder),
@@ -113,6 +117,7 @@ export function LibraryView({ entries }: LibraryViewProps) {
       </div>
 
       {error && <ErrorAlert message={error} />}
+      {editError && <ErrorAlert message={editError} />}
 
       {visible.length === 0 ? (
         <p className="py-8 text-center text-sm text-ink2">
@@ -142,10 +147,30 @@ export function LibraryView({ entries }: LibraryViewProps) {
                   canRetakePhoto && <CoverPhotoButton bookId={entry.bookId} mode="retake" />
                 )}
 
+                {/* L'édition de fiche (#100) — ouverte sur place, une seule à la
+                    fois : deux formulaires ouverts inviteraient à en abandonner un. */}
+                {editingId === entry.bookId && (
+                  <BookEditForm
+                    entry={entry}
+                    onDone={() => setEditingId(null)}
+                    onError={(message) => {
+                      setEditError(message);
+                      setEditingId(null);
+                    }}
+                  />
+                )}
+
                 <div className="flex items-center gap-3 pl-0.5">
                   {entry.status !== "reading" && (
                     <StartReadingButton bookId={entry.bookId} run={run} isPending={isPending} />
                   )}
+                  <button
+                    type="button"
+                    onClick={() => setEditingId(editingId === entry.bookId ? null : entry.bookId)}
+                    className="text-sm text-ink2 underline underline-offset-2"
+                  >
+                    {editingId === entry.bookId ? "Fermer" : "Modifier"}
+                  </button>
                   {/* « Je ne le possède plus » (#101) — le livre quitte l'étagère,
                       mais ses lectures et ses points RESTENT au bilan. À ne pas
                       confondre avec « Retirer », juste à côté, qui masque tout. */}
