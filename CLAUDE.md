@@ -54,9 +54,12 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > Le **lot C** suit le même jour : **scan d'étagère en rafale** — la chaîne ne s'arrête jamais (capture
 > découplée de la résolution), **boîte de finition** persistante (`scan_inbox`) où atterrit tout ce qui
 > demande de l'attention, et **correction de catégorie inline** avec marqueur sur les devinettes VF —
-> 399 → 416 tests. Restent : **#100** (édition de fiche + fusion de doublons), **#108** (le bouton photo
-> dans la boucle de rafale), **#87** (logo/icônes/splash depuis les visuels HD — livrable graphique),
-> #32 lot C (différé volontaire), et l'idée produit #97 (passerelle League of Comic Geeks).**
+> 399 → 416 tests. **#100 est livré le même jour** (specs §4.12) : **édition de fiche** en formulaire complet
+> — indispensable aux livres saisis à la main, qui n'ont pas de code-barres à rescanner — et **fusion de
+> doublons** en une transaction SQL (`merge_books`), qui refuse deux codes-barres différents et transfère le
+> code au livre conservé quand il n'en a pas — 416 → 436 tests. Restent : **#108** (le bouton photo dans la
+> boucle de rafale), **#87** (logo/icônes/splash depuis les visuels HD — livrable graphique), #32 lot C
+> (différé volontaire), et l'idée produit #97 (passerelle League of Comic Geeks).**
 
 ## Stack
 
@@ -110,15 +113,11 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **#100 — reste la fusion de doublons** : l'édition de fiche est livrée (20/07/2026, specs §4.12). La
-   fusion doit re-pointer lectures/achats/possessions puis soft-delete le doublon — attention à l'index
-   unique partiel sur `ownerships` (fusionner les lignes, pas les additionner) et à l'unicité
-   `(user_id, barcode_raw)` qui couvre les supprimés (rescanner le doublon le ressusciterait).
-2. **#108 — le bouton photo dans la boucle de rafale** : capturer un livre sans code-barres sans quitter le
+1. **#108 — le bouton photo dans la boucle de rafale** : capturer un livre sans code-barres sans quitter le
    mode. Le schéma l'accepte déjà ; le geste demande de suspendre la caméra du scan pour ouvrir celle de la
    photo (deux flux `getUserMedia` ne cohabitent pas) — ticket complet, à tester sur un vrai téléphone.
-3. **#87 — logo, icônes et splash depuis les visuels HD de l'émission** (livrable graphique, différé).
-4. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
+2. **#87 — logo, icônes et splash depuis les visuels HD de l'émission** (livrable graphique, différé).
+3. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
    déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ; les filtres #34 migreront
    alors côté requête — l'index de tri est déjà posé). ⚠️ Le lot B (`purchases!inner`) a été **défait
    volontairement** par #101 (un livre possédé sans achat serait invisible) : le sur-fetch de la PAL est

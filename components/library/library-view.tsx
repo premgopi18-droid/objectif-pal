@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { CoverPhotoButton } from "@/components/cover-photo-button";
 import { ErrorAlert } from "@/components/error-alert";
 import { BookEditForm } from "@/components/library/book-edit-form";
+import { BookMergePicker } from "@/components/library/book-merge-picker";
 import { RemoveButton, StartReadingButton, useBookGestures } from "@/components/library/book-gestures";
 import { endOwnership } from "@/lib/books/actions";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
@@ -59,6 +60,8 @@ export function LibraryView({ entries }: LibraryViewProps) {
   /** La fiche ouverte en édition — une seule à la fois (#100). */
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editError, setEditError] = useState<string | null>(null);
+  /** Le livre CONSERVÉ d'une fusion en cours (#100) — un seul à la fois. */
+  const [mergingId, setMergingId] = useState<string | null>(null);
 
   const visible = useMemo(
     () => sortLibraryEntries(filterLibraryEntries(entries, searchText), sortOrder),
@@ -160,6 +163,20 @@ export function LibraryView({ entries }: LibraryViewProps) {
                   />
                 )}
 
+                {/* La fusion de doublons (#100) — le livre ouvert est celui
+                    qu'on CONSERVE, on choisit celui qui vient s'y fondre. */}
+                {mergingId === entry.bookId && (
+                  <BookMergePicker
+                    keep={entry}
+                    entries={entries}
+                    onDone={() => setMergingId(null)}
+                    onError={(message) => {
+                      setEditError(message);
+                      setMergingId(null);
+                    }}
+                  />
+                )}
+
                 <div className="flex items-center gap-3 pl-0.5">
                   {entry.status !== "reading" && (
                     <StartReadingButton bookId={entry.bookId} run={run} isPending={isPending} />
@@ -172,6 +189,15 @@ export function LibraryView({ entries }: LibraryViewProps) {
                     className="text-sm text-ink2 underline underline-offset-2"
                   >
                     {editingId === entry.bookId ? "Fermer" : "Modifier"}
+                  </button>
+                  <button
+                    type="button"
+                    aria-expanded={mergingId === entry.bookId}
+                    aria-controls={`merge-${entry.bookId}`}
+                    onClick={() => setMergingId(mergingId === entry.bookId ? null : entry.bookId)}
+                    className="text-sm text-ink2 underline underline-offset-2"
+                  >
+                    {mergingId === entry.bookId ? "Fermer" : "Fusionner"}
                   </button>
                   {/* « Je ne le possède plus » (#101) — le livre quitte l'étagère,
                       mais ses lectures et ses points RESTENT au bilan. À ne pas

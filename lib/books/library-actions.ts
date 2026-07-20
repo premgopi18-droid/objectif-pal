@@ -97,6 +97,63 @@ export async function updateBookDetails(bookId: string, input: BookEditInput): P
 }
 
 /**
+ * Le préfixe qui marque un `raise exception` SQL **destiné à l'écran**.
+ *
+ * Sans convention explicite, tout `raise exception` finirait affiché à
+ * l'utilisateur — y compris celui qu'un futur contributeur ajouterait pour une
+ * raison technique. On ne remonte donc QUE les messages qui se présentent, et
+ * on retire le préfixe avant l'affichage.
+ */
+const SQL_USER_MESSAGE_PREFIX = "UX: ";
+/** Le code PostgreSQL d'un `raise exception` sans `errcode` explicite. */
+const POSTGRES_RAISE_EXCEPTION = "P0001";
+
+/**
+ * Un échec de RPC → le message à montrer. Tout ce qui n'est pas un refus
+ * métier explicitement marqué part sur le message générique : une panne ne
+ * doit jamais exposer d'interne (§8).
+ */
+function userFacingSqlError(code: string | undefined, message: string): string {
+  if (code !== POSTGRES_RAISE_EXCEPTION || !message.includes(SQL_USER_MESSAGE_PREFIX)) {
+    return GENERIC_ERROR_MESSAGE;
+  }
+  // PostgREST peut préfixer le message ; on repart du marqueur, pas du début.
+  return message.slice(message.indexOf(SQL_USER_MESSAGE_PREFIX) + SQL_USER_MESSAGE_PREFIX.length).trim();
+}
+
+/**
+ * Fusionner un doublon dans un livre conservé (issue #100, second volet).
+ *
+ * Tout le travail vit dans la fonction SQL `merge_books` — et c'est délibéré :
+ * la fusion re-pointe des faits dans trois tables puis supprime un livre. À
+ * moitié faite, elle laisserait des lectures rattachées à un livre effacé ou
+ * deux possessions actives violant l'index unique. En SQL, le corps entier est
+ * **une transaction** : tout ou rien.
+ *
+ * La fonction vérifie elle-même que les deux livres appartiennent à l'appelant
+ * (elle est `security definer`, donc hors RLS) et refuse deux codes-barres
+ * différents. Les messages qu'elle lève sont écrits pour être montrés.
+ */
+export async function mergeBooks(keepBookId: string, mergeBookId: string): Promise<JournalActionResult> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+
+  const { error } = await session.supabase.rpc("merge_books", {
+    keep_book_id: keepBookId,
+    merge_book_id: mergeBookId,
+  });
+  if (error) {
+    console.error("[library] mergeBooks:", error.message);
+    return { ok: false, error: userFacingSqlError(error.code, error.message) };
+  }
+
+  revalidatePath("/bibliotheque");
+  revalidatePath("/journal");
+  revalidatePath("/bilan");
+  return { ok: true };
+}
+
+/**
  * L'écriture partagée des deux gestes ci-dessus : mêmes gardes (le livre
  * t'appartient et n'est pas supprimé), mêmes revalidations.
  *
