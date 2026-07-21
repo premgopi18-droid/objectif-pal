@@ -77,6 +77,12 @@ export type PileStatus = {
   exited: boolean;
   /** Sa date de SORTIE — `null` avec `exited` à vrai = sorti à une date inconnue. */
   exitDate: IsoDate | null;
+  /**
+   * CE QUI a sorti le livre (#142) : une fin de lecture ou une cession. Les
+   * deux n'ont pas le même récit — la tuile du mois ne compte que les
+   * lectures, le stock et la courbe comptent tout.
+   */
+  exitVia: "finish" | "disposal" | null;
 };
 
 /**
@@ -84,7 +90,7 @@ export type PileStatus = {
  * FABRIQUE, pas une constante partagée : deux livres hors pile ne doivent
  * jamais se retrouver à pointer le même objet.
  */
-const neverInPile = (): PileStatus => ({ entered: false, entryDate: null, exited: false, exitDate: null });
+const neverInPile = (): PileStatus => ({ entered: false, entryDate: null, exited: false, exitDate: null, exitVia: null });
 
 /** Dans la pile MAINTENANT : entré et pas encore ressorti. */
 export const isInPileNow = (status: PileStatus): boolean => status.entered && !status.exited;
@@ -135,9 +141,9 @@ export function derivePileStatus({
       // Même convention que l'épisode simple : une fin sans date sort le livre
       // sans qu'on puisse la placer.
       if (finishExit === null && hasUndatedFinish) {
-        return { entered: true, entryDate: reacquiredAt, exited: true, exitDate: null };
+        return { entered: true, entryDate: reacquiredAt, exited: true, exitDate: null, exitVia: "finish" };
       }
-      return { entered: true, entryDate: reacquiredAt, exited: finishExit !== null, exitDate: finishExit };
+      return { entered: true, entryDate: reacquiredAt, exited: finishExit !== null, exitDate: finishExit, exitVia: finishExit !== null ? "finish" : null };
     }
   }
 
@@ -150,7 +156,7 @@ export function derivePileStatus({
     // Entré, date inconnue. Sa seule sortie possible est une fin de possession
     // (il n'a aucune lecture terminée, cf. la garde ci-dessus).
     const disposedAt = ownership?.disposedAt ?? null;
-    return { entered: true, entryDate: null, exited: disposedAt !== null, exitDate: disposedAt };
+    return { entered: true, entryDate: null, exited: disposedAt !== null, exitDate: disposedAt, exitVia: disposedAt !== null ? "disposal" : null };
   }
 
   // SORTIE : le premier événement qui vide le livre de la pile — une fin de
@@ -162,13 +168,17 @@ export function derivePileStatus({
   // prime sur la sortie de possession : on lit un livre avant de s'en séparer,
   // et dater cette sortie au don placerait le mouvement dans le mauvais mois.
   if (datedFinishExit === null && hasUndatedFinish) {
-    return { entered: true, entryDate, exited: true, exitDate: null };
+    return { entered: true, entryDate, exited: true, exitDate: null, exitVia: "finish" };
   }
 
   const disposedAt = ownership?.disposedAt ?? null;
   const datedExits = [datedFinishExit, disposedAt].filter((date): date is IsoDate => date !== null).sort();
   const exitDate = datedExits[0] ?? null;
-  return { entered: true, entryDate, exited: exitDate !== null, exitDate };
+  // À date égale, la LECTURE prime sur la cession — on lit un livre avant de
+  // s'en séparer (même esprit que la fin sans date qui prime sur le don).
+  const exitVia: PileStatus["exitVia"] =
+    exitDate === null ? null : datedFinishExit !== null && datedFinishExit <= exitDate ? "finish" : "disposal";
+  return { entered: true, entryDate, exited: exitDate !== null, exitDate, exitVia };
 }
 
 /**
@@ -239,6 +249,8 @@ export type BookMovement<P extends PurchaseFact, O extends OwnershipFact> = {
   exited: boolean;
   /** Sa date de SORTIE — `null` s'il est encore en pile, ou sorti sans date connue. */
   exitDate: IsoDate | null;
+  /** Ce qui l'a sorti : lecture ou cession (#142) — `null` s'il est encore en pile. */
+  exitVia: "finish" | "disposal" | null;
   /**
    * Ce qui a fait entrer le livre : l'achat qu'annule « je ne l'ai pas acheté »,
    * ou la possession déclarée que retire « je ne le possède plus ». La vue PAL
@@ -301,7 +313,7 @@ export function bookToMovement<
         : null;
   if (entryVia === null) return null;
 
-  return { entryDate: status.entryDate, exited: status.exited, exitDate: status.exitDate, entryVia };
+  return { entryDate: status.entryDate, exited: status.exited, exitDate: status.exitDate, exitVia: status.exitVia, entryVia };
 }
 
 type Tables = Database["public"]["Tables"];
@@ -330,8 +342,14 @@ export type PalDerivation = {
   entries: PalEntry[];
   /** Les dates d'ENTRÉE de pile connues (une par livre entré à une date connue). */
   entryDates: IsoDate[];
-  /** Les dates de SORTIE de pile connues (une par livre sorti à une date connue). */
+  /** Les dates de sortie PAR LECTURE (#142) — les seules qui alimentent le flux du mois. */
   exitDates: IsoDate[];
+  /**
+   * Les dates de sortie PAR CESSION (don, revente, #142) : elles font maigrir
+   * le STOCK et la courbe (la physique de l'étagère), jamais le flux du mois —
+   * la tuile raconte le jeu (acheté vs lu), pas la gestion d'étagère.
+   */
+  disposalExitDates: IsoDate[];
   /** Les livres entrés à une date INCONNUE — du stock, jamais du flux (#101). */
   undatedEntryCount: number;
   /** Les livres sortis à une date INCONNUE — du stock, jamais du flux (#101). */
@@ -342,6 +360,7 @@ export function derivePal(books: PalBookRecord[]): PalDerivation {
   const entries: PalEntry[] = [];
   const entryDates: IsoDate[] = [];
   const exitDates: IsoDate[] = [];
+  const disposalExitDates: IsoDate[] = [];
   let undatedEntryCount = 0;
   let undatedExitCount = 0;
 
@@ -381,8 +400,11 @@ export function derivePal(books: PalBookRecord[]): PalDerivation {
     else undatedEntryCount += 1;
 
     if (movement.exited) {
-      if (movement.exitDate !== null) exitDates.push(movement.exitDate);
-      else undatedExitCount += 1;
+      // Le flux du mois ne compte que les LECTURES (#142) ; une cession part
+      // dans sa propre liste — stock et courbe seulement.
+      if (movement.exitDate === null) undatedExitCount += 1;
+      else if (movement.exitVia === "disposal") disposalExitDates.push(movement.exitDate);
+      else exitDates.push(movement.exitDate);
       continue; // sorti de la pile — l'achat, lui, reste dans l'historique
     }
 
@@ -417,5 +439,5 @@ export function derivePal(books: PalBookRecord[]): PalDerivation {
     return left.enteredAt.localeCompare(right.enteredAt);
   });
 
-  return { entries, entryDates, exitDates, undatedEntryCount, undatedExitCount };
+  return { entries, entryDates, exitDates, disposalExitDates, undatedEntryCount, undatedExitCount };
 }

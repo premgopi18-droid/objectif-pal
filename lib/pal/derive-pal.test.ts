@@ -272,13 +272,16 @@ describe("« je possède » — la possession sans achat (#101)", () => {
 });
 
 describe("« je ne le possède plus » — la sortie de possession (#101)", () => {
-  it("possédé puis donné : sorti de la pile à la date du don", () => {
+  it("possédé puis donné : sorti du STOCK à la date du don, jamais du flux (#142)", () => {
+    // La cession fait maigrir la pile et la courbe (physique de l'étagère),
+    // mais la tuile du mois ne raconte que le jeu : acheté vs LU.
     const result = derivePal([
       book({ ownerships: [owns({ ownedSince: "2026-05-01", disposedAt: "2026-07-12" })] }),
     ]);
     expect(result.entries).toEqual([]);
     expect(result.entryDates).toEqual(["2026-05-01"]);
-    expect(result.exitDates).toEqual(["2026-07-12"]);
+    expect(result.exitDates).toEqual([]);
+    expect(result.disposalExitDates).toEqual(["2026-07-12"]);
   });
 
   it("acheté puis revendu sans l'avoir lu : la possession déclarée fait autorité", () => {
@@ -289,7 +292,8 @@ describe("« je ne le possède plus » — la sortie de possession (#101)", () =
     ]);
     expect(result.entries).toEqual([]);
     expect(result.entryDates).toEqual(["2026-06-02"]);
-    expect(result.exitDates).toEqual(["2026-07-12"]);
+    expect(result.exitDates).toEqual([]);
+    expect(result.disposalExitDates).toEqual(["2026-07-12"]);
   });
 
   it("lu PUIS donné : c'est la lecture qui a vidé la pile, pas le don", () => {
@@ -304,11 +308,12 @@ describe("« je ne le possède plus » — la sortie de possession (#101)", () =
     expect(result.exitDates).toEqual(["2026-05-20"]);
   });
 
-  it("possédé sans date puis donné : entrée inconnue, sortie datée", () => {
+  it("possédé sans date puis donné : entrée inconnue, cession datée hors flux (#142)", () => {
     const result = derivePal([book({ ownerships: [owns({ disposedAt: "2026-07-12" })] })]);
     expect(result.entries).toEqual([]);
     expect(result.undatedEntryCount).toBe(1);
-    expect(result.exitDates).toEqual(["2026-07-12"]);
+    expect(result.exitDates).toEqual([]);
+    expect(result.disposalExitDates).toEqual(["2026-07-12"]);
   });
 });
 
@@ -413,6 +418,7 @@ describe("bookToMovement — le réducteur partagé faits → mouvement (#78)", 
       entryDate: "2026-07-03",
       exited: false,
       exitDate: null,
+      exitVia: null,
       entryVia: { kind: "purchase", purchase: entry },
     });
   });

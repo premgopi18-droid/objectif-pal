@@ -43,6 +43,13 @@ export type PalMovements = {
   undatedEntryCount?: number;
   /** Symétrique : les livres sortis à une date inconnue (« déjà lu », #101). */
   undatedExitCount?: number;
+  /**
+   * Les sorties par CESSION (don, revente — #142) : elles font maigrir le
+   * STOCK, jamais le flux du mois — la tuile raconte le jeu (acheté vs lu),
+   * pas la gestion d'étagère. La courbe des stats, elle, les compte (physique
+   * de l'étagère) — c'est l'appelant qui choisit où il les met.
+   */
+  disposalExitDates?: IsoDate[];
 };
 
 /** La santé de la PAL : taille de pile à date et solde du mois de référence. */
@@ -68,7 +75,7 @@ const monthOf = (date: IsoDate): Month => date.slice(0, 7);
  * donc la taille à date est exactement « entrés − sortis ».
  */
 export function computePalHealth(
-  { entryDates, exitDates, undatedEntryCount = 0, undatedExitCount = 0 }: PalMovements,
+  { entryDates, exitDates, undatedEntryCount = 0, undatedExitCount = 0, disposalExitDates = [] }: PalMovements,
   month: Month,
 ): PalHealth {
   // Les flux ne comptent QUE les mouvements datés : un mouvement sans date
@@ -77,7 +84,7 @@ export function computePalHealth(
   const monthExits = exitDates.filter((date) => monthOf(date) === month).length;
   return {
     // Le stock, lui, compte TOUT le monde : datés et non datés.
-    pileSize: entryDates.length + undatedEntryCount - exitDates.length - undatedExitCount,
+    pileSize: entryDates.length + undatedEntryCount - exitDates.length - undatedExitCount - disposalExitDates.length,
     monthEntries,
     monthExits,
     monthBalance: monthEntries - monthExits,

@@ -312,6 +312,8 @@ export function computeStats(
   // qui alimentent ensuite la dérivation partagée (taille + solde) ET la courbe.
   const palEntryDates: IsoDate[] = [];
   const palExitDates: IsoDate[] = [];
+  // Les cessions (#142) : hors flux du mois, mais la courbe les compte.
+  const palDisposalExitDates: IsoDate[] = [];
   // Les mouvements dont la date est inconnue (#101) : du stock, jamais du flux.
   let palUndatedEntryCount = 0;
   let palUndatedExitCount = 0;
@@ -471,8 +473,11 @@ export function computeStats(
     if (movement.entryDate !== null) palEntryDates.push(movement.entryDate);
     else palUndatedEntryCount += 1;
     if (movement.exited) {
-      if (movement.exitDate !== null) palExitDates.push(movement.exitDate);
-      else palUndatedExitCount += 1;
+      // Le flux du mois ne compte que les LECTURES (#142) ; la cession part à
+      // part — le stock et la COURBE (physique de l'étagère) la comptent.
+      if (movement.exitDate === null) palUndatedExitCount += 1;
+      else if (movement.exitVia === "disposal") palDisposalExitDates.push(movement.exitDate);
+      else palExitDates.push(movement.exitDate);
     }
   }
 
@@ -484,6 +489,7 @@ export function computeStats(
       exitDates: palExitDates,
       undatedEntryCount: palUndatedEntryCount,
       undatedExitCount: palUndatedExitCount,
+      disposalExitDates: palDisposalExitDates,
     },
     currentMonth,
   );
@@ -495,7 +501,7 @@ export function computeStats(
     const entryMonth = monthOf(entryDate);
     pileDeltaByMonth.set(entryMonth, (pileDeltaByMonth.get(entryMonth) ?? 0) + 1);
   }
-  for (const exitDate of palExitDates) {
+  for (const exitDate of [...palExitDates, ...palDisposalExitDates]) {
     const exitMonth = monthOf(exitDate);
     pileDeltaByMonth.set(exitMonth, (pileDeltaByMonth.get(exitMonth) ?? 0) - 1);
   }

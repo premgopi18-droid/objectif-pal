@@ -10,6 +10,7 @@ import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { formatBookSubtitle } from "@/lib/books/format";
 import { formatDateFrench, localCurrentMonth, localToday } from "@/lib/dates";
 import type { PalEntry } from "@/lib/pal/derive-pal";
+import type { IsoDate } from "@/lib/scoring/types";
 import { computePalHealth } from "@/lib/pal/health";
 
 /**
@@ -50,6 +51,8 @@ type PalViewProps = {
   /** Les livres entrés/sortis à une date inconnue (#101) — du stock, jamais du flux. */
   undatedEntryCount?: number;
   undatedExitCount?: number;
+  /** Les sorties par cession (#142) — stock seul, jamais le flux du mois. */
+  disposalExitDates?: IsoDate[];
 };
 
 export function PalView({
@@ -58,13 +61,14 @@ export function PalView({
   exitDates,
   undatedEntryCount,
   undatedExitCount,
+  disposalExitDates,
 }: PalViewProps) {
   const { run, isPending, error } = useBookGestures();
 
   // La santé du mois — dérivation PARTAGÉE (lib/pal/health), calculée avec le
   // mois LOCAL de l'appareil. La vue ne recompte plus rien elle-même.
   const { pileSize, monthEntries, monthExits, monthBalance } = computePalHealth(
-    { entryDates, exitDates, undatedEntryCount, undatedExitCount },
+    { entryDates, exitDates, undatedEntryCount, undatedExitCount, disposalExitDates },
     localCurrentMonth(),
   );
 
