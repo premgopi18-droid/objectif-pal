@@ -64,10 +64,18 @@ export type BurstItem = {
    * total du bandeau (#130, vu en prod).
    */
   restored?: boolean;
+  /**
+   * L'intention appliquée AU MOMENT du scan (#139) — on peut switcher en cours
+   * de session, la ligne doit dire SON rangement. Optionnel : une session
+   * persistée d'avant ce champ retombe sur le badge générique « Ajouté ».
+   */
+  intent?: ScanIntent;
 };
 
 const STATUS_BADGE = {
   resolving: { label: "…", state: "idle" as const },
+  // Repli seul (#139) : une ligne « added » SANS intention connue — session
+  // persistée d'avant le champ. Le cas nominal passe par ADDED_BADGE.
   added: { label: "Ajouté", state: "done" as const },
   inbox: { label: "À compléter", state: "pile" as const },
   duplicate: { label: "Déjà là", state: "idle" as const },
@@ -76,6 +84,20 @@ const STATUS_BADGE = {
 
 /** Le malus affiché vient du barème — jamais recopié en dur (CLAUDE.md). */
 const PENALTY_POINTS = Math.abs(SCORING_SCALE.unreadPurchasePenalty);
+
+/**
+ * Le badge d'une ligne réussie dit le RANGEMENT réel (#139) — on switche
+ * d'intention en cours de session, « Ajouté » ne disait plus rien. Mêmes
+ * couleurs que les états de la Biblio (design-specs §4) : un livre a la même
+ * couleur d'état sur toutes les surfaces. Exhaustif par construction
+ * (`Record<ScanIntent, …>`) : une 5ᵉ intention sans badge casserait le build.
+ */
+const ADDED_BADGE: Record<ScanIntent, { label: string; state: "done" | "pile" | "penalty" }> = {
+  own: { label: "Dans la PAL", state: "pile" },
+  own_read: { label: "Lu", state: "done" },
+  read: { label: "Emprunt lu", state: "done" },
+  purchase: { label: `Acheté −${PENALTY_POINTS}`, state: "penalty" },
+};
 
 const INTENT_OPTIONS: { value: ScanIntent; label: string }[] = [
   { value: "own", label: "Je possède" },
@@ -173,7 +195,7 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
         // La ligne apparaît AVANT toute requête : c'est ce qui rend la main
         // immédiatement et permet d'enchaîner. Le reste se met à jour après.
         return [
-          { key, code, status: "resolving", title: null, category: null, categoryGuessed: false, bookId: null, inboxId: null, message: null },
+          { key, code, status: "resolving", title: null, category: null, categoryGuessed: false, bookId: null, inboxId: null, message: null, intent: capturedIntent },
           ...current,
         ];
       });
@@ -297,7 +319,7 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
       const purchaseDate = shelfDate ?? localToday();
 
       setItems((current) => [
-        { key, code: null, status: "resolving", title: "Livre photographié", category: null, categoryGuessed: false, bookId: null, inboxId: null, message: null },
+        { key, code: null, status: "resolving", title: "Livre photographié", category: null, categoryGuessed: false, bookId: null, inboxId: null, message: null, intent: capturedIntent },
         ...current,
       ]);
 
@@ -387,7 +409,11 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="text-xl font-bold">Scan d&apos;étagère</h1>
-          <p className="mt-0.5 text-sm text-ink2">Enchaîne les livres — rien ne s&apos;arrête, rien ne se perd.</p>
+          {/* « Enregistré aussitôt » (#139) : l'écriture immédiate a surpris en
+              prod — elle doit être annoncée, pas découverte. */}
+          <p className="mt-0.5 text-sm text-ink2">
+            Enchaîne les livres — chaque scan est enregistré aussitôt, rien ne se perd.
+          </p>
         </div>
         {/* « Terminer » CLÔT la session (#131) : le prochain mode rafale
             repart à vide — contrairement à une navigation, qui la préserve. */}
@@ -484,7 +510,9 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
       {items.length > 0 && (
         <ul className="flex flex-col gap-2">
           {items.map((item) => {
-            const badge = STATUS_BADGE[item.status];
+            // Le rangement réel quand on le connaît (#139), le statut sinon.
+            const badge =
+              item.status === "added" && item.intent ? ADDED_BADGE[item.intent] : STATUS_BADGE[item.status];
             return (
               <li key={item.key} className="flex items-center gap-3 rounded-card border border-line bg-card px-3 py-2">
                 <div className="min-w-0 flex-1">
