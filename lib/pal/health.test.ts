@@ -243,3 +243,19 @@ describe("les mouvements sans date — le stock sans les flux (#101)", () => {
     expect(health).toEqual({ pileSize: 0, monthEntries: 0, monthExits: 1, monthBalance: -1 });
   });
 });
+
+describe("les cessions (#142) — du stock, jamais du flux", () => {
+  it("une cession fait maigrir la pile mais ne compte pas en sortie du mois", () => {
+    const health = computePalHealth(
+      {
+        entryDates: ["2026-07-02", "2026-07-03"],
+        exitDates: ["2026-07-10"], // une lecture
+        disposalExitDates: ["2026-07-12"], // un don — le récit du mois l'ignore
+      },
+      "2026-07",
+    );
+    expect(health.pileSize).toBe(0); // 2 entrés − 1 lu − 1 donné : le stock dit vrai
+    expect(health.monthExits).toBe(1); // seule la LECTURE compte au mois
+    expect(health.monthBalance).toBe(1); // 2 entrées − 1 lue
+  });
+});

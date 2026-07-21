@@ -591,6 +591,11 @@ préserve l'invariant : *le dernier point vaut toujours la taille réelle de la 
   a le même filet pour les faits qui n'y seraient pas passés.
 - Une **fin de lecture non datée prime sur un don** pour la sortie : dater la sortie au don placerait le
   mouvement dans le mauvais mois.
+- **Les sorties du mois ne comptent que les LECTURES** (#142, 21/07/2026) : la tuile « Pile ce mois-ci »
+  raconte le jeu — *acheté vs lu* — pas la gestion d'étagère. Une cession (don, revente) fait maigrir le
+  **stock** (« Dans la pile ») et la **courbe** des stats (la physique de l'étagère), mais n'apparaît jamais
+  dans le flux du mois. Deux sémantiques assumées, dérivées du même `exitVia`. Aucune migration : le flux est
+  dérivé, jamais stocké (§7) — tous les comptes se recalculent au déploiement.
 
 #### Ce qu'une lecture non datée compte quand même
 
