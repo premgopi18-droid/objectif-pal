@@ -3,7 +3,9 @@ import {
   distinctMonths,
   distinctSeriesNames,
   filterJournalEntries,
+  monthSeparatorBefore,
   NO_JOURNAL_FILTERS,
+  sortJournalEntries,
 } from "./filter-journal-entries";
 import type { JournalEntry } from "./journal-list";
 
@@ -15,17 +17,18 @@ import type { JournalEntry } from "./journal-list";
 let entryCounter = 0;
 
 function entry(overrides: {
+  id?: string;
   status?: JournalEntry["status"];
-  startedAt?: string;
+  startedAt?: string | null;
   finishedAt?: string | null;
   category?: JournalEntry["book"]["category"];
   seriesName?: string | null;
 } = {}): JournalEntry {
   entryCounter += 1;
   return {
-    id: `reading-${entryCounter}`,
+    id: overrides.id ?? `reading-${entryCounter}`,
     status: overrides.status ?? "finished",
-    startedAt: overrides.startedAt ?? "2026-07-01",
+    startedAt: overrides.startedAt === undefined ? "2026-07-01" : overrides.startedAt,
     finishedAt: overrides.finishedAt === undefined ? "2026-07-10" : overrides.finishedAt,
     rating: null,
     comment: null,
@@ -97,5 +100,54 @@ describe("les options dérivées", () => {
       entry({ finishedAt: "2026-03-02" }),
     ];
     expect(distinctMonths(entries)).toEqual(["2026-07", "2026-03", "2025-12"]);
+  });
+});
+
+describe("sortJournalEntries (#146) — l'activité d'abord, le temps ensuite, le sans-date à la fin", () => {
+  const reading = entry({ id: "en-cours", status: "reading", startedAt: "2026-07-10" });
+  const justFinished = entry({ id: "fini-hier", status: "finished", startedAt: "2026-07-01", finishedAt: "2026-07-21" });
+  const finishedInJune = entry({ id: "fini-juin", status: "finished", startedAt: "2026-06-01", finishedAt: "2026-06-15" });
+  const abandoned = entry({ id: "abandonne", status: "abandoned", startedAt: "2026-07-05" });
+  const undated = entry({ id: "sans-date", status: "finished", startedAt: null, finishedAt: null });
+
+  it("le sans-date ne peut plus JAMAIS enterrer la lecture en cours (le bug du tri SQL)", () => {
+    // PostgreSQL sort les NULL en premier en desc : les « déjà lu » de rafale
+    // arrivaient en tête. Ici on fige l'ordre voulu, quel que soit l'ordre reçu.
+    const sorted = sortJournalEntries([undated, finishedInJune, abandoned, justFinished, reading]);
+    expect(sorted.map((item) => item.id)).toEqual(["en-cours", "fini-hier", "fini-juin", "abandonne", "sans-date"]);
+  });
+
+  it("dans les terminées, la FIN la plus récente d'abord — « je viens de le lire » en haut", () => {
+    const sorted = sortJournalEntries([finishedInJune, justFinished]);
+    expect(sorted[0].id).toBe("fini-hier");
+  });
+
+  it("ne mute pas la liste d'origine", () => {
+    const input = [undated, reading];
+    sortJournalEntries(input);
+    expect(input[0].id).toBe("sans-date");
+  });
+});
+
+describe("monthSeparatorBefore (#146) — le carnet de lecture", () => {
+  const july = entry({ id: "a", status: "finished", startedAt: null, finishedAt: "2026-07-21" });
+  const julyToo = entry({ id: "b", status: "finished", startedAt: null, finishedAt: "2026-07-02" });
+  const june = entry({ id: "c", status: "finished", startedAt: null, finishedAt: "2026-06-15" });
+  const reading = entry({ id: "d", status: "reading", startedAt: "2026-07-10" });
+  const undated = entry({ id: "e", status: "finished", startedAt: null, finishedAt: null });
+
+  it("un séparateur quand le mois de fin change, aucun sinon", () => {
+    expect(monthSeparatorBefore(null, july)).toBe("2026-07");
+    expect(monthSeparatorBefore(july, julyToo)).toBeNull();
+    expect(monthSeparatorBefore(julyToo, june)).toBe("2026-06");
+  });
+
+  it("jamais de séparateur hors de la section des terminées datées", () => {
+    expect(monthSeparatorBefore(null, reading)).toBeNull();
+    expect(monthSeparatorBefore(july, undated)).toBeNull();
+  });
+
+  it("après une en-cours, la première terminée ouvre son mois", () => {
+    expect(monthSeparatorBefore(reading, july)).toBe("2026-07");
   });
 });

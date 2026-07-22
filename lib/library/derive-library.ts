@@ -30,7 +30,7 @@ export type LibraryBookRow = Pick<
 > & {
   // `finished_at` et `purchased_at` sont nécessaires au réducteur de pile
   // partagé (il raisonne sur des dates, pas sur des comptages).
-  readings: Pick<Tables["readings"]["Row"], "status" | "finished_at" | "deleted_at">[] | null;
+  readings: Pick<Tables["readings"]["Row"], "status" | "started_at" | "finished_at" | "deleted_at">[] | null;
   purchases: Pick<Tables["purchases"]["Row"], "purchased_at" | "deleted_at">[] | null;
   ownerships?: Pick<Tables["ownerships"]["Row"], "owned_since" | "disposed_at" | "deleted_at">[] | null;
 };
@@ -71,6 +71,13 @@ export type LibraryEntry = {
    * seule voie de correction (#100). La vue s'en sert pour le dire.
    */
   hasBarcode: boolean;
+  /**
+   * La DERNIÈRE activité du livre (#146) : max de la création de fiche, des
+   * débuts/fins de lecture et des achats. C'est elle qui ordonne « Récents » —
+   * la fiche créée avant-hier mais commencée hier remonte. Comparaison
+   * lexicographique : dates ISO et timestamps se classent ensemble.
+   */
+  lastActivityAt: string;
 };
 
 export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
@@ -125,6 +132,16 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
             ? "abandoned"
             : "shelved";
 
+    // La dernière activité (#146) — created_at existe toujours : jamais vide.
+    const lastActivityAt = [
+      row.created_at,
+      ...readings.flatMap((reading) => [reading.started_at, reading.finished_at]),
+      ...purchases.map((purchase) => purchase.purchased_at),
+    ]
+      .filter((date): date is string => date !== null)
+      .sort()
+      .at(-1) as string;
+
     entries.push({
       bookId: row.id,
       title: row.title,
@@ -144,6 +161,7 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
       publisher: row.publisher,
       pageCount: row.page_count,
       hasBarcode: row.barcode_raw !== null,
+      lastActivityAt,
     });
   }
   return entries;
@@ -176,7 +194,10 @@ export function sortLibraryEntries(entries: LibraryEntry[], order: LibrarySortOr
   if (order === "alphabetical") {
     sorted.sort((left, right) => left.title.localeCompare(right.title, "fr"));
   } else {
-    sorted.sort((left, right) => right.createdAt.localeCompare(left.createdAt));
+    // « Récents » = dernière ACTIVITÉ (#146), plus la création de fiche : la
+    // fiche d'avant-hier commencée hier remonte, une rafale n'enterre plus
+    // le livre qu'on vient de finir.
+    sorted.sort((left, right) => right.lastActivityAt.localeCompare(left.lastActivityAt));
   }
   return sorted;
 }

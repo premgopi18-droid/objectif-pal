@@ -57,3 +57,50 @@ export function distinctMonths(entries: JournalEntry[]): Month[] {
   }
   return [...months].sort().reverse();
 }
+
+/**
+ * L'ordre du journal (#146) : l'activité d'abord, le temps ensuite, le
+ * sans-date à la fin. Le tri SQL par `started_at desc` mettait les NULL en
+ * PREMIER (comportement PostgreSQL en desc) : les « déjà lu » sans date de
+ * rafale enterraient la lecture en cours — le bug qui a motivé le ticket.
+ *
+ *  1. EN COURS (début récent d'abord) — la vie active, 1-3 livres ;
+ *  2. TERMINÉES datées, par FIN décroissante — « je viens de le lire » en haut ;
+ *  3. ABANDONNÉES (début récent d'abord) ;
+ *  4. SANS-DATE (ni début ni fin) tout en bas — elles n'appartiennent à aucun
+ *     moment, elles ne doivent enterrer personne.
+ */
+const journalRankOf = (entry: JournalEntry): number => {
+  if (entry.status === "reading") return 0;
+  if (entry.status === "finished" && entry.finishedAt !== null) return 1;
+  if (entry.status === "abandoned") return 2;
+  return 3; // terminée sans aucune date
+};
+
+/** La date qui ordonne DANS un groupe — désc. : la plus récente d'abord. */
+const journalSortDateOf = (entry: JournalEntry): string =>
+  entry.status === "finished" ? (entry.finishedAt ?? "") : (entry.startedAt ?? "");
+
+export function sortJournalEntries(entries: JournalEntry[]): JournalEntry[] {
+  return [...entries].sort((left, right) => {
+    const rank = journalRankOf(left) - journalRankOf(right);
+    if (rank !== 0) return rank;
+    return journalSortDateOf(right).localeCompare(journalSortDateOf(left));
+  });
+}
+
+/**
+ * Le séparateur de mois AU-DESSUS d'une entrée (#146) — uniquement dans la
+ * section des terminées datées (le carnet de lecture, lisible à l'antenne) :
+ * le mois de la fin, quand il change par rapport à l'entrée précédente.
+ * `null` = pas de séparateur (autres sections, ou même mois).
+ */
+export function monthSeparatorBefore(previous: JournalEntry | null, entry: JournalEntry): Month | null {
+  if (entry.status !== "finished" || entry.finishedAt === null) return null;
+  const month = entry.finishedAt.slice(0, 7);
+  const previousMonth =
+    previous !== null && previous.status === "finished" && previous.finishedAt !== null
+      ? previous.finishedAt.slice(0, 7)
+      : null;
+  return month === previousMonth ? null : month;
+}

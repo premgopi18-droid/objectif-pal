@@ -431,9 +431,12 @@ export function derivePal(books: PalBookRecord[]): PalDerivation {
     });
   }
 
-  // Les entrées sans date connue d'abord (l'étagère d'avant, par définition
-  // antérieure), puis les autres du plus ancien au plus récent.
+  // LES EN-COURS EN TÊTE (#146) — « où en suis-je ? » est la première question.
+  // Derrière : la file d'attente — les entrées sans date d'abord (l'étagère
+  // d'avant, par définition antérieure), puis du plus ancien au plus récent
+  // (la philosophie de la pile : on lit d'abord ce qui attend).
   entries.sort((left, right) => {
+    if (left.isInProgress !== right.isInProgress) return left.isInProgress ? -1 : 1;
     if (left.enteredAt === null) return right.enteredAt === null ? 0 : -1;
     if (right.enteredAt === null) return 1;
     return left.enteredAt.localeCompare(right.enteredAt);
