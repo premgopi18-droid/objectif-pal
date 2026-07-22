@@ -36,6 +36,7 @@ import {
   filterJournalEntries,
   monthSeparatorBefore,
   sortJournalEntries,
+  UNDATED_SEPARATOR,
   NO_JOURNAL_FILTERS,
   type JournalFilters,
 } from "./filter-journal-entries";
@@ -215,7 +216,7 @@ export function JournalList({ entries }: { entries: JournalEntry[] }) {
                 <Fragment key={entry.id}>
                   {separatorMonth !== null && (
                     <li aria-hidden className="mt-2 text-xs font-bold uppercase tracking-wide text-ink3">
-                      {formatMonthFrench(separatorMonth)}
+                      {separatorMonth === UNDATED_SEPARATOR ? "Plus anciennes — sans date" : formatMonthFrench(separatorMonth)}
                     </li>
                   )}
                   <JournalItem

@@ -142,9 +142,16 @@ describe("monthSeparatorBefore (#146) — le carnet de lecture", () => {
     expect(monthSeparatorBefore(julyToo, june)).toBe("2026-06");
   });
 
-  it("jamais de séparateur hors de la section des terminées datées", () => {
+  it("jamais de séparateur de MOIS hors de la section des terminées datées", () => {
     expect(monthSeparatorBefore(null, reading)).toBeNull();
-    expect(monthSeparatorBefore(july, undated)).toBeNull();
+  });
+
+  it("le groupe sans date ouvre son en-tête « sans-date », une seule fois (#150)", () => {
+    // L'étagère d'avant, saisie pour mettre les données à jour : jamais
+    // mélangée visuellement au mois courant.
+    const undatedToo = entry({ id: "f", status: "finished", startedAt: null, finishedAt: null });
+    expect(monthSeparatorBefore(july, undated)).toBe("sans-date");
+    expect(monthSeparatorBefore(undated, undatedToo)).toBeNull();
   });
 
   it("après une en-cours, la première terminée ouvre son mois", () => {
