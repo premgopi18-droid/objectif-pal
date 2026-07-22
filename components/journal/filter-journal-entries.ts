@@ -90,12 +90,28 @@ export function sortJournalEntries(entries: JournalEntry[]): JournalEntry[] {
 }
 
 /**
- * Le séparateur de mois AU-DESSUS d'une entrée (#146) — uniquement dans la
- * section des terminées datées (le carnet de lecture, lisible à l'antenne) :
- * le mois de la fin, quand il change par rapport à l'entrée précédente.
- * `null` = pas de séparateur (autres sections, ou même mois).
+ * L'en-tête du groupe SANS DATE (#150) — les lectures d'avant l'app, saisies
+ * pour mettre les données à jour : déjà reléguées en bas (#146), elles ont
+ * leur en-tête comme les mois, pour ne jamais se mélanger au mois courant.
  */
-export function monthSeparatorBefore(previous: JournalEntry | null, entry: JournalEntry): Month | null {
+export const UNDATED_SEPARATOR = "sans-date" as const;
+
+const isUndatedFinish = (entry: JournalEntry): boolean =>
+  entry.status === "finished" && entry.finishedAt === null;
+
+/**
+ * Le séparateur AU-DESSUS d'une entrée (#146, #150) : le mois de la fin quand
+ * il change (section des terminées datées — le carnet de lecture), ou
+ * l'en-tête « sans date » à l'entrée dans le groupe du bas.
+ * `null` = pas de séparateur (autres sections, ou même groupe).
+ */
+export function monthSeparatorBefore(
+  previous: JournalEntry | null,
+  entry: JournalEntry,
+): Month | typeof UNDATED_SEPARATOR | null {
+  if (isUndatedFinish(entry)) {
+    return previous !== null && isUndatedFinish(previous) ? null : UNDATED_SEPARATOR;
+  }
   if (entry.status !== "finished" || entry.finishedAt === null) return null;
   const month = entry.finishedAt.slice(0, 7);
   const previousMonth =
