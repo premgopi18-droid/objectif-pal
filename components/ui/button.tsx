@@ -32,7 +32,10 @@ const BASE =
 const VARIANTS: Record<ButtonVariant, string> = {
   grad: "bg-grad text-bg0 shadow-grad",
   ghost: "bg-card2 text-ink border border-line",
-  done: "bg-green/15 text-green border border-green/30",
+  // Vert PLEIN (#148) : un état est un voile, un geste est plein — la variante
+  // translucide était indiscernable du badge « Terminée » juste à côté. Le
+  // vert reste (la couleur des points), le texte sombre tranche dessus.
+  done: "bg-green font-bold text-bg0",
   danger: "bg-card2 text-red border border-line",
 };
 
