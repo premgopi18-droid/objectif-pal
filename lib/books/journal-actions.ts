@@ -67,6 +67,10 @@ export async function finishReading(readingId: string, finishedAt: string): Prom
 
   revalidatePath("/journal");
   revalidatePath("/bilan");
+  // Une fin de lecture SORT le livre de la pile (#144) : le volet Pile de la
+  // Biblio doit le voir — trou préexistant, terminer au Journal la laissait
+  // périmée jusqu'au rechargement.
+  revalidatePath("/bibliotheque");
   return { ok: true };
 }
 
@@ -111,6 +115,34 @@ export async function startReadingForBook(bookId: string, startedAt: string): Pr
   revalidatePath("/journal");
   revalidatePath("/bibliotheque");
   return { ok: true };
+}
+
+/**
+ * « Terminé ✓ » par LIVRE (#144) — le miroir de `startReadingForBook`, pour la
+ * Pile et la Biblio : ces surfaces connaissent le livre, pas l'id de lecture.
+ * On retrouve la lecture EN COURS du livre puis on rejoue exactement
+ * `finishReading` — le geste des points n'a qu'une implémentation.
+ */
+export async function finishReadingForBook(bookId: string, finishedAt: string): Promise<JournalActionResult> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+  if (!isValidIsoDate(finishedAt)) return { ok: false, error: "Date de fin invalide." };
+
+  const { data: reading, error: readError } = await session.supabase
+    .from("readings")
+    .select("id")
+    .eq("book_id", bookId)
+    .eq("user_id", session.user.id)
+    .eq("status", "reading")
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (readError) {
+    console.error("[journal] finishReadingForBook:", readError.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+  if (!reading) return { ok: false, error: "Aucune lecture en cours sur ce livre." };
+
+  return finishReading(reading.id, finishedAt);
 }
 
 /** Abandonner — 0 point, et toujours réversible (specs §4.2). */
