@@ -36,17 +36,15 @@ export type LibraryBookRow = Pick<
 };
 
 /**
- * L'état d'un livre VU DE LA BIBLIOTHÈQUE — un résumé d'étagère, pas le
- * détail du journal. Priorité : une lecture en cours domine tout ; sinon un
- * livre déjà terminé ; sinon possédé non lu (la PAL, §4.6 — l'abandon n'en
- * sort pas) ; sinon abandonné sans possession ; sinon aucune trace active
- * (« sur l'étagère » — exactement les livres invisibles d'avant #49).
- *
- * Les livres CÉDÉS (donné, revendu — #101) ne sont plus un statut : depuis
- * #114, « retirer de ma bibliothèque » retire vraiment — ils sortent de la
- * liste. Leurs lectures et points restent au journal, au bilan et aux stats.
+ * L'état d'un livre VU DE L'INVENTAIRE (#152) : une lecture en cours domine ;
+ * sinon déjà terminé ; sinon possédé non lu = « Dans la PAL » (§4.6 —
+ * l'abandon n'en sort pas, une fiche sans lecture non plus). Trois états
+ * seulement : dans un inventaire du possédé, « abandonné » et « sans
+ * activité » sont des sous-cas de la pile — un possédé jamais fini est à
+ * lire, point. Les cédés et les emprunts ne sont plus DANS la liste (#114,
+ * #152) : leur histoire vit au Journal et au Bilan.
  */
-export type LibraryStatus = "reading" | "finished" | "in-pile" | "abandoned" | "shelved";
+export type LibraryStatus = "reading" | "finished" | "in-pile";
 
 export type LibraryEntry = {
   bookId: string;
@@ -114,23 +112,18 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
     });
     const isInPile = movement !== null && !movement.exited;
 
-    // « Retirer de ma bibliothèque » retire VRAIMENT (#114) : un livre cédé
-    // (donné, revendu) sort de la liste — son histoire, elle, ne bouge pas
-    // (lectures au journal, points au bilan, mouvements sur la courbe).
-    // SAUF s'il est revenu en pile par le filet du rachat (#117, review #118) :
-    // la ligne de possession peut être restée close alors que le mouvement dit
-    // « racheté » — le masquer contredirait le volet Pile du même écran.
-    if (isDisposed && !isInPile) continue;
+    // LA BIBLIO EST L'INVENTAIRE DU POSSÉDÉ (#152) : un emprunt lu, un livre
+    // cédé (#114) ou une fiche sans rien n'y figurent pas — leur histoire vit
+    // au Journal, leurs points au Bilan. SAUF le retour en pile par le filet
+    // du rachat (#117, review #118) : le mouvement fait foi sur la ligne close.
+    const isOwned = ownerships.some((o) => o.disposed_at === null) || (purchases.length > 0 && !isDisposed);
+    if (!isOwned && !isInPile) continue;
 
     const status: LibraryStatus = readings.some((reading) => reading.status === "reading")
       ? "reading"
       : readings.some((reading) => reading.status === "finished")
         ? "finished"
-        : isInPile
-          ? "in-pile"
-          : readings.some((reading) => reading.status === "abandoned")
-            ? "abandoned"
-            : "shelved";
+        : "in-pile"; // possédé, jamais fini — à lire (l'abandon n'en sort pas, §4.6)
 
     // La dernière activité (#146) — created_at existe toujours : jamais vide.
     const lastActivityAt = [
@@ -153,10 +146,9 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
       status,
       activeReadingCount: readings.length,
       activePurchaseCount: purchases.length,
-      // Possédé = une possession déclarée, ou un achat actif. Les cédés sont
-      // déjà sortis de la liste (#114) — ce qui distingue ici un livre de
-      // l'étagère d'un livre seulement LU (emprunt, médiathèque).
-      isOwned: ownerships.length > 0 || purchases.length > 0,
+      // Tout ce qui reste est possédé (le filtre #152 est passé) — sauf le
+      // cas du filet du rachat, couvert par le mouvement.
+      isOwned: true,
       authors: row.authors,
       publisher: row.publisher,
       pageCount: row.page_count,

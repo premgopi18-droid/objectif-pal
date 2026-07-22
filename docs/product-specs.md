@@ -545,6 +545,14 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
   > silence. Le « × » de la rafale, lui, garde la suppression douce : c'est l'annulation immédiate d'un scan
   > de la session, l'erreur y est certaine.
 
+#### La Biblio est l'inventaire du possédé (#152, 22/07/2026)
+
+La Biblio reflète la vraie bibliothèque : **ce qu'on possède**, avec les statuts (En cours / Lu / Dans la
+PAL — trois états : un possédé jamais fini est à lire). Un **emprunt lu** n'y figure pas — il vit au
+Journal, ses points au Bilan. Corollaire : la **catégorie se corrige au Journal** (puce + tiroir partagé de
+la rafale) — elle détermine les points de la lecture, et pour un emprunt le Journal est sa seule surface.
+« Supprimer et rescanner » a été rejeté : perte de note/date, re-devinette identique depuis le cache.
+
 #### L'ordre d'affichage (#146, 22/07/2026) — l'activité d'abord, le temps ensuite, le sans-date à la fin
 
 Retrouver « le livre que je viens de finir » ou « celui que je viens de commencer » prime sur tout tri brut :

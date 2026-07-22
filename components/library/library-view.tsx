@@ -25,7 +25,7 @@ import {
 import type { ComponentProps } from "react";
 
 /**
- * La vue Bibliothèque (issue #49) — les livres possédés ou lus, recherche en
+ * La vue Bibliothèque (issue #49, #152) — l'INVENTAIRE du possédé, recherche en
  * mémoire (même réserve que les filtres du journal #34 : client tant que pas
  * de pagination #32), et les gestes : commencer une lecture, photo de
  * couverture, éditer/fusionner (#100), et « Retirer de ma bibliothèque »
@@ -34,16 +34,13 @@ import type { ComponentProps } from "react";
  */
 
 /**
- * Le badge d'état — priorités §4.12 : En cours > Lu > Dans la PAL > Abandonné >
- * Sans activité. Chaque état pointe sur une variante du `Badge` (#66) : cyan,
- * vert, magenta, muet, ambre — dans le même ordre.
+ * Le badge d'état — priorités §4.12 : En cours > Lu > Dans la PAL. Trois états
+ * seulement depuis l'inventaire (#152) : un possédé jamais fini est à lire.
  */
 const STATUS_BADGES: Record<LibraryStatus, { label: string; state: ComponentProps<typeof Badge>["state"] }> = {
   reading: { label: "En cours", state: "reading" },
   finished: { label: "Lu", state: "done" },
   "in-pile": { label: "Dans la PAL", state: "pile" },
-  abandoned: { label: "Abandonné", state: "abandoned" },
-  shelved: { label: "Sans activité", state: "idle" },
 };
 
 type LibraryViewProps = {
@@ -109,8 +106,8 @@ export function LibraryView({ entries }: LibraryViewProps) {
   return (
     <div className="mt-4 flex flex-col gap-4">
       <p className="text-sm text-ink2">
-        {entries.length} livre{entries.length > 1 ? "s" : ""} — tout ce que tu as scanné ou saisi, y compris
-        sans lecture ni achat en cours.
+        {entries.length} livre{entries.length > 1 ? "s" : ""} — l&apos;inventaire de ce que tu possèdes.
+        Les emprunts lus vivent au Journal.
       </p>
 
       <div className="flex gap-2">
