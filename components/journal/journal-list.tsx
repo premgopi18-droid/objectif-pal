@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { Fragment, useMemo, useState } from "react";
 import {
   abandonReading,
   finishReading,
@@ -34,6 +34,8 @@ import {
   distinctMonths,
   distinctSeriesNames,
   filterJournalEntries,
+  monthSeparatorBefore,
+  sortJournalEntries,
   NO_JOURNAL_FILTERS,
   type JournalFilters,
 } from "./filter-journal-entries";
@@ -110,7 +112,9 @@ export function JournalList({ entries }: { entries: JournalEntry[] }) {
   // mémoire) ; le filtrage est un Array.filter — aucune requête (§4.2, #34).
   const seriesOptions = useMemo(() => distinctSeriesNames(entries), [entries]);
   const monthOptions = useMemo(() => distinctMonths(entries), [entries]);
-  const visible = useMemo(() => filterJournalEntries(entries, filters), [entries, filters]);
+  // Filtré PUIS trié « activité d'abord » (#146) — le tri SQL brut mettait les
+  // sans-date en tête et enterrait la lecture en cours.
+  const visible = useMemo(() => sortJournalEntries(filterJournalEntries(entries, filters)), [entries, filters]);
   const hasActiveFilters = Object.values(filters).some((value) => value !== "all");
 
   if (entries.length === 0) {
@@ -202,16 +206,28 @@ export function JournalList({ entries }: { entries: JournalEntry[] }) {
             </p>
           )}
           <ul className="flex flex-col gap-3">
-            {visible.map((entry) => (
-              <JournalItem
-                key={entry.id}
-                entry={entry}
-                run={run}
-                isPending={isPending}
-                onError={setError}
-                onCelebrate={setToastMessage}
-              />
-            ))}
+            {visible.map((entry, index) => {
+              // Le carnet de lecture (#146) : un séparateur quand le mois de
+              // fin change, dans la section des terminées datées seulement.
+              // Fragment : JournalItem rend son propre <li>, le séparateur a le sien.
+              const separatorMonth = monthSeparatorBefore(visible[index - 1] ?? null, entry);
+              return (
+                <Fragment key={entry.id}>
+                  {separatorMonth !== null && (
+                    <li aria-hidden className="mt-2 text-xs font-bold uppercase tracking-wide text-ink3">
+                      {formatMonthFrench(separatorMonth)}
+                    </li>
+                  )}
+                  <JournalItem
+                    entry={entry}
+                    run={run}
+                    isPending={isPending}
+                    onError={setError}
+                    onCelebrate={setToastMessage}
+                  />
+                </Fragment>
+              );
+            })}
           </ul>
         </>
       )}

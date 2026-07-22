@@ -28,7 +28,7 @@ describe("la dérivation de la bibliothèque (#49)", () => {
   it("une lecture en cours domine tout — même un achat actif", () => {
     const [entry] = deriveLibrary([
       bookRow({
-        readings: [{ status: "reading", finished_at: null, deleted_at: null }],
+        readings: [{ status: "reading", started_at: null, finished_at: null, deleted_at: null }],
         purchases: [{ purchased_at: "2026-06-01", deleted_at: null }],
       }),
     ]);
@@ -38,7 +38,7 @@ describe("la dérivation de la bibliothèque (#49)", () => {
   it("terminé > possédé : un livre lu ET racheté s'affiche « Lu »", () => {
     const [entry] = deriveLibrary([
       bookRow({
-        readings: [{ status: "finished", finished_at: "2026-06-15", deleted_at: null }],
+        readings: [{ status: "finished", started_at: null, finished_at: "2026-06-15", deleted_at: null }],
         purchases: [{ purchased_at: "2026-06-01", deleted_at: null }],
       }),
     ]);
@@ -48,7 +48,7 @@ describe("la dérivation de la bibliothèque (#49)", () => {
   it("possédé non lu = dans la PAL — l'abandon n'en sort pas (§4.6)", () => {
     const [entry] = deriveLibrary([
       bookRow({
-        readings: [{ status: "abandoned", finished_at: null, deleted_at: null }],
+        readings: [{ status: "abandoned", started_at: null, finished_at: null, deleted_at: null }],
         purchases: [{ purchased_at: "2026-06-01", deleted_at: null }],
       }),
     ]);
@@ -56,14 +56,14 @@ describe("la dérivation de la bibliothèque (#49)", () => {
   });
 
   it("abandonné sans possession reste « Abandonné »", () => {
-    const [entry] = deriveLibrary([bookRow({ readings: [{ status: "abandoned", finished_at: null, deleted_at: null }] })]);
+    const [entry] = deriveLibrary([bookRow({ readings: [{ status: "abandoned", started_at: null, finished_at: null, deleted_at: null }] })]);
     expect(entry.status).toBe("abandoned");
   });
 
   it("aucune trace active = « Sans activité » — l'angle mort que la vue rend visible", () => {
     const [entry] = deriveLibrary([
       bookRow({
-        readings: [{ status: "finished", finished_at: "2026-06-15", deleted_at: "2026-07-10T00:00:00Z" }],
+        readings: [{ status: "finished", started_at: null, finished_at: "2026-06-15", deleted_at: "2026-07-10T00:00:00Z" }],
         purchases: [{ purchased_at: "2026-06-01", deleted_at: "2026-07-10T00:00:00Z" }],
       }),
     ]);
@@ -129,7 +129,7 @@ describe("la possession déclarée dans la bibliothèque (#101)", () => {
     const [entry] = deriveLibrary([
       bookRow({
         ownerships: [owns()],
-        readings: [{ status: "finished", finished_at: null, deleted_at: null }],
+        readings: [{ status: "finished", started_at: null, finished_at: null, deleted_at: null }],
       }),
     ]);
     expect(entry.status).toBe("finished");
@@ -171,7 +171,7 @@ describe("la possession déclarée dans la bibliothèque (#101)", () => {
 
   it("une lecture sans possession reste un emprunt — jamais dans la PAL", () => {
     const [entry] = deriveLibrary([
-      bookRow({ readings: [{ status: "finished", finished_at: "2026-06-15", deleted_at: null }] }),
+      bookRow({ readings: [{ status: "finished", started_at: null, finished_at: "2026-06-15", deleted_at: null }] }),
     ]);
     expect(entry.status).toBe("finished");
     expect(entry.isOwned).toBe(false);
@@ -183,11 +183,35 @@ describe("la possession déclarée dans la bibliothèque (#101)", () => {
     const [entry] = deriveLibrary([
       bookRow({
         purchases: [{ purchased_at: "2026-07-05", deleted_at: null }],
-        readings: [{ status: "abandoned", finished_at: null, deleted_at: null }],
+        readings: [{ status: "abandoned", started_at: null, finished_at: null, deleted_at: null }],
         ownerships: [owns({ ownedSince: "2026-07-05" })],
       }),
     ]);
     // Pas de fin ici : l'abandon ne sort pas de la pile, le livre y est bien.
     expect(entry.status).toBe("in-pile");
+  });
+});
+
+describe("« Récents » = dernière activité (#146)", () => {
+  it("la fiche d'avant-hier commencée hier remonte au-dessus de la rafale d'aujourd'hui... d'hier soir", () => {
+    const [oldButActive, justCreated] = deriveLibrary([
+      bookRow({
+        id: "vieux-mais-actif",
+        created_at: "2026-07-20T10:00:00Z",
+        readings: [{ status: "reading", started_at: "2026-07-22", finished_at: null, deleted_at: null }],
+      }),
+      bookRow({ id: "fiche-neuve", created_at: "2026-07-21T09:00:00Z" }),
+    ]);
+    const sorted = sortLibraryEntries([justCreated, oldButActive], "recent");
+    expect(sorted[0].bookId).toBe("vieux-mais-actif");
+  });
+
+  it("sans aucune activité, la création de fiche fait foi — comme avant", () => {
+    const entries = deriveLibrary([
+      bookRow({ id: "ancien", created_at: "2026-07-01T10:00:00Z" }),
+      bookRow({ id: "recent", created_at: "2026-07-21T10:00:00Z" }),
+    ]);
+    const sorted = sortLibraryEntries(entries, "recent");
+    expect(sorted[0].bookId).toBe("recent");
   });
 });

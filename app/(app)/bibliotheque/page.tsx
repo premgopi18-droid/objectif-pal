@@ -45,7 +45,7 @@ export default async function BibliothequePage({
         // ouvrir déjà rempli sans une requête de plus par livre.
         `id, title, series_name, issue_number, category, cover_url, created_at,
          authors, publisher, page_count, barcode_raw,
-         readings (status, finished_at, deleted_at),
+         readings (status, started_at, finished_at, deleted_at),
          purchases (purchased_at, deleted_at),
          ownerships (owned_since, disposed_at, deleted_at)`,
       )
@@ -87,7 +87,7 @@ export default async function BibliothequePage({
       // sujet, et c'est là qu'un filtre serveur « possédé » aura sa place.
       `id, title, series_name, issue_number, category, cover_url, deleted_at,
        purchases (id, purchased_at, deleted_at),
-       readings (status, finished_at, deleted_at),
+       readings (status, started_at, finished_at, deleted_at),
        ownerships (id, owned_since, disposed_at, deleted_at)`,
     )
     .is("deleted_at", null)

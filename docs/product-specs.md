@@ -545,6 +545,19 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
   > silence. Le « × » de la rafale, lui, garde la suppression douce : c'est l'annulation immédiate d'un scan
   > de la session, l'erreur y est certaine.
 
+#### L'ordre d'affichage (#146, 22/07/2026) — l'activité d'abord, le temps ensuite, le sans-date à la fin
+
+Retrouver « le livre que je viens de finir » ou « celui que je viens de commencer » prime sur tout tri brut :
+
+- **Journal** : ① en cours (début récent d'abord) ② terminées datées par **fin** décroissante, avec des
+  **séparateurs de mois** (le carnet de lecture, lisible à l'antenne) ③ abandonnées ④ **sans-date tout en
+  bas** — elles n'appartiennent à aucun moment. (Corrige au passage le tri SQL `started_at desc` qui mettait
+  les NULL en tête : les « déjà lu » de rafale enterraient la lecture en cours.)
+- **Biblio « Récents »** : la **dernière activité** (création, débuts/fins de lecture, achats) — pas la
+  création de fiche. A→Z inchangé.
+- **Pile** : les **en-cours en tête**, puis la file d'attente (sans-date d'abord, puis plus anciens — on lit
+  d'abord ce qui attend).
+
 ### 4.13 La possession — « je possède » et « j'ai déjà lu » (issue #101, livré le 20/07/2026)
 
 Le cas manquant depuis le premier jour (§1) : **posséder sans avoir acheté dans l'app**, c'est-à-dire les

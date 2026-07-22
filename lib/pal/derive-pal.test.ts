@@ -454,3 +454,22 @@ describe("bookToMovement — le réducteur partagé faits → mouvement (#78)", 
     expect(movement?.exitDate).toBeNull();
   });
 });
+
+describe("l'ordre de la pile (#146) — les en-cours en tête", () => {
+  it("le livre qu'on lit passe devant la file d'attente, qui garde son ordre", () => {
+    const result = derivePal([
+      book({ id: "attente-ancienne", purchases: [bought("2026-06-01")] }),
+      book({
+        id: "en-cours",
+        purchases: [bought("2026-07-10")],
+        readings: [{ status: "reading", finished_at: null, deleted_at: null }],
+      }),
+      book({ id: "etagere-sans-date", ownerships: [owns()] }),
+    ]);
+    expect(result.entries.map((entry) => entry.bookId)).toEqual([
+      "en-cours",
+      "etagere-sans-date", // la file : sans-date d'abord (l'étagère d'avant)...
+      "attente-ancienne", // ...puis les plus anciens
+    ]);
+  });
+});

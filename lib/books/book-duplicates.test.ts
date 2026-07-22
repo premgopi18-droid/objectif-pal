@@ -29,6 +29,7 @@ function entry(overrides: Partial<LibraryEntry> = {}): LibraryEntry {
     publisher: null,
     pageCount: null,
     hasBarcode: false,
+    lastActivityAt: "2026-07-01T10:00:00Z",
     ...overrides,
   };
 }
