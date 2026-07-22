@@ -4,7 +4,7 @@ import { Badge } from "@/components/ui/badge";
 import { BookRow } from "@/components/ui/book-row";
 import { StatTile } from "@/components/ui/stat-tile";
 import { ErrorAlert } from "@/components/error-alert";
-import { RemoveButton, StartReadingButton, useBookGestures } from "@/components/library/book-gestures";
+import { FinishReadingButton, RemoveButton, StartReadingButton, useBookGestures } from "@/components/library/book-gestures";
 import { endOwnership, softDeletePurchase } from "@/lib/books/actions";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { formatBookSubtitle } from "@/lib/books/format";
@@ -139,7 +139,9 @@ export function PalView({
                 }
                 action={
                   entry.isInProgress ? (
-                    <Badge state="reading">En cours</Badge>
+                    // « Terminé ✓ » LÀ où le livre est visible (#144) — plus
+                    // besoin d'aller au Journal pour le geste des points.
+                    <FinishReadingButton bookId={entry.bookId} run={run} isPending={isPending} />
                   ) : (
                     <StartReadingButton bookId={entry.bookId} run={run} isPending={isPending} />
                   )

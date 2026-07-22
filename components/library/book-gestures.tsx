@@ -3,8 +3,9 @@
 import { useCallback, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
-import { startReadingForBook, type JournalActionResult } from "@/lib/books/journal-actions";
+import { finishReadingForBook, startReadingForBook, type JournalActionResult } from "@/lib/books/journal-actions";
 import { localToday } from "@/lib/dates";
+import { burstConfetti } from "@/components/ui/confetti";
 
 /**
  * Les gestes de livre partagés — un seul exemplaire de chaque, consommé par le
@@ -47,6 +48,43 @@ export function useBookGestures() {
 }
 
 type RunGesture = (action: () => Promise<BookActionResult>, onSuccess?: () => void) => void;
+
+/**
+ * « Terminé ✓ » — LE geste des points, désormais partout où le livre est
+ * visible (#144) : Pile et Biblio, plus seulement le Journal. Un tap sec,
+ * comme au Journal (la note et l'avis s'ajoutent après, via « Modifier » —
+ * le Journal reste la gestion fine). Confettis au succès (#73), jamais sur
+ * un échec.
+ */
+export function FinishReadingButton({
+  bookId,
+  run,
+  isPending,
+}: {
+  bookId: string;
+  run: RunGesture;
+  isPending: boolean;
+}) {
+  return (
+    <Button
+      type="button"
+      variant="done"
+      disabled={isPending}
+      onClick={(event) => {
+        // Le centre du bouton AU TAP : une fois terminé il disparaît, son
+        // rect ne vaudrait plus rien (même piège qu'au Journal).
+        const rect = event.currentTarget.getBoundingClientRect();
+        const origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+        run(
+          () => finishReadingForBook(bookId, localToday()),
+          () => burstConfetti(origin),
+        );
+      }}
+    >
+      Terminé ✓
+    </Button>
+  );
+}
 
 /**
  * « Je commence » — le CTA en dégradé qui démarre une lecture pour un livre

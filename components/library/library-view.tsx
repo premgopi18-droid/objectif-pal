@@ -8,7 +8,7 @@ import { CoverPhotoButton } from "@/components/cover-photo-button";
 import { ErrorAlert } from "@/components/error-alert";
 import { BookEditForm } from "@/components/library/book-edit-form";
 import { BookMergePicker } from "@/components/library/book-merge-picker";
-import { RemoveButton, StartReadingButton, useBookGestures } from "@/components/library/book-gestures";
+import { FinishReadingButton, RemoveButton, StartReadingButton, useBookGestures } from "@/components/library/book-gestures";
 import { endOwnership } from "@/lib/books/actions";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
@@ -195,8 +195,11 @@ export function LibraryView({ entries }: LibraryViewProps) {
                 {/* `flex-wrap` (#114) : la rangée passe à la ligne sur petit
                     écran au lieu de s'écraser. */}
                 <div className="flex flex-wrap items-center gap-3 pl-0.5">
-                  {entry.status !== "reading" && (
+                  {entry.status !== "reading" ? (
                     <StartReadingButton bookId={entry.bookId} run={run} isPending={isPending} />
+                  ) : (
+                    // « Terminé ✓ » là où le livre est visible (#144).
+                    <FinishReadingButton bookId={entry.bookId} run={run} isPending={isPending} />
                   )}
                   <button
                     type="button"
