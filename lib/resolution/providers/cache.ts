@@ -1,4 +1,4 @@
-import type { CacheEntry } from "@/lib/resolution/types";
+import { sanitizePageCount, type CacheEntry } from "@/lib/resolution/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -32,7 +32,8 @@ export function createCacheProvider(client = createAdminClient()) {
         issueNumber: row.issue_number,
         authors: row.authors,
         publisher: row.publisher,
-        pageCount: row.page_count,
+        // Assaini à la LECTURE (#154) : les zéros déjà figés en cache guérissent ici.
+        pageCount: sanitizePageCount(row.page_count),
         coverUrl: row.cover_url,
         source: row.source,
         sourceId: row.source_id,

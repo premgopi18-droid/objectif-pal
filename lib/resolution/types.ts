@@ -113,3 +113,17 @@ export type CacheEntry = {
   source: MetadataSource;
   sourceId: string | null;
 };
+
+/**
+ * Un nombre de pages de SOURCE → un entier exploitable, ou `null` (inconnu).
+ *
+ * Le monde réel envoie des zéros (#154, vu en prod : BnF « 0 p. » au dépôt
+ * légal, Google Books) — et 0 n'est pas un nombre de pages, c'est « on ne sait
+ * pas ». Sans ce filtre, le zéro se FIGE dans barcode_cache puis bloque tous
+ * les gestes (validateBook le refuse, à raison — mais l'utilisateur n'a aucun
+ * champ à corriger sur la feuille de scan). Appliqué aux mappings de sources
+ * ET à la lecture du cache : les entrées déjà polluées guérissent d'elles-
+ * mêmes, sans migration.
+ */
+export const sanitizePageCount = (value: number | null | undefined): number | null =>
+  typeof value === "number" && Number.isInteger(value) && value > 0 ? value : null;

@@ -19,7 +19,7 @@ import { createGoogleBooksProvider, type GoogleBooksProvider } from "./providers
 import { createInventaireProvider, type InventaireProvider } from "./providers/inventaire";
 import { createMetronProvider, type MetronIssue, type MetronProvider } from "./providers/metron";
 import { createOpenLibraryProvider, type OpenLibraryProvider } from "./providers/open-library";
-import { GCD_UNNUMBERED_ISSUE_NUMBER, type CacheEntry, type ResolvedBook, type ScanLookupResult } from "./types";
+import { GCD_UNNUMBERED_ISSUE_NUMBER, type CacheEntry, type ResolvedBook, type ScanLookupResult , sanitizePageCount } from "./types";
 
 /**
  * La cascade de résolution — specs §5.2 :
@@ -96,7 +96,7 @@ const fromCache = (entry: CacheEntry, barcodeType: "isbn" | "upc"): ResolvedBook
   issueNumber: entry.issueNumber === GCD_UNNUMBERED_ISSUE_NUMBER ? null : entry.issueNumber,
   authors: entry.authors,
   publisher: entry.publisher,
-  pageCount: entry.pageCount,
+  pageCount: sanitizePageCount(entry.pageCount),
   coverUrl: entry.coverUrl,
   // Le cache ne stocke pas de catégorie : on la re-devine (déterministe) —
   // et la correction de l'utilisateur fait foi de toute façon au moment de créer le livre.
@@ -121,7 +121,7 @@ function fromGcdIssue(issue: GcdIssue, series: GcdSeries | undefined, barcodeTyp
     issueNumber: issue.number === GCD_UNNUMBERED_ISSUE_NUMBER ? null : issue.number || null,
     authors: null, // le dump réduit ne porte pas les crédits
     publisher: series?.publisher ?? null,
-    pageCount: issue.pageCount,
+    pageCount: sanitizePageCount(issue.pageCount),
     coverUrl: null, // le dump n'a pas les couvertures (specs §5.4)
     suggestedCategory,
     source: "gcd",
@@ -153,7 +153,7 @@ async function enrichWithMetron(
   return {
     ...book,
     coverUrl: book.coverUrl ?? metronIssue.coverUrl,
-    pageCount: book.pageCount ?? metronIssue.pageCount,
+    pageCount: sanitizePageCount(book.pageCount ?? metronIssue.pageCount),
     suggestedCategory: guessCategoryFromMetronSeriesType(metronIssue.seriesType) ?? book.suggestedCategory,
   };
 }
@@ -289,7 +289,7 @@ async function resolveIsbn(
       issueNumber: bnfRecord.issueNumber,
       authors: bnfRecord.authors,
       publisher: bnfRecord.publisher,
-      pageCount: bnfRecord.pageCount,
+      pageCount: sanitizePageCount(bnfRecord.pageCount),
       coverUrl: null, // le SRU ne porte pas d'image — la chaîne couverture ci-dessous s'en charge
       suggestedCategory: guessCategoryFromPublisher(bnfRecord.publisher) ?? "roman",
       source: "bnf",
@@ -316,7 +316,7 @@ async function resolveIsbn(
       issueNumber: null,
       authors: googleRecord.authors,
       publisher: googleRecord.publisher,
-      pageCount: googleRecord.pageCount,
+      pageCount: sanitizePageCount(googleRecord.pageCount),
       coverUrl,
       suggestedCategory:
         guessCategoryFromPublisher(googleRecord.publisher) ??
