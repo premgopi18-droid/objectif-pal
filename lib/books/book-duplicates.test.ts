@@ -21,7 +21,7 @@ function entry(overrides: Partial<LibraryEntry> = {}): LibraryEntry {
     category: "bd",
     coverUrl: null,
     createdAt: "2026-07-01T10:00:00Z",
-    status: "shelved",
+    status: "in-pile",
     activeReadingCount: 0,
     activePurchaseCount: 0,
     isOwned: false,

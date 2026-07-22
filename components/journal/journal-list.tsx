@@ -15,6 +15,7 @@ import { BookRow } from "@/components/ui/book-row";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { burstConfetti } from "@/components/ui/confetti";
+import { CategoryDrawer } from "@/components/scan/category-drawer";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { Stars } from "@/components/ui/stars";
 import { Toast } from "@/components/ui/toast";
@@ -107,6 +108,13 @@ export function JournalList({ entries }: { entries: JournalEntry[] }) {
   const [filters, setFilters] = useState<JournalFilters>(NO_JOURNAL_FILTERS);
   // Un seul Toast pour toute la liste — la célébration de « Terminé ✓ » (#73).
   const [toastMessage, setToastMessage] = useState<string | null>(null);
+  /**
+   * La correction de catégorie AU JOURNAL (#152) : la catégorie détermine les
+   * points de la lecture, et le Journal est l'écran des points — indispensable
+   * aux EMPRUNTS, qui n'ont plus de fiche en Biblio (l'inventaire). UN tiroir
+   * partagé (celui de la rafale, #101 lot C), recyclé pour toutes les lignes.
+   */
+  const [editingCategory, setEditingCategory] = useState<{ bookId: string; category: BookCategory } | null>(null);
   const { run, isPending, error, setError } = useBookGestures();
 
   // Les options des selects viennent des entrées elles-mêmes (dérivées en
@@ -225,6 +233,7 @@ export function JournalList({ entries }: { entries: JournalEntry[] }) {
                     isPending={isPending}
                     onError={setError}
                     onCelebrate={setToastMessage}
+                    onEditCategory={setEditingCategory}
                   />
                 </Fragment>
               );
@@ -233,6 +242,16 @@ export function JournalList({ entries }: { entries: JournalEntry[] }) {
         </>
       )}
 
+      {/* UN tiroir recyclé pour toutes les lignes (#152) — celui de la rafale.
+          Le changement revalide /journal : la liste se rafraîchit seule. */}
+      <CategoryDrawer
+        open={editingCategory !== null}
+        bookId={editingCategory?.bookId ?? null}
+        value={editingCategory?.category ?? "bd"}
+        onClose={() => setEditingCategory(null)}
+        onError={setError}
+        onChanged={() => setEditingCategory(null)}
+      />
       <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
     </div>
   );
@@ -244,12 +263,14 @@ function JournalItem({
   isPending,
   onError,
   onCelebrate,
+  onEditCategory,
 }: {
   entry: JournalEntry;
   run: (action: () => Promise<JournalActionResult>, onSuccess?: () => void) => void;
   isPending: boolean;
   onError: (message: string) => void;
   onCelebrate: (message: string) => void;
+  onEditCategory: (target: { bookId: string; category: BookCategory }) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const badge = STATUS_BADGES[entry.status];
@@ -318,10 +339,20 @@ function JournalItem({
             Repasser en cours
           </Button>
         )}
+        {/* La catégorie se corrige ICI (#152) : elle détermine les points de
+            cette lecture, et pour un EMPRUNT le Journal est sa seule surface
+            (plus de fiche en Biblio — l'inventaire). Même puce qu'en rafale. */}
+        <button
+          type="button"
+          onClick={() => onEditCategory({ bookId: entry.book.bookId, category: entry.book.category })}
+          className="ml-auto shrink-0 rounded-full border border-line px-2.5 py-1 text-xs text-ink2"
+        >
+          {CATEGORY_LABELS[entry.book.category]}
+        </button>
         <button
           type="button"
           onClick={() => setIsEditing((value) => !value)}
-          className="ml-auto text-sm text-ink3 underline underline-offset-2"
+          className="text-sm text-ink3 underline underline-offset-2"
         >
           {isEditing ? "Fermer" : "Modifier"}
         </button>

@@ -21,6 +21,9 @@ const bookRow = (overrides: Partial<LibraryBookRow> = {}): LibraryBookRow => ({
   barcode_raw: null,
   readings: [],
   purchases: [],
+  // L'inventaire (#152) : la Biblio ne montre que le possédé — les fixtures
+  // possèdent par défaut, les tests d'exclusion passent ownerships: [].
+  ownerships: [{ owned_since: null, disposed_at: null, deleted_at: null }],
   ...overrides,
 });
 
@@ -55,19 +58,19 @@ describe("la dérivation de la bibliothèque (#49)", () => {
     expect(entry.status).toBe("in-pile");
   });
 
-  it("abandonné sans possession reste « Abandonné »", () => {
+  it("possédé abandonné : toujours « Dans la PAL » — l'abandon n'en sort pas (§4.6, #152)", () => {
     const [entry] = deriveLibrary([bookRow({ readings: [{ status: "abandoned", started_at: null, finished_at: null, deleted_at: null }] })]);
-    expect(entry.status).toBe("abandoned");
+    expect(entry.status).toBe("in-pile");
   });
 
-  it("aucune trace active = « Sans activité » — l'angle mort que la vue rend visible", () => {
+  it("possédé aux traces toutes supprimées : « Dans la PAL » — un possédé jamais fini est à lire (#152)", () => {
     const [entry] = deriveLibrary([
       bookRow({
         readings: [{ status: "finished", started_at: null, finished_at: "2026-06-15", deleted_at: "2026-07-10T00:00:00Z" }],
         purchases: [{ purchased_at: "2026-06-01", deleted_at: "2026-07-10T00:00:00Z" }],
       }),
     ]);
-    expect(entry.status).toBe("shelved");
+    expect(entry.status).toBe("in-pile");
     // Les traces supprimées ne comptent pas dans l'annonce du geste « retirer ».
     expect(entry.activeReadingCount).toBe(0);
     expect(entry.activePurchaseCount).toBe(0);
@@ -75,7 +78,7 @@ describe("la dérivation de la bibliothèque (#49)", () => {
 
   it("les embeds null (aucune ligne liée) sont traités comme vides", () => {
     const [entry] = deriveLibrary([bookRow({ readings: null, purchases: null })]);
-    expect(entry.status).toBe("shelved");
+    expect(entry.status).toBe("in-pile");
   });
 });
 
@@ -169,12 +172,14 @@ describe("la possession déclarée dans la bibliothèque (#101)", () => {
     expect(entry.isOwned).toBe(true);
   });
 
-  it("une lecture sans possession reste un emprunt — jamais dans la PAL", () => {
-    const [entry] = deriveLibrary([
-      bookRow({ readings: [{ status: "finished", started_at: null, finished_at: "2026-06-15", deleted_at: null }] }),
+  it("un emprunt lu SORT de l'inventaire (#152) — il vit au Journal, pas en Biblio", () => {
+    const entries = deriveLibrary([
+      bookRow({
+        ownerships: [],
+        readings: [{ status: "finished", started_at: null, finished_at: "2026-06-15", deleted_at: null }],
+      }),
     ]);
-    expect(entry.status).toBe("finished");
-    expect(entry.isOwned).toBe(false);
+    expect(entries).toEqual([]);
   });
 
   it("la règle de pile n'est pas réécrite ici : acquérir un déjà-lu n'entre pas en PAL (§3.3)", () => {
