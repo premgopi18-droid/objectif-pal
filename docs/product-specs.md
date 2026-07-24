@@ -605,11 +605,19 @@ préserve l'invariant : *le dernier point vaut toujours la taille réelle de la 
 - **La possession déclarée fait autorité** quand elle existe — elle seule sait dire « je ne le possède plus »
   d'un livre pourtant acheté.
 - **Le rachat rouvre la possession close** (#117, 20/07/2026) : la cession close un épisode, elle ne condamne
-  pas le livre. Toute acquisition à/depuis la cession — rachat comme redéclaration — remet le livre en pile
-  (sauf s'il a été lu, §3.3), avec **l'entrée datée du rachat**. Un seul mouvement modélisé par livre :
-  l'épisode courant l'emporte, la paire historique entrée/sortie (qui s'annulait dans le solde) n'alimente
-  plus les flux passés. Les portes d'écriture rouvrent la ligne (`disposed_at` remis à nul) ; la dérivation
-  a le même filet pour les faits qui n'y seraient pas passés.
+  pas le livre. Toute acquisition **strictement postérieure** à la cession — rachat comme redéclaration —
+  remet le livre en pile (sauf s'il a été lu, §3.3), avec **l'entrée datée du rachat**. Un seul mouvement
+  modélisé par livre : l'épisode courant l'emporte, la paire historique entrée/sortie (qui s'annulait dans le
+  solde) n'alimente plus les flux passés. Les portes d'écriture rouvrent la ligne (`disposed_at` remis à
+  nul) ; la dérivation a le même filet pour les faits qui n'y seraient pas passés.
+- **À date ÉGALE, la cession l'emporte sur l'acquisition** (#162, 24/07/2026 — vu en prod) : on ne cède que
+  ce qu'on possède, donc l'acquisition du jour a *précédé* la cession — c'est « acheté (ou déclaré) puis
+  retiré le même jour », pas un rachat. Sans cette règle, le livre retiré restait à l'inventaire (Biblio,
+  scan « déjà dans ta bibliothèque ») pendant que « Retirer » répondait « pas dans ta bibliothèque » : coincé
+  des deux côtés. Le vrai rachat du jour même n'y perd rien : il passe par les portes d'écriture, qui
+  rouvrent la ligne. Même issue : la garde de « Je ne le possède plus » pose désormais la question au
+  prédicat partagé de l'inventaire (`isInInventory`) — exactement celui qui affiche le bouton « Retirer » —
+  au lieu de relire la ligne brute, pour que l'action et l'affichage ne divergent plus jamais.
 - Une **fin de lecture non datée prime sur un don** pour la sortie : dater la sortie au don placerait le
   mouvement dans le mauvais mois.
 - **Les sorties du mois ne comptent que les LECTURES** (#142, 21/07/2026) : la tuile « Pile ce mois-ci »
