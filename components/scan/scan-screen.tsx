@@ -39,7 +39,7 @@ type ScanState =
   // isInLibrary : le livre vient de la bibliothèque de l'utilisateur (issue
   // #10) — la feuille l'annonce, « tu l'as déjà ». wasFinished : il a déjà été
   // TERMINÉ — la question « tu le relis ? » se pose AVANT de créer (§4.2, #35).
-  | { step: "sheet"; book: ResolvedBook; scannedCode: string | null; error?: string; isInLibrary?: boolean; wasFinished?: boolean }
+  | { step: "sheet"; book: ResolvedBook; scannedCode: string | null; error?: string; isInLibrary?: boolean; wasFinished?: boolean; isOwned?: boolean }
   | { step: "pick-issue"; seriesName: string; issues: IssueCandidate[]; scannedCode: string }
   | { step: "pick-series"; candidates: SeriesCandidate[]; scannedCode: string }
   // suggestedCoverUrl : la chaîne couverture a abouti malgré l'identification
@@ -129,6 +129,7 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: numb
           scannedCode: null,
           isInLibrary: true,
           wasFinished: result.hasFinishedReading,
+          isOwned: result.isOwned,
         });
       } else if (result.kind === "pick-issue") {
         setState({ step: "pick-issue", seriesName: result.seriesName, issues: result.issues, scannedCode: code });
@@ -275,7 +276,12 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: numb
     return (
       <div className="flex flex-col gap-3">
         {state.error && <ErrorAlert message={state.error} />}
-        {state.isInLibrary && (
+        {/* La bannière ne dit que du VRAI (#160) : « ta bibliothèque » =
+            l'inventaire (règle partagée isInInventory), plus jamais la simple
+            existence d'une fiche. Fiche connue hors inventaire et jamais lue
+            (emprunt écarté, cédé sans lecture) → AUCUNE bannière : le
+            pré-remplissage est un service silencieux, pas un statut. */}
+        {state.isInLibrary && (state.isOwned || state.wasFinished) && (
           <p className="rounded-card border border-amber/40 bg-amber/10 p-3 text-sm text-ink">
             {state.wasFinished
               ? "Tu l'as déjà lu — tu le relis ?"

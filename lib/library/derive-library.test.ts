@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   deriveLibrary,
+  isInInventory,
   filterLibraryEntries,
   sortLibraryEntries,
   type LibraryBookRow,
@@ -218,5 +219,18 @@ describe("« Récents » = dernière activité (#146)", () => {
     ]);
     const sorted = sortLibraryEntries(entries, "recent");
     expect(sorted[0].bookId).toBe("recent");
+  });
+});
+
+describe("isInInventory (#160) — LA règle partagée Biblio/scan", () => {
+  const reading = { status: "finished" as const, finished_at: "2026-06-15", deleted_at: null };
+  it("le mensonge du scan, mort : fiche connue + lecture SANS possession = hors inventaire", () => {
+    expect(isInInventory({ readings: [reading], purchases: [], ownerships: [] })).toBe(false);
+  });
+  it("possédé (déclaré ou acheté non cédé) = dedans ; cédé = dehors ; racheté après cession = dedans (#117)", () => {
+    expect(isInInventory({ readings: [], purchases: [], ownerships: [{ owned_since: null, disposed_at: null, deleted_at: null }] })).toBe(true);
+    expect(isInInventory({ readings: [], purchases: [{ purchased_at: "2026-06-01", deleted_at: null }], ownerships: [] })).toBe(true);
+    expect(isInInventory({ readings: [], purchases: [], ownerships: [{ owned_since: null, disposed_at: "2026-07-20", deleted_at: null }] })).toBe(false);
+    expect(isInInventory({ readings: [], purchases: [{ purchased_at: "2027-01-10", deleted_at: null }], ownerships: [{ owned_since: null, disposed_at: "2026-07-20", deleted_at: null }] })).toBe(true);
   });
 });

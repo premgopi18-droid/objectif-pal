@@ -76,7 +76,7 @@ export type ScanLookupResult =
    * externe. `hasFinishedReading` permet de poser « tu le relis ? » AVANT de
    * créer la lecture (specs §4.2, #35).
    */
-  | { kind: "in-library"; book: ResolvedBook; hasFinishedReading: boolean }
+  | { kind: "in-library"; book: ResolvedBook; hasFinishedReading: boolean; isOwned: boolean }
   /** Préfixe net → série connue : « quel numéro ? », un tap. */
   | { kind: "pick-issue"; seriesId: number; seriesName: string; publisher: string | null; issues: IssueCandidate[] }
   /** Préfixe partagé → liste courte de séries : deux taps. */

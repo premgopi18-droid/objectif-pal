@@ -34,6 +34,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ bar
       kind: "in-library",
       book: libraryMatch.book,
       hasFinishedReading: libraryMatch.hasFinishedReading,
+      isOwned: libraryMatch.isOwned,
     });
   }
 
