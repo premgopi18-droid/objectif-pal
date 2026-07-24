@@ -1,4 +1,5 @@
 import { classifyScannedCode } from "@/lib/resolution/barcode-router";
+import { isInInventory } from "@/lib/library/derive-library";
 import type { ResolvedBook } from "@/lib/resolution/types";
 import type { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -20,8 +21,11 @@ type SessionSupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClien
 
 // L'embed `readings` sert au « tu le relis ? » posé AVANT (specs §4.2, #35) :
 // l'info « déjà terminé » arrive avec le livre, sans aller-retour de plus.
+// Les embeds portent AUSSI les faits d'inventaire (#160) : « déjà dans ta
+// bibliothèque » se dérive de la règle partagée (isInInventory), plus jamais
+// de la simple existence de la fiche — les deux notions ont divergé en #152.
 const LIBRARY_BOOK_COLUMNS =
-  "title, series_name, issue_number, authors, publisher, page_count, category, cover_url, barcode_raw, barcode_type, isbn, metadata_source, metadata_source_id, readings (status, deleted_at)";
+  "title, series_name, issue_number, authors, publisher, page_count, category, cover_url, barcode_raw, barcode_type, isbn, metadata_source, metadata_source_id, readings (status, finished_at, deleted_at), purchases (purchased_at, deleted_at), ownerships (owned_since, disposed_at, deleted_at)";
 
 /**
  * Cherche le code scanné dans la bibliothèque de l'utilisateur. Un livre
@@ -34,6 +38,12 @@ export type LibraryMatch = {
   book: ResolvedBook;
   /** Au moins une lecture TERMINÉE (active) : rescanner = probablement une relecture. */
   hasFinishedReading: boolean;
+  /**
+   * Le livre appartient à l'INVENTAIRE (#160) — la règle partagée avec la
+   * Biblio. Une fiche connue mais hors inventaire (emprunt lu, cédé) sert au
+   * pré-remplissage, en silence : ce n'est pas « ta bibliothèque ».
+   */
+  isOwned: boolean;
 };
 
 export async function findBookInLibrary(
@@ -90,5 +100,6 @@ export async function findBookInLibrary(
     hasFinishedReading: (row.readings ?? []).some(
       (reading) => reading.deleted_at === null && reading.status === "finished",
     ),
+    isOwned: isInInventory(row),
   };
 }

@@ -78,6 +78,37 @@ export type LibraryEntry = {
   lastActivityAt: string;
 };
 
+/** Les faits minimaux de la règle d'inventaire — la forme des embeds PostgREST. */
+export type InventoryFacts = {
+  readings: Pick<Tables["readings"]["Row"], "status" | "finished_at" | "deleted_at">[] | null;
+  purchases: Pick<Tables["purchases"]["Row"], "purchased_at" | "deleted_at">[] | null;
+  ownerships?: Pick<Tables["ownerships"]["Row"], "owned_since" | "disposed_at" | "deleted_at">[] | null;
+};
+
+/**
+ * LA règle d'appartenance à l'inventaire (#152, #160) — écrite UNE fois,
+ * consommée par la Biblio ET le scan (« Déjà dans ta bibliothèque »). Un livre
+ * appartient à l'inventaire s'il est possédé (possession active, ou achat
+ * actif non cédé — la possession déclarée fait autorité), OU s'il est en pile
+ * par le mouvement (le filet du rachat #117 : ligne close mais racheté).
+ * Une fiche qui existe SANS ça (emprunt lu, cédé, historique) n'est PAS
+ * « ta bibliothèque » — c'était le mensonge du scan (#160, vu en prod).
+ */
+export function isInInventory(facts: InventoryFacts): boolean {
+  const readings = (facts.readings ?? []).filter((reading) => reading.deleted_at === null);
+  const purchases = (facts.purchases ?? []).filter((purchase) => purchase.deleted_at === null);
+  const ownerships = (facts.ownerships ?? []).filter((ownership) => ownership.deleted_at === null);
+  const isDisposed = ownerships.some((ownership) => ownership.disposed_at !== null);
+  const isOwned = ownerships.some((o) => o.disposed_at === null) || (purchases.length > 0 && !isDisposed);
+  if (isOwned) return true;
+  const movement = bookToMovement({
+    purchases: purchases.map((purchase) => ({ purchasedAt: purchase.purchased_at, deletedAt: purchase.deleted_at })),
+    readings: readings.map((reading) => ({ status: reading.status, finishedAt: reading.finished_at, deletedAt: reading.deleted_at })),
+    ownerships: ownerships.map((ownership) => ({ ownedSince: ownership.owned_since, disposedAt: ownership.disposed_at, deletedAt: ownership.deleted_at })),
+  });
+  return movement !== null && !movement.exited;
+}
+
 export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
   const entries: LibraryEntry[] = [];
   for (const row of rows) {
@@ -87,37 +118,9 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
 
     const ownerships = (row.ownerships ?? []).filter((ownership) => ownership.deleted_at === null);
 
-    const isDisposed = ownerships.some((ownership) => ownership.disposed_at !== null);
-
-    // La possession passe par le réducteur PARTAGÉ (#78/#101) : la règle « ce
-    // livre est-il dans la pile ? » n'est écrite qu'une fois, dans
-    // lib/pal/derive-pal — la Biblio, la Pile et les stats répondent donc
-    // toujours la même chose (§4.5). `movement` est nul quand le livre n'est
-    // jamais entré en pile (emprunt, ou acquisition d'un déjà-lu §3.3).
-    const movement = bookToMovement({
-      purchases: purchases.map((purchase) => ({
-        purchasedAt: purchase.purchased_at,
-        deletedAt: purchase.deleted_at,
-      })),
-      readings: readings.map((reading) => ({
-        status: reading.status,
-        finishedAt: reading.finished_at,
-        deletedAt: reading.deleted_at,
-      })),
-      ownerships: ownerships.map((ownership) => ({
-        ownedSince: ownership.owned_since,
-        disposedAt: ownership.disposed_at,
-        deletedAt: ownership.deleted_at,
-      })),
-    });
-    const isInPile = movement !== null && !movement.exited;
-
-    // LA BIBLIO EST L'INVENTAIRE DU POSSÉDÉ (#152) : un emprunt lu, un livre
-    // cédé (#114) ou une fiche sans rien n'y figurent pas — leur histoire vit
-    // au Journal, leurs points au Bilan. SAUF le retour en pile par le filet
-    // du rachat (#117, review #118) : le mouvement fait foi sur la ligne close.
-    const isOwned = ownerships.some((o) => o.disposed_at === null) || (purchases.length > 0 && !isDisposed);
-    if (!isOwned && !isInPile) continue;
+    // LA règle d'inventaire partagée (#152/#160) — voir isInInventory : une
+    // fiche hors inventaire vit au Journal et au Bilan, pas ici.
+    if (!isInInventory(row)) continue;
 
     const status: LibraryStatus = readings.some((reading) => reading.status === "reading")
       ? "reading"
