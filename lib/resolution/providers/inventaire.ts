@@ -32,7 +32,22 @@ export function createInventaireProvider(fetchImplementation: typeof fetch = fet
       const imageUrl = Object.values(payload.entities ?? {})[0]?.image?.url;
       if (!imageUrl) return null;
       // L'API rend un chemin relatif (`/img/entities/<hash>`) — mesuré le 19/07/2026.
-      return imageUrl.startsWith("http") ? imageUrl : `${INVENTAIRE_ORIGIN}${imageUrl}`;
+      const absoluteUrl = imageUrl.startsWith("http") ? imageUrl : `${INVENTAIRE_ORIGIN}${imageUrl}`;
+
+      // Vérifier L'IMAGE, pas la métadonnée (#158, vu en prod) : Inventaire
+      // liste parfois une image qui répond 200 image/webp… de 0 octet. Sans ce
+      // HEAD, la cascade — réparation #157 comprise — re-choisissait la même
+      // URL fantôme pour toujours. Vide ou morte → null, le cran suivant joue.
+      try {
+        const image = await fetchImplementation(absoluteUrl, {
+          method: "HEAD",
+          signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS),
+        });
+        if (!image.ok || image.headers.get("content-length") === "0") return null;
+      } catch {
+        return null;
+      }
+      return absoluteUrl;
     },
   };
 }
