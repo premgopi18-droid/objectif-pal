@@ -427,6 +427,9 @@ describe("acquis et retiré le même jour (#162 — le bug Monster, vu en prod)"
     // Le premier reste sorti, le second est de retour en pile, entré au rachat.
     expect(result.entries).toHaveLength(1);
     expect(result.entries[0].enteredAt).toBe("2026-07-25");
+    // Le premier livre est bien SORTI par cession (pas absent pour une autre
+    // raison) : sa sortie datée est au stock, le second n'en a pas.
+    expect(result.disposalExitDates).toEqual(["2026-07-24"]);
   });
 
   it("lu, cédé, puis racheté : toujours pas d'entrée — racheter un déjà-lu ne remplit pas la pile (§3.3)", () => {

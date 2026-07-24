@@ -317,7 +317,10 @@ export async function recordPurchase(input: BookInput, purchasedAt: string): Pro
   // cession primait dans la dérivation et le livre racheté manquait à la pile.
   // APRÈS l'achat, volontairement : réouvrir sans achat inscrit remettrait le
   // livre en pile sur une écriture à moitié faite. Échec absorbé (log seul) :
-  // le filet de `derivePileStatus` dérive juste même si cette ligne reste close.
+  // le filet de `derivePileStatus` couvre le rachat des jours SUIVANTS (depuis
+  // #162 il exige une acquisition strictement postérieure à la cession) — un
+  // rachat le jour même dont cette réouverture échouerait reste hors pile
+  // jusqu'au prochain geste d'acquisition, qui rejoue la réouverture.
   const closedOwnership = pileFacts.ownerships.find(
     (ownership) => ownership.deleted_at === null && ownership.disposed_at !== null,
   );
