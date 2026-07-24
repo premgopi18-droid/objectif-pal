@@ -39,6 +39,18 @@ export async function softDeleteBook(bookId: string): Promise<JournalActionResul
   }
   if (!count) return { ok: false, error: "Livre introuvable." };
 
+  // La possession fabriquée d'un livre-erreur fait partie de l'erreur (#158,
+  // vu en prod) : la laisser ACTIVE faisait dire « déjà possédé » au rescan
+  // (résurrection #10 + garde de pile). Clôture DOUCE, comme tout (§7) —
+  // jamais bloquante : le filet de dérivation tolère l'incohérence résiduelle.
+  const { error: ownershipError } = await session.supabase
+    .from("ownerships")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("book_id", bookId)
+    .eq("user_id", session.user.id)
+    .is("deleted_at", null);
+  if (ownershipError) console.error("[library] softDeleteBook (possession):", ownershipError.message);
+
   // Le livre disparaît de PARTOUT : toutes les surfaces qui le montrent. Depuis
   // la refonte #64, la Pile est un volet de /bibliotheque et les Stats un volet
   // de /bilan — revalider ces deux routes couvre leurs deux volets.
