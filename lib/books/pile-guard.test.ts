@@ -74,4 +74,16 @@ describe("isBookInPile avec la possession déclarée (#101)", () => {
   it("le paramètre est optionnel : les appelants d'avant #101 gardent leur comportement", () => {
     expect(isBookInPile([bought("2026-07-03")], [])).toBe(true);
   });
+
+  it("acquis et retiré le MÊME jour (#162) : hors pile — re-rajouter le livre est permis", () => {
+    // Le scénario Monster : sans le fix, le filet du rachat (#117) prenait
+    // l'acquisition du jour pour un rachat et le garde bloquait le re-rajout
+    // (« déjà dans ta PAL ») d'un livre pourtant retiré.
+    expect(isBookInPile([], [], [owns({ ownedSince: "2026-07-24", disposedAt: "2026-07-24" })])).toBe(false);
+    expect(isBookInPile([bought("2026-07-24")], [], [owns({ disposedAt: "2026-07-24" })])).toBe(false);
+  });
+
+  it("racheté STRICTEMENT après la cession : de retour en pile — le doublon d'achat re-bloqué (#117)", () => {
+    expect(isBookInPile([bought("2026-07-25")], [], [owns({ disposedAt: "2026-07-24" })])).toBe(true);
+  });
 });

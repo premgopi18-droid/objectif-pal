@@ -352,14 +352,81 @@ describe("le rachat d'un livre cédé (#117) — la cession ne condamne pas le l
     expect(result.entries[0].enteredAt).toBe("2027-01-10");
   });
 
-  it("racheté le jour même de la cession : possédé, donc en pile", () => {
+  it("un achat le jour même de la cession n'est PAS un rachat : la cession suit l'acquisition (#162)", () => {
+    // On ne cède que ce qu'on possède : à date égale, l'achat a PRÉCÉDÉ la
+    // cession — c'est « acheté puis retiré le même jour ». Le vrai rachat du
+    // jour même passe par les portes d'écriture, qui rouvrent la ligne
+    // (`disposed_at` remis à null) : il n'atteint jamais ce filet.
     const result = derivePal([
       book({
         ownerships: [owns({ ownedSince: "2026-05-01", disposedAt: "2026-07-20" })],
         purchases: [bought("2026-07-20")],
       }),
     ]);
+    expect(result.entries).toEqual([]);
+    expect(result.entryDates).toEqual(["2026-05-01"]);
+    expect(result.disposalExitDates).toEqual(["2026-07-20"]);
+  });
+});
+
+describe("acquis et retiré le même jour (#162 — le bug Monster, vu en prod)", () => {
+  // Le scénario réel : « je possède » (ou un achat) le matin, « Retirer de ma
+  // bibliothèque » l'après-midi. Avant le fix, le filet du rachat (#117) lisait
+  // l'acquisition du jour comme un rachat À la cession : le livre restait en
+  // pile et à l'inventaire (Biblio, scan « déjà dans ta bibliothèque »),
+  // pendant que le geste « Retirer » voyait la ligne close et répondait
+  // « pas dans ta bibliothèque ». Coincé des deux côtés.
+
+  it("« je possède » puis « retirer » le même jour : sorti de la pile, par cession", () => {
+    const result = derivePal([
+      book({ ownerships: [owns({ ownedSince: "2026-07-24", disposedAt: "2026-07-24" })] }),
+    ]);
+    expect(result.entries).toEqual([]);
+    expect(result.entryDates).toEqual(["2026-07-24"]);
+    expect(result.exitDates).toEqual([]); // pas une lecture : rien pour le flux du mois
+    expect(result.disposalExitDates).toEqual(["2026-07-24"]);
+  });
+
+  it("le cas prod exact : possédé, lecture abandonnée, retiré le même jour — sorti", () => {
+    // L'abandon n'est pas une fin (§4.6) : il ne doit ni sortir le livre ni
+    // empêcher la cession de le sortir.
+    const result = derivePal([
+      book({
+        ownerships: [owns({ ownedSince: "2026-07-24", disposedAt: "2026-07-24" })],
+        readings: [{ status: "abandoned", finished_at: null, deleted_at: null }],
+      }),
+    ]);
+    expect(result.entries).toEqual([]);
+    expect(result.disposalExitDates).toEqual(["2026-07-24"]);
+  });
+
+  it("acheté puis retiré le même jour : sorti de la pile, l'achat reste l'entrée", () => {
+    const result = derivePal([
+      book({
+        purchases: [bought("2026-07-24")],
+        ownerships: [owns({ disposedAt: "2026-07-24" })],
+      }),
+    ]);
+    expect(result.entries).toEqual([]);
+    expect(result.entryDates).toEqual(["2026-07-24"]);
+    expect(result.disposalExitDates).toEqual(["2026-07-24"]);
+  });
+
+  it("le rachat STRICTEMENT postérieur à la cession rouvre toujours la pile (#117 préservé)", () => {
+    const result = derivePal([
+      book({
+        purchases: [bought("2026-07-24")],
+        ownerships: [owns({ disposedAt: "2026-07-24" })],
+        // Racheté le lendemain sans passer par les portes : le filet le voit.
+      }),
+      book({
+        purchases: [bought("2026-07-24"), bought("2026-07-25")],
+        ownerships: [owns({ disposedAt: "2026-07-24" })],
+      }),
+    ]);
+    // Le premier reste sorti, le second est de retour en pile, entré au rachat.
     expect(result.entries).toHaveLength(1);
+    expect(result.entries[0].enteredAt).toBe("2026-07-25");
   });
 
   it("lu, cédé, puis racheté : toujours pas d'entrée — racheter un déjà-lu ne remplit pas la pile (§3.3)", () => {

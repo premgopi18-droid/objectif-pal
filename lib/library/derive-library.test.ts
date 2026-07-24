@@ -234,3 +234,52 @@ describe("isInInventory (#160) — LA règle partagée Biblio/scan", () => {
     expect(isInInventory({ readings: [], purchases: [{ purchased_at: "2027-01-10", deleted_at: null }], ownerships: [{ owned_since: null, disposed_at: "2026-07-20", deleted_at: null }] })).toBe(true);
   });
 });
+
+describe("acquis et retiré le MÊME jour (#162 — le bug Monster) : retiré = vraiment sorti", () => {
+  const owns = (overrides: { ownedSince?: string | null; disposedAt?: string | null } = {}) => ({
+    owned_since: overrides.ownedSince ?? null,
+    disposed_at: overrides.disposedAt ?? null,
+    deleted_at: null,
+  });
+
+  it("« je possède » puis « Retirer » le même jour : hors de la Biblio (onglet Tous)", () => {
+    expect(
+      deriveLibrary([bookRow({ ownerships: [owns({ ownedSince: "2026-07-24", disposedAt: "2026-07-24" })] })]),
+    ).toEqual([]);
+  });
+
+  it("le cas prod exact : possédé + lecture abandonnée, retiré le même jour — hors Biblio, hors scan", () => {
+    const facts = {
+      ownerships: [owns({ ownedSince: "2026-07-24", disposedAt: "2026-07-24" })],
+      readings: [{ status: "abandoned" as const, started_at: null, finished_at: null, deleted_at: null }],
+      purchases: [],
+    };
+    // La Biblio ne le liste plus, ET le scan ne dit plus « déjà dans ta
+    // bibliothèque » : les deux surfaces posent la même question.
+    expect(deriveLibrary([bookRow(facts)])).toEqual([]);
+    expect(isInInventory(facts)).toBe(false);
+  });
+
+  it("acheté puis retiré le même jour : hors inventaire — l'achat du jour n'est pas un rachat", () => {
+    expect(
+      isInInventory({
+        readings: [],
+        purchases: [{ purchased_at: "2026-07-24", deleted_at: null }],
+        ownerships: [owns({ disposedAt: "2026-07-24" })],
+      }),
+    ).toBe(false);
+  });
+
+  it("re-rajouté après retrait (les portes rouvrent la ligne) : de retour dans la Biblio", () => {
+    // `recordPurchase`/`recordOwnership` remettent `disposed_at` à null au
+    // rachat (#117) : le livre re-scanné puis re-rajouté redevient possédé.
+    const [entry] = deriveLibrary([
+      bookRow({
+        purchases: [{ purchased_at: "2026-07-24", deleted_at: null }],
+        ownerships: [owns({ ownedSince: "2026-07-24", disposedAt: null })],
+      }),
+    ]);
+    expect(entry.status).toBe("in-pile");
+    expect(entry.isOwned).toBe(true);
+  });
+});

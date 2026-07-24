@@ -8,6 +8,7 @@ import { getReadingInProgressError } from "@/lib/books/reading-guards";
 import { mergeBookFieldsOnRescan } from "@/lib/books/book-merge";
 import { manualEntryToCacheEntry } from "@/lib/books/manual-cache";
 import { isBookInPile } from "@/lib/books/pile-guard";
+import { isInInventory } from "@/lib/library/derive-library";
 import { createCacheProvider } from "@/lib/resolution/providers/cache";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
 import type { BookCategory } from "@/lib/scoring/types";
@@ -435,15 +436,19 @@ export async function endOwnership(bookId: string, disposedAt: string): Promise<
   if ("error" in facts) return { ok: false, error: facts.error };
 
   const existing = facts.ownerships.find((ownership) => ownership.deleted_at === null) ?? null;
-  const hasActivePurchase = facts.purchases.some((purchase) => purchase.deleted_at === null);
 
   // On ne sort pas d'une possession qui n'existe pas. Sans cette garde, insérer
   // une ligne « possédé à une date inconnue, puis donné » sur un livre jamais
   // possédé fabriquerait une SORTIE de pile datée pour un livre qui n'y est
   // jamais entré : la taille resterait juste, mais le solde du mois afficherait
   // une sortie fantôme — un chiffre faux, et lu à l'antenne.
-  const isOwned = existing !== null ? existing.disposed_at === null : hasActivePurchase;
-  if (!isOwned) return { ok: false, error: "Ce livre n'est pas dans ta bibliothèque." };
+  //
+  // La question est posée au prédicat PARTAGÉ (#162) : exactement celui qui
+  // affiche le livre — et son bouton « Retirer » — dans la Biblio. L'ancienne
+  // garde relisait la ligne brute (`disposed_at === null`) et divergeait de
+  // l'affichage : un livre racheté après cession (ligne close, rachat porté par
+  // le filet #117) était listé mais répondait « pas dans ta bibliothèque ».
+  if (!isInInventory(facts)) return { ok: false, error: "Ce livre n'est pas dans ta bibliothèque." };
 
   // La sortie ne peut pas précéder l'acquisition (contrainte en base — le
   // message est plus clair ici).

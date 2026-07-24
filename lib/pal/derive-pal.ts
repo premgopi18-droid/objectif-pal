@@ -118,23 +118,28 @@ export function derivePileStatus({
   // (ou déclarer) un livre déjà terminé ne fait pas grossir la pile.
   const entryDate = datedAcquisitions.find((acquiredAt) => !finished.some((end) => end <= acquiredAt)) ?? null;
 
-  // LE RACHAT (#117) : une acquisition datée survenue à/depuis la cession
-  // ROUVRE la pile — la cession close un épisode de possession, elle ne
+  // LE RACHAT (#117) : une acquisition datée STRICTEMENT postérieure à la
+  // cession ROUVRE la pile — la cession close un épisode de possession, elle ne
   // condamne pas le livre. Sans cette règle, la sortie de possession primait
   // sur tout : un livre cédé non lu puis racheté était « sorti avant d'être
   // entré », donc absent d'une pile où il est physiquement.
   //
+  // À date ÉGALE, la cession l'emporte : on ne cède que ce qu'on possède, donc
+  // l'acquisition du jour a PRÉCÉDÉ la cession — c'est « acheté puis retiré le
+  // même jour » (vu en prod, #162), pas un rachat. Le vrai rachat du jour même
+  // existe, mais il passe par les portes d'écriture (`recordOwnership` comme
+  // `recordPurchase`), qui ROUVRENT la ligne de possession (`disposed_at` remis
+  // à null) : il ne repose jamais sur cette branche.
+  //
   // On ne modélise qu'UN mouvement par livre : c'est l'épisode COURANT qui
   // l'emporte (entrée au rachat), et la paire historique entrée/sortie — qui
-  // s'annulait dans le solde — n'alimente plus les flux passés. Les portes
-  // d'écriture rouvrent d'ailleurs la possession au rachat (`recordOwnership`
-  // comme `recordPurchase`) : cette branche est le filet pour les faits qui
-  // n'y seraient pas passés.
+  // s'annulait dans le solde — n'alimente plus les flux passés. Cette branche
+  // est le filet pour les faits qui ne seraient pas passés par les portes.
   const disposedDate = ownership?.disposedAt ?? null;
   if (disposedDate !== null) {
     const reacquiredAt =
       datedAcquisitions.find(
-        (acquiredAt) => acquiredAt >= disposedDate && !finished.some((end) => end <= acquiredAt),
+        (acquiredAt) => acquiredAt > disposedDate && !finished.some((end) => end <= acquiredAt),
       ) ?? null;
     if (reacquiredAt !== null) {
       const finishExit = finished.find((end) => end >= reacquiredAt) ?? null;
