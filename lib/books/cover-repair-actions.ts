@@ -31,12 +31,17 @@ async function isUrlAlive(url: string): Promise<boolean | null> {
   // Garde SSRF (review #57) : jamais de fetch serveur hors des hôtes de
   // couverture connus. Indéterminable → le doute profite à l'existant (keep).
   if (!isKnownCoverImageUrl(url)) return null;
+  // Un 200 à CORPS VIDE est un cadavre (#154 bis, vu en prod : Inventaire sert
+  // parfois un 200 image/webp de 0 octet) — sans ce test, l'URL morte passait
+  // pour vivante et la photo (#33) n'était jamais proposée. L'absence d'en-tête
+  // content-length reste un doute → profite à l'existant, comme le reste.
+  const hasEmptyBody = (response: Response) => response.headers.get("content-length") === "0";
   try {
     const head = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS) });
-    if (head.status !== 405) return head.ok;
+    if (head.status !== 405) return head.ok && !hasEmptyBody(head);
     const get = await fetch(url, { signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS) });
     await get.body?.cancel();
-    return get.ok;
+    return get.ok && !hasEmptyBody(get);
   } catch {
     return null;
   }
