@@ -70,6 +70,17 @@ describe("submittedDate — la date réellement soumise", () => {
     expect(submittedDate("own", date, false)).toBe(date);
     expect(submittedDate("read", date, false)).toBe(date);
   });
+
+  it("champ vidé à la main sur un geste facultatif : nulle aussi — jamais de CTA bloqué sans cause (review #166)", () => {
+    expect(submittedDate("own", "", false)).toBeNull();
+    expect(submittedDate("own_read", "", false)).toBeNull();
+    expect(submittedDate("read", "", false)).toBeNull();
+  });
+
+  it("champ vidé sur un geste à date obligatoire : la fonction rend la date telle quelle — la garde du composant bloque en amont", () => {
+    expect(submittedDate("start", "", false)).toBe("");
+    expect(submittedDate("purchase", "", false)).toBe("");
+  });
 });
 
 describe("ctaLabel — le bouton répète l'intention", () => {

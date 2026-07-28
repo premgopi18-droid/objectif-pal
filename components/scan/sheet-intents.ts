@@ -37,6 +37,14 @@ export type SheetIntentConfig = {
 /** L'ordre d'affichage : le quotidien d'abord, le rattrapage ensuite. `start` en tête = la pré-sélection. */
 export const SHEET_INTENT_ORDER: readonly SheetIntent[] = ["start", "purchase", "own", "own_read", "read"];
 
+/*
+ * Libellés vs rafale (review #166) : les CLÉS sont identiques (verrouillé par
+ * test), les libellés divergent VOLONTAIREMENT là où le contexte change —
+ * « Je le possède déjà » à l'unité (le « déjà » dit le rattrapage) contre
+ * « Je possède » sur un segment court de session ; « −N pt » pour UN livre
+ * contre « −N/livre » quand l'intention vaut pour toute la rafale. Ne pas
+ * « harmoniser » sans repasser par cette réflexion.
+ */
 export const SHEET_INTENTS: Record<SheetIntent, SheetIntentConfig> = {
   start: {
     label: "Je commence la lecture",
@@ -83,12 +91,14 @@ export const SHEET_INTENTS: Record<SheetIntent, SheetIntentConfig> = {
 
 /**
  * La date réellement soumise : nulle SEULEMENT quand le geste autorise le
- * facultatif ET que l'utilisateur a déclaré la date inconnue. Pour une
- * intention à date obligatoire, une case résiduelle est ignorée — la garde,
- * pas l'UI, décide.
+ * facultatif ET que la date est inconnue — déclarée par la case, OU par un
+ * champ vidé à la main (review #166 : bloquer sur champ vide recréait un
+ * « bouton grisé sans cause », la friction que la refonte combat). Pour une
+ * intention à date obligatoire, case et champ vide sont ignorés — la garde
+ * du composant bloque en amont, la fonction rend la date telle quelle.
  */
 export const submittedDate = (intent: SheetIntent, date: string, dateUnknown: boolean): string | null =>
-  SHEET_INTENTS[intent].dateOptional && dateUnknown ? null : date;
+  SHEET_INTENTS[intent].dateOptional && (dateUnknown || !date) ? null : date;
 
 /**
  * Le libellé du CTA — « Oui, je le relis » remplace UNIQUEMENT celui de

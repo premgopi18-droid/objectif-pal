@@ -84,9 +84,10 @@ export function BookActionSheet({
     setDateUnknown(false);
   };
 
-  // Un champ date vidé à la main ne doit pas partir en base : on bloque la
-  // validation tant qu'une date sera réellement soumise mais qu'elle est vide.
-  const dateMissing = !date && !(config.dateOptional && dateUnknown);
+  // Un champ date vidé à la main ne bloque QUE les gestes à date obligatoire
+  // (avec le message de la ligne réservée) : pour l'étagère d'avant, un champ
+  // vide vaut « date inconnue » — soumis nul, comme la case (review #166).
+  const dateMissing = !date && !config.dateOptional;
 
   const buildInput = (): BookInput => ({
     title,
@@ -177,19 +178,24 @@ export function BookActionSheet({
           />
         </label>
 
-        {/* La ligne reste TOUJOURS dans le flux (invisible, pas retirée) :
-            changer d'intention ne fait jamais bouger la liste des choix sous
-            le doigt (#165). Sa portée est évidente — elle est collée au champ. */}
-        <label className={`flex items-center gap-2.5 text-sm text-ink2 ${config.dateOptional ? "" : "invisible"}`}>
-          <input
-            type="checkbox"
-            checked={dateUnknown}
-            disabled={!config.dateOptional}
-            onChange={(event) => setDateUnknown(event.target.checked)}
-            className="size-4 rounded border-line bg-card2 accent-cyan"
-          />
-          Je ne sais plus quand
-        </label>
+        {/* La ligne reste TOUJOURS dans le flux : changer d'intention ne fait
+            jamais bouger la liste des choix sous le doigt (#165). Elle porte la
+            case (date facultative) OU, sur un geste à date obligatoire dont le
+            champ a été vidé, la raison du CTA bloqué (review #166) — plus
+            jamais de bouton grisé sans cause visible. */}
+        {config.dateOptional ? (
+          <label className="flex items-center gap-2.5 text-sm text-ink2">
+            <input
+              type="checkbox"
+              checked={dateUnknown}
+              onChange={(event) => setDateUnknown(event.target.checked)}
+              className="size-4 rounded border-line bg-card2 accent-cyan"
+            />
+            Je ne sais plus quand
+          </label>
+        ) : (
+          <p className={`text-sm text-amber ${dateMissing ? "" : "invisible"}`}>Il faut une date pour ce geste.</p>
+        )}
       </div>
 
       <fieldset>
@@ -232,8 +238,10 @@ export function BookActionSheet({
         </div>
       </fieldset>
 
-      {/* Chaque intention a sa note (min-h : la hauteur ne saute pas). */}
-      <p className="min-h-10 text-sm text-ink3">{config.note}</p>
+      {/* Chaque intention a sa note. min-h-15 = 3 lignes de text-sm : sur un
+          écran ≤ 360 px les notes wrappent sur 3 lignes (review #166) — la
+          hauteur ne saute pas en changeant d'intention. */}
+      <p className="min-h-15 text-sm text-ink3">{config.note}</p>
 
       <div className="flex flex-col gap-3">
         {/* UN bouton de validation, au dégradé signature (CTA §2) — son libellé
