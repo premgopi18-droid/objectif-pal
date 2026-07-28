@@ -7,20 +7,19 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { displayableIssueNumber, formatBookSubtitle } from "@/lib/books/format";
 import { localToday } from "@/lib/dates";
-import { SCORING_SCALE } from "@/lib/scoring/scale";
+import { ctaLabel, submittedDate, SHEET_INTENT_ORDER, SHEET_INTENTS, type SheetIntent } from "./sheet-intents";
 import type { BookInput } from "@/lib/books/actions";
 import type { ResolvedBook } from "@/lib/resolution/types";
 import type { BookCategory } from "@/lib/scoring/types";
 
 /**
- * La feuille d'actions — specs §4.1 : le scan a résolu un livre, l'app DEMANDE
- * l'intention (« Commencer la lecture » / « Enregistrer un achat », deux gros
- * boutons, deux effets opposés sur le score). La catégorie proposée se corrige
- * en un tap, la date est pré-remplie à aujourd'hui mais modifiable.
+ * La feuille d'actions — specs §4.1, refonte #165 : le scan a résolu un livre,
+ * l'app DEMANDE l'intention via un sélecteur à cinq cartes radio (« Je
+ * commence » pré-sélectionné) et UN bouton de validation qui répète toujours
+ * l'intention choisie. La fiche se vérifie d'abord (titre, catégorie, date —
+ * au-dessus des choix), le geste se décide ensuite. Les cinq gestes sont des
+ * égaux : plus de cases à effet de bord, plus de bouton au sens variable.
  */
-
-/** Le malus affiché vient du barème — jamais recopié en dur (CLAUDE.md). */
-const PENALTY_POINTS = Math.abs(SCORING_SCALE.unreadPurchasePenalty);
 
 /** Les champs de la feuille, stylés une fois sur les tokens (§2). */
 const INPUT_CLASS =
@@ -32,8 +31,8 @@ type BookActionSheetProps = {
   scannedCode: string | null;
   /**
    * Le livre a déjà été TERMINÉ (specs §4.2) : la question « tu le relis ? »
-   * est posée par l'écran, le bouton devient la réponse explicite — commencer
-   * crée une relecture, « Annuler » est le non.
+   * est posée par l'écran, le CTA de « Je commence » devient la réponse
+   * explicite (« Oui, je le relis ») — les autres intentions ne changent pas.
    */
   isRereadingPrompt?: boolean;
   onStartReading: (input: BookInput, date: string) => void;
@@ -41,14 +40,11 @@ type BookActionSheetProps = {
   /** « Je le possède » — l'étagère d'avant l'app (#101). Date d'acquisition facultative. */
   onOwn: (input: BookInput, ownedSince: string | null) => void;
   /**
-   * « Je l'ai déjà lu » avec la case EMPRUNT cochée (#113) : lecture seule,
-   * aucune possession — le livre de médiathèque, le prêt d'un ami.
+   * « Lu — emprunt » (#113) : lecture seule, aucune possession — le livre de
+   * médiathèque, le prêt d'un ami.
    */
   onPastReading: (input: BookInput, finishedAt: string | null) => void;
-  /**
-   * « Je l'ai déjà lu » par DÉFAUT (#113) : possédé ET lu — aligné sur le titre
-   * de la section (« Ce livre est déjà à moi ») et sur la rafale (§4.13).
-   */
+  /** « Possédé, déjà lu » (#113, §4.13) : les deux faits — aligné sur la rafale. */
   onOwnedPastReading: (input: BookInput, finishedAt: string | null) => void;
   onCancel: () => void;
   isSubmitting: boolean;
@@ -77,9 +73,21 @@ export function BookActionSheet({
   // sans date, le livre compte dans le stock de la PAL sans peser sur les flux
   // du mois, et une lecture passée ne crédite aucun bilan.
   const [dateUnknown, setDateUnknown] = useState(false);
-  // L'emprunt (#113) : « déjà lu » sans jamais posséder — médiathèque, prêt.
-  const [isBorrowed, setIsBorrowed] = useState(false);
-  const shelfDate = dateUnknown ? null : date;
+  const [intent, setIntent] = useState<SheetIntent>("start");
+  const config = SHEET_INTENTS[intent];
+
+  // Changer d'intention réinitialise « Je ne sais plus quand » : pas d'état
+  // caché reporté d'un geste à l'autre (#165) — c'était LA friction de
+  // l'ancienne feuille.
+  const selectIntent = (next: SheetIntent) => {
+    setIntent(next);
+    setDateUnknown(false);
+  };
+
+  // Un champ date vidé à la main ne bloque QUE les gestes à date obligatoire
+  // (avec le message de la ligne réservée) : pour l'étagère d'avant, un champ
+  // vide vaut « date inconnue » — soumis nul, comme la case (review #166).
+  const dateMissing = !date && !config.dateOptional;
 
   const buildInput = (): BookInput => ({
     title,
@@ -96,6 +104,30 @@ export function BookActionSheet({
     metadataSource: book.source,
     metadataSourceId: book.sourceId,
   });
+
+  /** L'intention choisie → l'action serveur existante. Switch exhaustif : une 6ᵉ intention sans branche casse le build. */
+  const submit = () => {
+    const input = buildInput();
+    switch (intent) {
+      case "start":
+        onStartReading(input, date);
+        break;
+      case "purchase":
+        onPurchase(input, date);
+        break;
+      case "own":
+        onOwn(input, submittedDate(intent, date, dateUnknown));
+        break;
+      case "own_read":
+        onOwnedPastReading(input, submittedDate(intent, date, dateUnknown));
+        break;
+      case "read":
+        onPastReading(input, submittedDate(intent, date, dateUnknown));
+        break;
+      default:
+        intent satisfies never;
+    }
+  };
 
   return (
     <section className="flex flex-col gap-5">
@@ -127,38 +159,101 @@ export function BookActionSheet({
         <CategoryPicker value={category} onChange={setCategory} />
       </fieldset>
 
-      <label className="flex items-center justify-between gap-3 text-sm">
-        <span className="font-medium text-ink2">Date</span>
-        <input
-          type="date"
-          value={date}
-          // Pas de date future : on borne la SÉLECTION côté client (le fuseau local, pas UTC).
-          max={localToday()}
-          onChange={(event) => setDate(event.target.value)}
-          className="rounded-xl border border-line bg-card2 px-3 py-2 text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
-        />
-      </label>
+      {/* La date au-dessus des choix (#165) : le libellé suit l'intention — le
+          champ « à quatre sens muets » n'existe plus. */}
+      <div className="flex flex-col gap-3">
+        <label className="flex items-center justify-between gap-3 text-sm">
+          <span className="font-medium text-ink2">
+            {config.dateLabel}
+            {config.dateOptional && <span className="font-normal text-ink3"> (facultatif)</span>}
+          </span>
+          <input
+            type="date"
+            value={date}
+            // Pas de date future : on borne la SÉLECTION côté client (le fuseau local, pas UTC).
+            max={localToday()}
+            disabled={config.dateOptional && dateUnknown}
+            onChange={(event) => setDate(event.target.value)}
+            className="rounded-xl border border-line bg-card2 px-3 py-2 text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan disabled:opacity-40"
+          />
+        </label>
+
+        {/* La ligne reste TOUJOURS dans le flux : changer d'intention ne fait
+            jamais bouger la liste des choix sous le doigt (#165). Elle porte la
+            case (date facultative) OU, sur un geste à date obligatoire dont le
+            champ a été vidé, la raison du CTA bloqué (review #166) — plus
+            jamais de bouton grisé sans cause visible. */}
+        {config.dateOptional ? (
+          <label className="flex items-center gap-2.5 text-sm text-ink2">
+            <input
+              type="checkbox"
+              checked={dateUnknown}
+              onChange={(event) => setDateUnknown(event.target.checked)}
+              className="size-4 rounded border-line bg-card2 accent-cyan"
+            />
+            Je ne sais plus quand
+          </label>
+        ) : (
+          <p className={`text-sm text-amber ${dateMissing ? "" : "invisible"}`}>Il faut une date pour ce geste.</p>
+        )}
+      </div>
+
+      <fieldset>
+        <legend className="mb-2 text-sm font-medium text-ink2">On en fait quoi ?</legend>
+        <div className="flex flex-col gap-2">
+          {SHEET_INTENT_ORDER.map((candidate) => {
+            const option = SHEET_INTENTS[candidate];
+            const active = intent === candidate;
+            return (
+              <label
+                key={candidate}
+                className={`flex cursor-pointer items-start gap-3 rounded-xl border p-3 transition has-[:focus-visible]:outline-2 has-[:focus-visible]:outline-offset-2 has-[:focus-visible]:outline-cyan ${
+                  active ? "border-cyan bg-card2" : "border-line bg-card"
+                }`}
+              >
+                <input
+                  type="radio"
+                  name="sheet-intent"
+                  value={candidate}
+                  checked={active}
+                  onChange={() => selectIntent(candidate)}
+                  className="sr-only"
+                />
+                {/* La pastille radio, dessinée sur les tokens — l'input natif reste pour le clavier. */}
+                <span
+                  aria-hidden
+                  className={`mt-0.5 flex size-4 shrink-0 items-center justify-center rounded-full border-2 ${
+                    active ? "border-cyan" : "border-ink3"
+                  }`}
+                >
+                  {active && <span className="size-2 rounded-full bg-cyan" />}
+                </span>
+                <span className="min-w-0">
+                  <span className="block text-sm font-semibold text-ink">{option.label}</span>
+                  <span className="block text-xs text-ink3">{option.hint}</span>
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      </fieldset>
+
+      {/* Chaque intention a sa note. min-h-15 = 3 lignes de text-sm : sur un
+          écran ≤ 360 px les notes wrappent sur 3 lignes (review #166) — la
+          hauteur ne saute pas en changeant d'intention. */}
+      <p className="min-h-15 text-sm text-ink3">{config.note}</p>
 
       <div className="flex flex-col gap-3">
-        {/* Le bon geste, au dégradé signature (CTA §2). */}
+        {/* UN bouton de validation, au dégradé signature (CTA §2) — son libellé
+            répète l'intention : impossible de valider autre chose que ce qu'on croit. */}
         <Button
           type="button"
           variant="grad"
           block
-          disabled={isSubmitting || !title.trim()}
-          onClick={() => onStartReading(buildInput(), date)}
+          disabled={isSubmitting || !title.trim() || dateMissing}
+          onClick={submit}
         >
-          {isRereadingPrompt ? "Oui, je le relis" : "Commencer la lecture"}
-        </Button>
-        {/* L'achat pèse sur le score : malus en rouge sémantique (§2). */}
-        <Button
-          type="button"
-          variant="ghost"
-          block
-          disabled={isSubmitting || !title.trim()}
-          onClick={() => onPurchase(buildInput(), date)}
-        >
-          Enregistrer un achat <span className="text-sm font-normal text-red">(−{PENALTY_POINTS} point, effaçable)</span>
+          {ctaLabel(intent, isRereadingPrompt)}
         </Button>
         <button
           type="button"
@@ -169,73 +264,6 @@ export function BookActionSheet({
           Annuler
         </button>
       </div>
-
-      {/* L'étagère d'avant l'app (#101) — volontairement en second rang : ces
-          gestes servent au rattrapage, pas au quotidien. Aucun des deux ne
-          touche au score. */}
-      <section className="flex flex-col gap-3 border-t border-line pt-5">
-        <div>
-          <h2 className="text-sm font-medium text-ink2">Ce livre est déjà à moi</h2>
-          <p className="mt-0.5 text-xs text-ink3">
-            Pour les étagères d&apos;avant l&apos;app — aucun effet sur le score.
-          </p>
-        </div>
-
-        <label className="flex items-center gap-2.5 text-sm text-ink2">
-          <input
-            type="checkbox"
-            checked={dateUnknown}
-            onChange={(event) => setDateUnknown(event.target.checked)}
-            className="size-4 rounded border-line bg-card2 accent-cyan"
-          />
-          Je ne sais plus quand
-        </label>
-
-        {/* L'emprunt (#113) : « déjà lu » sans rien posséder. Cochée, la case
-            neutralise « Je le possède » (on ne possède pas un emprunt) et
-            bascule « Déjà lu » en lecture seule — aucune possession fabriquée,
-            le livre n'entre jamais dans la pile (§4.5). */}
-        <label className="flex items-center gap-2.5 text-sm text-ink2">
-          <input
-            type="checkbox"
-            checked={isBorrowed}
-            onChange={(event) => setIsBorrowed(event.target.checked)}
-            className="size-4 rounded border-line bg-card2 accent-cyan"
-          />
-          C&apos;était un emprunt — je ne le possède pas
-        </label>
-        {/* La portée de la case, dite explicitement (review #104) : le champ
-            « Date » au-dessus sert AUSSI à la lecture et à l'achat — cocher
-            ici ne doit pas laisser croire qu'il est ignoré partout. */}
-        {dateUnknown && (
-          <p className="text-xs text-ink3">
-            Vaut pour ces deux boutons — la date au-dessus reste utilisée pour « Commencer » et « Acheter ».
-          </p>
-        )}
-
-        <div className="flex flex-col gap-2.5 sm:flex-row">
-          <Button
-            type="button"
-            variant="ghost"
-            block
-            disabled={isSubmitting || !title.trim() || isBorrowed}
-            onClick={() => onOwn(buildInput(), shelfDate)}
-          >
-            Je le possède
-          </Button>
-          <Button
-            type="button"
-            variant="ghost"
-            block
-            disabled={isSubmitting || !title.trim()}
-            onClick={() =>
-              isBorrowed ? onPastReading(buildInput(), shelfDate) : onOwnedPastReading(buildInput(), shelfDate)
-            }
-          >
-            Je l&apos;ai déjà lu
-          </Button>
-        </div>
-      </section>
     </section>
   );
 }

@@ -1,0 +1,646 @@
+<!doctype html>
+<html lang="fr">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Scanner — protos de réorganisation</title>
+<style>
+  /* ====== Tokens — repris de app/globals.css (« nuit du plateau », thème sombre unique assumé) ====== */
+  :root {
+    color-scheme: dark;
+    --page: #0b0517;          /* chrome de la page, plus profond que l’app pour détacher les téléphones */
+    --bg0: #120826;
+    --bg1: #1b0f38;
+    --card: #221345;
+    --card2: #2b1a55;
+    --line: rgba(255,255,255,.08);
+    --ink: #f4effc;
+    --ink2: #b3a5d6;
+    --ink3: #9083bc;
+    --magenta: #f32fb6;
+    --violet: #8c5cf6;
+    --cyan: #2bd7f0;
+    --green: #3be596;
+    --amber: #ffb63b;
+    --red: #ff5470;
+    --grad: linear-gradient(100deg,#f32fb6,#8c5cf6 45%,#2bd7f0 75%,#3be596);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    line-height: 1.55;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 1080px; margin: 0 auto; padding: 0 20px 96px; }
+
+  /* ====== En-tête ====== */
+  header.hero { padding: 56px 0 8px; }
+  .kicker { font-size: 12px; letter-spacing: .14em; text-transform: uppercase; color: var(--ink3); font-weight: 600; }
+  h1 {
+    margin: 10px 0 12px; font-size: clamp(30px, 5vw, 46px); line-height: 1.05;
+    font-weight: 900; font-style: italic; text-transform: uppercase; letter-spacing: -.02em; text-wrap: balance;
+  }
+  .gradword { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .lede { max-width: 62ch; color: var(--ink2); margin: 0; }
+
+  /* ====== Nav ancres ====== */
+  nav.jump { position: sticky; top: 0; z-index: 50; background: color-mix(in srgb, var(--page) 88%, transparent); backdrop-filter: blur(8px); margin: 28px -20px 0; padding: 10px 20px; border-bottom: 1px solid var(--line); display: flex; gap: 8px; overflow-x: auto; }
+  nav.jump a { flex-shrink: 0; text-decoration: none; color: var(--ink2); font-size: 13px; font-weight: 600; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: var(--card); }
+  nav.jump a:hover, nav.jump a:focus-visible { color: var(--ink); border-color: var(--cyan); outline: none; }
+
+  /* ====== Sections option ====== */
+  section.opt { margin-top: 64px; scroll-margin-top: 72px; }
+  .opt-head { display: flex; align-items: baseline; gap: 14px; flex-wrap: wrap; margin-bottom: 6px; }
+  .opt-head .tag { font-size: 12px; font-weight: 800; letter-spacing: .1em; text-transform: uppercase; padding: 4px 12px; border-radius: 999px; border: 1px solid var(--line); color: var(--ink2); background: var(--card); }
+  .opt-head .tag.reco { border: none; background: var(--grad); color: #120826; }
+  h2 { margin: 0; font-size: clamp(22px, 3vw, 30px); font-weight: 900; font-style: italic; text-transform: uppercase; letter-spacing: -.015em; }
+  .opt-sub { color: var(--ink2); max-width: 68ch; margin: 6px 0 26px; }
+
+  .duo { display: grid; grid-template-columns: 384px 1fr; gap: 36px; align-items: start; }
+  @media (max-width: 860px) { .duo { grid-template-columns: 1fr; } }
+
+  /* ====== Téléphone ====== */
+  .phone-col { position: sticky; top: 66px; }
+  @media (max-width: 860px) { .phone-col { position: static; } }
+  .phone {
+    width: 100%; max-width: 384px; border-radius: 34px; padding: 10px;
+    background: #050210; border: 1px solid rgba(255,255,255,.12);
+    box-shadow: 0 24px 60px rgba(0,0,0,.55), 0 4px 16px color-mix(in srgb, var(--violet) 25%, transparent);
+  }
+  .screen { position: relative; overflow: hidden; border-radius: 26px; background: linear-gradient(180deg, var(--bg1), var(--bg0) 30%); height: 660px; }
+  .scroll { position: absolute; inset: 0; overflow-y: auto; padding: 18px 16px 24px; scrollbar-width: thin; }
+  .sim { display: flex; align-items: center; gap: 8px; margin: 0 0 10px; padding: 8px 14px; border: 1px dashed var(--line); border-radius: 12px; color: var(--ink3); font-size: 13px; background: color-mix(in srgb, var(--card) 50%, transparent); }
+  .sim input { accent-color: var(--cyan); }
+
+  /* ====== Composants in-phone (fidèles aux composants ui/ de l’app) ====== */
+  .stitle { font-size: 20px; font-weight: 900; font-style: italic; text-transform: uppercase; letter-spacing: -.02em; margin: 2px 0 2px; }
+  .ssub { font-size: 13px; color: var(--ink3); margin: 0 0 14px; }
+  .bcard { display: flex; gap: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 12px; }
+  .cover { flex-shrink: 0; width: 72px; height: 104px; border-radius: 10px; background: linear-gradient(160deg, var(--violet), var(--magenta)); display: grid; place-items: center; font-weight: 900; font-size: 26px; color: #fff; font-style: italic; }
+  .binfo { min-width: 0; flex: 1; }
+  .inp { width: 100%; border: 1px solid var(--line); background: var(--card2); color: var(--ink); border-radius: 12px; padding: 8px 10px; font: inherit; font-size: 14px; }
+  .inp.title { font-weight: 600; }
+  .inp:focus-visible, .pill:focus-visible, .btn:focus-visible, .rrow:focus-visible, .lrow:focus-visible, .btn-text:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  .sub { margin: 5px 0 0; font-size: 12.5px; color: var(--ink2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .code { margin: 6px 0 0; font-family: ui-monospace, "Cascadia Mono", Consolas, monospace; font-size: 11px; color: var(--ink3); }
+
+  .field { margin-top: 16px; }
+  .flabel { display: block; font-size: 13px; font-weight: 600; color: var(--ink2); margin-bottom: 8px; }
+  .flabel em { font-style: normal; font-weight: 400; color: var(--ink3); }
+  .pills { display: flex; flex-wrap: wrap; gap: 7px; }
+  .pill { border: 1px solid var(--line); background: var(--card); color: var(--ink2); border-radius: 999px; padding: 6px 13px; font: inherit; font-size: 13px; cursor: pointer; }
+  .pill.on { background: var(--card2); border-color: var(--cyan); color: var(--ink); font-weight: 600; }
+
+  .daterow { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 16px; }
+  .daterow .flabel { margin: 0; }
+  .dinput { border: 1px solid var(--line); background: var(--card2); color: var(--ink); border-radius: 12px; padding: 8px 10px; font: inherit; font-size: 13.5px; }
+  .dinput:disabled { opacity: .4; }
+
+  .btn { display: block; width: 100%; border: none; border-radius: 12px; padding: 13px 16px; font: inherit; font-size: 15px; font-weight: 700; cursor: pointer; text-align: center; }
+  .btn + .btn { margin-top: 10px; }
+  .btn-grad { background: var(--grad); color: #120826; }
+  .btn-ghost { background: var(--card2); color: var(--ink); border: 1px solid var(--line); }
+  .btn-ghost:disabled { opacity: .38; cursor: not-allowed; }
+  .btn small { font-weight: 400; font-size: 12.5px; }
+  .btn .malus { color: var(--red); }
+  .btn-grad .malus { color: #7a1030; }
+  .btn-text { display: block; width: 100%; background: none; border: none; color: var(--ink3); font: inherit; font-size: 13.5px; padding: 9px; cursor: pointer; }
+  .btn-text.u { text-decoration: underline; text-underline-offset: 3px; }
+
+  .checkrow { display: flex; align-items: flex-start; gap: 10px; font-size: 13.5px; color: var(--ink2); margin-top: 12px; cursor: pointer; }
+  .checkrow input { accent-color: var(--cyan); width: 16px; height: 16px; margin-top: 2px; flex-shrink: 0; }
+
+  .banner { border: 1px solid color-mix(in srgb, var(--amber) 40%, transparent); background: color-mix(in srgb, var(--amber) 10%, transparent); border-radius: 16px; padding: 11px 13px; font-size: 13.5px; margin-bottom: 12px; }
+  .note { font-size: 12px; color: var(--ink3); margin: 8px 0 0; }
+  .divider { border: none; border-top: 1px solid var(--line); margin: 20px 0 16px; }
+  .sect-label { font-size: 13px; font-weight: 600; color: var(--ink2); margin: 0; }
+  .sect-hint { font-size: 12px; color: var(--ink3); margin: 3px 0 0; }
+  .tworow { display: flex; gap: 10px; margin-top: 12px; }
+  .tworow .btn { margin: 0; flex: 1; font-size: 13.5px; padding: 12px 8px; }
+
+  /* Listes d’intentions (option A) */
+  .lrow { display: flex; align-items: center; gap: 12px; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 13px 14px; margin-top: 9px; font: inherit; color: var(--ink); cursor: pointer; }
+  .lrow b { font-size: 14.5px; display: block; }
+  .lrow span { display: block; font-size: 12px; color: var(--ink3); margin-top: 1px; }
+  .lrow .chev { margin-left: auto; color: var(--ink3); font-size: 18px; }
+  .lrow.prime { border-color: transparent; background: var(--card2); position: relative; }
+  .lrow.prime::before { content: ""; position: absolute; inset: 0; border-radius: 16px; padding: 1.5px; background: var(--grad); -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude; pointer-events: none; }
+
+  /* Cartes radio (option C) */
+  .rrow { display: flex; align-items: center; gap: 11px; width: 100%; text-align: left; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 11px 13px; margin-top: 8px; font: inherit; color: var(--ink); cursor: pointer; }
+  .rrow .dot { flex-shrink: 0; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--ink3); display: grid; place-items: center; }
+  .rrow.on { border-color: var(--cyan); background: var(--card2); }
+  .rrow.on .dot { border-color: var(--cyan); }
+  .rrow.on .dot::after { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--cyan); }
+  .rrow b { font-size: 14px; display: block; }
+  .rrow span { display: block; font-size: 11.5px; color: var(--ink3); margin-top: 1px; }
+
+  /* Tiroir (option B) */
+  .backdrop { position: absolute; inset: 0; background: rgba(5,2,16,.6); border-radius: 26px; }
+  .drawer { position: absolute; left: 0; right: 0; bottom: 0; background: var(--card); border: 1px solid var(--line); border-bottom: none; border-radius: 22px 22px 0 0; padding: 14px 16px 22px; box-shadow: 0 -8px 24px rgba(0,0,0,.5); }
+  .drawer .grip { width: 40px; height: 4px; border-radius: 2px; background: var(--line); margin: 0 auto 12px; }
+  .drawer h4 { margin: 0 0 2px; font-size: 15px; }
+  .drawer .lrow { background: var(--card2); }
+
+  /* Écran ✅ */
+  .done { display: flex; flex-direction: column; align-items: center; text-align: center; gap: 12px; padding: 84px 8px 0; }
+  .done .check { width: 58px; height: 58px; border-radius: 50%; background: var(--grad); display: grid; place-items: center; font-size: 26px; font-weight: 900; color: #120826; }
+  .done h3 { margin: 4px 0 0; font-size: 19px; font-weight: 900; font-style: italic; text-transform: uppercase; letter-spacing: -.02em; }
+  .done .btn { margin-top: 18px; }
+
+  /* Pastilles de friction (écran actuel) */
+  .flag { display: inline-grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; background: var(--red); color: #fff; font-size: 11px; font-weight: 800; font-style: normal; margin-left: 6px; vertical-align: 2px; }
+
+  /* ====== Colonne argumentaire ====== */
+  .argu h3 { margin: 0 0 6px; font-size: 15px; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); font-weight: 700; }
+  .argu p { color: var(--ink2); max-width: 62ch; }
+  ul.pro, ul.con, ul.fr { list-style: none; margin: 14px 0 0; padding: 0; }
+  ul.pro li, ul.con li, ul.fr li { position: relative; padding-left: 30px; margin-top: 10px; color: var(--ink2); max-width: 62ch; }
+  ul.pro li::before, ul.con li::before { position: absolute; left: 0; top: 1px; width: 20px; height: 20px; border-radius: 6px; display: grid; place-items: center; font-size: 13px; font-weight: 800; }
+  ul.pro li::before { content: "+"; background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); }
+  ul.con li::before { content: "−"; background: color-mix(in srgb, var(--red) 18%, transparent); color: var(--red); }
+  ul.fr li::before { counter-increment: fr; content: counter(fr); position: absolute; left: 0; top: 1px; width: 20px; height: 20px; border-radius: 50%; background: var(--red); color: #fff; display: grid; place-items: center; font-size: 12px; font-weight: 800; }
+  ul.fr { counter-reset: fr; }
+  ul li strong { color: var(--ink); }
+  .verdict { margin-top: 18px; padding: 13px 16px; border-radius: 16px; background: var(--card); border: 1px solid var(--line); color: var(--ink); font-size: 14.5px; max-width: 62ch; }
+  .verdict b { color: var(--cyan); }
+  .try { font-size: 12.5px; color: var(--ink3); margin-top: 10px; }
+  .try::before { content: "👆 "; }
+
+  /* ====== Matrice ====== */
+  .table-wrap { overflow-x: auto; margin-top: 24px; border: 1px solid var(--line); border-radius: 20px; }
+  table { border-collapse: collapse; width: 100%; min-width: 780px; font-size: 13.5px; }
+  th, td { padding: 11px 14px; text-align: left; border-top: 1px solid var(--line); vertical-align: top; }
+  thead th { border-top: none; background: var(--card); color: var(--ink); font-size: 12px; text-transform: uppercase; letter-spacing: .08em; }
+  tbody th { font-weight: 600; color: var(--ink); min-width: 200px; }
+  tbody tr:nth-child(even) { background: color-mix(in srgb, var(--card) 40%, transparent); }
+  td { color: var(--ink2); }
+  .ok { color: var(--green); font-weight: 600; }
+  .warn { color: var(--amber); font-weight: 600; }
+  .bad { color: var(--red); font-weight: 600; }
+  .same { color: var(--ink3); }
+  .legend { display: flex; flex-wrap: wrap; gap: 18px; margin-top: 12px; font-size: 12.5px; color: var(--ink3); }
+
+  /* ====== Inchangés + verdict final ====== */
+  .cards2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 14px; margin-top: 20px; }
+  .mini { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 18px 20px; }
+  .mini h4 { margin: 0 0 8px; font-size: 14px; }
+  .mini p, .mini li { font-size: 13.5px; color: var(--ink2); }
+  .mini ul { margin: 0; padding-left: 18px; }
+  .mini li { margin-top: 5px; }
+  .final { margin-top: 64px; border-radius: 24px; padding: 28px 30px; background: linear-gradient(180deg, var(--bg1), var(--bg0)); border: 1px solid var(--line); position: relative; overflow: hidden; }
+  .final::before { content: ""; position: absolute; inset: 0 0 auto; height: 3px; background: var(--grad); }
+  .final h2 { font-size: 22px; }
+  .final p { color: var(--ink2); max-width: 70ch; }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .pill, .btn, .lrow, .rrow { transition: transform .08s ease, border-color .12s ease, background .12s ease; }
+    .btn:active, .lrow:active, .rrow:active { transform: scale(.985); }
+  }
+</style>
+
+<div class="wrap">
+  <header class="hero">
+    <p class="kicker">Objectif PAL · Proto UX · 28/07/2026</p>
+    <h1>Réorganiser la feuille <span class="gradword">du scan simple</span></h1>
+    <p class="lede">Quatre téléphones cliquables : l’écran actuel (avec ses frictions annotées en rouge) et trois réorganisations possibles. Tout est manipulable — choisis une intention, coche les cases, valide, recommence. Les cinq gestes du scan simple sont couverts dans chaque proposition : commencer, acheter, posséder, possédé-déjà-lu, lu en emprunt.</p>
+  </header>
+
+  <nav class="jump" aria-label="Aller à">
+    <a href="#actuel">Actuel — les frictions</a>
+    <a href="#opt-a">A · Intention d’abord</a>
+    <a href="#opt-b">B · Tiroir « déjà à moi »</a>
+    <a href="#opt-c">C · Sélecteur + Valider</a>
+    <a href="#matrice">Matrice des cas</a>
+    <a href="#verdict">Verdict</a>
+  </nav>
+
+  <!-- ==================== ACTUEL ==================== -->
+  <section class="opt" id="actuel">
+    <div class="opt-head"><span class="tag">État des lieux</span><h2>L’écran actuel</h2></div>
+    <p class="opt-sub">Cinq gestes répartis sur deux grammaires : des boutons directs en haut, des boutons <em>modifiés par des cases à cocher</em> en bas. Les pastilles rouges marquent les frictions — coche les cases pour les voir en action.</p>
+    <div class="duo">
+      <div class="phone-col">
+        <div class="phone"><div class="screen" id="ph-now"><div class="scroll"></div></div></div>
+        <p class="try">Coche « emprunt » : regarde « Je le possède » se griser sans explication.</p>
+      </div>
+      <div class="argu">
+        <h3>Les quatre frictions</h3>
+        <ul class="fr">
+          <li><strong>Un champ Date, quatre sens.</strong> La même date sert de début de lecture, date d’achat, date d’acquisition ou date de fin selon le bouton tapé — sans jamais le dire.</li>
+          <li><strong>« Je ne sais plus quand » à portée ambiguë.</strong> La case ne vaut que pour les deux boutons du bas… au point qu’un texte d’aide conditionnel a dû être ajouté pour l’expliquer. Quand une checkbox a besoin d’un paragraphe, c’est le design qui a tort.</li>
+          <li><strong>La case emprunt agit à distance.</strong> Elle change le sens de « Je l’ai déjà lu » et désactive « Je le possède » — deux boutons pilotés par un état situé ailleurs.</li>
+          <li><strong>Un bouton grisé sans cause visible.</strong> « Je le possède » désactivé, on fixe l’écran 3 secondes sans comprendre pourquoi.</li>
+        </ul>
+        <p style="margin-top:16px">S’ajoute l’incohérence avec la rafale, qui a déjà résolu le même problème avec 4 intentions nommées (« Je possède », « Possédé, déjà lu », « Lu — emprunt », « J’achète −1 ») : deux écoles d’UX dans la même app.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== OPTION A ==================== -->
+  <section class="opt" id="opt-a">
+    <div class="opt-head"><span class="tag">Proposition A</span><h2>L’intention d’abord</h2></div>
+    <p class="opt-sub">Deux écrans : d’abord <strong>une seule question</strong> (« On en fait quoi ? ») avec les cinq intentions au même rang, puis un écran de détails <em>contextuel</em> — la date porte le bon libellé, elle est facultative quand elle peut l’être, la catégorie se corrige là.</p>
+    <div class="duo">
+      <div class="phone-col">
+        <div class="phone"><div class="screen" id="ph-a"><div class="scroll"></div></div></div>
+        <p class="try">Tape une intention, puis regarde le libellé de la date changer selon le geste.</p>
+      </div>
+      <div class="argu">
+        <h3>Pour</h3>
+        <ul class="pro">
+          <li><strong>Chaque écran est minuscule</strong> et sans ambiguïté : une question, une réponse.</li>
+          <li><strong>Chaque geste a SA date</strong>, bien étiquetée (« Terminé le (facultatif) » ≠ « Acheté le ») — le champ à quatre sens disparaît.</li>
+          <li><strong>L’emprunt devient une intention à part entière</strong> — plus aucune checkbox modale.</li>
+          <li><strong>Extensible</strong> : la wishlist de demain = une ligne de plus, exactement la philosophie des specs §4.1 (« un bouton de plus sur la même feuille »).</li>
+          <li>Le premier écran <strong>montre le livre résolu en grand</strong> : on vérifie que c’est le bon avant de choisir.</li>
+        </ul>
+        <h3 style="margin-top:22px">Contre</h3>
+        <ul class="con">
+          <li><strong>Le geste quotidien passe de 1 à 2 taps</strong> (intention + Valider) — c’est le prix payé chaque jour pour un confort qui sert surtout le rattrapage.</li>
+          <li><strong>Corriger la catégorie demande d’avoir déjà choisi</strong> : la devinette VF ne se voit qu’à l’écran 2.</li>
+          <li>Deux écrans à maintenir au lieu d’un ; un « retour » à gérer.</li>
+        </ul>
+        <div class="verdict"><b>En une phrase :</b> la version la plus guidée et la plus pédagogique — mais elle ralentit le geste que tu fais tous les jours pour protéger celui que tu fais une fois par mois.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== OPTION B ==================== -->
+  <section class="opt" id="opt-b">
+    <div class="opt-head"><span class="tag">Proposition B</span><h2>Le tiroir « déjà à moi »</h2></div>
+    <p class="opt-sub">Le quotidien reste intact : deux gros boutons à 1 tap. Toute la section confuse du bas est remplacée par <strong>un seul lien</strong> qui ouvre un tiroir avec les trois gestes de rattrapage — vocabulaire repris de la rafale, date facultative locale au tiroir.</p>
+    <div class="duo">
+      <div class="phone-col">
+        <div class="phone"><div class="screen" id="ph-b"><div class="scroll"></div></div></div>
+        <p class="try">Ouvre « Il est déjà à moi… » : les 3 gestes de rattrapage, chacun explicite.</p>
+      </div>
+      <div class="argu">
+        <h3>Pour</h3>
+        <ul class="pro">
+          <li><strong>Le quotidien reste à 1 tap</strong>, strictement identique à aujourd’hui — zéro régression sur le geste central.</li>
+          <li><strong>La feuille raccourcit de moitié</strong> : cases, aides conditionnelles et section grise disparaissent de la vue.</li>
+          <li><strong>Les checkboxes modales disparaissent</strong> : l’emprunt est une ligne du tiroir, pas un modificateur.</li>
+          <li><strong>Le plus petit chantier des trois</strong> : la structure de la feuille et les Server Actions ne bougent pas, on ne fait que déplacer et renommer.</li>
+          <li>La date du tiroir est <strong>locale au geste choisi</strong> — plus de portée ambiguë.</li>
+        </ul>
+        <h3 style="margin-top:22px">Contre</h3>
+        <ul class="con">
+          <li><strong>Deux grammaires subsistent</strong> : boutons directs pour le quotidien, tiroir pour le reste — le rattrapage devient un citoyen de seconde zone.</li>
+          <li><strong>Risque de non-découverte</strong> : un lien texte se voit moins que des boutons ; « toutes les possibilités » sont là, mais masquées.</li>
+          <li><strong>La wishlist de demain ne sait pas où aller</strong> : bouton principal ou tiroir ? La frontière « quotidien / rattrapage » devra être retranchée à chaque nouveauté.</li>
+          <li>Le champ Date du haut garde <em>deux</em> sens (début de lecture / date d’achat) — friction ① réduite, pas éliminée.</li>
+        </ul>
+        <div class="verdict"><b>En une phrase :</b> le meilleur rapport effort/gain — il soigne les symptômes (cases, confusion) sans unifier la grammaire ni régler complètement la date à double sens.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== OPTION C ==================== -->
+  <section class="opt" id="opt-c">
+    <div class="opt-head"><span class="tag reco">Proposition C · recommandée</span><h2>Sélecteur + Valider</h2></div>
+    <p class="opt-sub">Le modèle de la rafale, appliqué au scan simple : <strong>cinq intentions en cartes radio</strong> (« Je commence » pré-sélectionné), des champs qui s’adaptent à l’intention, et <strong>un seul bouton de validation</strong> dont le libellé dit exactement ce qui va se passer.</p>
+    <div class="duo">
+      <div class="phone-col">
+        <label class="sim"><input type="checkbox" id="sim-order" checked> Catégorie et date au-dessus des choix</label>
+        <label class="sim"><input type="checkbox" id="sim-reread"> Simuler : livre déjà terminé (« tu le relis ? »)</label>
+        <div class="phone"><div class="screen" id="ph-c"><div class="scroll"></div></div></div>
+        <p class="try">Change d’intention : la date, sa facultativité et le bouton suivent. Compare les deux ordres avec l’interrupteur du haut.</p>
+      </div>
+      <div class="argu">
+        <h3>Pour</h3>
+        <ul class="pro">
+          <li><strong>Toutes les possibilités visibles d’un coup d’œil, au même rang</strong> — exactement la demande : plus de hiérarchie cachée, plus d’état modal.</li>
+          <li><strong>Une seule grammaire, un seul chemin</strong> : je choisis, je valide. Le bouton répète l’intention — impossible de valider autre chose que ce qu’on croit.</li>
+          <li><strong>Le quotidien reste à 1 tap</strong> grâce à la pré-sélection de « Je commence ».</li>
+          <li><strong>Jamais un champ inutile à l’écran</strong> : la date porte le bon libellé, « Je ne sais plus quand » n’apparaît que sous les dates facultatives — sa portée est évidente puisqu’elle est collée au champ.</li>
+          <li><strong>Symétrie totale avec la rafale</strong> : mêmes intentions, mêmes libellés (+ « Je commence ») — l’app parle une seule langue sur ses deux modes de scan.</li>
+          <li><strong>Extensible proprement</strong> : wishlist ou favori = une carte radio de plus, sans se demander dans quel étage la ranger.</li>
+        </ul>
+        <h3 style="margin-top:22px">Contre</h3>
+        <ul class="con">
+          <li><strong>« J’achète » passe à 2 taps</strong> (sélection + validation) contre 1 aujourd’hui — le seul vrai recul, sur un geste fréquent en librairie.</li>
+          <li><strong>Cinq cartes empilées prennent de la place</strong> : la feuille reste haute (mais chaque ligne est plus courte qu’avant, et le bloc champs raccourcit).</li>
+          <li><strong>La pré-sélection favorise un geste</strong> : « Je commence » par défaut peut faire valider une lecture par erreur en librairie — le libellé du bouton qui répète l’intention est le garde-fou.</li>
+          <li>Chantier moyen : la feuille est réécrite (état, champs conditionnels), même si les Server Actions ne bougent pas.</li>
+        </ul>
+        <div class="verdict"><b>En une phrase :</b> la seule option qui répond frontalement à « bien pouvoir faire toutes les possibilités sur le scan simple » — les 5 gestes deviennent des égaux lisibles, au prix d’un tap de plus sur l’achat.</div>
+        <div class="verdict" style="margin-top:12px"><b>Variante « champs au-dessus »</b> (activée par défaut dans le proto) : on vérifie la fiche — catégorie, date — <em>avant</em> de choisir le geste, et l’écran se termine naturellement sur le bouton de validation. Deux revers à connaître : quand on change d’intention en bas, le libellé de la date se met à jour <em>au-dessus du pouce</em>, hors du regard ; et la case « Je ne sais plus quand » apparaît/disparaît au-dessus des choix, ce qui fait bouger la mise en page. Décoche l’interrupteur au-dessus du téléphone pour comparer les deux ordres.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== MATRICE ==================== -->
+  <section class="opt" id="matrice">
+    <div class="opt-head"><span class="tag">Aucun cas oublié</span><h2>La matrice des cas</h2></div>
+    <p class="opt-sub">Tous les cas que la feuille d’actions doit couvrir, et ce que chaque option en fait. Les cas <em>hors feuille</em> (en amont ou en aval du choix) sont listés en dessous : aucune option ne les touche.</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+          <tr><th scope="col">Cas</th><th scope="col">Actuel</th><th scope="col">A · Intention d’abord</th><th scope="col">B · Tiroir</th><th scope="col">C · Sélecteur</th></tr>
+        </thead>
+        <tbody>
+          <tr><th scope="row">Je commence (le quotidien)</th><td class="ok">1 tap</td><td class="warn">2 taps</td><td class="ok">1 tap</td><td class="ok">1 tap (pré-sélection)</td></tr>
+          <tr><th scope="row">J’achète (−1, effaçable)</th><td class="ok">1 tap</td><td class="warn">2 taps</td><td class="ok">1 tap</td><td class="warn">2 taps</td></tr>
+          <tr><th scope="row">« Commencer » = juste une lecture, ni PAL ni Biblio — même si le livre y est déjà</th><td class="bad">muet</td><td class="ok">dit sous l’intention + écran ✅</td><td class="ok">note sous le bouton + écran ✅</td><td class="ok">dit sous l’intention + écran ✅</td></tr>
+          <tr><th scope="row">Je le possède (rattrapage)</th><td class="bad">1 tap, mais grisable à distance</td><td class="ok">2 taps, explicite</td><td class="ok">2–3 taps, tiroir</td><td class="ok">2 taps, explicite</td></tr>
+          <tr><th scope="row">Possédé, déjà lu</th><td class="bad">1 tap, sens variable selon une case</td><td class="ok">2 taps, explicite</td><td class="ok">2–3 taps, tiroir</td><td class="ok">2 taps, explicite</td></tr>
+          <tr><th scope="row">Lu — emprunt (aucune possession)</th><td class="bad">case + bouton, état caché</td><td class="ok">intention dédiée</td><td class="ok">ligne dédiée au tiroir</td><td class="ok">carte dédiée</td></tr>
+          <tr><th scope="row">Date inconnue (étagère d’avant)</th><td class="bad">case à portée ambiguë + texte d’aide</td><td class="ok">locale au geste</td><td class="ok">locale au tiroir</td><td class="ok">collée à la date concernée</td></tr>
+          <tr><th scope="row">Sens du champ date</th><td class="bad">1 champ, 4 sens muets</td><td class="ok">libellé par geste</td><td class="warn">2 sens en haut, explicite au tiroir</td><td class="ok">libellé par intention</td></tr>
+          <tr><th scope="row">Relecture — « tu le relis ? » (§4.2)</th><td class="same">bannière + CTA adapté</td><td class="same">idem (bannière écran 1, CTA écran 2)</td><td class="same">idem</td><td class="same">idem — démo dans le proto</td></tr>
+          <tr><th scope="row">Déjà en bibliothèque (pré-rempli, #10/#160)</th><td class="same">bannière</td><td class="same">bannière</td><td class="same">bannière</td><td class="same">bannière</td></tr>
+          <tr><th scope="row">Corriger la catégorie (devinette VF §5.5)</th><td class="ok">sur la feuille</td><td class="warn">à l’écran 2 seulement</td><td class="ok">sur la feuille</td><td class="ok">sur la feuille</td></tr>
+          <tr><th scope="row">Éditer le titre</th><td class="ok">sur la feuille</td><td class="warn">écran 2</td><td class="ok">sur la feuille</td><td class="ok">sur la feuille</td></tr>
+          <tr><th scope="row">Erreur (réseau, date future) affichée sur place</th><td class="same">bandeau</td><td class="same">bandeau écran 2</td><td class="same">bandeau</td><td class="same">bandeau</td></tr>
+          <tr><th scope="row">Wishlist / favoris de demain (§4.1)</th><td class="warn">un bouton de plus… où ?</td><td class="ok">+1 ligne</td><td class="bad">étage ambigu (principal ou tiroir ?)</td><td class="ok">+1 carte radio</td></tr>
+          <tr><th scope="row">Cohérence de vocabulaire avec la rafale</th><td class="bad">aucune</td><td class="ok">oui</td><td class="warn">partielle (tiroir seulement)</td><td class="ok">totale</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="legend"><span class="ok">vert — fluide / réglé</span><span class="warn">ambre — compromis assumé</span><span class="bad">rouge — friction</span><span class="same">gris — identique partout, hérité de l’existant</span></div>
+
+    <div class="cards2">
+      <div class="mini">
+        <h4>En amont de la feuille — intouchés</h4>
+        <ul>
+          <li>Caméra + saisie du code au clavier + « Pas de code-barres ? Saisie manuelle » + entrée rafale + pastille finition</li>
+          <li>Échappatoire « Saisie manuelle » pendant « Résolution en cours… »</li>
+          <li>« Quel numéro ? » (préfixe net) et « Plusieurs séries partagent ce code »</li>
+          <li>Introuvable → saisie manuelle, avec couverture suggérée (« image oui, infos non », #55)</li>
+          <li>Session expirée, rate-limit : retour au scan avec bandeau</li>
+        </ul>
+      </div>
+      <div class="mini">
+        <h4>En aval du choix — intouchés</h4>
+        <ul>
+          <li>Écran ✅ : « Annuler » l’achat (suppression douce), détail relecture / « déjà dans ta bibliothèque »</li>
+          <li>Photo de couverture proposée quand la cascade n’a rien trouvé (#33, le filet ultime)</li>
+          <li>Refus doux « déjà lu » si une lecture est en cours (règle serveur, §4.13)</li>
+          <li>Les 5 Server Actions existantes suffisent aux trois options : la refonte est purement présentationnelle</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== VERDICT ==================== -->
+  <section class="final" id="verdict">
+    <h2>Verdict</h2>
+    <p><strong style="color:var(--ink)">Recommandation : C — le sélecteur d’intention.</strong> C’est la seule option où les cinq gestes deviennent des égaux, visibles d’un coup d’œil, sans état caché ni case à effet de bord — et l’app parle enfin la même langue sur ses deux modes de scan. Le coût réel se résume à un tap de plus sur « J’achète », compensé par un bouton de validation qui dit toujours ce qu’il va faire.</p>
+    <p><strong style="color:var(--ink)">B</strong> est le repli pragmatique si tu veux un chantier minimal : le quotidien ne bouge pas d’un pixel et les checkboxes disparaissent — mais la grammaire reste double et la question reviendra à la première nouveauté (wishlist). <strong style="color:var(--ink)">A</strong> est la plus élégante conceptuellement, mais elle fait payer le rattrapage au geste quotidien : deux taps pour toujours.</p>
+  </section>
+</div>
+
+<script>
+(function () {
+  "use strict";
+  const TODAY = "2026-07-28";
+  const CATS = ["BD", "Comics", "Manga", "Roman", "Issue", "Omnibus"];
+
+  const INTENTS = {
+    commence: { label: "Je commence la lecture", hint: "Lance juste une lecture — n’ajoute rien à la PAL ni à la Biblio", dateLabel: "Commencé le", optional: false, cta: "Commencer la lecture", done: "Lecture commencée !" },
+    achat:    { label: "J’achète", hint: "−1 point, effaçable si terminé dans le mois", dateLabel: "Acheté le", optional: false, cta: "Enregistrer l’achat · −1 pt", done: "Achat enregistré (−1, effaçable)." },
+    possede:  { label: "Je le possède déjà", hint: "L’étagère d’avant — entre dans la pile, 0 point", dateLabel: "À moi depuis", optional: true, cta: "Ajouter à ma bibliothèque", done: "Ajouté à ta bibliothèque." },
+    ownread:  { label: "Possédé, déjà lu", hint: "À moi et déjà terminé — va en Biblio, pas en PAL", dateLabel: "Terminé le", optional: true, cta: "Marquer comme lu", done: "Marqué comme lu." },
+    emprunt:  { label: "Lu — emprunt", hint: "Médiathèque, prêt — je ne le possède pas", dateLabel: "Terminé le", optional: true, cta: "Enregistrer la lecture", done: "Marqué comme lu (emprunt)." },
+  };
+
+  /* « Commencer » ne fait qu’UNE chose — le dire partout où l’intention s’affiche. */
+  const READING_ONLY_NOTE = "Ne fait que ça : créer la lecture. Déjà dans ta PAL ou ta Biblio ? Rien d’autre ne bouge.";
+  const READING_ONLY_DETAIL = "La lecture est créée — rien d’autre n’a bougé : ni PAL, ni Biblio.";
+
+  function bookCard() {
+    return `
+      <div class="bcard">
+        <div class="cover">S</div>
+        <div class="binfo">
+          <input class="inp title" value="Spirou et Fantasio T.31" aria-label="Titre">
+          <p class="sub">Spirou et Fantasio · Dupuis</p>
+          <p class="sub">64 pages</p>
+          <p class="code">9782800112345 · 13 chiffres</p>
+        </div>
+      </div>`;
+  }
+
+  function catPicker(sel, note) {
+    return `
+      <div class="field">
+        <span class="flabel">Catégorie <em>(proposée — corrige si besoin)</em>${note || ""}</span>
+        <div class="pills">${CATS.map(c => `<button type="button" class="pill${c === sel ? " on" : ""}" data-a="cat" data-v="${c}">${c}</button>`).join("")}</div>
+      </div>`;
+  }
+
+  function dateRow(label, value, opts) {
+    opts = opts || {};
+    return `
+      <div class="daterow">
+        <span class="flabel">${label}${opts.flag ? `<sup class="flag">${opts.flag}</sup>` : ""}${opts.optionalTag ? ` <em>(facultatif)</em>` : ""}</span>
+        <input class="dinput" type="date" max="${TODAY}" value="${value}" ${opts.disabled ? "disabled" : ""} data-a="noop" aria-label="${label}">
+      </div>`;
+  }
+
+  function doneScreen(msg, opts) {
+    opts = opts || {};
+    return `
+      <div class="done">
+        <div class="check">✓</div>
+        <h3>${msg}</h3>
+        ${opts.detail ? `<p class="note">${opts.detail}</p>` : ""}
+        ${opts.cancel ? `<button type="button" class="btn-text u" data-a="cancel-purchase">Annuler</button>` : ""}
+        <button type="button" class="btn btn-grad" data-a="reset">Scanner un autre bouquin</button>
+      </div>`;
+  }
+
+  /** Un téléphone = un scroll re-rendu + de la délégation d’événements. */
+  function mount(id, render, handle) {
+    const screen = document.getElementById(id);
+    const scroll = screen.querySelector(".scroll");
+    const doRender = () => { scroll.innerHTML = render(); };
+    screen.addEventListener("click", (e) => {
+      const t = e.target.closest("[data-a]");
+      if (!t || t.dataset.a === "noop") return;
+      handle(t.dataset.a, t);
+      doRender();
+    });
+    screen.addEventListener("change", (e) => {
+      const t = e.target.closest("[data-a]");
+      if (!t || t.dataset.a === "noop") return;
+      handle(t.dataset.a, t);
+      doRender();
+    });
+    doRender();
+    return doRender;
+  }
+
+  /* ==================== ACTUEL ==================== */
+  const now = { cat: "BD", dateUnknown: false, emprunt: false, done: null, cancel: false };
+  mount("ph-now", () => {
+    if (now.done) return doneScreen(now.done, { cancel: now.cancel });
+    return `
+      ${bookCard()}
+      ${catPicker(now.cat)}
+      ${dateRow("Date", TODAY, { flag: 1 })}
+      <div class="field">
+        <button type="button" class="btn btn-grad" data-a="go" data-msg="Lecture commencée !">Commencer la lecture</button>
+        <button type="button" class="btn btn-ghost" data-a="buy">Enregistrer un achat <small class="malus">(−1 point, effaçable)</small></button>
+        <button type="button" class="btn-text" data-a="noop">Annuler</button>
+      </div>
+      <hr class="divider">
+      <p class="sect-label">Ce livre est déjà à moi</p>
+      <p class="sect-hint">Pour les étagères d’avant l’app — aucun effet sur le score.</p>
+      <label class="checkrow"><input type="checkbox" data-a="tog-unknown" ${now.dateUnknown ? "checked" : ""}> Je ne sais plus quand<sup class="flag">2</sup></label>
+      <label class="checkrow"><input type="checkbox" data-a="tog-emprunt" ${now.emprunt ? "checked" : ""}> C’était un emprunt — je ne le possède pas<sup class="flag">3</sup></label>
+      ${now.dateUnknown ? `<p class="note">Vaut pour ces deux boutons — la date au-dessus reste utilisée pour « Commencer » et « Acheter ».</p>` : ""}
+      <div class="tworow">
+        <button type="button" class="btn btn-ghost" data-a="go" data-msg="Ajouté à ta bibliothèque." ${now.emprunt ? "disabled" : ""}>Je le possède${now.emprunt ? `<sup class="flag">4</sup>` : ""}</button>
+        <button type="button" class="btn btn-ghost" data-a="read-past">Je l’ai déjà lu</button>
+      </div>`;
+  }, (a, t) => {
+    if (a === "cat") now.cat = t.dataset.v;
+    else if (a === "tog-unknown") now.dateUnknown = !now.dateUnknown;
+    else if (a === "tog-emprunt") now.emprunt = !now.emprunt;
+    else if (a === "go") { now.done = t.dataset.msg; now.cancel = false; }
+    else if (a === "buy") { now.done = "Achat enregistré (−1, effaçable)."; now.cancel = true; }
+    else if (a === "read-past") { now.done = now.emprunt ? "Marqué comme lu (emprunt)." : "Marqué comme lu."; now.cancel = false; }
+    else if (a === "cancel-purchase") { now.done = "Achat annulé."; now.cancel = false; }
+    else if (a === "reset") { now.done = null; now.cancel = false; now.dateUnknown = false; now.emprunt = false; }
+  });
+
+  /* ==================== OPTION A ==================== */
+  const A = { screen: "list", intent: null, cat: "BD", unknown: false, done: null, cancel: false };
+  mount("ph-a", () => {
+    if (A.done) return doneScreen(A.done, { cancel: A.cancel, detail: A.intent === "commence" ? READING_ONLY_DETAIL : null });
+    if (A.screen === "list") {
+      return `
+        <h3 class="stitle">On en fait <span class="gradword">quoi ?</span></h3>
+        <p class="ssub">Le scan a résolu le livre — dis-moi ce qu’il représente.</p>
+        ${bookCard()}
+        <div class="field">
+          ${Object.entries(INTENTS).map(([k, v], i) => `
+            <button type="button" class="lrow${i === 0 ? " prime" : ""}" data-a="pick" data-v="${k}">
+              <span><b>${v.label}${k === "achat" ? ` <small class="malus" style="font-weight:400">· −1 pt</small>` : ""}</b><span>${v.hint}</span></span>
+              <span class="chev">›</span>
+            </button>`).join("")}
+        </div>
+        <button type="button" class="btn-text" data-a="noop">Annuler</button>`;
+    }
+    const it = INTENTS[A.intent];
+    return `
+      <button type="button" class="btn-text" style="text-align:left;padding-left:0" data-a="back">‹ Retour aux intentions</button>
+      <h3 class="stitle">${it.label}</h3>
+      ${bookCard()}
+      ${dateRow(it.dateLabel, TODAY, { optionalTag: it.optional, disabled: A.unknown })}
+      ${it.optional ? `<label class="checkrow"><input type="checkbox" data-a="tog-unknown" ${A.unknown ? "checked" : ""}> Je ne sais plus quand</label>` : ""}
+      ${A.intent === "commence" ? `<p class="note">${READING_ONLY_NOTE}</p>` : ""}
+      ${A.intent === "emprunt" ? `<p class="note">Aucune possession — le livre n’entre jamais dans la pile.</p>` : ""}
+      ${A.intent === "achat" ? `<p class="note">−1 point immédiat, effacé si tu le termines dans le mois.</p>` : ""}
+      ${catPicker(A.cat)}
+      <div class="field">
+        <button type="button" class="btn btn-grad" data-a="validate">${it.cta}</button>
+      </div>`;
+  }, (a, t) => {
+    if (a === "pick") { A.intent = t.dataset.v; A.screen = "detail"; A.unknown = false; }
+    else if (a === "back") { A.screen = "list"; }
+    else if (a === "cat") A.cat = t.dataset.v;
+    else if (a === "tog-unknown") A.unknown = !A.unknown;
+    else if (a === "validate") { A.done = INTENTS[A.intent].done; A.cancel = A.intent === "achat"; }
+    else if (a === "cancel-purchase") { A.done = "Achat annulé."; A.cancel = false; }
+    else if (a === "reset") { A.done = null; A.screen = "list"; A.intent = null; A.cancel = false; }
+  });
+
+  /* ==================== OPTION B ==================== */
+  const B = { cat: "BD", drawer: false, dIntent: null, dUnknown: false, done: null, cancel: false };
+  const drawerIntents = ["possede", "ownread", "emprunt"];
+  mount("ph-b", () => {
+    if (B.done) return doneScreen(B.done, { cancel: B.cancel, detail: B.done === "Lecture commencée !" ? READING_ONLY_DETAIL : null });
+    const main = `
+      ${bookCard()}
+      ${catPicker(B.cat)}
+      ${dateRow("Date", TODAY)}
+      <div class="field">
+        <button type="button" class="btn btn-grad" data-a="go" data-msg="Lecture commencée !">Commencer la lecture</button>
+        <p class="note" style="text-align:center;margin-top:6px">« Commencer » lance juste une lecture — ni PAL, ni Biblio.</p>
+        <button type="button" class="btn btn-ghost" data-a="buy" style="margin-top:10px">J’achète <small class="malus">· −1 pt</small></button>
+        <button type="button" class="btn-text" data-a="noop">Annuler</button>
+        <button type="button" class="btn-text u" data-a="open">Il est déjà à moi…</button>
+      </div>`;
+    if (!B.drawer) return main;
+    const it = B.dIntent ? INTENTS[B.dIntent] : null;
+    return `${main}
+      <div class="backdrop" data-a="close"></div>
+      <div class="drawer">
+        <div class="grip"></div>
+        <h4>Il est déjà à moi</h4>
+        <p class="sect-hint">L’étagère d’avant l’app — aucun effet sur le score.</p>
+        ${drawerIntents.map(k => `
+          <button type="button" class="lrow${B.dIntent === k ? "" : ""}" style="${B.dIntent === k ? "border-color:var(--cyan)" : ""}" data-a="d-pick" data-v="${k}">
+            <span><b>${INTENTS[k].label}</b><span>${INTENTS[k].hint}</span></span><span class="chev">›</span>
+          </button>`).join("")}
+        ${it ? `
+          ${dateRow(it.dateLabel, TODAY, { optionalTag: true, disabled: B.dUnknown })}
+          <label class="checkrow"><input type="checkbox" data-a="d-unknown" ${B.dUnknown ? "checked" : ""}> Je ne sais plus quand</label>
+          <div class="field"><button type="button" class="btn btn-grad" data-a="d-validate">${it.cta}</button></div>` : ""}
+      </div>`;
+  }, (a, t) => {
+    if (a === "cat") B.cat = t.dataset.v;
+    else if (a === "go") { B.done = t.dataset.msg; B.cancel = false; }
+    else if (a === "buy") { B.done = "Achat enregistré (−1, effaçable)."; B.cancel = true; }
+    else if (a === "open") { B.drawer = true; B.dIntent = null; B.dUnknown = false; }
+    else if (a === "close") { B.drawer = false; }
+    else if (a === "d-pick") { B.dIntent = t.dataset.v; }
+    else if (a === "d-unknown") B.dUnknown = !B.dUnknown;
+    else if (a === "d-validate") { B.done = INTENTS[B.dIntent].done; B.cancel = false; B.drawer = false; }
+    else if (a === "cancel-purchase") { B.done = "Achat annulé."; B.cancel = false; }
+    else if (a === "reset") { B.done = null; B.cancel = false; }
+  });
+
+  /* ==================== OPTION C ==================== */
+  const C = { intent: "commence", cat: "BD", unknown: false, done: null, cancel: false };
+  let reread = false;
+  let fieldsTop = true;
+  const renderC = mount("ph-c", () => {
+    if (C.done) return doneScreen(C.done, { cancel: C.cancel, detail: C.done !== "Lecture commencée !" ? null : reread ? "Tu l’avais déjà terminé — c’est reparti pour une relecture !" : READING_ONLY_DETAIL });
+    const it = INTENTS[C.intent];
+    const cta = C.intent === "commence" && reread ? "Oui, je le relis" : it.cta;
+    const banner = reread ? `<div class="banner">Tu l’as déjà lu — tu le relis ?</div>` : "";
+    const intentBlock = `
+      <div class="field">
+        <span class="flabel">On en fait quoi ?</span>
+        ${Object.entries(INTENTS).map(([k, v]) => `
+          <button type="button" class="rrow${C.intent === k ? " on" : ""}" data-a="pick" data-v="${k}" role="radio" aria-checked="${C.intent === k}">
+            <span class="dot"></span>
+            <span><b>${v.label}${k === "achat" ? ` <small class="malus" style="font-weight:400">· −1 pt</small>` : ""}</b><span>${v.hint}</span></span>
+          </button>`).join("")}
+      </div>`;
+    const dateBlock = `
+      ${dateRow(it.dateLabel, TODAY, { optionalTag: it.optional, disabled: C.unknown })}
+      ${it.optional ? `<label class="checkrow"><input type="checkbox" data-a="tog-unknown" ${C.unknown ? "checked" : ""}> Je ne sais plus quand</label>` : ""}`;
+    const noteBlock = `
+      ${C.intent === "commence" ? `<p class="note">${READING_ONLY_NOTE}</p>` : ""}
+      ${C.intent === "emprunt" ? `<p class="note">Aucune possession — le livre n’entre jamais dans la pile.</p>` : ""}
+      ${C.intent === "achat" ? `<p class="note">−1 point immédiat, effacé si tu le termines dans le mois.</p>` : ""}`;
+    const ctaBlock = `
+      <div class="field">
+        <button type="button" class="btn btn-grad" data-a="validate">${cta}</button>
+        <button type="button" class="btn-text" data-a="noop">Annuler</button>
+      </div>`;
+    /* Variante « champs au-dessus » : la fiche d’abord (catégorie, date), le choix ensuite — l’écran se termine sur le bouton. */
+    return fieldsTop
+      ? `${banner}${bookCard()}${catPicker(C.cat)}${dateBlock}${intentBlock}${noteBlock}${ctaBlock}`
+      : `${banner}${bookCard()}${intentBlock}${dateBlock}${noteBlock}${catPicker(C.cat)}${ctaBlock}`;
+  }, (a, t) => {
+    if (a === "pick") { C.intent = t.dataset.v; C.unknown = false; }
+    else if (a === "cat") C.cat = t.dataset.v;
+    else if (a === "tog-unknown") C.unknown = !C.unknown;
+    else if (a === "validate") { C.done = INTENTS[C.intent].done; C.cancel = C.intent === "achat"; }
+    else if (a === "cancel-purchase") { C.done = "Achat annulé."; C.cancel = false; }
+    else if (a === "reset") { C.done = null; C.cancel = false; }
+  });
+  document.getElementById("sim-reread").addEventListener("change", (e) => { reread = e.target.checked; renderC(); });
+  document.getElementById("sim-order").addEventListener("change", (e) => { fieldsTop = e.target.checked; renderC(); });
+})();
+</script>
+
+</html>

@@ -141,15 +141,29 @@ s'il s'agit d'un ISBN ou d'un fascicule VO.
 La **catégorie est proposée automatiquement** et reste **corrigeable en un tap**. La correction de l'utilisateur
 fait foi, toujours.
 
-#### L'intention du scan : « je commence » ou « j'achète » ?
+#### L'intention du scan : le sélecteur à cinq gestes *(refonte #165, 28/07/2026)*
 
-Un scan ne veut pas dire la même chose selon le moment — et les deux gestes n'ont **pas le même effet sur le
-score**. Donc **l'app demande**, une fois le livre résolu : deux gros boutons.
+Un scan ne veut pas dire la même chose selon le moment — et les gestes n'ont **pas le même effet sur le
+score**. Donc **l'app demande**, une fois le livre résolu. Depuis la refonte #165, la feuille d'actions est un
+**sélecteur d'intention** : la fiche se vérifie d'abord (titre, catégorie, **date au libellé contextuel** —
+« Commencé le », « Acheté le », « À moi depuis », « Terminé le »), puis **cinq intentions en cartes radio**, et
+**UN bouton de validation dont le libellé répète l'intention choisie**. « Je commence » est pré-sélectionné :
+le geste quotidien reste à un tap.
 
-| Bouton | Effet |
+| Intention | Effet |
 |---|---|
-| **Je commence** | Crée une **lecture** (`reading`, `started_at` = aujourd'hui, modifiable). 0 point pour l'instant. |
-| **Je l'achète** | Crée un **achat** (`purchased_at` = aujourd'hui). **−1 point** immédiat, effaçable si terminé dans le mois. |
+| **Je commence la lecture** | Crée une **lecture** (`reading`, `started_at` = aujourd'hui, modifiable). 0 point pour l'instant. **Ne fait que ça** : n'ajoute rien à la PAL ni à la Biblio — si le livre y est déjà, rien d'autre ne bouge *(décision du 28/07/2026)*. |
+| **J'achète** | Crée un **achat** (`purchased_at` = aujourd'hui). **−1 point** immédiat, effaçable si terminé dans le mois. |
+| **Je le possède déjà** | La possession de rattrapage (§4.13) — date facultative, aucun effet sur le score. |
+| **Possédé, déjà lu** | Possession + lecture passée (§4.13) — date de fin facultative. |
+| **Lu — emprunt** | Lecture seule, aucune possession (§4.13, #113) — **l'ancienne case à cocher est devenue une intention à part entière**. |
+
+Les règles d'ergonomie qui fondent la refonte : les cinq gestes sont **des égaux visibles d'un coup d'œil**
+(plus de section secondaire, plus de case à effet de bord, plus de bouton au sens variable) ; le vocabulaire
+est **celui de la rafale** (mêmes clés `ScanIntent` + `start`, verrouillé par test) ; « Je ne sais plus quand »
+est **collée au champ date** et n'apparaît que quand la date est facultative (hauteur réservée : changer
+d'intention ne fait jamais bouger la liste sous le doigt) ; chaque intention porte une **note** qui dit son
+effet. La logique vit dans `components/scan/sheet-intents.ts` (pure, testée), la feuille ne fait que l'afficher.
 
 Explicite, impossible de se tromper, et ça couvre le cas réel : acheter trois bouquins en librairie sans en
 commencer aucun. Deviner à la place de l'utilisateur fausserait **la stat la plus importante de l'émission** (la
@@ -160,9 +174,9 @@ pointent le **même `book_id`**.
 
 > **Ce choix n'est pas qu'ergonomique, c'est le découpage de l'app.**
 > **Le scan ne fait qu'une chose : résoudre un livre.** Ce qu'on en fait est une **action**, choisie après.
-> Aujourd'hui il y en a deux ; demain la **wishlist** (scanner en librairie ce qu'on ne prend pas), les
-> **favoris**, « je l'ai revendu »… **ne seront qu'un bouton de plus sur la même feuille** — aucune refonte,
-> parce que résolution et intention sont déjà séparées.
+> Aujourd'hui il y en a cinq ; demain la **wishlist** (scanner en librairie ce qu'on ne prend pas), les
+> **favoris**, « **Emprunté — à lire** » (#164)… **ne seront qu'une carte de plus dans le même sélecteur** —
+> aucune refonte, parce que résolution et intention sont déjà séparées.
 > Si le scan signifiait « commencer une lecture », l'intention serait **codée en dur dedans**, et chaque nouvelle
 > action demanderait de tout redécouper.
 >
@@ -595,9 +609,10 @@ préserve l'invariant : *le dernier point vaut toujours la taille réelle de la 
   tombent dans le bilan de ce mois-là (déjà clos) ; date vide → aucun mois, aucun point. Refus doux si
   une lecture est **en cours** (le geste juste est « Terminer » au journal). **Depuis #113 (20/07/2026), le
   geste déclare AUSSI la possession par défaut** — aligné sur son titre de section (« Ce livre est déjà à
-  moi ») et sur la rafale ; la case « **C'était un emprunt — je ne le possède pas** » bascule en lecture
-  seule : un livre de médiathèque lu il y a deux ans est « lu » sans être « possédé », aucune possession
-  fabriquée.
+  moi ») et sur la rafale. L'emprunt — un livre de médiathèque lu il y a deux ans est « lu » sans être
+  « possédé », aucune possession fabriquée — était d'abord une case à cocher ; **depuis #165 (28/07/2026),
+  c'est une intention à part entière du sélecteur, « Lu — emprunt »** (§4.1), au même rang que les autres
+  gestes. Le fond ne change pas : lecture seule, le livre n'entre jamais dans la pile.
 - **« Je ne le possède plus »** (don, revente, perte) — le livre sort de la PAL et de la Biblio, mais
   **ses lectures et ses points restent au bilan**. C'est le même geste que « Retirer de ma bibliothèque »
   (§4.12, #114) : depuis le 20/07/2026, il n'y a plus qu'UN geste de sortie. L'achat n'est **jamais**
