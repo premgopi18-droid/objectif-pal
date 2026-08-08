@@ -86,6 +86,19 @@ body {
 }
 
 /*
+ * Plancher 16px sur les champs de saisie : sous 16px, iOS zoome au focus et la
+ * PWA installée garde cette échelle d'un lancement à l'autre. Règle volontairement
+ * HORS layer : elle prime sur les utilitaires Tailwind (text-sm posé sur certains
+ * inputs) — c'est le point de vérité unique, pas la peine de nettoyer chaque
+ * className. max(16px, 1em) laisse respirer un champ volontairement plus grand.
+ */
+input,
+select,
+textarea {
+  font-size: max(16px, 1em);
+}
+
+/*
  * prefers-reduced-motion : LE point de vérité unique (design-specs §6, #73).
  * Coupe d'un coup toute animation/transition CSS de l'app — la ligne de scan
  * (#69), les active:scale des boutons, les transitions d'onglets/segments. Les

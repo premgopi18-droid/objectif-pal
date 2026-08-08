@@ -37,8 +37,13 @@ export const metadata: Metadata = {
 
 // Thème sombre unique (design-specs §2) : une seule couleur de barre système,
 // alignée sur --bg0, plus de variante claire/sombre.
+// maximumScale: 1 — iOS zoome au focus d'un champ < 16px et, en PWA installée,
+// mémorise cette échelle entre les lancements (« ça ouvre zoomé à chaque fois »).
+// Ceinture avec le plancher 16px de globals.css ; Safari navigateur ignore ce
+// plafond pour le pinch manuel, l'a11y du zoom utilisateur reste intacte.
 export const viewport: Viewport = {
   themeColor: "#120826",
+  maximumScale: 1,
 };
 
 export default function RootLayout({
