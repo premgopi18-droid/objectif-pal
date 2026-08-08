@@ -86,11 +86,25 @@ body {
 }
 
 /*
- * Plancher 16px sur les champs de saisie : sous 16px, iOS zoome au focus et la
- * PWA installée garde cette échelle d'un lancement à l'autre. Règle volontairement
- * HORS layer : elle prime sur les utilitaires Tailwind (text-sm posé sur certains
- * inputs) — c'est le point de vérité unique, pas la peine de nettoyer chaque
- * className. max(16px, 1em) laisse respirer un champ volontairement plus grand.
+ * ─── Garde-fous plateforme / a11y ───────────────────────────────────────────
+ * Deux règles globales qui priment sur ce qu'écrivent les composants. Elles
+ * vivent ici, ensemble, et sont documentées en design-specs §6.
+ */
+
+/*
+ * Plancher 16px sur les champs de saisie (design-specs §2 et §6, #167) : sous
+ * 16px, iOS zoome au focus et la PWA installée garde cette échelle d'un
+ * lancement à l'autre — l'app se rouvrait zoomée à chaque fois.
+ *
+ * HORS layer, volontairement : les utilitaires Tailwind vivent dans
+ * @layer utilities, et une règle non-layerée l'emporte quelle que soit la
+ * spécificité. C'est ce qui permet de couvrir les text-sm déjà posés sur les
+ * champs sans les nettoyer un par un. ⚠️ Ne pas la déplacer dans @layer base :
+ * les utilitaires reprendraient la main et le bug reviendrait en silence.
+ *
+ * max(16px, 1em) : le `em` d'un font-size se résout sur le PARENT, pas sur la
+ * taille propre du champ. Un champ plus grand s'obtient donc en agrandissant
+ * son conteneur — un utilitaire posé sur le champ lui-même serait écrasé.
  */
 input,
 select,
