@@ -88,6 +88,9 @@ livrable de la nouvelle identité.
   `--ink3`.
 - **Chiffres alignés** : `font-variant-numeric: tabular-nums` sur toute colonne de nombres
   (points, compteurs, dates).
+- **Champs de saisie : jamais sous 16px** (#167). Sous ce seuil, iOS zoome au focus et la PWA
+  installée garde l'échelle d'un lancement à l'autre. Un plancher global l'impose (§6) — inutile de
+  penser à la taille sur chaque champ, mais inutile aussi d'y poser un `text-sm` : il sera écrasé.
 
 ### Matière
 
@@ -176,6 +179,13 @@ la palette, choisis par hash du titre — stable d'un rendu à l'autre).
 - **A11y** : contrastes AA sur `--ink`/`--ink2` vs surfaces (vérifier le dégradé sous texte blanc),
   `aria-current="page"` sur l'onglet actif, `aria-pressed` sur segments/chips, focus visible cyan,
   cibles tactiles ≥ 44px. `prefers-reduced-motion` coupe scan-line et confettis.
+- **Plancher 16px sur `input`/`select`/`textarea`** (#167) : règle globale dans `globals.css`,
+  **volontairement hors `@layer`** — les utilitaires Tailwind vivent dans `@layer utilities`, et une
+  règle non-layerée l'emporte quelle que soit la spécificité. C'est ce qui lui permet d'écraser les
+  `text-sm` posés sur les champs. ⚠️ **Ne pas la déplacer dans `@layer base`** : les utilitaires
+  reprendraient la main et le zoom iOS reviendrait, sans qu'aucun test fonctionnel ne bronche (d'où
+  le test-contrat `app/platform-guards.test.ts`). Corollaire : un champ volontairement plus grand se
+  fait en agrandissant **son conteneur**, pas via un utilitaire sur le champ.
 - **Aucune couleur en dur dans les composants** : tout passe par les tokens (CSS custom properties
   dans `globals.css` + mapping `@theme` Tailwind). La règle « pas de valeur magique » du barème
   s'applique désormais aussi aux couleurs.

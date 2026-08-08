@@ -37,8 +37,17 @@ export const metadata: Metadata = {
 
 // Thème sombre unique (design-specs §2) : une seule couleur de barre système,
 // alignée sur --bg0, plus de variante claire/sombre.
+// maximumScale: 1 — TEMPORAIRE, à retirer (#169). iOS zoome au focus d'un champ
+// < 16px et, en PWA installée, mémorise cette échelle entre les lancements
+// (« ça ouvre zoomé à chaque fois », #167). La cause est traitée par le plancher
+// 16px de globals.css ; ce plafond ne sert qu'à désamorcer l'échelle DÉJÀ
+// mémorisée sur les appareils touchés, sans rien demander à l'utilisatrice.
+// Son coût est réel : en standalone, iOS l'applique aussi au pinch manuel, donc
+// plus de zoom utilisateur (WCAG 1.4.4) — d'où le retrait prévu une fois le
+// plancher vérifié en prod.
 export const viewport: Viewport = {
   themeColor: "#120826",
+  maximumScale: 1,
 };
 
 export default function RootLayout({
