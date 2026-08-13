@@ -248,16 +248,21 @@ const raw = { raw: { width, height, channels: CH } };
 const fullCut = await sharp(data, raw).extract(fullBox).png().toBuffer();
 const markCut = await sharp(markData, raw).extract(markBox).png().toBuffer();
 
-/** Emblème posé au centre d'un carré de fond #2e2357. */
-async function icon(size, innerRatio) {
+/**
+ * Emblème posé au centre d'un carré de fond #2e2357.
+ * Palette 256 couleurs par défaut (le style cartoon s'y prête, ÷5 sur le
+ * poids) — SAUF pour le favicon : Turbopack décode app/favicon.ico au build
+ * (route metadata) et exige un PNG embarqué en RGBA, un PNG8 indexé casse le
+ * build (« The PNG is not in RGBA format! »).
+ */
+async function icon(size, innerRatio, { palette = true } = {}) {
   const inner = Math.round(size * innerRatio);
   const embl = await sharp(markCut)
     .resize(inner, inner, { fit: "contain", background: "#00000000", kernel: "lanczos3" })
     .toBuffer();
-  // Palette 256 couleurs : le style cartoon s'y prête, ÷5 sur le poids.
   return sharp({ create: { width: size, height: size, channels: 4, background: BRAND_BG } })
     .composite([{ input: embl, gravity: "center" }])
-    .png({ palette: true, quality: 100, compressionLevel: 9 });
+    .png(palette ? { palette: true, quality: 100, compressionLevel: 9 } : { compressionLevel: 9 });
 }
 
 // Icônes installées (carrées — PAS rondes, décision utilisateur).
@@ -267,7 +272,8 @@ await (await icon(512, 0.78)).toFile("public/icons/icon-512.png");
 await (await icon(512, 0.62)).toFile("public/icons/icon-maskable-512.png");
 
 // Favicon : PNG 48px emballé en .ico (PNG-in-ICO, supporté partout).
-const favPng = await (await icon(48, 0.84)).toBuffer();
+// RGBA obligatoire — voir le commentaire de icon().
+const favPng = await (await icon(48, 0.84, { palette: false })).toBuffer();
 const header = Buffer.alloc(6);
 header.writeUInt16LE(1, 2); // type = icône
 header.writeUInt16LE(1, 4); // 1 image
