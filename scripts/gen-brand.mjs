@@ -1,41 +1,244 @@
 /**
- * Génère les assets de marque Objectif PAL à partir de l'affiche de l'émission.
- * Source : public/brand/objectif-PAL.jpg (l'affiche « Qui va gagner ? »).
- * Régénérable : `node scripts/gen-brand.mjs`. Si un jour un logo détouré haute
- * définition arrive, remplacer SRC et ajuster les boîtes de recadrage.
+ * Génère les assets de marque Objectif PAL à partir du logo HD de l'émission.
+ * Source : public/brand/logo-hd.jpg (1280×720, fond blanc — reçu de Léna le
+ * 13/08/2026, issue #87). L'ancienne affiche public/brand/objectif-PAL.jpg reste
+ * la référence du fond de marque #2e2357.
+ * Régénérable : `node scripts/gen-brand.mjs`.
+ *
+ * Le logo n'est pas détouré (fond blanc, JPEG) et contient du blanc *à
+ * l'intérieur* (les lettres « OBJECTIF ») : on détoure donc par remplissage
+ * depuis les bords, pas par suppression globale du blanc. L'emblème (la pile de
+ * livres) et le titre s'interpénètrent autour de x≈660, donc pas de recadrage
+ * rectangulaire possible : on sépare par composantes connexes — chaque forme
+ * du titre démarre à droite de TEXT_XMIN, chaque rayon de l'emblème part de
+ * bien plus à gauche. Seule soudure dans le dessin : la pointe du rayon bleu
+ * est collée au contour noir du « O » — une coupe diagonale dans le noir
+ * fusionné (CUT_A→CUT_B, invisible : noir des deux côtés) sépare les deux,
+ * appliquée uniquement à l'extraction de l'emblème, jamais au logo complet.
  *
  * Sorties :
  *  - public/icons/icon-{192,512}.png + icon-maskable-512.png (emblème seul, sur
- *    le fond de l'affiche — l'icône installée « sans titre »)
+ *    fond #2e2357 — l'icône installée « sans titre », carrée PAS ronde)
  *  - app/favicon.ico (emblème 48px)
- *  - public/brand/logo-full.png  (emblème + « OBJECTIF PAL » — la splash « avec titre »)
- *  - public/brand/logo-mark.png  (emblème seul, upscalé — la splash « sans titre »)
- *
- * La couleur de fond de l'affiche, mesurée : #2e2357 (uniforme derrière le logo).
+ *  - public/brand/logo-full.webp (emblème + « OBJECTIF PAL » sur #2e2357 — la
+ *    splash « avec titre », consommée par components/splash-screen.tsx)
+ *  - public/brand/logo-mark.png  (emblème seul, fond transparent — réserve)
  */
 import sharp from "sharp";
 import { writeFileSync } from "node:fs";
 
-const SRC = "public/brand/objectif-PAL.jpg";
+const SRC = "public/brand/logo-hd.jpg";
 export const BRAND_BG = "#2e2357"; // le fond de l'affiche, échantillonné
 
-// Boîtes de recadrage dans l'affiche 660×440.
-const FULL_CROP = { left: 398, top: 70, width: 250, height: 120 }; // emblème + wordmark
-const MARK_CROP = { left: 398, top: 70, width: 120, height: 118 }; // emblème seul
+const WHITE_MIN = 232; // en-deçà sur un canal → pixel considéré comme du dessin
+const HALO_MIN = 205; // pixels de bord quasi blancs rongés après le remplissage
+const TEXT_XMIN = 640; // une composante qui démarre à droite → forme du titre (le « O » démarre à x≈645)
+const SPECK_MAX = 10; // composantes plus petites → poussières JPEG, supprimées
+const CUT_A = { x: 670, y: 260 }; // coupe rayon bleu / « O », mesurée sur le HD
+const CUT_B = { x: 650, y: 300 };
 
-const markCrop = await sharp(SRC).extract(MARK_CROP).toBuffer();
-const fullCrop = await sharp(SRC).extract(FULL_CROP).toBuffer();
+const { data, info } = await sharp(SRC)
+  .ensureAlpha()
+  .raw()
+  .toBuffer({ resolveWithObject: true });
+const { width, height } = info;
+const CH = 4;
 
-/** Emblème carré, upscalé proprement, posé au centre d'un carré de fond #2e2357. */
+const isWhite = (i) =>
+  data[i] >= WHITE_MIN && data[i + 1] >= WHITE_MIN && data[i + 2] >= WHITE_MIN;
+const isNearWhite = (i) =>
+  data[i] >= HALO_MIN && data[i + 1] >= HALO_MIN && data[i + 2] >= HALO_MIN;
+
+// --- 1. Détourage : remplissage du blanc depuis les bords (BFS 4-connexe). ---
+const stack = [];
+const clear = (x, y) => {
+  const i = (y * width + x) * CH;
+  if (data[i + 3] === 0 || !isWhite(i)) return;
+  data[i + 3] = 0;
+  stack.push(x, y);
+};
+for (let x = 0; x < width; x++) {
+  clear(x, 0);
+  clear(x, height - 1);
+}
+for (let y = 0; y < height; y++) {
+  clear(0, y);
+  clear(width - 1, y);
+}
+while (stack.length) {
+  const y = stack.pop();
+  const x = stack.pop();
+  if (x > 0) clear(x - 1, y);
+  if (x < width - 1) clear(x + 1, y);
+  if (y > 0) clear(x, y - 1);
+  if (y < height - 1) clear(x, y + 1);
+}
+
+// --- 2. Anti-halo : ronger les pixels de bord quasi blancs (artefacts JPEG). ---
+for (let pass = 0; pass < 2; pass++) {
+  const toClear = [];
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * CH;
+      if (data[i + 3] === 0 || !isNearWhite(i)) continue;
+      const nextToClear =
+        (x > 0 && data[i - CH + 3] === 0) ||
+        (x < width - 1 && data[i + CH + 3] === 0) ||
+        (y > 0 && data[i - width * CH + 3] === 0) ||
+        (y < height - 1 && data[i + width * CH + 3] === 0);
+      if (nextToClear) toClear.push(i);
+    }
+  }
+  for (const i of toClear) data[i + 3] = 0;
+}
+
+// --- 2 bis. Décontamination : le périmètre du dessin est partout un contour
+// noir ; les pixels de bord encore clairs (mélange anti-aliasé vers l'ancien
+// fond blanc) sont tirés vers le pixel le plus sombre du voisinage 5×5, d'autant
+// plus fort qu'ils sont clairs. Tue le liseré gris sur fond sombre. ---
+{
+  const nearTransparent = (x, y) => {
+    for (let dy = -2; dy <= 2; dy++) {
+      for (let dx = -2; dx <= 2; dx++) {
+        const nx = x + dx;
+        const ny = y + dy;
+        if (nx < 0 || ny < 0 || nx >= width || ny >= height) return true;
+        if (data[(ny * width + nx) * CH + 3] === 0) return true;
+      }
+    }
+    return false;
+  };
+  const fixes = [];
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const i = (y * width + x) * CH;
+      if (data[i + 3] === 0) continue;
+      const mean = (data[i] + data[i + 1] + data[i + 2]) / 3;
+      if (mean <= 90 || !nearTransparent(x, y)) continue;
+      let darkest = i;
+      let darkestMean = mean;
+      for (let dy = -2; dy <= 2; dy++) {
+        for (let dx = -2; dx <= 2; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= width || ny >= height) continue;
+          const ni = (ny * width + nx) * CH;
+          if (data[ni + 3] === 0) continue;
+          const nm = (data[ni] + data[ni + 1] + data[ni + 2]) / 3;
+          if (nm < darkestMean) {
+            darkestMean = nm;
+            darkest = ni;
+          }
+        }
+      }
+      const t = (mean - 90) / (255 - 90);
+      fixes.push([i, darkest, t]);
+    }
+  }
+  // Appliqué après coup pour que la passe lise des couleurs non modifiées.
+  for (const [i, d, t] of fixes) {
+    for (let c = 0; c < 3; c++) data[i + c] = Math.round(data[i + c] + (data[d + c] - data[i + c]) * t);
+  }
+}
+
+// --- 3. Composantes connexes : séparer l'emblème des formes du titre. ---
+// La coupe rayon/« O » vit dans une copie : le logo complet garde la soudure.
+const cutData = Buffer.from(data);
+{
+  const steps = Math.max(Math.abs(CUT_B.x - CUT_A.x), Math.abs(CUT_B.y - CUT_A.y));
+  for (let s = 0; s <= steps; s++) {
+    const x = Math.round(CUT_A.x + ((CUT_B.x - CUT_A.x) * s) / steps);
+    const y = Math.round(CUT_A.y + ((CUT_B.y - CUT_A.y) * s) / steps);
+    for (let dx = -1; dx <= 1; dx++) cutData[(y * width + x + dx) * 4 + 3] = 0;
+  }
+}
+const label = new Int32Array(width * height); // 0 = fond, sinon id de composante
+const boxes = []; // par id-1 : { xmin, xmax, ymin, ymax, px }
+let nextId = 0;
+for (let sy = 0; sy < height; sy++) {
+  for (let sx = 0; sx < width; sx++) {
+    const sp = sy * width + sx;
+    if (label[sp] !== 0 || cutData[sp * CH + 3] === 0) continue;
+    const id = ++nextId;
+    const box = { xmin: sx, xmax: sx, ymin: sy, ymax: sy, px: 0 };
+    boxes.push(box);
+    const st = [sx, sy];
+    label[sp] = id;
+    while (st.length) {
+      const y = st.pop();
+      const x = st.pop();
+      box.px++;
+      if (x < box.xmin) box.xmin = x;
+      if (x > box.xmax) box.xmax = x;
+      if (y < box.ymin) box.ymin = y;
+      if (y > box.ymax) box.ymax = y;
+      const visit = (nx, ny) => {
+        const p = ny * width + nx;
+        if (label[p] === 0 && cutData[p * CH + 3] !== 0) {
+          label[p] = id;
+          st.push(nx, ny);
+        }
+      };
+      if (x > 0) visit(x - 1, y);
+      if (x < width - 1) visit(x + 1, y);
+      if (y > 0) visit(x, y - 1);
+      if (y < height - 1) visit(x, y + 1);
+    }
+  }
+}
+const isSpeck = boxes.map((b) => b.px < SPECK_MAX);
+const isTextComponent = boxes.map((b, i) => !isSpeck[i] && b.xmin >= TEXT_XMIN);
+
+// Logo complet = original moins les poussières ; emblème = copie coupée moins
+// poussières et formes du titre (la pointe orpheline du rayon coupé, à droite
+// de la coupe, est classée titre par sa position et disparaît aussi).
+const markData = cutData;
+for (let p = 0; p < width * height; p++) {
+  if (label[p] === 0) continue;
+  const idx = label[p] - 1;
+  if (isSpeck[idx]) {
+    data[p * CH + 3] = 0;
+    markData[p * CH + 3] = 0;
+  } else if (isTextComponent[idx]) {
+    markData[p * CH + 3] = 0;
+  }
+}
+
+// Boîtes englobantes serrées (logo complet / emblème seul).
+const bbox = (predicate) => {
+  const b = { xmin: width, xmax: -1, ymin: height, ymax: -1 };
+  boxes.forEach((box, idx) => {
+    if (isSpeck[idx] || !predicate(idx)) return;
+    if (box.xmin < b.xmin) b.xmin = box.xmin;
+    if (box.xmax > b.xmax) b.xmax = box.xmax;
+    if (box.ymin < b.ymin) b.ymin = box.ymin;
+    if (box.ymax > b.ymax) b.ymax = box.ymax;
+  });
+  return { left: b.xmin, top: b.ymin, width: b.xmax - b.xmin + 1, height: b.ymax - b.ymin + 1 };
+};
+const fullBox = bbox(() => true);
+const markBox = bbox((idx) => !isTextComponent[idx]);
+console.log(
+  `${nextId} composantes : ${isSpeck.filter(Boolean).length} poussières, ` +
+    `${isTextComponent.filter(Boolean).length} titre, ` +
+    `${boxes.filter((_, i) => !isSpeck[i] && !isTextComponent[i]).length} emblème`,
+);
+console.log("logo complet :", JSON.stringify(fullBox), "— emblème :", JSON.stringify(markBox));
+
+const raw = { raw: { width, height, channels: CH } };
+const fullCut = await sharp(data, raw).extract(fullBox).png().toBuffer();
+const markCut = await sharp(markData, raw).extract(markBox).png().toBuffer();
+
+/** Emblème posé au centre d'un carré de fond #2e2357. */
 async function icon(size, innerRatio) {
   const inner = Math.round(size * innerRatio);
-  const embl = await sharp(markCrop)
-    .resize(inner, inner, { fit: "contain", background: BRAND_BG, kernel: "lanczos3" })
-    .sharpen({ sigma: 0.6 })
+  const embl = await sharp(markCut)
+    .resize(inner, inner, { fit: "contain", background: "#00000000", kernel: "lanczos3" })
     .toBuffer();
+  // Palette 256 couleurs : le style cartoon s'y prête, ÷5 sur le poids.
   return sharp({ create: { width: size, height: size, channels: 4, background: BRAND_BG } })
     .composite([{ input: embl, gravity: "center" }])
-    .png();
+    .png({ palette: true, quality: 100, compressionLevel: 9 });
 }
 
 // Icônes installées (carrées — PAS rondes, décision utilisateur).
@@ -58,8 +261,25 @@ dir.writeUInt32LE(favPng.length, 8);
 dir.writeUInt32LE(22, 12); // offset des données
 writeFileSync("app/favicon.ico", Buffer.concat([header, dir, favPng]));
 
-// Logos pour la splash (upscalés ×2,6, sur leur fond #2e2357 natif → sans couture).
-await sharp(fullCrop).resize({ width: 650, kernel: "lanczos3" }).sharpen({ sigma: 0.6 }).png().toFile("public/brand/logo-full.png");
-await sharp(markCrop).resize({ width: 312, kernel: "lanczos3" }).sharpen({ sigma: 0.6 }).png().toFile("public/brand/logo-mark.png");
+// Splash : logo complet aplati sur le fond de marque, ×2 de la taille affichée
+// max (460px) pour les écrans denses. Composite puis resize en deux étapes :
+// sharp redimensionne la base AVANT de composer, il faut donc matérialiser.
+const splashFlat = await sharp({
+  create: { width: fullBox.width + 80, height: fullBox.height + 80, channels: 4, background: BRAND_BG },
+})
+  .composite([{ input: fullCut, gravity: "center" }])
+  .flatten({ background: BRAND_BG })
+  .png()
+  .toBuffer();
+await sharp(splashFlat)
+  .resize({ width: 920, kernel: "lanczos3" })
+  .webp({ quality: 92 })
+  .toFile("public/brand/logo-full.webp");
+
+// Réserve : emblème seul détouré, fond transparent.
+await sharp(markCut)
+  .resize({ width: 512, kernel: "lanczos3" })
+  .png({ palette: true, quality: 100, compressionLevel: 9 })
+  .toFile("public/brand/logo-mark.png");
 
 console.log("Assets de marque générés (fond", BRAND_BG + ").");

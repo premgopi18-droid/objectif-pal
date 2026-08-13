@@ -68,9 +68,13 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > = ne plus posséder, lectures et points TOUJOURS conservés ; le livre-erreur sans trace disparaît proprement,
 > les cédés sortent de la liste — l'ancien bouton « Retirer » destructeur est supprimé, specs §4.12), et le
 > **rachat rouvre la possession close** (#117, bug débusqué en review : les 3 portes d'acquisition rouvrent
-> `disposed_at`, avec filet pur dans `derivePileStatus`) — 440 → 445 tests. Restent : **#87**
-> (logo/icônes/splash depuis les visuels HD — livrable graphique), #32 lot C (différé volontaire), et l'idée
-> produit #97 (passerelle League of Comic Geeks).**
+> `disposed_at`, avec filet pur dans `derivePileStatus`) — 440 → 445 tests. **#87 est livré le 13/08/2026** :
+> le logo HD de l'émission (reçu de Léna, fond blanc 1280×720) alimente `scripts/gen-brand.mjs` refondu —
+> détourage par remplissage depuis les bords (les lettres blanches d'« OBJECTIF » interdisent la suppression
+> globale du blanc), séparation emblème/titre par composantes connexes (le rayon bleu est soudé au « O » :
+> coupe chirurgicale dans le noir fusionné, appliquée à l'emblème seul), anti-halo + décontamination des
+> bords, icônes en PNG palette (÷5 sur le poids) — icônes, maskable, favicon et splash enfin **nets**.
+> Restent : #32 lot C (différé volontaire) et l'idée produit #97 (passerelle League of Comic Geeks).**
 
 ## Stack
 
@@ -124,8 +128,7 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **#87 — logo, icônes et splash depuis les visuels HD de l'émission** (livrable graphique, différé).
-2. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
+1. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
    déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ; les filtres #34 migreront
    alors côté requête — l'index de tri est déjà posé). ⚠️ Le lot B (`purchases!inner`) a été **défait
    volontairement** par #101 (un livre possédé sans achat serait invisible) : le sur-fetch de la PAL est
