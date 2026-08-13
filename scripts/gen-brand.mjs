@@ -149,7 +149,7 @@ const cutData = Buffer.from(data);
   for (let s = 0; s <= steps; s++) {
     const x = Math.round(CUT_A.x + ((CUT_B.x - CUT_A.x) * s) / steps);
     const y = Math.round(CUT_A.y + ((CUT_B.y - CUT_A.y) * s) / steps);
-    for (let dx = -1; dx <= 1; dx++) cutData[(y * width + x + dx) * 4 + 3] = 0;
+    for (let dx = -1; dx <= 1; dx++) cutData[(y * width + x + dx) * CH + 3] = 0;
   }
 }
 const label = new Int32Array(width * height); // 0 = fond, sinon id de composante
@@ -189,9 +189,21 @@ for (let sy = 0; sy < height; sy++) {
 const isSpeck = boxes.map((b) => b.px < SPECK_MAX);
 const isTextComponent = boxes.map((b, i) => !isSpeck[i] && b.xmin >= TEXT_XMIN);
 
-// Logo complet = original moins les poussières ; emblème = copie coupée moins
-// poussières et formes du titre (la pointe orpheline du rayon coupé, à droite
-// de la coupe, est classée titre par sa position et disparaît aussi).
+// Garde-fou : les seuils (TEXT_XMIN, CUT_A/CUT_B…) sont mesurés sur CE fichier.
+// Une nouvelle source doit faire échouer le script bruyamment plutôt que de
+// produire en silence un emblème qui embarque des lettres du titre.
+const textCount = isTextComponent.filter(Boolean).length;
+if (textCount !== 4) {
+  throw new Error(
+    `${textCount} formes de titre détectées (4 attendues : OBJECTIF, PA, L, F) — ` +
+      `la source a changé ? Re-mesurer TEXT_XMIN et CUT_A/CUT_B (voir l'en-tête).`,
+  );
+}
+
+// Logo complet = original moins les poussières ; emblème = cutData mutée en
+// place (elle ne ressert plus ensuite) moins poussières et formes du titre (la
+// pointe orpheline du rayon coupé, à droite de la coupe, est classée titre par
+// sa position et disparaît aussi).
 const markData = cutData;
 for (let p = 0; p < width * height; p++) {
   if (label[p] === 0) continue;
@@ -218,6 +230,13 @@ const bbox = (predicate) => {
 };
 const fullBox = bbox(() => true);
 const markBox = bbox((idx) => !isTextComponent[idx]);
+// Même filet : l'emblème ne s'étend jamais dans la zone du titre.
+if (markBox.left + markBox.width > 750) {
+  throw new Error(
+    `L'emblème s'étend jusqu'à x=${markBox.left + markBox.width} (>750, dans la zone du titre) — ` +
+      `classification à revoir pour cette source.`,
+  );
+}
 console.log(
   `${nextId} composantes : ${isSpeck.filter(Boolean).length} poussières, ` +
     `${isTextComponent.filter(Boolean).length} titre, ` +
