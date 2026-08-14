@@ -1,26 +1,24 @@
 import type { createServerSupabaseClient } from "@/lib/supabase/server";
 
 /**
- * Le rate-limiting de /api/lookup (issue #32, lot A) : N lookups par minute
- * et par utilisateur. Bénin en solo, vital à plusieurs — un seul utilisateur
- * en boucle grillerait les quotas externes PARTAGÉS (Google Books 1 000
- * req/jour, Metron) et gonflerait barcode_cache sans borne.
+ * Le rate-limiting des actions coûteuses (issue #32 lot A, durci par #174) :
+ * un compteur à fenêtre fixe par utilisateur ET par type d'action, en base.
+ * Bénin en solo, vital à plusieurs — un seul utilisateur en boucle grillerait
+ * les quotas externes PARTAGÉS (Google Books 1 000 req/jour, Metron) et
+ * gonflerait barcode_cache sans borne.
  *
- * 60/min (#126) : l'ancienne limite de 30 se croyait « inatteignable en
- * scannant physiquement », mais le scanner se réarme en 1,2 s — une étagère de
- * livres déjà en main permet ~25-35 scans/min, et un 429 en rafale part
- * SILENCIEUSEMENT en boîte de finition (du travail manuel créé sans le dire).
- * 60/min reste largement suffisant contre une boucle, et physiquement
- * inatteignable, pour de vrai cette fois (un scan = viser + réarmement).
+ * ⚠️ Les SEUILS vivent dans la fonction SQL `consume_action_quota` (migration
+ * 20260814100100), pas ici : la RPC est appelable par tout authentifié, des
+ * seuils passés en paramètres seraient choisis par l'attaquant (#174). Pour
+ * mémoire : lookup 60/min (physiquement inatteignable au scanner, #126),
+ * cover_repair 5/min (#177).
  *
- * Le compteur vit en BASE (fonction `consume_lookup_quota`, atomique) : il
- * survit aux cold starts Vercel, contrairement à un compteur mémoire.
+ * Le compteur vit en BASE : il survit aux cold starts Vercel, contrairement à
+ * un compteur mémoire.
  */
 
-export const LOOKUP_RATE_LIMIT = {
-  maxLookups: 60,
-  windowSeconds: 60,
-} as const;
+/** Les types d'action métrés — en phase avec le CHECK de la table. */
+export type QuotaKind = "lookup" | "cover_repair";
 
 /** Le message du 429 — partagé entre la route et l'écran de scan. */
 export const LOOKUP_RATE_LIMIT_MESSAGE = "Trop de recherches d'un coup — attends une minute et réessaie.";
@@ -28,18 +26,23 @@ export const LOOKUP_RATE_LIMIT_MESSAGE = "Trop de recherches d'un coup — atten
 type SessionSupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
 
 /**
- * Consomme une unité de quota et dit si le lookup est permis. FAIL-OPEN : une
- * panne du compteur ne bloque jamais le scan (dégradation douce, specs §8) —
- * le rate-limit protège des quotas, il n'est pas une frontière de sécurité.
+ * Consomme une unité de quota et dit si l'action est permise. FAIL-OPEN : une
+ * panne du compteur ne bloque jamais l'utilisateur (dégradation douce, specs
+ * §8) — le rate-limit protège des quotas, il n'est pas une frontière de
+ * sécurité. L'échec est loggé pour rester visible (#181).
  */
-export async function isLookupAllowed(supabase: SessionSupabaseClient): Promise<boolean> {
-  const { data: allowed, error } = await supabase.rpc("consume_lookup_quota", {
-    max_lookups: LOOKUP_RATE_LIMIT.maxLookups,
-    window_seconds: LOOKUP_RATE_LIMIT.windowSeconds,
+export async function isActionAllowed(supabase: SessionSupabaseClient, kind: QuotaKind): Promise<boolean> {
+  const { data: allowed, error } = await supabase.rpc("consume_action_quota", {
+    action_kind: kind,
   });
   if (error) {
-    console.error("[lookup] rate-limit en échec, on laisse passer :", error.message);
+    console.error(`[quota] compteur "${kind}" en échec, on laisse passer :`, error.message);
     return true;
   }
   return allowed === true;
+}
+
+/** Le quota du scan — consommé par /api/lookup avant toute cascade. */
+export async function isLookupAllowed(supabase: SessionSupabaseClient): Promise<boolean> {
+  return isActionAllowed(supabase, "lookup");
 }

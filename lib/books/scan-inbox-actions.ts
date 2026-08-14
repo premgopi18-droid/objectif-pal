@@ -12,6 +12,8 @@ import {
   type BookInput,
   type ScanActionResult,
 } from "@/lib/books/actions";
+import { isHouseCoverPhotoUrl, isOwnHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
+import { isKnownCoverImageUrl } from "@/lib/books/cover-repair";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
 import type { ScanIntent } from "@/lib/books/scan-inbox";
 import type { Json } from "@/lib/supabase/database.types";
@@ -73,6 +75,19 @@ export async function addToScanInbox(
   // aujourd'hui) ; sans elle, la finition ne saurait pas dater le malus.
   if (capture.intent === "purchase" && capture.ownedSince === null) {
     return { ok: false, error: "Un achat a besoin d'une date." };
+  }
+  // La cover_url soumise doit venir d'un endroit connu (#180) : soit une photo
+  // maison DU DOSSIER DE L'APPELANT (le bucket est public — sans cette garde,
+  // on pourrait référencer la photo d'un autre en la rejouant depuis un
+  // export), soit un hôte de couvertures de la cascade (« image oui, infos
+  // non »). Tout le reste est refusé — c'est une URL forgée.
+  if (capture.coverUrl !== null) {
+    const acceptable = isHouseCoverPhotoUrl(capture.coverUrl)
+      ? isOwnHouseCoverPhotoUrl(capture.coverUrl, user.id)
+      : isKnownCoverImageUrl(capture.coverUrl);
+    if (!acceptable) {
+      return { ok: false, error: GENERIC_ERROR_MESSAGE };
+    }
   }
 
   if (capture.barcodeRaw !== null) {
