@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { repairBrokenCover } from "@/lib/books/cover-repair-actions";
+import { isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
 import { createTaskQueue } from "@/lib/books/repair-queue";
 
 /**
@@ -127,6 +128,11 @@ export function BookCover({ coverUrl, size, placeholderEmoji = "📚", title = n
         sizes={variant.sizes}
         className={variant.imageClassName}
         onError={handleImageError}
+        // Nos fichiers (photos maison, couvertures rapatriées — Phase 2) sont
+        // DÉJÀ des WebP à la bonne taille : l'optimiseur Vercel n'apporterait
+        // qu'une transformation comptée sur le quota Hobby. Les couvertures
+        // encore externes continuent d'y passer (tailles imprévisibles).
+        unoptimized={isHouseCoverPhotoUrl(effectiveUrl)}
       />
     );
   }
