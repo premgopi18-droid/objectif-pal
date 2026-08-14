@@ -5,7 +5,7 @@
  * La BnF identifie mais n'illustre pas : jamais de couverture ici.
  */
 
-import { PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
+import { OUTBOUND_USER_AGENT, PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
 
 const BNF_SRU_ENDPOINT = "https://catalogue.bnf.fr/api/SRU";
 
@@ -69,6 +69,7 @@ export function createBnfProvider(fetchImplementation: typeof fetch = fetch) {
       const query = encodeURIComponent(`bib.isbn any "${isbn}"`);
       const url = `${BNF_SRU_ENDPOINT}?version=1.2&operation=searchRetrieve&query=${query}&recordSchema=dublincore&maximumRecords=1`;
       const response = await fetchImplementation(url, {
+        headers: { "User-Agent": OUTBOUND_USER_AGENT },
         signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS),
       });
       if (!response.ok) throw new Error(`BnF SRU : HTTP ${response.status}`);

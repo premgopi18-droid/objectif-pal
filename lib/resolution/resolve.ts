@@ -53,9 +53,11 @@ import {
  * restantes et on rend « non résolu » — l'UI bascule en saisie manuelle avec
  * le code scanné conservé. Trois providers à 4 s chacun peuvent sinon retenir
  * l'utilisateur ~12 s devant « Résolution en cours… » ; le cas normal mesuré
- * est 300-800 ms par appel (specs §8).
+ * est 300-800 ms par appel (specs §8). 7 s (#193) : sous le maxDuration de la
+ * route (20 s, #191) avec la marge du dernier provider entamé (4 s), et 7 s
+ * d'attente est déjà la limite du supportable au comptoir d'une librairie.
  */
-const RESOLUTION_BUDGET_MILLISECONDS = 10_000;
+const RESOLUTION_BUDGET_MILLISECONDS = 7_000;
 
 const isBudgetExhausted = (startedAtMs: number) => Date.now() - startedAtMs >= RESOLUTION_BUDGET_MILLISECONDS;
 

@@ -18,6 +18,14 @@ export type MetadataSource = "gcd" | "bnf" | "google_books" | "metron" | "manual
 export const PROVIDER_REQUEST_TIMEOUT_MILLISECONDS = 4000;
 
 /**
+ * L'identité des requêtes sortantes (#193) : des HEAD anonymes depuis des IP
+ * de datacenter sont un cas d'école de filtrage WAF — avec cette signature,
+ * un opérateur (BnF, Inventaire, epagine…) peut nous trouver et nous parler
+ * au lieu de nous bloquer en silence.
+ */
+export const OUTBOUND_USER_AGENT = "objectif-pal/1.0 (+https://objectif-pal.vercel.app)";
+
+/**
  * La convention GCD pour un fascicule SANS numéro (one-shots, recueils) —
  * 65 145 lignes du dump la portent (mesuré le 19/07/2026, issue #58). Elle ne
  * doit jamais s'afficher : la résolution la traduit en absence, l'affichage
