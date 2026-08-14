@@ -74,7 +74,18 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > globale du blanc), séparation emblème/titre par composantes connexes (le rayon bleu est soudé au « O » :
 > coupe chirurgicale dans le noir fusionné, appliquée à l'emblème seul), anti-halo + décontamination des
 > bords, icônes en PNG palette (÷5 sur le poids) — icônes, maskable, favicon et splash enfin **nets**.
-> Restent : #32 lot C (différé volontaire) et l'idée produit #97 (passerelle League of Comic Geeks).**
+> Restent : #32 lot C (différé volontaire) et l'idée produit #97 (passerelle League of Comic Geeks).
+> **Le 14/08/2026, décision d'ouvrir à 30-40 utilisateurs (plafond ~100, à coût nul)** : audit complet en
+> 4 passes (base/RLS, accès données, chaîne externe, auth/exploitation), plan « Objectif 100 » (epic #182),
+> et **la Phase 0 livrée le jour même** (PRs #183→#188, 445 → 521 tests) : inscription sur **allowlist**
+> (`allowed_emails` + plafond dans le trigger), RPC de quota durcie (`consume_action_quota(kind)`, seuils en
+> SQL), **quotas globaux** Google Books (900/j) et Metron (15/min) avec panne ≠ absence
+> (`ProviderUnavailableError`), **cache négatif** (`barcode_misses` TTL 7 j, `cover_checked_at` TTL 30 j —
+> un introuvable ne repaie plus la cascade), réparation de couvertures **métrée** (5/min + tampon persistant
+> 7 j + file client à 2), **troncature PostgREST éradiquée** (`fetchAllRows` sur export et `reading_events`),
+> cache partagé assaini (couvertures d'hôtes connus seuls, `created_by`, bornes 1 000 car.), et
+> **observabilité** : Sentry (erreurs seulement, DSN à poser) + CI GitHub Actions (tests+build par PR,
+> contrat #60 quotidien contre la prod).**
 
 ## Stack
 
@@ -128,7 +139,12 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
+1. **Ouverture (epic #182)** : 2 gestes manuels pour armer Sentry (compte gratuit + DSN dans Vercel), puis
+   inviter le premier cercle (10-15) via `insert into allowed_emails` et mesurer une semaine. La **Phase 1**
+   du plan suit (backups pg_dump par Actions, `vercel.json` région cdg1, refresh GCD non bloquant, hygiène
+   SW, cache serveur, suppression de compte RGPD, index de finition, test de cloisonnement 2 comptes) — puis
+   la **Phase 2** avant 100 (rapatriement des couvertures dans notre bucket, agrégats serveur des mois clos).
+2. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
    déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ; les filtres #34 migreront
    alors côté requête — l'index de tri est déjà posé). ⚠️ Le lot B (`purchases!inner`) a été **défait
    volontairement** par #101 (un livre possédé sans achat serait invisible) : le sur-fetch de la PAL est
