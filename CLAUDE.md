@@ -139,11 +139,16 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **Ouverture (epic #182)** : 2 gestes manuels pour armer Sentry (compte gratuit + DSN dans Vercel), puis
-   inviter le premier cercle (10-15) via `insert into allowed_emails` et mesurer une semaine. La **Phase 1**
-   du plan suit (backups pg_dump par Actions, `vercel.json` région cdg1, refresh GCD non bloquant, hygiène
-   SW, cache serveur, suppression de compte RGPD, index de finition, test de cloisonnement 2 comptes) — puis
-   la **Phase 2** avant 100 (rapatriement des couvertures dans notre bucket, agrégats serveur des mois clos).
+1. **Ouverture (epic #182)** — la **Phase 1 est livrée le 15/08/2026** (PRs #190→#206, sauf #32 lot C) :
+   backups hebdo chiffrés validés jusqu'à la restauration, région `cdg1` co-localisée, politesse de la
+   chaîne externe (UA identifiant, budget 7 s, rafale en file), SW auto-réparant (garde #60 au précache,
+   v5), finitions base + **certification zéro dérive** (91 objets), refresh GCD en staging+bascule (~ms
+   d'indisponibilité), **cloisonnement RLS prouvé chaque jour en CI** (2 comptes de test), catalogue GCD
+   caché 24 h, **suppression de compte RGPD** (cascade exercée sur compte jetable) + purge mensuelle
+   versionnée (premier run réel : 3 photos orphelines purgées). Reste : **2 gestes manuels Sentry**
+   (compte gratuit + DSN dans Vercel) puis inviter le premier cercle (10-15) via
+   `insert into allowed_emails` et mesurer une semaine. La **Phase 2** avant 100 (rapatriement des
+   couvertures dans notre bucket, agrégats serveur des mois clos).
 2. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
    déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ; les filtres #34 migreront
    alors côté requête — l'index de tri est déjà posé). ⚠️ Le lot B (`purchases!inner`) a été **défait
