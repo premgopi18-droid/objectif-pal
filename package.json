@@ -13,6 +13,7 @@
     "postinstall": "node scripts/copy-zxing-wasm.mjs"
   },
   "dependencies": {
+    "@sentry/nextjs": "^10.70.0",
     "@supabase/ssr": "^0.12.1",
     "@supabase/supabase-js": "^2.110.3",
     "lucide-react": "^1.24.0",
