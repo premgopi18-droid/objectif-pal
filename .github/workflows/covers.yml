@@ -1,0 +1,34 @@
+# Rapatriement quotidien des couvertures (epic #182, Phase 2).
+#
+# Les couvertures résolues dans la journée sont externes (hotlink) le temps
+# d'une nuit au plus : ce job les télécharge une fois, les recompresse et les
+# range dans notre bucket — la dépendance aux CDN tiers se referme au fil de
+# l'eau. 250 max par run : le quotidien rattrape toujours.
+name: Covers
+
+on:
+  schedule:
+    # Tous les jours à 06:00 UTC — après le contrat prod (07:00 : si ce job
+    # casse des couvertures, le monitoring du lendemain le verrait).
+    - cron: "0 6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (compter sans toucher)"
+        type: boolean
+        default: false
+
+jobs:
+  internalize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node scripts/covers-internalize.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
