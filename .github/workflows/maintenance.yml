@@ -1,0 +1,31 @@
+# Maintenance mensuelle (epic #182, Phase 1) — la fin des scripts
+# cleanup-YYYYMMDD.mjs lancés à la main contre la prod : le ménage est
+# versionné, planifié, et relançable à la main (workflow_dispatch, avec
+# dry-run pour voir avant de toucher).
+name: Maintenance
+
+on:
+  schedule:
+    # Le 1er de chaque mois à 05:00 UTC.
+    - cron: "0 5 1 * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (lister sans supprimer)"
+        type: boolean
+        default: false
+
+jobs:
+  purge:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: node scripts/maintenance-purge.mjs ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
