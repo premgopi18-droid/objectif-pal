@@ -1,6 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { GcdIssue, GcdSeries } from "./providers/gcd";
 import { findReplacementCover, resolveScannedCode, type ResolutionDeps } from "./resolve";
+import { ProviderUnavailableError } from "./types";
 
 /**
  * La cascade testée avec des providers factices : chaque test décrit un
@@ -60,12 +61,19 @@ function fakeDeps(overrides: {
       findIssueByUpc: vi.fn(async () => null),
       ...overrides.metron,
     },
-    cache: { get: vi.fn(async () => null), set: vi.fn(async () => {}), ...overrides.cache },
+    cache: {
+      get: vi.fn(async () => null),
+      set: vi.fn(async () => {}),
+      stampCoverChecked: vi.fn(async () => {}),
+      getMiss: vi.fn(async () => null),
+      setMiss: vi.fn(async () => {}),
+      ...overrides.cache,
+    },
   };
 }
 
 describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
-  it("une BD franco-belge se résout en base, catégorie bd, sans mise en cache quand rien ne l'enrichit", async () => {
+  it("une BD franco-belge se résout en base, catégorie bd — et le balayage couverture PROPRE mais vide est tamponné (#176)", async () => {
     const deps = fakeDeps({
       gcd: {
         findIssuesByIsbn: vi.fn(async () => [gcdIssue({ isbn: "9782203001114", barcode: null, title: "Tintin et les Picaros" })]),
@@ -74,13 +82,16 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
     });
     const result = await resolveScannedCode("9782203001114", deps);
 
+    // Avant #176 : jamais cachée (« un raté transitoire ne doit pas figer »).
+    // Désormais : un verdict PROPRE « pas de couverture » se mémorise avec
+    // cover_checked_at — le rescan ne re-paie la chaîne qu'à l'expiration.
+    expect(deps.cache.set).toHaveBeenCalledWith(
+      expect.objectContaining({ source: "gcd", coverUrl: null, coverCheckedAt: expect.any(String) }),
+    );
     expect(result).toMatchObject({
       kind: "resolved",
       book: { suggestedCategory: "bd", source: "gcd", seriesName: "Les Aventures de Tintin" },
     });
-    // GCD est déjà en base et l'enrichissement (Google Books muet ici) n'a
-    // rien rapporté : rien à cacher — on retentera la couverture au prochain scan.
-    expect(deps.cache.set).not.toHaveBeenCalled();
   });
 
   it("un TPB VO trouvé par ISBN est proposé comics, et Metron peut le requalifier omnibus", async () => {
@@ -719,5 +730,169 @@ describe("la re-résolution de couverture pour la réparation des liens cassés 
     const cover = await findReplacementCover({ barcodeType: "isbn", isbn: "9791026820963", barcode: null }, deps);
 
     expect(cover).toBe("https://images.epagine.fr/963/9791026820963_1_75.jpg");
+  });
+});
+
+/**
+ * Le cache négatif et la santé de la cascade (#175/#176) : un « introuvable »
+ * ne coûte plus la chaîne complète à chaque scan — mais SEULEMENT sur un
+ * verdict propre. Panne ≠ absence : une source indisponible (quota global
+ * épuisé, 429, timeout) interdit toute écriture négative.
+ */
+describe("le cache négatif (#176) et la santé de la cascade (#175)", () => {
+  const freshTimestamp = () => new Date(Date.now() - 60_000).toISOString();
+  const staleTimestamp = (days: number) => new Date(Date.now() - days * 86_400_000).toISOString();
+
+  it("un introuvable PROPRE écrit le cache négatif, avec l'image des libraires", async () => {
+    const deps = fakeDeps({
+      epagine: { findCoverByIsbn: vi.fn(async () => "https://images.epagine.fr/851/9782955689851_1_75.jpg") },
+    });
+    const result = await resolveScannedCode("9782955689851", deps);
+
+    expect(result).toEqual({ kind: "not-found", coverUrl: "https://images.epagine.fr/851/9782955689851_1_75.jpg" });
+    expect(deps.cache.setMiss).toHaveBeenCalledWith("9782955689851", "https://images.epagine.fr/851/9782955689851_1_75.jpg");
+  });
+
+  it("une source INDISPONIBLE (quota/429) n'écrit JAMAIS le cache négatif", async () => {
+    const deps = fakeDeps({
+      googleBooks: {
+        resolveIsbn: vi.fn(async () => {
+          throw new ProviderUnavailableError("Google Books", "quota global quotidien épuisé");
+        }),
+      },
+    });
+    const result = await resolveScannedCode("9782955689851", deps);
+
+    expect(result).toMatchObject({ kind: "not-found" });
+    expect(deps.cache.setMiss).not.toHaveBeenCalled();
+  });
+
+  it("une source qui JETTE (timeout, panne) n'écrit pas non plus — erreur ≠ absence", async () => {
+    const deps = fakeDeps({
+      bnf: { resolveIsbn: vi.fn(async () => Promise.reject(new Error("BnF en rade"))) },
+    });
+    const result = await resolveScannedCode("9782955689851", deps);
+
+    expect(result).toMatchObject({ kind: "not-found" });
+    expect(deps.cache.setMiss).not.toHaveBeenCalled();
+  });
+
+  it("un échec de la requête GCD dégrade aussi : la base est l'identifiant principal", async () => {
+    const deps = fakeDeps({
+      gcd: { findIssuesByIsbn: vi.fn(async () => Promise.reject(new Error("base indisponible"))) },
+    });
+    await resolveScannedCode("9782955689851", deps);
+
+    expect(deps.cache.setMiss).not.toHaveBeenCalled();
+  });
+
+  it("un introuvable RÉCENT court-circuite tout : zéro provider appelé, l'image mémorisée ressort (#55)", async () => {
+    const deps = fakeDeps({
+      cache: {
+        getMiss: vi.fn(async () => ({ coverUrl: "https://images.epagine.fr/851/x.jpg", lastCheckedAt: freshTimestamp() })),
+      },
+    });
+    const result = await resolveScannedCode("9782955689851", deps);
+
+    expect(result).toEqual({ kind: "not-found", coverUrl: "https://images.epagine.fr/851/x.jpg" });
+    expect(deps.gcd.findIssuesByIsbn).not.toHaveBeenCalled();
+    expect(deps.bnf.resolveIsbn).not.toHaveBeenCalled();
+    expect(deps.googleBooks.resolveIsbn).not.toHaveBeenCalled();
+    expect(deps.epagine.findCoverByIsbn).not.toHaveBeenCalled();
+  });
+
+  it("un introuvable PÉRIMÉ (> 7 j) retente la cascade complète", async () => {
+    const deps = fakeDeps({
+      cache: { getMiss: vi.fn(async () => ({ coverUrl: null, lastCheckedAt: staleTimestamp(8) })) },
+    });
+    await resolveScannedCode("9782955689851", deps);
+
+    expect(deps.gcd.findIssuesByIsbn).toHaveBeenCalled();
+    expect(deps.bnf.resolveIsbn).toHaveBeenCalled();
+  });
+
+  it("une entrée cachée sans couverture, tamponnée récemment, ne retente RIEN (zéro coût au rescan)", async () => {
+    const deps = fakeDeps({
+      cache: {
+        get: vi.fn(async () => ({
+          barcode: "9791026820963",
+          title: "Batman",
+          seriesName: null,
+          issueNumber: null,
+          authors: null,
+          publisher: "Urban comics",
+          pageCount: 176,
+          coverUrl: null,
+          source: "bnf" as const,
+          sourceId: "9791026820963",
+          coverCheckedAt: freshTimestamp(),
+        })),
+      },
+    });
+    const result = await resolveScannedCode("9791026820963", deps);
+
+    expect(result).toMatchObject({ kind: "resolved", book: { coverUrl: null } });
+    expect(deps.googleBooks.resolveIsbn).not.toHaveBeenCalled();
+    expect(deps.openLibrary.findCoverByIsbn).not.toHaveBeenCalled();
+  });
+
+  it("le retenter PROPRE qui ne rapporte rien tamponne l'entrée ; dégradé, il ne tamponne pas", async () => {
+    const cachedEntry = {
+      barcode: "9791026820963",
+      title: "Batman",
+      seriesName: null,
+      issueNumber: null,
+      authors: null,
+      publisher: "Urban comics",
+      pageCount: 176,
+      coverUrl: null,
+      source: "bnf" as const,
+      sourceId: "9791026820963",
+      coverCheckedAt: staleTimestamp(31),
+    };
+    // Balayage propre : tampon posé.
+    const clean = fakeDeps({ cache: { get: vi.fn(async () => cachedEntry) } });
+    await resolveScannedCode("9791026820963", clean);
+    expect(clean.cache.stampCoverChecked).toHaveBeenCalledWith("9791026820963");
+
+    // Balayage dégradé (quota épuisé) : pas de tampon, on retentera.
+    const degraded = fakeDeps({
+      cache: { get: vi.fn(async () => cachedEntry) },
+      googleBooks: {
+        resolveIsbn: vi.fn(async () => {
+          throw new ProviderUnavailableError("Google Books", "quota global quotidien épuisé");
+        }),
+      },
+    });
+    await resolveScannedCode("9791026820963", degraded);
+    expect(degraded.cache.stampCoverChecked).not.toHaveBeenCalled();
+  });
+
+  it("un UPC introuvable propre écrit le cache négatif ; un récent court-circuite Metron", async () => {
+    const clean = fakeDeps();
+    await resolveScannedCode("761941341743", clean);
+    expect(clean.cache.setMiss).toHaveBeenCalledWith("761941341743", null);
+
+    const shortCircuit = fakeDeps({
+      cache: { getMiss: vi.fn(async () => ({ coverUrl: null, lastCheckedAt: freshTimestamp() })) },
+    });
+    const result = await resolveScannedCode("761941341743", shortCircuit);
+    expect(result).toEqual({ kind: "not-found", coverUrl: null });
+    expect(shortCircuit.gcd.findIssuesByBarcode).not.toHaveBeenCalled();
+    expect(shortCircuit.metron.findIssueByUpc).not.toHaveBeenCalled();
+  });
+
+  it("un UPC dont Metron est indisponible n'écrit pas de cache négatif", async () => {
+    const deps = fakeDeps({
+      metron: {
+        findIssueByUpc: vi.fn(async () => {
+          throw new ProviderUnavailableError("Metron", "quota global (req/min) épuisé");
+        }),
+      },
+    });
+    const result = await resolveScannedCode("761941341743", deps);
+
+    expect(result).toEqual({ kind: "not-found", coverUrl: null });
+    expect(deps.cache.setMiss).not.toHaveBeenCalled();
   });
 });
