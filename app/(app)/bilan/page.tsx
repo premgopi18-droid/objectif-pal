@@ -1,3 +1,4 @@
+import { unstable_cache } from "next/cache";
 import { MonthlyReportView } from "@/components/bilan/monthly-report-view";
 import type { BilanReading, MonthlyPickRecord } from "@/components/bilan/monthly-report-view";
 import { PageLoadError } from "@/components/page-load-error";
@@ -106,12 +107,25 @@ export default async function BilanPage({
     // par tome ni par série — cf. `fetchSeriesCatalog`) et lecture d'une table
     // de référence, donc via le client admin. Son échec n'emporte pas la page :
     // sans catalogue, la section « Séries en cours » se tait, le reste vit.
+    // CACHÉ 24 h (epic #182, Phase 1) : les données GCD sont INDÉPENDANTES de
+    // l'utilisateur et ne bougent qu'au dump bimensuel — le seul cache sans
+    // aucun risque de fraîcheur de l'app. La clé porte les tomes lus : un
+    // nouveau scan change la clé, le catalogue suit immédiatement ; seule la
+    // numérotation GCD peut avoir jusqu'à un jour de retard, sans enjeu.
     let seriesCatalog: SeriesCatalog | undefined;
     try {
-      const gcdIssueIds = records
-        .map((record) => record.gcdIssueId)
-        .filter((gcdIssueId): gcdIssueId is number => gcdIssueId != null);
-      seriesCatalog = await fetchSeriesCatalog(createGcdProvider(), gcdIssueIds);
+      const gcdIssueIds = [
+        ...new Set(
+          records
+            .map((record) => record.gcdIssueId)
+            .filter((gcdIssueId): gcdIssueId is number => gcdIssueId != null),
+        ),
+      ].sort((left, right) => left - right);
+      seriesCatalog = await unstable_cache(
+        () => fetchSeriesCatalog(createGcdProvider(), gcdIssueIds),
+        ["series-catalog", gcdIssueIds.join(",")],
+        { revalidate: 24 * 60 * 60 },
+      )();
     } catch {
       seriesCatalog = undefined;
     }
