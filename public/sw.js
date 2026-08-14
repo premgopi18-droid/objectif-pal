@@ -71,7 +71,9 @@ self.addEventListener("fetch", (event) => {
         .then((response) => {
           if (url.pathname === "/" && response.ok && !response.redirected) {
             const copy = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put("/", copy));
+            // waitUntil (review #196) : garantit la fenêtre d'écriture — sans
+            // lui, le SW peut être tué après la réponse, avant la fin du put.
+            event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.put("/", copy)));
           }
           return response;
         })
