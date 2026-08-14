@@ -21,7 +21,9 @@ alter table barcode_cache add column cover_checked_at timestamptz;
 -- toujours. Table séparée de barcode_cache : pas de fausse « résolution »,
 -- pas de pollution de l'enum metadata_source. cover_url garde l'image
 -- éventuellement trouvée chez les libraires (#55) pour pré-remplir la saisie
--- manuelle au rescan sans re-payer la chaîne.
+-- manuelle au rescan sans re-payer la chaîne. Croissance sans purge assumée
+-- (quelques octets par code inconnu) — le futur job de maintenance (Phase 1)
+-- pourra balayer `last_checked_at < now() - interval '90 days'`.
 create table barcode_misses (
   barcode text primary key,
   cover_url text,

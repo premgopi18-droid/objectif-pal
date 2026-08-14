@@ -269,6 +269,10 @@ async function cacheEnrichedGcdBook(
   // Réservé au parcours ISBN (stampWhenCleanlyBare) : au rescan, c'est le seul
   // qui re-déroule la chaîne à l'expiration du tampon — côté UPC, cacher une
   // ligne nue figerait un « sans couverture » sans chemin de re-tentative.
+  // Trade-off assumé (review #184) : cette entrée fait ÉCRAN aux corrections
+  // des dumps GCD futurs (avant, la ligne se relisait fraîche en base à chaque
+  // scan). Sortie propre le jour venu : les entrées portent source='gcd' +
+  // source_id — le script de refresh du dump peut les invalider en une requête.
   const { health, startedAtMs, stampWhenCleanlyBare = false } = options;
   if (!stampWhenCleanlyBare) return;
   if (health?.degraded || (startedAtMs !== undefined && isBudgetExhausted(startedAtMs))) return;
