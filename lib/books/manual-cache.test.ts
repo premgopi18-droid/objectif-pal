@@ -21,7 +21,7 @@ const manualInput = (overrides: Partial<BookInput> = {}): BookInput => ({
 
 describe("la saisie manuelle qui alimente barcode_cache (#55)", () => {
   it("une saisie manuelle avec code-barres devient une entrée source manual, couverture comprise", () => {
-    expect(manualEntryToCacheEntry(manualInput())).toEqual({
+    expect(manualEntryToCacheEntry(manualInput(), "user-1")).toEqual({
       barcode: "9782955689851",
       title: "HEROICS – Season 1: Fathers",
       seriesName: "HEROICS",
@@ -32,12 +32,14 @@ describe("la saisie manuelle qui alimente barcode_cache (#55)", () => {
       coverUrl: "https://images.epagine.fr/851/9782955689851_1_75.jpg",
       source: "manual",
       sourceId: null,
+      createdBy: "user-1",
     });
   });
 
   it("la clé suit la normalisation de la cascade : EAN-13 pour un ISBN scanné avec supplément prix", () => {
     const entry = manualEntryToCacheEntry(
       manualInput({ barcodeRaw: "978295568985151990", isbn: "9782955689851" }),
+      "user-1",
     );
     expect(entry?.barcode).toBe("9782955689851");
   });
@@ -45,16 +47,17 @@ describe("la saisie manuelle qui alimente barcode_cache (#55)", () => {
   it("un UPC garde son code BRUT (le supplément y est signifiant, specs §5.1)", () => {
     const entry = manualEntryToCacheEntry(
       manualInput({ barcodeRaw: "76194134174312311", barcodeType: "upc", isbn: null }),
+      "user-1",
     );
     expect(entry?.barcode).toBe("76194134174312311");
   });
 
   it("une création libre (sans code-barres) n'a pas de clé : rien à cacher", () => {
-    expect(manualEntryToCacheEntry(manualInput({ barcodeRaw: null, barcodeType: null, isbn: null }))).toBeNull();
+    expect(manualEntryToCacheEntry(manualInput({ barcodeRaw: null, barcodeType: null, isbn: null }), "user-1")).toBeNull();
   });
 
   it("une résolution de source (non manuelle) ne repasse pas par ce chemin", () => {
-    expect(manualEntryToCacheEntry(manualInput({ metadataSource: "bnf" }))).toBeNull();
+    expect(manualEntryToCacheEntry(manualInput({ metadataSource: "bnf" }), "user-1")).toBeNull();
   });
 });
 

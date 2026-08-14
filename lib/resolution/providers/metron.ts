@@ -1,6 +1,6 @@
 import { normalizeUpcForMetron } from "@/lib/resolution/barcode-router";
 import { consumeGlobalQuota } from "@/lib/resolution/global-quota";
-import { PROVIDER_REQUEST_TIMEOUT_MILLISECONDS, ProviderUnavailableError } from "@/lib/resolution/types";
+import { OUTBOUND_USER_AGENT, PROVIDER_REQUEST_TIMEOUT_MILLISECONDS, ProviderUnavailableError } from "@/lib/resolution/types";
 
 /**
  * Le provider Metron — enrichit la VO : couverture + `series_type` (le signal
@@ -59,7 +59,7 @@ export function createMetronProvider(
       throw new ProviderUnavailableError("Metron", "quota global (req/min) épuisé");
     }
     const response = await fetchImplementation(`${METRON_ENDPOINT}${path}`, {
-      headers: { Authorization: authorization, "User-Agent": "objectif-pal" },
+      headers: { Authorization: authorization, "User-Agent": OUTBOUND_USER_AGENT },
       signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS),
     });
     // Panne ≠ absence (#175) : throttle/5xx = compte indisponible, pas un

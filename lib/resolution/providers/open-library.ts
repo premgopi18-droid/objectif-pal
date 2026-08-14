@@ -4,7 +4,7 @@
  * bonne sur les romans, correcte sur le manga VF, variable sur la BD.
  */
 
-import { PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
+import { OUTBOUND_USER_AGENT, PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
 
 const OPEN_LIBRARY_COVER_ENDPOINT = "https://covers.openlibrary.org/b/isbn";
 
@@ -21,6 +21,7 @@ export function createOpenLibraryProvider(fetchImplementation: typeof fetch = fe
       const url = `${OPEN_LIBRARY_COVER_ENDPOINT}/${isbn}-L.jpg`;
       const response = await fetchImplementation(`${url}?default=false`, {
         method: "HEAD",
+        headers: { "User-Agent": OUTBOUND_USER_AGENT },
         signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS),
       });
       if (response.status === 404) return null;

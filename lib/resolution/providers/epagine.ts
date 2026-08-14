@@ -15,7 +15,7 @@
  *    sont des JPEG.
  */
 
-import { PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
+import { OUTBOUND_USER_AGENT, PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
 
 const EPAGINE_IMAGES_ORIGIN = "https://images.epagine.fr";
 const ISBN_FOLDER_DIGIT_COUNT = 3;
@@ -30,6 +30,7 @@ export function createEpagineProvider(fetchImplementation: typeof fetch = fetch)
       const url = `${EPAGINE_IMAGES_ORIGIN}/${folder}/${isbn}_1_75.jpg`;
       const response = await fetchImplementation(url, {
         method: "HEAD",
+        headers: { "User-Agent": OUTBOUND_USER_AGENT },
         signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS),
       });
       if (response.status === 404) return null;

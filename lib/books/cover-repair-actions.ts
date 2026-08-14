@@ -6,7 +6,7 @@ import { isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
 import { isActionAllowed } from "@/lib/resolution/lookup-rate-limit";
 import { createCacheProvider } from "@/lib/resolution/providers/cache";
 import { findReplacementCover } from "@/lib/resolution/resolve";
-import { PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
+import { OUTBOUND_USER_AGENT, PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
 import { getSessionOrError } from "@/lib/supabase/server";
 
 /**
@@ -37,12 +37,22 @@ async function isUrlAlive(url: string): Promise<boolean | null> {
   // pour vivante et la photo (#33) n'était jamais proposée. L'absence d'en-tête
   // content-length reste un doute → profite à l'existant, comme le reste.
   const hasEmptyBody = (response: Response) => response.headers.get("content-length") === "0";
+  // redirect: "manual" (#193) : suivre une redirection depuis un hôte
+  // allowlisté ouvrirait un canal vers une cible arbitraire. Un 3xx n'est ni
+  // vivant ni mort — un doute, qui profite à l'existant.
+  const verdict = (response: Response) =>
+    response.status >= 300 && response.status < 400 ? null : response.ok && !hasEmptyBody(response);
+  const options = {
+    headers: { "User-Agent": OUTBOUND_USER_AGENT },
+    redirect: "manual" as const,
+    signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS),
+  };
   try {
-    const head = await fetch(url, { method: "HEAD", signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS) });
-    if (head.status !== 405) return head.ok && !hasEmptyBody(head);
-    const get = await fetch(url, { signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS) });
+    const head = await fetch(url, { ...options, method: "HEAD" });
+    if (head.status !== 405) return verdict(head);
+    const get = await fetch(url, options);
     await get.body?.cancel();
-    return get.ok && !hasEmptyBody(get);
+    return verdict(get);
   } catch {
     return null;
   }

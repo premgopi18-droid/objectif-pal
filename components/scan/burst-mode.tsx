@@ -9,6 +9,7 @@ import { CategoryDrawer } from "./category-drawer";
 import { BarcodeScanner } from "./barcode-scanner";
 import { BurstPhotoCapture } from "./burst-photo-capture";
 import { recordOwnership, recordOwnedPastReading, recordPastReading, recordPurchase, type BookInput } from "@/lib/books/actions";
+import { createTaskQueue } from "@/lib/books/repair-queue";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
 import { addToScanInbox, dismissScanInboxItem } from "@/lib/books/scan-inbox-actions";
 import { softDeleteBook } from "@/lib/books/library-actions";
@@ -84,6 +85,12 @@ const STATUS_BADGE = {
 
 /** Le malus affiché vient du barème — jamais recopié en dur (CLAUDE.md). */
 const PENALTY_POINTS = Math.abs(SCORING_SCALE.unreadPurchasePenalty);
+
+/**
+ * La file des résolutions de rafale (#193) — 3 en vol max, partagée entre
+ * toutes les instances : la capture n'attend jamais, la résolution s'égrène.
+ */
+const runResolution = createTaskQueue(3);
 
 /**
  * Le badge d'une ligne réussie dit le RANGEMENT réel (#139) — on switche
@@ -202,7 +209,12 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
       if (isDuplicateOfVisibleLine) return;
 
       // Volontairement NON attendu : la chaîne continue pendant que ça tourne.
-      void (async () => {
+      // Mais EN FILE (#193) : 3 résolutions en vol max — chaque lookup tient
+      // jusqu'à ~7 connexions externes, une étagère entière en parallèle
+      // saturait le serveur et les fournisseurs. La capture reste instantanée,
+      // seule la résolution s'égrène (l'utilisateur scanne, il ne regarde pas
+      // la liste).
+      void runResolution(async () => {
         /** Le filet : quoi qu'il arrive, le scan finit quelque part. */
         const capture = async (coverUrl: string | null, metadata: Json | null) => {
           const result = await addToScanInbox({
@@ -297,7 +309,7 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
             patch(key, { status: "error", message: NETWORK_ERROR_MESSAGE });
           }
         }
-      })();
+      });
     },
     [patch],
   );

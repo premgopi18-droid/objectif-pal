@@ -7,7 +7,7 @@
  * partout.
  */
 
-import { PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
+import { OUTBOUND_USER_AGENT, PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
 
 const INVENTAIRE_ORIGIN = "https://inventaire.io";
 
@@ -19,7 +19,7 @@ export function createInventaireProvider(fetchImplementation: typeof fetch = fet
     async findCoverByIsbn(isbn: string): Promise<string | null> {
       const response = await fetchImplementation(
         `${INVENTAIRE_ORIGIN}/api/entities/by-uris?uris=isbn:${isbn}`,
-        { signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS) },
+        { headers: { "User-Agent": OUTBOUND_USER_AGENT }, signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS) },
       );
       // 400 = ISBN que l'API juge invalide (clé de contrôle) : « introuvable »,
       // pas une panne — la cascade continue sans bruit.
@@ -41,6 +41,7 @@ export function createInventaireProvider(fetchImplementation: typeof fetch = fet
       try {
         const image = await fetchImplementation(absoluteUrl, {
           method: "HEAD",
+          headers: { "User-Agent": OUTBOUND_USER_AGENT },
           signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS),
         });
         if (!image.ok || image.headers.get("content-length") === "0") return null;

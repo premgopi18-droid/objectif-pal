@@ -12,7 +12,7 @@
  *    cran sans bruit.
  */
 
-import { PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
+import { OUTBOUND_USER_AGENT, PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
 
 const BNF_COVERS_ENDPOINT = "https://openapi.bnf.fr/couverture/image/image/recupererImage";
 
@@ -24,6 +24,7 @@ export function createBnfCoversProvider(fetchImplementation: typeof fetch = fetc
     async findCoverByIsbn(isbn: string): Promise<string | null> {
       const url = `${BNF_COVERS_ENDPOINT}?ISBN=${isbn}&couverture=1&taille=originale`;
       const response = await fetchImplementation(url, {
+        headers: { "User-Agent": OUTBOUND_USER_AGENT },
         signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS),
       });
       // Le corps ne sert à rien (on ne stocke que l'URL) : on le relâche pour
