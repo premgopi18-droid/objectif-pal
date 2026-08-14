@@ -12,16 +12,33 @@
 // binaire en cache, désynchronisé du JS — erreurs imprévisibles au scan.
 // v3 (issue #60) : purge les caches où la redirection d'auth avait remplacé
 // le binaire WASM par le HTML de /login (SW installé hors session).
-const CACHE_NAME = "objectif-pal-shell-v4"; // v4 : icônes recompressées (#124) — sans bump, les anciennes resteraient précachées
+const CACHE_NAME = "objectif-pal-shell-v5"; // v5 : précache gardé contre les redirections (#195) — purge les coquilles /login empoisonnées
 // ⚠️ "/" est du HTML AUTHENTIFIÉ : la déconnexion purge tous les caches
 // (components/logout-button.tsx). Icônes et WASM se re-remplissent au fil des
-// fetchs ; la coquille "/", elle, n'est re-précachée qu'à la prochaine
-// installation du SW (prochain déploiement) — hors ligne dégradé d'ici là,
-// assumé : la vie privée d'un appareil partagé passe d'abord.
+// fetchs ; la coquille "/", elle, se rafraîchit à chaque navigation réussie
+// vers "/" en session (#195) — la vie privée d'un appareil partagé reste
+// couverte par la purge de déconnexion, compromis documenté et assumé.
 const SHELL_ASSETS = ["/", "/icons/icon-192.png", "/icons/icon-512.png", "/wasm/zxing_reader.wasm"];
 
 self.addEventListener("install", (event) => {
-  event.waitUntil(caches.open(CACHE_NAME).then((cache) => cache.addAll(SHELL_ASSETS)));
+  // Jamais addAll (#195) : il suit les redirections — un SW installé depuis
+  // /login (le cas NOMINAL : hors session) précachait le HTML de /login sous
+  // la clé "/". Même garde que le fetch handler : une réponse redirigée ou en
+  // erreur est SAUTÉE, jamais mise en cache — la coquille "/" arrivera par la
+  // première navigation en session (ci-dessous).
+  event.waitUntil(
+    caches.open(CACHE_NAME).then((cache) =>
+      Promise.all(
+        SHELL_ASSETS.map((asset) =>
+          fetch(asset)
+            .then((response) => {
+              if (response.ok && !response.redirected) return cache.put(asset, response);
+            })
+            .catch(() => {}),
+        ),
+      ),
+    ),
+  );
   self.skipWaiting();
 });
 
@@ -45,8 +62,21 @@ self.addEventListener("fetch", (event) => {
   // cache les pages naviguées elles-mêmes : elles contiennent du HTML
   // authentifié (le profil, demain le journal), et l'app est multi-utilisateur
   // par conception. Hors ligne, toute navigation retombe sur "/".
+  // Exception UNIQUE (#195) : une navigation réussie vers "/" EN SESSION (200,
+  // non redirigée) rafraîchit la coquille — c'est ce qui donne sa coquille au
+  // SW installé hors session, et la garde fraîche entre deux déploiements.
   if (request.mode === "navigate") {
-    event.respondWith(fetch(request).catch(() => caches.match("/")));
+    event.respondWith(
+      fetch(request)
+        .then((response) => {
+          if (url.pathname === "/" && response.ok && !response.redirected) {
+            const copy = response.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put("/", copy));
+          }
+          return response;
+        })
+        .catch(() => caches.match("/")),
+    );
     return;
   }
 
