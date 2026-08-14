@@ -5,7 +5,8 @@
  * le provider se déclare simplement muet et la cascade continue.
  */
 
-import { PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
+import { consumeGlobalQuota } from "@/lib/resolution/global-quota";
+import { PROVIDER_REQUEST_TIMEOUT_MILLISECONDS, ProviderUnavailableError } from "@/lib/resolution/types";
 
 const GOOGLE_BOOKS_ENDPOINT = "https://www.googleapis.com/books/v1/volumes";
 
@@ -33,16 +34,27 @@ export type GoogleBooksProvider = ReturnType<typeof createGoogleBooksProvider>;
 export function createGoogleBooksProvider(
   apiKey: string | undefined = process.env.GOOGLE_BOOKS_API_KEY,
   fetchImplementation: typeof fetch = fetch,
+  // Le quota GLOBAL (#175) — 1 000 req/jour pour LA clé, partagée par tous :
+  // consommé avant chaque appel HTTP, injectable pour les tests.
+  consumeQuota: () => Promise<boolean> = () => consumeGlobalQuota("google_books_daily"),
 ) {
   return {
     /** Fiche par ISBN. `null` = introuvable OU pas de clé configurée. */
     async resolveIsbn(isbn: string): Promise<GoogleBooksRecord | null> {
       if (!apiKey) return null;
+      if (!(await consumeQuota())) {
+        throw new ProviderUnavailableError("Google Books", "quota global quotidien épuisé");
+      }
 
       const url = `${GOOGLE_BOOKS_ENDPOINT}?q=isbn:${isbn}&key=${apiKey}`;
       const response = await fetchImplementation(url, {
         signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS),
       });
+      // Panne ≠ absence (#175) : throttle ou erreur serveur = source
+      // indisponible, pas un verdict sur le livre.
+      if (response.status === 429 || response.status >= 500) {
+        throw new ProviderUnavailableError("Google Books", `HTTP ${response.status}`);
+      }
       if (!response.ok) throw new Error(`Google Books : HTTP ${response.status}`);
 
       const payload = (await response.json()) as {

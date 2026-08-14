@@ -19,7 +19,17 @@ import { createGoogleBooksProvider, type GoogleBooksProvider } from "./providers
 import { createInventaireProvider, type InventaireProvider } from "./providers/inventaire";
 import { createMetronProvider, type MetronIssue, type MetronProvider } from "./providers/metron";
 import { createOpenLibraryProvider, type OpenLibraryProvider } from "./providers/open-library";
-import { GCD_UNNUMBERED_ISSUE_NUMBER, type CacheEntry, type ResolvedBook, type ScanLookupResult , sanitizePageCount } from "./types";
+import {
+  COVER_RECHECK_DAYS,
+  GCD_UNNUMBERED_ISSUE_NUMBER,
+  NOT_FOUND_RETRY_DAYS,
+  ProviderUnavailableError,
+  isTimestampFresh,
+  sanitizePageCount,
+  type CacheEntry,
+  type ResolvedBook,
+  type ScanLookupResult,
+} from "./types";
 
 /**
  * La cascade de résolution — specs §5.2 :
@@ -75,15 +85,30 @@ export function createDefaultDeps(): ResolutionDeps {
   };
 }
 
-/** Un appel externe ne doit jamais faire tomber la cascade : erreur = absence. */
-async function attempt<T>(operation: () => Promise<T>): Promise<T | null> {
+/**
+ * La santé de la cascade EN COURS (#175/#176) : toute erreur d'une source —
+ * panne, quota, timeout — la marque « dégradée ». Un « introuvable » dégradé
+ * n'est pas un verdict : il n'écrit JAMAIS de cache négatif ni de tampon
+ * « pas de couverture » — seul un balayage propre et complet fait foi.
+ */
+type CascadeHealth = { degraded: boolean };
+
+/** Un appel externe ne doit jamais faire tomber la cascade : erreur = on descend d'un cran. */
+async function attempt<T>(operation: () => Promise<T>, health?: CascadeHealth): Promise<T | null> {
   try {
     return await operation();
   } catch (error) {
+    if (health) health.degraded = true;
     // Jamais l'erreur brute : la cause d'une TypeError de fetch peut porter
     // l'URL complète — clé Google Books comprise (elle voyage en query param).
     const message = error instanceof Error ? error.message : String(error);
-    console.error(`[resolution] source en échec, on descend d'un cran : ${message}`);
+    // Le log distinct (#181) : l'épuisement d'un quota partagé doit se voir,
+    // pas se noyer dans les « source en échec » ordinaires.
+    if (error instanceof ProviderUnavailableError) {
+      console.error(`[resolution] source INDISPONIBLE (quota/panne) : ${message}`);
+    } else {
+      console.error(`[resolution] source en échec, on descend d'un cran : ${message}`);
+    }
     return null;
   }
 }
@@ -138,6 +163,7 @@ async function enrichWithMetron(
   deps: ResolutionDeps,
   upc: string | null,
   startedAtMs: number,
+  health?: CascadeHealth,
 ): Promise<ResolvedBook> {
   // Budget épuisé : le livre est déjà identifié, on le rend sans l'habiller.
   if (isBudgetExhausted(startedAtMs)) return book;
@@ -147,7 +173,7 @@ async function enrichWithMetron(
       if (byGcdId) return byGcdId;
     }
     return upc ? deps.metron.findIssueByUpc(upc) : null;
-  });
+  }, health);
   if (!metronIssue) return book;
 
   return {
@@ -164,11 +190,12 @@ async function enrichCoverWithGoogleBooks(
   deps: ResolutionDeps,
   isbn: string,
   startedAtMs: number,
+  health?: CascadeHealth,
 ): Promise<ResolvedBook> {
   if (book.coverUrl) return book;
   // Budget épuisé : le livre est déjà identifié, on le rend sans l'habiller.
   if (isBudgetExhausted(startedAtMs)) return book;
-  const record = await attempt(() => deps.googleBooks.resolveIsbn(isbn));
+  const record = await attempt(() => deps.googleBooks.resolveIsbn(isbn), health);
   return record?.coverUrl ? { ...book, coverUrl: record.coverUrl } : book;
 }
 
@@ -184,11 +211,16 @@ async function findFallbackCoverByIsbn(
   deps: ResolutionDeps,
   isbn: string,
   startedAtMs: number,
+  health?: CascadeHealth,
 ): Promise<string | null> {
   const fallbacks = [deps.openLibrary, deps.inventaire, deps.bnfCovers, deps.epagine];
   for (const provider of fallbacks) {
-    if (isBudgetExhausted(startedAtMs)) return null;
-    const cover = await attempt(() => provider.findCoverByIsbn(isbn));
+    // Budget épuisé en cours de chaîne : balayage incomplet, pas un verdict.
+    if (isBudgetExhausted(startedAtMs)) {
+      if (health) health.degraded = true;
+      return null;
+    }
+    const cover = await attempt(() => provider.findCoverByIsbn(isbn), health);
     if (cover) return cover;
   }
   return null;
@@ -204,10 +236,11 @@ async function enrichCoverForIsbn(
   deps: ResolutionDeps,
   isbn: string,
   startedAtMs: number,
+  health?: CascadeHealth,
 ): Promise<ResolvedBook> {
-  const withGoogle = await enrichCoverWithGoogleBooks(book, deps, isbn, startedAtMs);
+  const withGoogle = await enrichCoverWithGoogleBooks(book, deps, isbn, startedAtMs, health);
   if (withGoogle.coverUrl) return withGoogle;
-  const fallbackCover = await findFallbackCoverByIsbn(deps, isbn, startedAtMs);
+  const fallbackCover = await findFallbackCoverByIsbn(deps, isbn, startedAtMs, health);
   return fallbackCover ? { ...withGoogle, coverUrl: fallbackCover } : withGoogle;
 }
 
@@ -223,9 +256,25 @@ async function cacheEnrichedGcdBook(
   book: ResolvedBook,
   enriched: ResolvedBook,
   deps: ResolutionDeps,
+  options: { health?: CascadeHealth; startedAtMs?: number; stampWhenCleanlyBare?: boolean } = {},
 ): Promise<void> {
-  if (enriched === book) return;
-  await attempt(() => deps.cache.set(toCacheEntry(cacheKey, enriched, "gcd")));
+  if (enriched !== book) {
+    await attempt(() => deps.cache.set(toCacheEntry(cacheKey, enriched, "gcd")));
+    return;
+  }
+  // Rien rapporté. Un raté TRANSITOIRE (panne, budget) ne fige rien — on
+  // retentera. Mais un balayage PROPRE qui n'a rien donné mérite sa mémoire
+  // (#176) : on cache la ligne GCD avec le tampon cover_checked_at, sinon la
+  // chaîne complète repart à chaque scan du même livre, pour tout le monde.
+  // Réservé au parcours ISBN (stampWhenCleanlyBare) : au rescan, c'est le seul
+  // qui re-déroule la chaîne à l'expiration du tampon — côté UPC, cacher une
+  // ligne nue figerait un « sans couverture » sans chemin de re-tentative.
+  const { health, startedAtMs, stampWhenCleanlyBare = false } = options;
+  if (!stampWhenCleanlyBare) return;
+  if (health?.degraded || (startedAtMs !== undefined && isBudgetExhausted(startedAtMs))) return;
+  await attempt(() =>
+    deps.cache.set({ ...toCacheEntry(cacheKey, book, "gcd"), coverCheckedAt: new Date().toISOString() }),
+  );
 }
 
 /**
@@ -235,8 +284,20 @@ async function cacheEnrichedGcdBook(
  * saisie manuelle — l'utilisateur fournit le reste. Le budget global
  * s'applique : épuisé, la chaîne rend null immédiatement.
  */
-async function notFoundForIsbn(deps: ResolutionDeps, ean13: string, startedAtMs: number): Promise<ScanLookupResult> {
-  return { kind: "not-found", coverUrl: await findFallbackCoverByIsbn(deps, ean13, startedAtMs) };
+async function notFoundForIsbn(
+  deps: ResolutionDeps,
+  ean13: string,
+  startedAtMs: number,
+  health: CascadeHealth,
+): Promise<ScanLookupResult> {
+  const coverUrl = await findFallbackCoverByIsbn(deps, ean13, startedAtMs, health);
+  // Le cache NÉGATIF (#176) — seulement sur un verdict PROPRE : cascade
+  // complète, aucune source en panne, budget non épuisé. Un 429 Google Books
+  // ne doit jamais graver « introuvable » pour 7 jours.
+  if (!health.degraded && !isBudgetExhausted(startedAtMs)) {
+    await attempt(() => deps.cache.setMiss(ean13, coverUrl));
+  }
+  return { kind: "not-found", coverUrl };
 }
 
 /** La résolution d'un ISBN : GCD → BnF → Google Books (specs §5.2). */
@@ -247,6 +308,8 @@ async function resolveIsbn(
   deps: ResolutionDeps,
   startedAtMs: number,
 ): Promise<ScanLookupResult> {
+  const health: CascadeHealth = { degraded: false };
+
   // 1. Notre cache — un bouquin n'est jamais résolu deux fois. La clé est
   //    l'EAN-13, PAS le code brut : scanné avec puis sans le supplément prix
   //    (18 vs 13 chiffres), c'est le même livre — une seule entrée.
@@ -257,15 +320,31 @@ async function resolveIsbn(
     // repli s'étoffent avec le temps (specs §5.4) et une source muette un jour
     // peut répondre le lendemain — on retente la chaîne, et si elle rapporte,
     // on RÉPARE l'entrée pour que les scans suivants en profitent gratuitement.
-    if (!book.coverUrl) {
-      book = await enrichCoverForIsbn(book, deps, ean13, startedAtMs);
-      if (book.coverUrl) await attempt(() => deps.cache.set(toCacheEntry(ean13, book, cached.source)));
+    // Mais pas à CHAQUE scan (#176) : un verdict propre « rien » tient
+    // COVER_RECHECK_DAYS — sinon un hit sans couverture coûtait 6 appels.
+    if (!book.coverUrl && !isTimestampFresh(cached.coverCheckedAt, COVER_RECHECK_DAYS)) {
+      book = await enrichCoverForIsbn(book, deps, ean13, startedAtMs, health);
+      if (book.coverUrl) {
+        await attempt(() => deps.cache.set(toCacheEntry(ean13, book, cached.source)));
+      } else if (!health.degraded && !isBudgetExhausted(startedAtMs)) {
+        await attempt(() => deps.cache.stampCoverChecked(ean13));
+      }
     }
     return { kind: "resolved", book };
   }
 
-  // 2. GCD, en base : comics VO (TPB, omnibus) et BD franco-belge.
-  const gcdIssues = await attempt(() => deps.gcd.findIssuesByIsbn(isbnCandidates));
+  // 1 bis. Le cache NÉGATIF (#176) : un code qu'aucune base ne connaissait ne
+  //    repart pas en cascade complète avant NOT_FOUND_RETRY_DAYS — l'image
+  //    mémorisée pré-remplit la saisie manuelle, comme au premier scan (#55).
+  const recentMiss = await attempt(() => deps.cache.getMiss(ean13));
+  if (recentMiss && isTimestampFresh(recentMiss.lastCheckedAt, NOT_FOUND_RETRY_DAYS)) {
+    return { kind: "not-found", coverUrl: recentMiss.coverUrl };
+  }
+
+  // 2. GCD, en base : comics VO (TPB, omnibus) et BD franco-belge. L'échec de
+  //    la requête marque la cascade dégradée : sans GCD, « introuvable » n'est
+  //    pas un verdict.
+  const gcdIssues = await attempt(() => deps.gcd.findIssuesByIsbn(isbnCandidates), health);
   if (gcdIssues && gcdIssues.length > 0) {
     const issue = gcdIssues[0];
     const seriesById = await attempt(() => deps.gcd.getSeriesByIds([issue.seriesId]));
@@ -273,15 +352,16 @@ async function resolveIsbn(
     // Recueil VO (TPB, omnibus) → Metron d'abord (couverture + series_type),
     // puis la chaîne ISBN (Google Books → OpenLibrary → Inventaire) pour tout
     // ce qui reste sans image — BD comprise.
-    let enriched = book.suggestedCategory === "bd" ? book : await enrichWithMetron(book, deps, null, startedAtMs);
-    enriched = await enrichCoverForIsbn(enriched, deps, ean13, startedAtMs);
-    await cacheEnrichedGcdBook(ean13, book, enriched, deps);
+    let enriched =
+      book.suggestedCategory === "bd" ? book : await enrichWithMetron(book, deps, null, startedAtMs, health);
+    enriched = await enrichCoverForIsbn(enriched, deps, ean13, startedAtMs, health);
+    await cacheEnrichedGcdBook(ean13, book, enriched, deps, { health, startedAtMs, stampWhenCleanlyBare: true });
     return { kind: "resolved", book: enriched };
   }
 
   // 3. BnF : le dépôt légal identifie la VF (manga, roman, BD absente de GCD).
-  if (isBudgetExhausted(startedAtMs)) return notFoundForIsbn(deps, ean13, startedAtMs);
-  const bnfRecord = await attempt(() => deps.bnf.resolveIsbn(ean13));
+  if (isBudgetExhausted(startedAtMs)) return notFoundForIsbn(deps, ean13, startedAtMs, health);
+  const bnfRecord = await attempt(() => deps.bnf.resolveIsbn(ean13), health);
   if (bnfRecord) {
     let book: ResolvedBook = {
       title: bnfRecord.title,
@@ -298,18 +378,18 @@ async function resolveIsbn(
       barcode: raw,
       isbn: ean13,
     };
-    book = await enrichCoverForIsbn(book, deps, ean13, startedAtMs);
+    book = await enrichCoverForIsbn(book, deps, ean13, startedAtMs, health);
     await attempt(() => deps.cache.set(toCacheEntry(ean13, book, "bnf")));
     return { kind: "resolved", book };
   }
 
   // 4. Google Books : les romans étrangers, dernier identifiant.
-  if (isBudgetExhausted(startedAtMs)) return notFoundForIsbn(deps, ean13, startedAtMs);
-  const googleRecord = await attempt(() => deps.googleBooks.resolveIsbn(ean13));
+  if (isBudgetExhausted(startedAtMs)) return notFoundForIsbn(deps, ean13, startedAtMs, health);
+  const googleRecord = await attempt(() => deps.googleBooks.resolveIsbn(ean13), health);
   if (googleRecord) {
     // La fiche sans image est le cas VF courant (mesuré §5.4) : les replis
     // OpenLibrary → Inventaire comblent avant de renoncer.
-    const coverUrl = googleRecord.coverUrl ?? (await findFallbackCoverByIsbn(deps, ean13, startedAtMs));
+    const coverUrl = googleRecord.coverUrl ?? (await findFallbackCoverByIsbn(deps, ean13, startedAtMs, health));
     const book: ResolvedBook = {
       title: googleRecord.title,
       seriesName: null,
@@ -332,19 +412,28 @@ async function resolveIsbn(
     return { kind: "resolved", book };
   }
 
-  return notFoundForIsbn(deps, ean13, startedAtMs);
+  return notFoundForIsbn(deps, ean13, startedAtMs, health);
 }
 
 /** La résolution d'un UPC : GCD exact → préfixe → Metron (nouveautés). */
 async function resolveUpc(raw: string, base: string, deps: ResolutionDeps, startedAtMs: number): Promise<ScanLookupResult> {
+  const health: CascadeHealth = { degraded: false };
+
   // La clé de cache d'un UPC est le code BRUT : ici le supplément est
   // signifiant (numéro d'issue, couverture, tirage — specs §5.1).
   const cached = await attempt(() => deps.cache.get(raw));
   if (cached) return { kind: "resolved", book: fromCache(cached, "upc") };
 
+  // Le cache négatif (#176) : seul Metron coûte sur ce chemin (GCD est en
+  // base), mais un compte partagé à 20 req/min n'a pas de marge à perdre.
+  const recentMiss = await attempt(() => deps.cache.getMiss(raw));
+  if (recentMiss && isTimestampFresh(recentMiss.lastCheckedAt, NOT_FOUND_RETRY_DAYS)) {
+    return { kind: "not-found", coverUrl: null };
+  }
+
   // 1. Match exact — GCD stocke souvent le code COMPLET (67 % avec supplément).
   const exactCodes = raw === base ? [raw] : [raw, base];
-  const exactMatches = await attempt(() => deps.gcd.findIssuesByBarcode(exactCodes));
+  const exactMatches = await attempt(() => deps.gcd.findIssuesByBarcode(exactCodes), health);
   if (exactMatches && exactMatches.length > 0) {
     const issue = exactMatches[0];
     const seriesById = await attempt(() => deps.gcd.getSeriesByIds([issue.seriesId]));
@@ -361,7 +450,7 @@ async function resolveUpc(raw: string, base: string, deps: ResolutionDeps, start
   //    pis-aller des scans incomplets, pas des codes précis.
   const hasSupplement = raw !== base;
   if (hasSupplement && !isBudgetExhausted(startedAtMs)) {
-    const metronExact = await attempt(() => deps.metron.findIssueByUpc(raw));
+    const metronExact = await attempt(() => deps.metron.findIssueByUpc(raw), health);
     if (metronExact) {
       const book = fromMetronIssue(metronExact, raw);
       await attempt(() => deps.cache.set(toCacheEntry(raw, book, "metron")));
@@ -371,7 +460,7 @@ async function resolveUpc(raw: string, base: string, deps: ResolutionDeps, start
 
   // 3. Par préfixe : les 12 premiers chiffres identifient le titre (93,9 % des
   //    préfixes ne pointent qu'une série — specs §6).
-  const prefixMatches = await attempt(() => deps.gcd.findIssuesByPrefix(base));
+  const prefixMatches = await attempt(() => deps.gcd.findIssuesByPrefix(base), health);
   if (prefixMatches && prefixMatches.length > 0) {
     const seriesById = (await attempt(() => deps.gcd.getSeriesByIds(prefixMatches.map((issue) => issue.seriesId)))) ?? new Map();
     const seriesIds = [...new Set(prefixMatches.map((issue) => issue.seriesId))];
@@ -406,7 +495,7 @@ async function resolveUpc(raw: string, base: string, deps: ResolutionDeps, start
   // 4. Metron en dernier recours pour les scans SANS supplément (avec, il a
   //    déjà été tenté à l'étape 2) : couvre les nouveautés du dump (specs §6).
   if (!hasSupplement && !isBudgetExhausted(startedAtMs)) {
-    const metronIssue = await attempt(() => deps.metron.findIssueByUpc(raw));
+    const metronIssue = await attempt(() => deps.metron.findIssueByUpc(raw), health);
     if (metronIssue) {
       const book = fromMetronIssue(metronIssue, raw);
       await attempt(() => deps.cache.set(toCacheEntry(raw, book, "metron")));
@@ -414,7 +503,11 @@ async function resolveUpc(raw: string, base: string, deps: ResolutionDeps, start
     }
   }
 
-  // Un UPC n'a pas de chaîne couverture par ISBN : la saisie partira sur la photo.
+  // Un UPC n'a pas de chaîne couverture par ISBN : la saisie partira sur la
+  // photo. Verdict propre → cache négatif (#176), mêmes conditions que l'ISBN.
+  if (!health.degraded && !isBudgetExhausted(startedAtMs)) {
+    await attempt(() => deps.cache.setMiss(raw, null));
+  }
   return { kind: "not-found", coverUrl: null };
 }
 

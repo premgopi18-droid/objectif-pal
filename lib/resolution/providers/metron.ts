@@ -1,5 +1,6 @@
 import { normalizeUpcForMetron } from "@/lib/resolution/barcode-router";
-import { PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
+import { consumeGlobalQuota } from "@/lib/resolution/global-quota";
+import { PROVIDER_REQUEST_TIMEOUT_MILLISECONDS, ProviderUnavailableError } from "@/lib/resolution/types";
 
 /**
  * Le provider Metron — enrichit la VO : couverture + `series_type` (le signal
@@ -43,6 +44,9 @@ export function createMetronProvider(
     password: process.env.METRON_PASSWORD,
   },
   fetchImplementation: typeof fetch = fetch,
+  // Le quota GLOBAL (#175) — 20 req/min pour LE compte, partagé par tous ; un
+  // lookup peut coûter jusqu'à 4 appels HTTP, chacun consomme un tick.
+  consumeQuota: () => Promise<boolean> = () => consumeGlobalQuota("metron"),
 ) {
   const authorization =
     credentials.username && credentials.password
@@ -51,10 +55,18 @@ export function createMetronProvider(
 
   async function requestJson<T>(path: string): Promise<T> {
     if (!authorization) throw new Error("Identifiants Metron non configurés");
+    if (!(await consumeQuota())) {
+      throw new ProviderUnavailableError("Metron", "quota global (req/min) épuisé");
+    }
     const response = await fetchImplementation(`${METRON_ENDPOINT}${path}`, {
       headers: { Authorization: authorization, "User-Agent": "objectif-pal" },
       signal: AbortSignal.timeout(PROVIDER_REQUEST_TIMEOUT_MILLISECONDS),
     });
+    // Panne ≠ absence (#175) : throttle/5xx = compte indisponible, pas un
+    // verdict — et le compte de service partagé ne doit JAMAIS être martelé.
+    if (response.status === 429 || response.status >= 500) {
+      throw new ProviderUnavailableError("Metron", `HTTP ${response.status}`);
+    }
     if (!response.ok) throw new Error(`Metron : HTTP ${response.status}`);
     return (await response.json()) as T;
   }
