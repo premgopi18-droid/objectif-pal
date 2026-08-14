@@ -1,4 +1,4 @@
-import * as Sentry from "@sentry/nextjs";
+import { captureRequestError } from "@sentry/nextjs";
 
 /**
  * Observabilité serveur (issue #181, epic #182) — Sentry, plan gratuit.
@@ -14,13 +14,13 @@ import * as Sentry from "@sentry/nextjs";
  */
 
 export async function register() {
-  Sentry.init({
-    dsn: process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN,
-    tracesSampleRate: 0,
-    // Jamais de PII par défaut : pas d'IP, pas de cookies (RGPD, specs §7).
-    sendDefaultPii: false,
-  });
+  // Un init PAR runtime, chargé dynamiquement (review #188) : l'init nodejs
+  // embarque des intégrations qui n'ont rien à faire dans le bundle edge (le
+  // proxy) — le pattern officiel @sentry/nextjs. Jamais de PII nulle part
+  // (pas d'IP, pas de cookies — RGPD, specs §7).
+  if (process.env.NEXT_RUNTIME === "nodejs") await import("./sentry.server.config");
+  if (process.env.NEXT_RUNTIME === "edge") await import("./sentry.edge.config");
 }
 
 /** Les erreurs des Server Components / actions / routes remontent ici. */
-export const onRequestError = Sentry.captureRequestError;
+export const onRequestError = captureRequestError;
