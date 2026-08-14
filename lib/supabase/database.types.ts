@@ -10,10 +10,28 @@ export type Database = {
   // Allows to automatically instantiate createClient with right options
   // instead of createClient<Database, { PostgrestVersion: 'XX' }>(URL, KEY)
   __InternalSupabase: {
-    PostgrestVersion: "14.5"
+    PostgrestVersion: "14.15"
   }
   public: {
     Tables: {
+      allowed_emails: {
+        Row: {
+          added_at: string
+          email: string
+          note: string | null
+        }
+        Insert: {
+          added_at?: string
+          email: string
+          note?: string | null
+        }
+        Update: {
+          added_at?: string
+          email?: string
+          note?: string | null
+        }
+        Relationships: []
+      }
       barcode_cache: {
         Row: {
           authors: string | null
@@ -195,16 +213,19 @@ export type Database = {
       }
       lookup_rate_limits: {
         Row: {
+          kind: string
           lookup_count: number
           user_id: string
           window_started_at: string
         }
         Insert: {
+          kind?: string
           lookup_count: number
           user_id: string
           window_started_at: string
         }
         Update: {
+          kind?: string
           lookup_count?: number
           user_id?: string
           window_started_at?: string
@@ -213,7 +234,7 @@ export type Database = {
           {
             foreignKeyName: "lookup_rate_limits_user_id_fkey"
             columns: ["user_id"]
-            isOneToOne: true
+            isOneToOne: false
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
@@ -581,10 +602,7 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
-      consume_lookup_quota: {
-        Args: { max_lookups: number; window_seconds: number }
-        Returns: boolean
-      }
+      consume_action_quota: { Args: { action_kind: string }; Returns: boolean }
       merge_books: {
         Args: { keep_book_id: string; merge_book_id: string }
         Returns: undefined

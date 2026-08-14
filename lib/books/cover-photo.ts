@@ -47,6 +47,38 @@ export function isHouseCoverPhotoUrl(
 }
 
 /**
+ * Vrai si la photo maison vit dans le dossier de CET utilisateur (#180).
+ *
+ * Le bucket est public : toutes les URLs se lisent, mais une URL soumise au
+ * serveur (cover_url d'inbox) ne doit désigner qu'un objet du dossier de
+ * l'appelant — sinon un compte pourrait s'approprier la photo d'un autre en
+ * la rejouant depuis un export. La RLS d'écriture cloisonne déjà l'upload ;
+ * cette garde cloisonne la RÉFÉRENCE.
+ */
+export function isOwnHouseCoverPhotoUrl(
+  coverUrl: string | null,
+  userId: string,
+  supabaseUrl: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL,
+): boolean {
+  if (coverUrl === null || !supabaseUrl) return false;
+  // Comparaison sur l'URL PARSÉE, jamais sur la chaîne brute (review #183) :
+  // `new URL()` résout les segments `../` — sans ça, `covers/user-1/../user-2/x`
+  // passerait un startsWith naïf puis résoudrait vers le dossier d'un autre.
+  let parsed: URL;
+  let base: URL;
+  try {
+    parsed = new URL(coverUrl);
+    base = new URL(supabaseUrl);
+  } catch {
+    return false;
+  }
+  return (
+    parsed.origin === base.origin &&
+    parsed.pathname.startsWith(`/storage/v1/object/public/${COVERS_BUCKET}/${userId}/`)
+  );
+}
+
+/**
  * Redimensionne et convertit la photo en WebP via canvas — jamais l'image
  * brute du capteur (souvent plusieurs Mo) sur le réseau.
  */

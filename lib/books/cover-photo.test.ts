@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { coverPhotoPath, inboxCoverPhotoPath, isHouseCoverPhotoUrl } from "./cover-photo";
+import { coverPhotoPath, inboxCoverPhotoPath, isHouseCoverPhotoUrl, isOwnHouseCoverPhotoUrl } from "./cover-photo";
 
 /**
  * La frontière « photo maison vs couverture de source » (#47) : seule une
@@ -25,6 +25,43 @@ describe("isHouseCoverPhotoUrl", () => {
   it("pas de couverture ou pas de config : false, sans crash", () => {
     expect(isHouseCoverPhotoUrl(null, SUPABASE_URL)).toBe(false);
     expect(isHouseCoverPhotoUrl(HOUSE_URL, undefined)).toBe(false);
+  });
+});
+
+/**
+ * Le cloisonnement de la RÉFÉRENCE (#180) : le bucket est public, toutes les
+ * URLs se lisent — mais une URL soumise au serveur ne doit désigner qu'un
+ * objet du dossier de l'appelant. Sans cette garde, un compte pourrait
+ * s'approprier la photo d'un autre en la rejouant depuis un export.
+ */
+describe("isOwnHouseCoverPhotoUrl", () => {
+  it("accepte la photo du dossier de l'appelant (livre ou rafale)", () => {
+    expect(isOwnHouseCoverPhotoUrl(HOUSE_URL, "user-1", SUPABASE_URL)).toBe(true);
+    const inboxUrl = `${SUPABASE_URL}/storage/v1/object/public/covers/user-1/inbox-abc.webp`;
+    expect(isOwnHouseCoverPhotoUrl(inboxUrl, "user-1", SUPABASE_URL)).toBe(true);
+  });
+
+  it("refuse la photo du dossier d'un AUTRE utilisateur", () => {
+    expect(isOwnHouseCoverPhotoUrl(HOUSE_URL, "user-2", SUPABASE_URL)).toBe(false);
+    // Préfixe piégé : « user-1 » n'est pas « user-12 ».
+    const other = `${SUPABASE_URL}/storage/v1/object/public/covers/user-12/book.webp`;
+    expect(isOwnHouseCoverPhotoUrl(other, "user-1", SUPABASE_URL)).toBe(false);
+  });
+
+  it("refuse le contournement par segments ../ (review #183)", () => {
+    // La chaîne brute contient bien « covers/user-1/ », mais l'URL résout
+    // vers le dossier de user-2 — c'est l'URL PARSÉE qui fait foi.
+    const traversal = `${SUPABASE_URL}/storage/v1/object/public/covers/user-1/../user-2/photo.webp`;
+    expect(isOwnHouseCoverPhotoUrl(traversal, "user-1", SUPABASE_URL)).toBe(false);
+    // Et la même, encodée.
+    const encoded = `${SUPABASE_URL}/storage/v1/object/public/covers/user-1/%2E%2E/user-2/photo.webp`;
+    expect(isOwnHouseCoverPhotoUrl(encoded, "user-1", SUPABASE_URL)).toBe(false);
+  });
+
+  it("refuse ce qui n'est pas une photo maison, et ne crashe jamais", () => {
+    expect(isOwnHouseCoverPhotoUrl("https://covers.openlibrary.org/b/isbn/x-L.jpg", "user-1", SUPABASE_URL)).toBe(false);
+    expect(isOwnHouseCoverPhotoUrl(null, "user-1", SUPABASE_URL)).toBe(false);
+    expect(isOwnHouseCoverPhotoUrl(HOUSE_URL, "user-1", undefined)).toBe(false);
   });
 });
 
