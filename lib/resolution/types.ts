@@ -112,7 +112,40 @@ export type CacheEntry = {
   coverUrl: string | null;
   source: MetadataSource;
   sourceId: string | null;
+  /**
+   * Le dernier verdict PROPRE « pas de couverture » de la chaîne (#176) —
+   * absent (`undefined`) quand l'écriture ne doit pas y toucher : l'upsert ne
+   * met à jour que les colonnes fournies, un repair ou une saisie manuelle ne
+   * doit pas effacer le tampon.
+   */
+  coverCheckedAt?: string | null;
 };
+
+/**
+ * Panne ≠ absence (#175) : un provider qui répond 429/5xx, ou dont le quota
+ * global est épuisé, jette CETTE erreur — la cascade descend d'un cran comme
+ * d'habitude, mais se souvient qu'elle est DÉGRADÉE : un « introuvable » sans
+ * verdict complet n'écrit jamais de cache négatif (#176), et le log distinct
+ * rend l'épuisement visible (#181).
+ */
+export class ProviderUnavailableError extends Error {
+  constructor(provider: string, reason: string) {
+    super(`${provider} indisponible : ${reason}`);
+    this.name = "ProviderUnavailableError";
+  }
+}
+
+/** TTL du cache négatif : un introuvable retente après 7 jours (#176). */
+export const NOT_FOUND_RETRY_DAYS = 7;
+/** TTL du « pas de couverture » : la chaîne retente après 30 jours (#176). */
+export const COVER_RECHECK_DAYS = 30;
+
+/** Vrai si l'horodatage a moins de `days` jours (invalide/absent = pas frais). */
+export const isTimestampFresh = (
+  iso: string | null | undefined,
+  days: number,
+  nowMs: number = Date.now(),
+): boolean => iso != null && nowMs - Date.parse(iso) < days * 86_400_000;
 
 /**
  * Un nombre de pages de SOURCE → un entier exploitable, ou `null` (inconnu).
