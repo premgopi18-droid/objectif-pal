@@ -275,10 +275,18 @@ export async function fetchSeriesCatalog(provider: GcdProvider, gcdIssueIds: num
 
   const names = await provider.getSeriesByIds(trackedSeriesIds);
 
-  const numbersBySeriesId = new Map<number, string[]>();
+  // Paquets EN PARALLÈLE (audit du 14/08/2026) : au plus 3 requêtes bornées —
+  // les sérialiser n'apportait que de la latence sur la chaîne critique des
+  // stats. L'ordre du résultat reste déterministe : trackedSeriesIds est trié,
+  // et l'agrégation par série est indépendante de l'ordre d'arrivée.
+  const chunks: number[][] = [];
   for (let start = 0; start < trackedSeriesIds.length; start += SERIES_PER_CATALOG_QUERY) {
-    const chunk = trackedSeriesIds.slice(start, start + SERIES_PER_CATALOG_QUERY);
-    const rows = await provider.listSeriesVolumes(chunk, CATALOG_ROWS_PER_QUERY);
+    chunks.push(trackedSeriesIds.slice(start, start + SERIES_PER_CATALOG_QUERY));
+  }
+  const chunkResults = await Promise.all(chunks.map((chunk) => provider.listSeriesVolumes(chunk, CATALOG_ROWS_PER_QUERY)));
+
+  const numbersBySeriesId = new Map<number, string[]>();
+  for (const rows of chunkResults) {
     // Autant de lignes que la limite : le catalogue de ce paquet est peut-être
     // amputé — on préfère ne rien dire de ces séries.
     if (rows.length >= CATALOG_ROWS_PER_QUERY) continue;
