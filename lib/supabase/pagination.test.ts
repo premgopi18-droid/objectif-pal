@@ -44,3 +44,11 @@ describe("fetchAllRows", () => {
     expect(fetchPage).toHaveBeenCalledTimes(1);
   });
 });
+
+/** Le plafond de sécurité (review #186) : un fetcher fou échoue bruyamment. */
+describe("fetchAllRows — plafond de sécurité", () => {
+  it("un fetcher qui rend indéfiniment des pages pleines finit en erreur claire", async () => {
+    const fullPage = Array.from({ length: POSTGREST_MAX_ROWS }, (_, index) => index);
+    await expect(fetchAllRows(async () => fullPage)).rejects.toThrow(/fetcher suspect/);
+  });
+});

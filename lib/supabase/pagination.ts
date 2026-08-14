@@ -21,14 +21,22 @@
 /** En phase avec `max_rows` (supabase/config.toml) — jamais recopié ailleurs. */
 export const POSTGREST_MAX_ROWS = 1000;
 
+/**
+ * Plafond de sécurité (review #186) : 200 000 lignes, très au-delà de tout
+ * compte réel — un fetcher qui rendrait indéfiniment des pages pleines doit
+ * échouer bruyamment, pas tourner jusqu'au timeout facturé de la fonction.
+ */
+const MAX_PAGES = 200;
+
 export async function fetchAllRows<T>(
   fetchPage: (from: number, to: number) => Promise<T[]>,
 ): Promise<T[]> {
   const rows: T[] = [];
-  for (;;) {
+  for (let pageIndex = 0; pageIndex < MAX_PAGES; pageIndex++) {
     const from = rows.length;
     const page = await fetchPage(from, from + POSTGREST_MAX_ROWS - 1);
     rows.push(...page);
     if (page.length < POSTGREST_MAX_ROWS) return rows;
   }
+  throw new Error(`fetchAllRows : plus de ${MAX_PAGES} pages — fetcher suspect ou volume anormal`);
 }
