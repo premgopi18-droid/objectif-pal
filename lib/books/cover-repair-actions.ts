@@ -90,6 +90,11 @@ export async function repairBrokenCover(bookId: string): Promise<CoverRepairResu
   if (!(await isActionAllowed(supabase, "cover_repair"))) return { coverUrl: book.cover_url };
 
   // Tamponné AVANT de tenter : un échec de chaîne ne re-tente pas en boucle.
+  // Et JAMAIS effacé, même sur succès (review #185) : si la remplaçante meurt
+  // à son tour dans les 7 jours, on attend l'expiration — un livre ne mérite
+  // pas plus d'un essai hebdomadaire, la photo (#33) reste le filet. Deux
+  // appareils simultanés peuvent passer le tampon tous les deux (lu avant
+  // écrit) : borné par le quota 5/min, assumé.
   await supabase
     .from("books")
     .update({ cover_repair_attempted_at: new Date().toISOString() })

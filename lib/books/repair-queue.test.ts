@@ -42,3 +42,34 @@ describe("createTaskQueue", () => {
     expect(await run(async () => "après")).toBe("après");
   });
 });
+
+/**
+ * Le stress de la passation (review #185) : beaucoup de tâches aux durées
+ * aléatoires — la borne doit tenir à CHAQUE instant, pas seulement dans un
+ * interleaving favorable. C'est le test qui aurait attrapé la fenêtre
+ * « active-- puis réveil asynchrone ».
+ */
+describe("createTaskQueue — stress de la passation de créneau", () => {
+  it("la borne tient sous 50 tâches aux durées aléatoires", async () => {
+    const run = createTaskQueue(2);
+    let inFlight = 0;
+    let peak = 0;
+    const randomDelay = () => new Promise((resolve) => setTimeout(resolve, Math.floor(Math.random() * 5)));
+
+    await Promise.all(
+      Array.from({ length: 50 }, (_, index) =>
+        run(async () => {
+          inFlight++;
+          peak = Math.max(peak, inFlight);
+          await randomDelay();
+          // Un second point d'attente : force des passations en cascade.
+          await Promise.resolve();
+          inFlight--;
+          return index;
+        }),
+      ),
+    );
+
+    expect(peak).toBeLessThanOrEqual(2);
+  });
+});
