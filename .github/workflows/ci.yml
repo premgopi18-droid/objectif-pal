@@ -1,0 +1,52 @@
+# CI (issue #181, epic #182) — deux filets qui n'existaient pas :
+#   - tests + build sur chaque PR et chaque push sur main ;
+#   - le contrat anti-régression #60 (assets publics + magic bytes WASM)
+#     tendu CHAQUE JOUR contre la prod — il existait depuis #60 mais ne
+#     tournait nulle part (opt-in INTEGRATION=1). Un échec = notification
+#     GitHub : c'est le « scanner mort découvert à l'usage » qui devient
+#     « scanner mort découvert par la machine ».
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Tous les jours à 07:00 UTC (09:00 Paris l'été) — le contrat prod.
+    - cron: "0 7 * * *"
+
+jobs:
+  tests:
+    name: Tests & build
+    if: github.event_name != 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      # Le build attrape ce que les tests ne voient pas (types, config,
+      # favicon RGBA de #171…). Les clés externes ne sont pas nécessaires :
+      # les providers se déclarent muets sans elles.
+      - run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://reqtckmawllprisvrzlb.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+
+  contrat-prod:
+    name: Contrat #60 contre la prod
+    if: github.event_name == 'schedule'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npx vitest run lib/auth/public-assets.integration.test.ts
+        env:
+          INTEGRATION: "1"
