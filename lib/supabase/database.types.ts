@@ -36,6 +36,7 @@ export type Database = {
         Row: {
           authors: string | null
           barcode: string
+          cover_checked_at: string | null
           cover_url: string | null
           issue_number: string | null
           page_count: number | null
@@ -49,6 +50,7 @@ export type Database = {
         Insert: {
           authors?: string | null
           barcode: string
+          cover_checked_at?: string | null
           cover_url?: string | null
           issue_number?: string | null
           page_count?: number | null
@@ -62,6 +64,7 @@ export type Database = {
         Update: {
           authors?: string | null
           barcode?: string
+          cover_checked_at?: string | null
           cover_url?: string | null
           issue_number?: string | null
           page_count?: number | null
@@ -74,6 +77,24 @@ export type Database = {
         }
         Relationships: []
       }
+      barcode_misses: {
+        Row: {
+          barcode: string
+          cover_url: string | null
+          last_checked_at: string
+        }
+        Insert: {
+          barcode: string
+          cover_url?: string | null
+          last_checked_at?: string
+        }
+        Update: {
+          barcode?: string
+          cover_url?: string | null
+          last_checked_at?: string
+        }
+        Relationships: []
+      }
       books: {
         Row: {
           authors: string | null
@@ -81,6 +102,7 @@ export type Database = {
           barcode_raw: string | null
           barcode_type: Database["public"]["Enums"]["barcode_type"] | null
           category: Database["public"]["Enums"]["book_category"]
+          cover_repair_attempted_at: string | null
           cover_url: string | null
           created_at: string
           deleted_at: string | null
@@ -101,6 +123,7 @@ export type Database = {
           barcode_raw?: string | null
           barcode_type?: Database["public"]["Enums"]["barcode_type"] | null
           category: Database["public"]["Enums"]["book_category"]
+          cover_repair_attempted_at?: string | null
           cover_url?: string | null
           created_at?: string
           deleted_at?: string | null
@@ -121,6 +144,7 @@ export type Database = {
           barcode_raw?: string | null
           barcode_type?: Database["public"]["Enums"]["barcode_type"] | null
           category?: Database["public"]["Enums"]["book_category"]
+          cover_repair_attempted_at?: string | null
           cover_url?: string | null
           created_at?: string
           deleted_at?: string | null
@@ -208,6 +232,24 @@ export type Database = {
           name?: string | null
           publisher?: string | null
           year_began?: number | null
+        }
+        Relationships: []
+      }
+      global_action_quotas: {
+        Row: {
+          action_count: number
+          kind: string
+          window_started_at: string
+        }
+        Insert: {
+          action_count: number
+          kind: string
+          window_started_at: string
+        }
+        Update: {
+          action_count?: number
+          kind?: string
+          window_started_at?: string
         }
         Relationships: []
       }
@@ -603,6 +645,7 @@ export type Database = {
     }
     Functions: {
       consume_action_quota: { Args: { action_kind: string }; Returns: boolean }
+      consume_global_quota: { Args: { action_kind: string }; Returns: boolean }
       merge_books: {
         Args: { keep_book_id: string; merge_book_id: string }
         Returns: undefined

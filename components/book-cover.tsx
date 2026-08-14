@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { useState } from "react";
 import { repairBrokenCover } from "@/lib/books/cover-repair-actions";
+import { createTaskQueue } from "@/lib/books/repair-queue";
 
 /**
  * La vignette de couverture — l'image distante, ou un emoji de secours.
@@ -22,9 +23,17 @@ import { repairBrokenCover } from "@/lib/books/cover-repair-actions";
  * Les réparations déjà tentées CETTE session — une URL morte ne déclenche
  * qu'UN aller-retour serveur, pas un à chaque affichage (l'anti-boucle de
  * l'issue #53). Mémoire de module : partagée entre toutes les vignettes,
- * réinitialisée au rechargement de la page.
+ * réinitialisée au rechargement de la page — l'anti-boucle DURABLE vit côté
+ * serveur (`books.cover_repair_attempted_at`, #177).
  */
 const attemptedRepairs = new Set<string>();
+
+/**
+ * Au plus 2 réparations en vol (#177) : si un hôte de couvertures tombe, une
+ * bibliothèque entière de vignettes mortes s'égrène au lieu de partir en
+ * salve — chaque réparation coûte jusqu'à ~8 appels externes côté serveur.
+ */
+const runRepair = createTaskQueue(2);
 
 const COVER_SIZES = {
   small: {
@@ -99,7 +108,7 @@ export function BookCover({ coverUrl, size, placeholderEmoji = "📚", title = n
     if (!bookId || attemptedRepairs.has(repairKey)) return;
     attemptedRepairs.add(repairKey);
     try {
-      const result = await repairBrokenCover(bookId);
+      const result = await runRepair(() => repairBrokenCover(bookId));
       if (result.coverUrl && result.coverUrl !== coverUrl) {
         setRepair({ failedUrl: coverUrl, replacementUrl: result.coverUrl });
       }

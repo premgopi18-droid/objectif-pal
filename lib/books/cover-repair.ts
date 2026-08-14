@@ -66,3 +66,16 @@ export function decideCoverRepair(
   if (currentUrlIsAlive === false) return { action: "clear" };
   return { action: "keep" };
 }
+
+/**
+ * L'anti-boucle PERSISTANTE (#177) : une réparation tentée se tamponne en base
+ * (`books.cover_repair_attempted_at`) AVANT de dérouler la chaîne — le Set
+ * mémoire du client meurt au rechargement de page, ce tampon non. Passé le
+ * TTL, on retente : les crans de repli s'étoffent avec le temps (§5.4).
+ */
+export const COVER_REPAIR_RETRY_DAYS = 7;
+
+/** Vrai si une tentative assez récente interdit d'en repayer une. */
+export function isRepairAttemptFresh(attemptedAt: string | null, nowMs: number = Date.now()): boolean {
+  return attemptedAt !== null && nowMs - Date.parse(attemptedAt) < COVER_REPAIR_RETRY_DAYS * 86_400_000;
+}
