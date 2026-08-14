@@ -57,3 +57,32 @@ describe("la saisie manuelle qui alimente barcode_cache (#55)", () => {
     expect(manualEntryToCacheEntry(manualInput({ metadataSource: "bnf" }))).toBeNull();
   });
 });
+
+/**
+ * La couverture n'entre au cache PARTAGÉ que depuis un hôte connu (#179) :
+ * jamais de photo maison (redistribution interdite, §5.4), jamais d'URL
+ * arbitraire — l'entrée part alors SANS couverture, le livre de l'utilisateur
+ * garde la sienne.
+ */
+describe("le filtre de couverture du cache partagé (#179)", () => {
+  it("un hôte de couvertures connu passe", () => {
+    const entry = manualEntryToCacheEntry(manualInput(), "user-1");
+    expect(entry?.coverUrl).toBe("https://images.epagine.fr/851/9782955689851_1_75.jpg");
+  });
+
+  it("une photo maison est refusée — l'entrée se cache sans couverture", () => {
+    const houseUrl = "https://exemple.supabase.co/storage/v1/object/public/covers/user-1/inbox-abc.webp";
+    const entry = manualEntryToCacheEntry(manualInput({ coverUrl: houseUrl }), "user-1");
+    expect(entry).not.toBeNull();
+    expect(entry?.coverUrl).toBeNull();
+  });
+
+  it("une URL arbitraire est refusée, une saisie sans couverture reste sans couverture", () => {
+    expect(manualEntryToCacheEntry(manualInput({ coverUrl: "https://evil.example/x.jpg" }), "user-1")?.coverUrl).toBeNull();
+    expect(manualEntryToCacheEntry(manualInput({ coverUrl: null }), "user-1")?.coverUrl).toBeNull();
+  });
+
+  it("la provenance est tracée : createdBy porte l'auteur de la saisie", () => {
+    expect(manualEntryToCacheEntry(manualInput(), "user-42")?.createdBy).toBe("user-42");
+  });
+});

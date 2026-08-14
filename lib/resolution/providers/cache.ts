@@ -59,6 +59,8 @@ export function createCacheProvider(client = createAdminClient()) {
           // touche pas aux colonnes absentes — un repair ou une saisie manuelle
           // ne doit pas effacer le tampon existant.
           ...(entry.coverCheckedAt !== undefined ? { cover_checked_at: entry.coverCheckedAt } : {}),
+          // Provenance des saisies manuelles (#179) — même règle d'absence.
+          ...(entry.createdBy !== undefined ? { created_by: entry.createdBy } : {}),
         },
         { onConflict: "barcode" },
       );

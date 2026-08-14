@@ -80,10 +80,22 @@ function validateDate(date: string): string | null {
   return isValidIsoDate(date) ? date : null;
 }
 
+/**
+ * Borne des champs texte (#179) : les colonnes sont des `text` sans limite, et
+ * une saisie manuelle peut finir dans le cache PARTAGÉ — 1 000 caractères
+ * couvrent large (le plus long titre réel fait ~200) et ferment la porte au
+ * remplissage. Une seule constante pour tous les champs, URL comprise.
+ */
+const MAX_TEXT_FIELD_LENGTH = 1000;
+
 function validateBook(input: BookInput): string | null {
   if (!input.title?.trim()) return "Le titre est obligatoire.";
   if (input.pageCount !== null && (!Number.isInteger(input.pageCount) || input.pageCount <= 0)) {
     return "Le nombre de pages est invalide.";
+  }
+  const textFields = [input.title, input.seriesName, input.issueNumber, input.authors, input.publisher, input.coverUrl];
+  if (textFields.some((value) => value !== null && value.length > MAX_TEXT_FIELD_LENGTH)) {
+    return "Un des champs dépasse la longueur permise.";
   }
   return null;
 }
@@ -170,8 +182,8 @@ async function findOrCreateBook(
  * elle peut exister si la cascade a abouti pendant que l'utilisateur sautait
  * vers la saisie manuelle — la source référencée reste meilleure que la main.
  */
-async function cacheManualEntry(input: BookInput): Promise<void> {
-  const entry = manualEntryToCacheEntry(input);
+async function cacheManualEntry(input: BookInput, userId: string): Promise<void> {
+  const entry = manualEntryToCacheEntry(input, userId);
   if (!entry) return;
   try {
     const cache = createCacheProvider();
@@ -235,7 +247,7 @@ export async function startReading(input: BookInput, startedAt: string): Promise
 
   const book = await findOrCreateBook(supabase, user.id, input);
   if ("error" in book) return { ok: false, error: book.error };
-  await cacheManualEntry(input);
+  await cacheManualEntry(input, user.id);
 
   // Les deux vérifications sont indépendantes (le garde « déjà en cours » et
   // le décompte « déjà terminé » pour signaler la relecture) : en parallèle,
@@ -286,7 +298,7 @@ export async function recordPurchase(input: BookInput, purchasedAt: string): Pro
 
   const book = await findOrCreateBook(supabase, user.id, input);
   if ("error" in book) return { ok: false, error: book.error };
-  await cacheManualEntry(input);
+  await cacheManualEntry(input, user.id);
 
   // Garde du doublon (specs §4.6, §3.3) : un livre DÉJÀ dans la pile ne se
   // rachète pas — ce serait un −2 silencieux. Racheter un déjà-lu reste permis
@@ -368,7 +380,7 @@ export async function recordOwnership(input: BookInput, ownedSince: string | nul
 
   const book = await findOrCreateBook(supabase, user.id, input);
   if ("error" in book) return { ok: false, error: book.error };
-  await cacheManualEntry(input);
+  await cacheManualEntry(input, user.id);
 
   const facts = await loadPileFacts(supabase, user.id, book.bookId);
   if ("error" in facts) return { ok: false, error: facts.error };
@@ -507,7 +519,7 @@ export async function recordPastReading(
 
   const book = await findOrCreateBook(supabase, user.id, input);
   if ("error" in book) return { ok: false, error: book.error };
-  await cacheManualEntry(input);
+  await cacheManualEntry(input, user.id);
 
   // Refus doux si une lecture est EN COURS : on ne pose pas une lecture
   // terminée par-dessus une lecture active — le geste juste est « Terminer »

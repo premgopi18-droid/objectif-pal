@@ -119,6 +119,12 @@ export type CacheEntry = {
    * doit pas effacer le tampon.
    */
   coverCheckedAt?: string | null;
+  /**
+   * L'auteur d'une saisie MANUELLE (#179) — provenance dans le cache partagé.
+   * Absent (`undefined`) pour les écritures système (résolutions de sources,
+   * réparations) : l'upsert ne touche pas la colonne.
+   */
+  createdBy?: string | null;
 };
 
 /**
