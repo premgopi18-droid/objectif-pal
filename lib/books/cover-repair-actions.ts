@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { decideCoverRepair, isKnownCoverImageUrl } from "@/lib/books/cover-repair";
+import { decideCoverRepair, isKnownCoverImageUrl, isRepairAttemptFresh } from "@/lib/books/cover-repair";
 import { isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
+import { isActionAllowed } from "@/lib/resolution/lookup-rate-limit";
 import { createCacheProvider } from "@/lib/resolution/providers/cache";
 import { findReplacementCover } from "@/lib/resolution/resolve";
 import { PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
@@ -69,7 +70,7 @@ export async function repairBrokenCover(bookId: string): Promise<CoverRepairResu
 
   const { data: book, error } = await supabase
     .from("books")
-    .select("cover_url, isbn, barcode_raw, barcode_type")
+    .select("cover_url, isbn, barcode_raw, barcode_type, cover_repair_attempted_at")
     .eq("id", bookId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -77,6 +78,28 @@ export async function repairBrokenCover(bookId: string): Promise<CoverRepairResu
 
   // Une photo maison ne se « répare » pas ici — elle est chez nous.
   if (isHouseCoverPhotoUrl(book.cover_url)) return { coverUrl: book.cover_url };
+
+  // L'anti-boucle PERSISTANTE (#177) : le Set mémoire du client meurt au
+  // rechargement — ce tampon-ci survit. Une tentative récente (< 7 j) ne se
+  // repaie pas, quel que soit l'appareil qui affiche la vignette.
+  if (isRepairAttemptFresh(book.cover_repair_attempted_at)) return { coverUrl: book.cover_url };
+
+  // Le quota dédié (#177) : la réparation était le chemin externe le plus
+  // coûteux (~8 appels) et le seul non métré — 5/min/utilisateur suffit à un
+  // usage réel (une couverture morte est rare), une salve est un emballement.
+  if (!(await isActionAllowed(supabase, "cover_repair"))) return { coverUrl: book.cover_url };
+
+  // Tamponné AVANT de tenter : un échec de chaîne ne re-tente pas en boucle.
+  // Et JAMAIS effacé, même sur succès (review #185) : si la remplaçante meurt
+  // à son tour dans les 7 jours, on attend l'expiration — un livre ne mérite
+  // pas plus d'un essai hebdomadaire, la photo (#33) reste le filet. Deux
+  // appareils simultanés peuvent passer le tampon tous les deux (lu avant
+  // écrit) : borné par le quota 5/min, assumé.
+  await supabase
+    .from("books")
+    .update({ cover_repair_attempted_at: new Date().toISOString() })
+    .eq("id", bookId)
+    .eq("user_id", user.id);
 
   const barcodeType = book.barcode_type as "isbn" | "upc" | null;
   const foundCoverUrl = barcodeType
@@ -89,7 +112,13 @@ export async function repairBrokenCover(bookId: string): Promise<CoverRepairResu
   if (decision.action === "keep") return { coverUrl: book.cover_url };
 
   const newCoverUrl = decision.action === "replace" ? decision.coverUrl : null;
-  const { error: updateError } = await supabase.from("books").update({ cover_url: newCoverUrl }).eq("id", bookId);
+  // Double filtre user_id : la RLS couvre déjà, mais c'est la discipline du
+  // repo partout ailleurs (relevé par l'audit du 14/08/2026).
+  const { error: updateError } = await supabase
+    .from("books")
+    .update({ cover_url: newCoverUrl })
+    .eq("id", bookId)
+    .eq("user_id", user.id);
   if (updateError) {
     console.error("[covers] repairBrokenCover:", updateError.message);
     return { coverUrl: book.cover_url };

@@ -102,6 +102,7 @@ export type Database = {
           barcode_raw: string | null
           barcode_type: Database["public"]["Enums"]["barcode_type"] | null
           category: Database["public"]["Enums"]["book_category"]
+          cover_repair_attempted_at: string | null
           cover_url: string | null
           created_at: string
           deleted_at: string | null
@@ -122,6 +123,7 @@ export type Database = {
           barcode_raw?: string | null
           barcode_type?: Database["public"]["Enums"]["barcode_type"] | null
           category: Database["public"]["Enums"]["book_category"]
+          cover_repair_attempted_at?: string | null
           cover_url?: string | null
           created_at?: string
           deleted_at?: string | null
@@ -142,6 +144,7 @@ export type Database = {
           barcode_raw?: string | null
           barcode_type?: Database["public"]["Enums"]["barcode_type"] | null
           category?: Database["public"]["Enums"]["book_category"]
+          cover_repair_attempted_at?: string | null
           cover_url?: string | null
           created_at?: string
           deleted_at?: string | null
