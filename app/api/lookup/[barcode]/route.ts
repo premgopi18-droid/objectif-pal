@@ -16,6 +16,12 @@ import { getSessionOrError } from "@/lib/supabase/server";
  * livre déjà enregistré — même un indé introuvable dans toutes les sources —
  * revient directement, sans appel externe, avec la mention « déjà là ».
  */
+
+// La cascade a un budget de 10 s (resolve.ts) : la durée par défaut de la
+// plateforme pouvait tuer la fonction AVANT sa propre limite (#191) — le
+// timeout applicatif doit toujours être plus court que celui de l'infra.
+export const maxDuration = 20;
+
 export async function GET(_request: Request, { params }: { params: Promise<{ barcode: string }> }) {
   const session = await getSessionOrError();
   if (!session) {
