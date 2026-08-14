@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { unstable_cache } from "next/cache";
 import { MonthlyReportView } from "@/components/bilan/monthly-report-view";
 import type { BilanReading, MonthlyPickRecord } from "@/components/bilan/monthly-report-view";
@@ -121,9 +122,13 @@ export default async function BilanPage({
             .filter((gcdIssueId): gcdIssueId is number => gcdIssueId != null),
         ),
       ].sort((left, right) => left - right);
+      // Clé hachée (review #204) : le join des ids peut approcher ~4 Ko à
+      // 600 livres — le comportement d'unstable_cache avec des keyParts de
+      // cette taille n'est pas contractuel.
+      const catalogCacheKey = createHash("sha256").update(gcdIssueIds.join(",")).digest("hex");
       seriesCatalog = await unstable_cache(
         () => fetchSeriesCatalog(createGcdProvider(), gcdIssueIds),
-        ["series-catalog", gcdIssueIds.join(",")],
+        ["series-catalog", catalogCacheKey],
         { revalidate: 24 * 60 * 60 },
       )();
     } catch {
