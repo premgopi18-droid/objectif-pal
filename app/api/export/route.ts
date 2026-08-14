@@ -1,4 +1,5 @@
 import { toCsv } from "@/lib/export/csv";
+import { fetchAllRows } from "@/lib/supabase/pagination";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 /**
@@ -77,15 +78,26 @@ export async function GET(request: Request) {
   const today = new Date().toISOString().slice(0, 10);
 
   // Pas de filtre deleted_at : l'export inclut les lignes supprimées en douceur.
+  // Paginé par fetchAllRows (#178) : PostgREST tronque à 1 000 lignes SANS
+  // erreur — « toutes mes données » amputées en silence trahirait le §4.10.
+  // L'id en clé de tri SECONDAIRE rend l'ordre total (donc les pages stables) :
+  // created_at et month ne sont pas uniques.
   async function fetchTable(table: ExportTable) {
     const { columns, orderBy } = EXPORT_TABLES[table];
-    const { data, error } = await supabase.from(table).select(columns).order(orderBy, { ascending: true });
-    if (error) throw new Error(`${table} : ${error.message}`);
-    // Seul cast Supabase restant de l'app, et légitime : la sélection de
-    // colonnes est DYNAMIQUE (une chaîne `string` par table — l'annotation de
-    // EXPORT_TABLES l'élargit exprès), donc le parseur de types de supabase-js
-    // ne peut pas en dériver la forme des lignes.
-    return (data ?? []) as unknown as Record<string, unknown>[];
+    return fetchAllRows(async (from, to) => {
+      const { data, error } = await supabase
+        .from(table)
+        .select(columns)
+        .order(orderBy, { ascending: true })
+        .order("id", { ascending: true })
+        .range(from, to);
+      if (error) throw new Error(`${table} : ${error.message}`);
+      // Seul cast Supabase restant de l'app, et légitime : la sélection de
+      // colonnes est DYNAMIQUE (une chaîne `string` par table — l'annotation de
+      // EXPORT_TABLES l'élargit exprès), donc le parseur de types de supabase-js
+      // ne peut pas en dériver la forme des lignes.
+      return (data ?? []) as unknown as Record<string, unknown>[];
+    });
   }
 
   try {

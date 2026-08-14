@@ -1,3 +1,4 @@
+import { fetchAllRows } from "@/lib/supabase/pagination";
 import type { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { Database } from "@/lib/supabase/database.types";
 import type { Month } from "@/lib/scoring/types";
@@ -91,21 +92,30 @@ export async function fetchReadingEventFacts(
   supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
   userId: string,
 ): Promise<ReadingEventFact[] | null> {
-  const { data, error } = await supabase
-    .from("reading_events")
-    .select("id, reading_id, status, occurred_at")
-    .eq("user_id", userId)
-    .order("id", { ascending: true });
+  try {
+    // Paginé (#178) : la table append-only produit 2-3 lignes par lecture —
+    // la PREMIÈRE de l'app à franchir le plafond PostgREST de 1 000 lignes,
+    // qui tronque SANS erreur. Des événements manquants = un rythme (abandons,
+    // reprises) silencieusement faux au bilan. L'id (monotone) trie ET pagine.
+    const rows = await fetchAllRows(async (from, to) => {
+      const { data, error } = await supabase
+        .from("reading_events")
+        .select("id, reading_id, status, occurred_at")
+        .eq("user_id", userId)
+        .order("id", { ascending: true })
+        .range(from, to);
+      if (error) throw new Error(error.message);
+      return data ?? [];
+    });
 
-  if (error) {
-    console.error("[stats] fetchReadingEventFacts:", error.message);
+    return rows.map((row) => ({
+      id: row.id,
+      readingId: row.reading_id,
+      status: row.status,
+      occurredAt: row.occurred_at,
+    }));
+  } catch (error) {
+    console.error("[stats] fetchReadingEventFacts:", error instanceof Error ? error.message : String(error));
     return null;
   }
-
-  return (data ?? []).map((row) => ({
-    id: row.id,
-    readingId: row.reading_id,
-    status: row.status,
-    occurredAt: row.occurred_at,
-  }));
 }
