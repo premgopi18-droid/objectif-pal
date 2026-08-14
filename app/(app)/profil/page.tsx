@@ -1,3 +1,4 @@
+import { DeleteAccountButton } from "@/components/delete-account-button";
 import { InstallSection } from "@/components/install-section";
 import { LogoutButton } from "@/components/logout-button";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -86,6 +87,18 @@ export default async function ProfilPage() {
       <section className="flex flex-col gap-3">
         <h2 className={SECTION_LABEL}>Session</h2>
         <LogoutButton />
+      </section>
+
+      {/* RGPD (epic #182) : le droit à l'effacement, complet — données,
+          photos, invitation. L'export est juste au-dessus : partir AVEC ses
+          données reste le chemin naturel. */}
+      <section className="flex flex-col gap-3">
+        <h2 className={SECTION_LABEL}>Zone dangereuse</h2>
+        <p className="text-sm text-ink2">
+          Supprimer ton compte efface définitivement tout — livres, lectures, notes et avis, photos, historique,
+          invitation. Aucun retour en arrière. Pense à exporter tes données d&apos;abord.
+        </p>
+        <DeleteAccountButton />
       </section>
 
       <footer className="mt-auto border-t border-line pt-4 text-xs leading-relaxed text-ink3">
