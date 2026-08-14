@@ -14,6 +14,10 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
  * Client SESSION : la RLS garantit qu'on n'exporte que SES données.
  */
 
+// 9 tables paginées (#178) + sérialisation : à l'aise dans 30 s, et un compte
+// pathologique doit échouer avant le plafond facturé de la plateforme (#191).
+export const maxDuration = 30;
+
 // Les colonnes sont listées explicitement : un export doit être stable, pas
 // refléter par accident la prochaine colonne technique venue.
 // L'annotation élargit `columns` en string : sans ça, le parseur de types de
