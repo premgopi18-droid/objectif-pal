@@ -37,7 +37,7 @@ jobs:
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
 
   contrat-prod:
-    name: Contrat #60 contre la prod
+    name: Contrats prod (#60 + cloisonnement RLS)
     if: github.event_name == 'schedule'
     runs-on: ubuntu-latest
     steps:
@@ -50,3 +50,16 @@ jobs:
       - run: npx vitest run lib/auth/public-assets.integration.test.ts
         env:
           INTEGRATION: "1"
+      # Le cloisonnement RLS, prouvé chaque jour : deux comptes de TEST dédiés
+      # (jamais un humain) s'écrivent et se lisent l'un l'autre — tout ce que
+      # B obtient de A doit être vide. Une régression de policy devient une
+      # notification, pas une fuite silencieuse.
+      - run: npx vitest run lib/auth/isolation.integration.test.ts
+        env:
+          INTEGRATION_ISOLATION: "1"
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+          ISOLATION_TEST_USER_A_EMAIL: ${{ secrets.ISOLATION_TEST_USER_A_EMAIL }}
+          ISOLATION_TEST_USER_A_PASSWORD: ${{ secrets.ISOLATION_TEST_USER_A_PASSWORD }}
+          ISOLATION_TEST_USER_B_EMAIL: ${{ secrets.ISOLATION_TEST_USER_B_EMAIL }}
+          ISOLATION_TEST_USER_B_PASSWORD: ${{ secrets.ISOLATION_TEST_USER_B_PASSWORD }}
