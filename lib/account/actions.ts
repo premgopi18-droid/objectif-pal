@@ -38,6 +38,8 @@ export async function deleteAccount(): Promise<DeleteAccountResult> {
   const admin = createAdminClient();
 
   // 1. Les photos du dossier {user_id}/ — par pages, jusqu'à épuisement.
+  // Pas d'offset (review #206) : chaque remove fait remonter la page
+  // suivante — on reliste depuis le début jusqu'à une page vide ou incomplète.
   for (;;) {
     const { data: objects, error: listError } = await admin.storage
       .from(COVERS_BUCKET)

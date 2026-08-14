@@ -42,8 +42,17 @@ export function DeleteAccountButton() {
         // La purge ne doit jamais bloquer la sortie.
       }
     }
-    // Pas de signOut : le compte n'existe plus — les cookies de session sont
-    // morts avec lui, on repart à la porte d'entrée.
+    // Purge de la session LOCALE (review #206) : le JWT du compte mort reste
+    // cryptographiquement valide ~1 h et le proxy le vérifie en local (#125) —
+    // sans cette purge, /login re-redirigerait vers / et l'utilisateur
+    // naviguerait en fantôme dans une app vide. scope local : on n'exige pas
+    // que GoTrue reconnaisse un utilisateur qui n'existe plus.
+    try {
+      const { createBrowserSupabaseClient } = await import("@/lib/supabase/browser");
+      await createBrowserSupabaseClient().auth.signOut({ scope: "local" });
+    } catch {
+      // Au pire, le token expirera — la redirection reste la bonne sortie.
+    }
     window.location.href = "/login";
   }
 
