@@ -38,6 +38,7 @@ export type Database = {
           barcode: string
           cover_checked_at: string | null
           cover_url: string | null
+          created_by: string | null
           issue_number: string | null
           page_count: number | null
           publisher: string | null
@@ -52,6 +53,7 @@ export type Database = {
           barcode: string
           cover_checked_at?: string | null
           cover_url?: string | null
+          created_by?: string | null
           issue_number?: string | null
           page_count?: number | null
           publisher?: string | null
@@ -66,6 +68,7 @@ export type Database = {
           barcode?: string
           cover_checked_at?: string | null
           cover_url?: string | null
+          created_by?: string | null
           issue_number?: string | null
           page_count?: number | null
           publisher?: string | null
@@ -75,7 +78,15 @@ export type Database = {
           source_id?: string | null
           title?: string | null
         }
-        Relationships: []
+        Relationships: [
+          {
+            foreignKeyName: "barcode_cache_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       barcode_misses: {
         Row: {
