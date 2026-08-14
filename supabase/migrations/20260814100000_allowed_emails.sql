@@ -41,6 +41,10 @@ begin
 
   -- Plafond de comptes (~100, plan « Objectif 100 ») : garde-fou d'infra
   -- gratuite, pas une règle produit — se relève ici le jour où l'infra suit.
+  -- Assumé poreux (review #183) : deux inscriptions simultanées à 99 peuvent
+  -- donner 101 (un pg_advisory_xact_lock l'étancherait), et le refus arrive
+  -- au client sous le même « Database error » que « pas invité » — à ~100
+  -- comptes près, aucun des deux ne vaut plus de code.
   if (select count(*) from public.profiles) >= 100 then
     raise exception 'objectif-pal: plafond de comptes atteint';
   end if;

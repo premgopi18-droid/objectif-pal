@@ -48,6 +48,16 @@ describe("isOwnHouseCoverPhotoUrl", () => {
     expect(isOwnHouseCoverPhotoUrl(other, "user-1", SUPABASE_URL)).toBe(false);
   });
 
+  it("refuse le contournement par segments ../ (review #183)", () => {
+    // La chaîne brute contient bien « covers/user-1/ », mais l'URL résout
+    // vers le dossier de user-2 — c'est l'URL PARSÉE qui fait foi.
+    const traversal = `${SUPABASE_URL}/storage/v1/object/public/covers/user-1/../user-2/photo.webp`;
+    expect(isOwnHouseCoverPhotoUrl(traversal, "user-1", SUPABASE_URL)).toBe(false);
+    // Et la même, encodée.
+    const encoded = `${SUPABASE_URL}/storage/v1/object/public/covers/user-1/%2E%2E/user-2/photo.webp`;
+    expect(isOwnHouseCoverPhotoUrl(encoded, "user-1", SUPABASE_URL)).toBe(false);
+  });
+
   it("refuse ce qui n'est pas une photo maison, et ne crashe jamais", () => {
     expect(isOwnHouseCoverPhotoUrl("https://covers.openlibrary.org/b/isbn/x-L.jpg", "user-1", SUPABASE_URL)).toBe(false);
     expect(isOwnHouseCoverPhotoUrl(null, "user-1", SUPABASE_URL)).toBe(false);

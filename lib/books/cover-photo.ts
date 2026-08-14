@@ -61,7 +61,21 @@ export function isOwnHouseCoverPhotoUrl(
   supabaseUrl: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL,
 ): boolean {
   if (coverUrl === null || !supabaseUrl) return false;
-  return coverUrl.startsWith(`${supabaseUrl}/storage/v1/object/public/${COVERS_BUCKET}/${userId}/`);
+  // Comparaison sur l'URL PARSÉE, jamais sur la chaîne brute (review #183) :
+  // `new URL()` résout les segments `../` — sans ça, `covers/user-1/../user-2/x`
+  // passerait un startsWith naïf puis résoudrait vers le dossier d'un autre.
+  let parsed: URL;
+  let base: URL;
+  try {
+    parsed = new URL(coverUrl);
+    base = new URL(supabaseUrl);
+  } catch {
+    return false;
+  }
+  return (
+    parsed.origin === base.origin &&
+    parsed.pathname.startsWith(`/storage/v1/object/public/${COVERS_BUCKET}/${userId}/`)
+  );
 }
 
 /**

@@ -21,7 +21,9 @@ export async function GET(request: NextRequest) {
     // Inscription refusée par la porte d'entrée (#173) : le trigger
     // `handle_new_user` a annulé la création du compte — GoTrue remonte ça en
     // « Database error saving/updating user ». Le message dédié évite de faire
-    // passer une invitation manquante pour une panne.
+    // passer une invitation manquante pour une panne. Heuristique assumée
+    // (review #183) : une VRAIE panne d'insertion de profil matcherait aussi —
+    // si un invité légitime voit « pas encore invité », commencer par ici.
     if (/database error (saving|updating)/i.test(error.message)) {
       return NextResponse.redirect(new URL("/login?error=not-invited", request.url));
     }
