@@ -139,9 +139,12 @@ for (const book of isDryRun ? [] : candidates) {
       .toBuffer();
 
     const path = `${book.user_id}/cover-${book.id}.webp`;
+    // cacheControl 1 an : l'URL d'une couverture rapatriée ne change JAMAIS de
+    // contenu (une photo maison vit à un autre chemin, la réparation #53 saute
+    // nos fichiers) — chaque re-téléchargement horaire était de l'egress perdu.
     const { error: uploadError } = await admin.storage
       .from(COVERS_BUCKET)
-      .upload(path, webp, { contentType: "image/webp", upsert: true });
+      .upload(path, webp, { contentType: "image/webp", upsert: true, cacheControl: "31536000" });
     if (uploadError) throw new Error(`upload : ${uploadError.message}`);
 
     // Optimiste : on ne bascule que si la couverture n'a pas changé entre-temps
