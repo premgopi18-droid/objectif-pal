@@ -118,17 +118,22 @@ export function LibraryView({ entries }: LibraryViewProps) {
         Les emprunts lus vivent au Journal.
       </p>
 
-      <div className="flex gap-2">
+      {/* flex-WRAP obligatoire (bug du 15/08, vu en prod) : un <select> a une
+          largeur incompressible (sa plus longue option) — avec shrink-0 sur un
+          rang non-wrappant, la rangée débordait du viewport et toute la page
+          partait en scroll horizontal (nav comprise). Même patron que la
+          rangée de filtres du Journal. */}
+      <div className="flex flex-wrap gap-2">
         <input
           value={searchText}
           onChange={(event) => setSearchText(event.target.value)}
           placeholder="Rechercher un titre ou une série…"
           aria-label="Rechercher dans la bibliothèque"
-          className="flex-1 rounded-xl border border-line bg-card px-3 py-2.5 text-sm text-ink placeholder:text-ink3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+          className="min-w-[12rem] flex-1 rounded-xl border border-line bg-card px-3 py-2.5 text-sm text-ink placeholder:text-ink3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
         />
         {/* Le sélecteur commun (#217) — « Ajout récent » par défaut, et
             « Activité récente » préserve l'ancien « Récents » (#146). */}
-        <SortSelect value={sortOrder} options={LIBRARY_SORT_OPTIONS} onChange={setSortOrder} className="shrink-0" />
+        <SortSelect value={sortOrder} options={LIBRARY_SORT_OPTIONS} onChange={setSortOrder} className="min-w-[9rem] flex-1" />
       </div>
 
       {error && <ErrorAlert message={error} />}
