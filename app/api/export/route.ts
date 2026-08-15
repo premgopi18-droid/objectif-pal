@@ -14,7 +14,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
  * Client SESSION : la RLS garantit qu'on n'exporte que SES données.
  */
 
-// 9 tables paginées (#178) + sérialisation : à l'aise dans 30 s, et un compte
+// 10 tables paginées (#178) + sérialisation : à l'aise dans 30 s, et un compte
 // pathologique doit échouer avant le plafond facturé de la plateforme (#191).
 export const maxDuration = 30;
 
@@ -31,7 +31,8 @@ const EXPORT_TABLES: Record<
   | "scan_inbox"
   | "monthly_objectives"
   | "objective_targets"
-  | "monthly_picks",
+  | "monthly_picks"
+  | "friendships",
   { columns: string; orderBy: string }
 > = {
   books: {
@@ -62,6 +63,12 @@ const EXPORT_TABLES: Record<
   monthly_objectives: { columns: "id, month, created_at", orderBy: "month" },
   objective_targets: { columns: "id, objective_id, category, target_count", orderBy: "id" },
   monthly_picks: { columns: "id, month, kind, reading_id, comment, created_at", orderBy: "month" },
+  // Le cercle (§4.14) : mes liens d'amitié font partie de « tout ce que l'app
+  // sait ». La RLS ne rend que les lignes où je figure.
+  friendships: {
+    columns: "id, user_low, user_high, requester_id, status, created_at, accepted_at",
+    orderBy: "created_at",
+  },
 };
 
 type ExportTable = keyof typeof EXPORT_TABLES;

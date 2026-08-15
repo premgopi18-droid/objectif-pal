@@ -180,6 +180,58 @@ export type Database = {
           },
         ]
       }
+      friendships: {
+        Row: {
+          accepted_at: string | null
+          created_at: string
+          id: string
+          requester_id: string
+          status: string
+          user_high: string
+          user_low: string
+        }
+        Insert: {
+          accepted_at?: string | null
+          created_at?: string
+          id?: string
+          requester_id: string
+          status?: string
+          user_high: string
+          user_low: string
+        }
+        Update: {
+          accepted_at?: string | null
+          created_at?: string
+          id?: string
+          requester_id?: string
+          status?: string
+          user_high?: string
+          user_low?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "friendships_requester_id_fkey"
+            columns: ["requester_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "friendships_user_high_fkey"
+            columns: ["user_high"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "friendships_user_low_fkey"
+            columns: ["user_low"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       gcd_issues: {
         Row: {
           barcode: string | null
@@ -490,18 +542,21 @@ export type Database = {
       profiles: {
         Row: {
           avatar_url: string | null
+          circle_joined_at: string | null
           created_at: string
           display_name: string
           id: string
         }
         Insert: {
           avatar_url?: string | null
+          circle_joined_at?: string | null
           created_at?: string
           display_name: string
           id: string
         }
         Update: {
           avatar_url?: string | null
+          circle_joined_at?: string | null
           created_at?: string
           display_name?: string
           id?: string
@@ -781,9 +836,26 @@ export type Database = {
     Functions: {
       consume_action_quota: { Args: { action_kind: string }; Returns: boolean }
       consume_global_quota: { Args: { action_kind: string }; Returns: boolean }
+      get_circle_profiles: {
+        Args: never
+        Returns: {
+          avatar_url: string
+          display_name: string
+          id: string
+        }[]
+      }
+      is_circle_member: { Args: { member_id: string }; Returns: boolean }
       merge_books: {
         Args: { keep_book_id: string; merge_book_id: string }
         Returns: undefined
+      }
+      search_circle_profiles: {
+        Args: { prefix: string }
+        Returns: {
+          avatar_url: string
+          display_name: string
+          id: string
+        }[]
       }
     }
     Enums: {

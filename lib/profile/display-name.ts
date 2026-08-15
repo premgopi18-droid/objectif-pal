@@ -7,6 +7,9 @@
 /** Les bornes du pseudo — assez pour « Jean-Michel Dupont-Lajoie », pas pour un roman. */
 export const DISPLAY_NAME_MAX_LENGTH = 40;
 
+/** Le pseudo est unique depuis §4.14 (index insensible à la casse) — le même message partout. */
+export const PSEUDO_TAKEN_MESSAGE = "Ce pseudo est déjà pris — choisis-en un autre.";
+
 export type DisplayNameResult = { ok: true; value: string } | { ok: false; error: string };
 
 /**
