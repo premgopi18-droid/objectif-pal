@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { ErrorAlert } from "@/components/error-alert";
-import { ALL_PICK_KINDS, PICK_KIND_LABELS, type PickKind } from "@/lib/books/pick-kinds";
+import { ALL_PICK_KINDS, PICK_KIND_LABELS, PICK_KIND_MEDALS, type PickKind } from "@/lib/books/pick-kinds";
 import { removeMonthlyPick, saveMonthlyPick } from "@/lib/goals/actions";
 import type { Month } from "@/lib/scoring/types";
 
@@ -15,12 +15,8 @@ import type { Month } from "@/lib/scoring/types";
  * Rhabillage refonte #71 : médaille 🏆🎉💀 + titre + commentaire, aux tokens.
  */
 
-/** La médaille de chaque distinction (design-specs §5, bloc « picks » du proto). */
-const PICK_MEDAL: Record<PickKind, string> = {
-  favorite: "🏆",
-  good_surprise: "🎉",
-  bad_surprise: "💀",
-};
+// La médaille de chaque distinction vit désormais dans pick-kinds (#234) —
+// la même langue au Bilan, au cercle et sur la carte de paliste.
 
 export type PickSlot = {
   kind: PickKind;
@@ -147,7 +143,7 @@ export function PicksSection({ month, finishedReadings, picks }: PicksSectionPro
                 <li key={kind} className="flex items-start justify-between gap-3">
                   <div className="flex min-w-0 items-start gap-2.5">
                     <span aria-hidden className="text-xl leading-none">
-                      {PICK_MEDAL[kind]}
+                      {PICK_KIND_MEDALS[kind]}
                     </span>
                     <div className="min-w-0">
                       <p className="text-sm">

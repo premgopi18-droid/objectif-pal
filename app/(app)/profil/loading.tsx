@@ -17,13 +17,8 @@ export default function ProfilLoading() {
             <div className="mt-2 h-3 w-2/3 rounded bg-foreground/10" />
           </div>
         </div>
-        {/* La carte de paliste : la grille 2×2 des tuiles. */}
-        <div className="mt-4 grid grid-cols-2 gap-2">
-          <div className="h-20 rounded-card bg-foreground/10" />
-          <div className="h-20 rounded-card bg-foreground/10" />
-          <div className="h-20 rounded-card bg-foreground/10" />
-          <div className="h-20 rounded-card bg-foreground/10" />
-        </div>
+        {/* La carte de paliste — la carte héros (#234) : une carte haute. */}
+        <div className="mt-4 h-64 rounded-card bg-foreground/10" />
         <div className="mt-6 rounded-xl border border-foreground/10 p-4">
           <div className="h-4 w-1/3 rounded bg-foreground/10" />
           <div className="mt-2 h-9 w-full rounded-xl bg-foreground/10" />

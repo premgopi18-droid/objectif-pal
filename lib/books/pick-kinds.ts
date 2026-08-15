@@ -27,3 +27,14 @@ export const PICK_KIND_BADGE_STATE: Record<PickKind, "pile" | "done" | "penalty"
   good_surprise: "done",
   bad_surprise: "penalty",
 };
+
+/**
+ * La médaille de chaque distinction (design-specs §5, bloc « picks » du
+ * proto) — UNE seule langue : la section distinctions du Bilan, les bilans de
+ * mois du cercle et la carte de paliste (#234) parlent tous en médailles.
+ */
+export const PICK_KIND_MEDALS: Record<PickKind, string> = {
+  favorite: "🏆",
+  good_surprise: "🎉",
+  bad_surprise: "💀",
+};

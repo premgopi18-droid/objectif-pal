@@ -1,6 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
-import { ALL_PICK_KINDS, PICK_KIND_BADGE_STATE, PICK_KIND_LABELS } from "@/lib/books/pick-kinds";
+import { ALL_PICK_KINDS, PICK_KIND_BADGE_STATE, PICK_KIND_LABELS, PICK_KIND_MEDALS } from "@/lib/books/pick-kinds";
 import type { ParticipantPick } from "@/lib/circle/report-queries";
 import type { StoredMonthlyReport } from "@/lib/scoring/closed-months";
 import { formatPoints, formatPointsLabel } from "@/lib/scoring/report-text";
@@ -82,7 +82,9 @@ export function MonthReportCard({ stored, picks }: MonthReportCardProps) {
         <div className="flex flex-col gap-1.5">
           {orderedPicks.map(({ kind, title }) => (
             <div key={kind} className="flex items-center gap-2">
-              <Badge state={PICK_KIND_BADGE_STATE[kind]}>{PICK_KIND_LABELS[kind]}</Badge>
+              <Badge state={PICK_KIND_BADGE_STATE[kind]}>
+                {PICK_KIND_MEDALS[kind]} {PICK_KIND_LABELS[kind]}
+              </Badge>
               {title !== null && <span className="min-w-0 truncate text-sm text-ink2">{title}</span>}
             </div>
           ))}
