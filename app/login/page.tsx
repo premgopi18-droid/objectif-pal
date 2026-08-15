@@ -22,8 +22,8 @@ function LoginContent() {
   const errorMessage = {
     oauth: "La connexion a échoué — réessaie.",
     cancelled: "Connexion annulée.",
-    // La porte d'entrée (#173) : compte Google valide, mais pas encore invité.
-    "not-invited": "Ce compte n'est pas encore invité — l'accès se fait sur invitation, demande à Prem ou Léna.",
+    // Ouverture plafonnée (15/08/2026) : compte Google valide, mais complet.
+    full: "L'app affiche complet — la jauge des 100 lecteurs est atteinte. Réessaie plus tard, des places peuvent se libérer.",
   }[searchParams.get("error") ?? ""];
 
   async function signInWithGoogle() {
