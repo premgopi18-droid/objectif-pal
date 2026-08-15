@@ -149,17 +149,19 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
    **Sentry armé et vérifié** (projet EU `objectif-pal`), **ouverture plafonnée** (#211 : tout compte
    Google entre, jauge 100 — l'URL peut être annoncée à l'antenne), et **#32 lot C livré** (#212 :
    journal paginé 50/page, filtres côté requête, ordre #146 contractualisé dans la vue `journal_entries`).
-2. **Les agrégats des mois clos sont livrés le 15/08/2026** (PR #214 : `monthly_reports` +
-   `user_fact_versions` versionnées par triggers, synchro jamais bloquante depuis la page Bilan), tout
-   comme le **profil personnalisable** (#224/#225 : pseudo modifiable + photo — l'unicité arrive avec
-   la v1 amis). **Prochain chantier — Amis v1 (§4.14, spécifié le 15/08/2026, complété au tour du même
-   jour)** : amitié symétrique par demande de pseudo (unicité + confirmation du pseudo à l'entrée du
-   cercle — les défauts Google/email ne sont jamais cherchables ; recherche par préfixe bornée), bilans
-   clos comparés (rapport + distinctions + titres, jamais les avis), classement privé du cercle (par
-   mois + cumul annuel, « — » hors rang sans ligne), **job Actions du 1er du mois** qui matérialise les
-   agrégats de tous, et **refonte du Profil en espace personnel** (carte de paliste, cercle, réglages en
-   sous-page `/profil/reglages`) — pastille, pas de push. Cap : le 1er septembre. ⚠️ Le sur-fetch de la
-   PAL (lot B défait par #101) reste à retraiter, avec `ownerships` dans l'équation.
+2. **Amis v1 (§4.14) est presque complet le 15/08/2026** — spécifié, complété au tour de spec, puis
+   **lots A et B livrés le jour même**. **Lot A (#226/#227)** : pseudo unique + porte du cercle (les
+   défauts Google/email ne sont jamais cherchables), `friendships` en paire canonique (demande croisée =
+   acceptation), recherche par préfixe bornée sous quota, section Cercle au Profil, pastille, export.
+   **Lot B (#229)** : les bilans comparés — `get_circle_monthly_reports`/`get_circle_monthly_picks`
+   (`security definer`, amis acceptés, jamais une lecture brute — **cloisonnement prouvé en CI** par le
+   test d'isolation étendu), parsing défensif du jsonb, classements par mois clos et cumul annuel
+   (ex-aequo même rang, « — » hors rang), fiche ami + vue comparée sous `/profil/cercle`, **job Actions
+   du 1er du mois** (`materialize-monthly-reports.mts` via tsx — le moteur réutilisé, zéro barème
+   dupliqué), et le shell passé à UN appel réseau (`count_pending_friend_requests`). **Prochain
+   chantier — lot C (#230)** : carte de paliste + Profil en espace personnel (réglages en sous-page).
+   Cap : premiers bilans comparés à l'antenne le 1er septembre — le job doit avoir tourné le 1er.
+   ⚠️ Le sur-fetch de la PAL (lot B défait par #101) reste à retraiter, avec `ownerships` dans l'équation.
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs
 roman) à partir de Google Books — on n'a que des indices (éditeur, pages, langue). La catégorie proposée doit

@@ -1,0 +1,33 @@
+# La matérialisation mensuelle des agrégats (§4.14 lot B, #229) — le 1er du
+# mois, AVANT le réveil du cercle : les bilans clos de tous les comptes sont
+# servis aux amis même si leur propriétaire n'a pas rouvert l'app. Relançable
+# à la main (workflow_dispatch, avec dry-run pour voir sans écrire).
+name: Monthly reports
+
+on:
+  schedule:
+    # Le 1er de chaque mois à 04:00 UTC (avant la Maintenance de 05:00).
+    - cron: "0 4 1 * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (état de fraîcheur, zéro écriture)"
+        type: boolean
+        default: false
+
+jobs:
+  materialize:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      # tsx : le script est en TypeScript pour réutiliser le moteur de scoring
+      # et la synchro de la page Bilan — zéro barème dupliqué.
+      - run: npx tsx scripts/materialize-monthly-reports.mts ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

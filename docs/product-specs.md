@@ -739,8 +739,11 @@ modifiable + photo, #224). La v1 construit le lien, la lecture croisée et la su
 - **Tous mes mois clos, passés compris** : accepter, c'est ouvrir son bilan. Le cercle veut comparer
   l'année entière, et la fonction de lecture n'a aucune date d'amitié à croiser.
 - Par mois clos : **le rapport du moteur** (score, détail des points, jauges d'objectif, bonus),
-  **les distinctions** et **les titres terminés** — exactement la ligne d'agrégat, la matière du bilan
-  d'antenne.
+  **les distinctions** et **les titres terminés** — la ligne d'agrégat, la matière du bilan d'antenne.
+  Les distinctions ne sont pas DANS la ligne (les picks ne sont pas versionnés, choix #214) : elles sont
+  **servies à part** par une fonction dédiée, mois clos seulement (décision lot B, 15/08/2026 — tranche le
+  point ouvert du lot C, option « servie »). Le **type et la lecture distinguée** voyagent, le titre se
+  résout via les terminées de la ligne ; le **commentaire éditorial** de la distinction reste local en v1.
 - **Jamais les notes ni les avis** — garanti par construction : ils ne sont **pas dans l'agrégat**
   (§4.3 : l'avis est un cadeau à l'antenne, pas une donnée publiée).
 - **Jamais le mois en cours** : il n'a pas de ligne (le socle le grave déjà) — l'app ne spoile pas le
@@ -1215,10 +1218,14 @@ demandeur insère (`pending`, les **deux** comptes entrés au cercle — vérifi
 `status`/`accepted_at` (GRANT par colonnes — la paire est infalsifiable) ; refuser/annuler/retirer =
 DELETE par l'un ou l'autre, **silencieux**. Exception assumée à « suppression douce partout » : un lien
 est un état relationnel, pas une donnée de lecture. `profiles` gagne `circle_joined_at` (la porte §4.14)
-et un **index unique sur `lower(display_name)`**. Deux fonctions `security definer` servent les profils
-d'autrui (pseudo + photo seulement) : `search_circle_profiles(prefix)` (préfixe ≥ 2, 10 résultats, sous
-quota, comptes entrés au cercle seulement, jokers LIKE échappés) et `get_circle_profiles()` (les comptes
-liés à l'appelant) — `profiles_select_own` ne bouge pas.
+et un **index unique sur `lower(display_name)`**. Les fonctions `security definer` du cercle — la SEULE
+porte vers les données d'autrui, `profiles_select_own` et les policies `monthly_reports` ne bougent pas :
+`search_circle_profiles(prefix)` (préfixe ≥ 2, 10 résultats, sous quota, comptes entrés au cercle
+seulement, jokers LIKE échappés), `get_circle_profiles()` (pseudo + photo des comptes liés à l'appelant),
+`get_circle_monthly_reports()` (lot B — les lignes d'agrégat des amis **acceptés**, jamais une lecture
+brute) et `get_circle_monthly_picks()` (lot B — type + lecture des distinctions des **mois clos** des amis,
+filtre UTC comme la synchro #214). S'y ajoute `count_pending_friend_requests()` (`security invoker` — la
+RLS fait autorité) : la pastille de la nav en un seul appel, l'identité lue dans le jeton.
 
 ### Tables de référence (GCD, en lecture seule)
 

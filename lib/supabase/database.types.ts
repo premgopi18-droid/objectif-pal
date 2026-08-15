@@ -836,6 +836,25 @@ export type Database = {
     Functions: {
       consume_action_quota: { Args: { action_kind: string }; Returns: boolean }
       consume_global_quota: { Args: { action_kind: string }; Returns: boolean }
+      count_pending_friend_requests: { Args: never; Returns: number }
+      get_circle_monthly_picks: {
+        Args: never
+        Returns: {
+          kind: Database["public"]["Enums"]["pick_kind"]
+          month: string
+          reading_id: string
+          user_id: string
+        }[]
+      }
+      get_circle_monthly_reports: {
+        Args: never
+        Returns: {
+          computed_at: string
+          month: string
+          report: Json
+          user_id: string
+        }[]
+      }
       get_circle_profiles: {
         Args: never
         Returns: {

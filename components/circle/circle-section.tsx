@@ -1,6 +1,7 @@
 "use client";
 
 import Image from "next/image";
+import Link from "next/link";
 import { useState, useTransition } from "react";
 import { ErrorAlert } from "@/components/error-alert";
 import { Button } from "@/components/ui/button";
@@ -178,6 +179,16 @@ export function CircleSection({ joined, currentDisplayName, friends, received, s
 
   return (
     <div className="flex flex-col gap-4">
+      {/* L'entrée vers les bilans comparés (lot B) — dès qu'il y a un ami. */}
+      {friends.length > 0 && (
+        <Link
+          href="/profil/cercle"
+          className="bg-grad shadow-grad inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-3 text-sm font-bold text-bg0 transition active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+        >
+          Comparer nos bilans
+        </Link>
+      )}
+
       {/* La recherche — au geste (Entrée/bouton), jamais à la frappe : le quota
           n'est consommé que quand on cherche vraiment. */}
       <form
@@ -276,8 +287,14 @@ export function CircleSection({ joined, currentDisplayName, friends, received, s
         ) : (
           friends.map((profile) => (
             <div key={profile.id} className={ROW_CLASS}>
-              <CircleAvatar profile={profile} />
-              <p className="min-w-0 flex-1 truncate text-sm font-bold">{profile.displayName}</p>
+              {/* La ligne mène à la fiche (lot B) : les bilans clos de l'ami. */}
+              <Link
+                href={`/profil/cercle/${profile.id}`}
+                className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+              >
+                <CircleAvatar profile={profile} />
+                <p className="min-w-0 flex-1 truncate text-sm font-bold">{profile.displayName}</p>
+              </Link>
               {confirmRemoveId === profile.id ? (
                 <>
                   <Button
