@@ -139,21 +139,20 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **Ouverture (epic #182)** — la **Phase 1 est livrée le 15/08/2026** (PRs #190→#206, sauf #32 lot C) :
+1. **Ouverture (epic #182)** — **Phases 1 ET 2-couvertures livrées le 15/08/2026** (PRs #190→#212) :
    backups hebdo chiffrés validés jusqu'à la restauration, région `cdg1` co-localisée, politesse de la
    chaîne externe (UA identifiant, budget 7 s, rafale en file), SW auto-réparant (garde #60 au précache,
    v5), finitions base + **certification zéro dérive** (91 objets), refresh GCD en staging+bascule (~ms
    d'indisponibilité), **cloisonnement RLS prouvé chaque jour en CI** (2 comptes de test), catalogue GCD
    caché 24 h, **suppression de compte RGPD** (cascade exercée sur compte jetable) + purge mensuelle
-   versionnée (premier run réel : 3 photos orphelines purgées). Reste : **2 gestes manuels Sentry**
-   (compte gratuit + DSN dans Vercel) puis inviter le premier cercle (10-15) via
-   `insert into allowed_emails` et mesurer une semaine. La **Phase 2** avant 100 (rapatriement des
-   couvertures dans notre bucket, agrégats serveur des mois clos).
-2. **#32 — reste le lot C seul** (pagination du journal, volontairement différée le 19/07/2026 : à
-   déclencher vers 200-300 lignes de journal ou à l'ouverture multi-utilisateur ; les filtres #34 migreront
-   alors côté requête — l'index de tri est déjà posé). ⚠️ Le lot B (`purchases!inner`) a été **défait
-   volontairement** par #101 (un livre possédé sans achat serait invisible) : le sur-fetch de la PAL est
-   revenu, assumé à l'échelle solo, et se retraitera au lot C avec `ownerships` dans l'équation.
+   versionnée, **couvertures rapatriées** (#208 : 610 internes / 0 hotlink, quotidien + cacheControl 1 an),
+   **Sentry armé et vérifié** (projet EU `objectif-pal`), **ouverture plafonnée** (#211 : tout compte
+   Google entre, jauge 100 — l'URL peut être annoncée à l'antenne), et **#32 lot C livré** (#212 :
+   journal paginé 50/page, filtres côté requête, ordre #146 contractualisé dans la vue `journal_entries`).
+2. **Prochain chantier — agrégats des mois clos** (Phase 2, session dédiée) : matérialiser les bilans
+   clos côté serveur — allège bilan/stats ET fournit le socle « agrégats servis » de **§4.14 Amis**
+   (cap : le 1er septembre, premiers bilans comparés du cercle). ⚠️ Le sur-fetch de la PAL (lot B défait
+   par #101) se retraite dans ce chantier, avec `ownerships` dans l'équation.
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs
 roman) à partir de Google Books — on n'a que des indices (éditeur, pages, langue). La catégorie proposée doit
