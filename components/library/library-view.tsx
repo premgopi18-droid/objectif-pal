@@ -125,6 +125,7 @@ export function LibraryView({ entries }: LibraryViewProps) {
           rangée de filtres du Journal. */}
       <div className="flex flex-wrap gap-2">
         <input
+          type="search"
           value={searchText}
           onChange={(event) => setSearchText(event.target.value)}
           placeholder="Rechercher un titre ou une série…"

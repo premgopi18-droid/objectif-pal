@@ -3,9 +3,11 @@ import {
   JOURNAL_PAGE_SIZE,
   parseJournalDepth,
   parseJournalFilters,
+  parseJournalSearch,
   parseJournalSort,
 } from "@/components/journal/journal-url";
 import { PageLoadError } from "@/components/page-load-error";
+import { escapeIlikePattern, normalizeForSearch } from "@/lib/search/entry-search";
 import { fetchAllRows } from "@/lib/supabase/pagination";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -31,6 +33,7 @@ export default async function JournalPage({
   const filters = parseJournalFilters(params);
   const depth = parseJournalDepth(params);
   const sort = parseJournalSort(params);
+  const search = parseJournalSearch(params);
 
   let query = supabase
     .from("journal_entries")
@@ -42,6 +45,10 @@ export default async function JournalPage({
   if (filters.category !== "all") query = query.eq("category", filters.category);
   if (filters.seriesName !== "all") query = query.eq("series_name", filters.seriesName);
   if (filters.month !== "all") query = query.eq("journal_month", filters.month);
+  // La recherche (#222) — côté SQL, la seule qui fouille TOUT le journal
+  // paginé : l'aiguille est normalisée par la MÊME règle que `search_text`
+  // (parité TS/unaccent, lib/search) et échappée (`%_\` sont des jokers).
+  if (search !== "") query = query.ilike("search_text", `%${escapeIlikePattern(normalizeForSearch(search))}%`);
 
   // Le tri (#217) : « activite » est l'ordre contractuel #146 ; les autres
   // sont des vues alternatives — sans-date et sans-note relégués en bas
@@ -130,6 +137,7 @@ export default async function JournalPage({
         entries={entries}
         filters={filters}
         sort={sort}
+        search={search}
         totalCount={count ?? entries.length}
         hasMore={hasMore}
         depth={depth}

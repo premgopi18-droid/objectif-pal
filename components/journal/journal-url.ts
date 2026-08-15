@@ -64,6 +64,14 @@ export function parseJournalFilters(searchParams: RawSearchParams): JournalFilte
   };
 }
 
+/** La recherche (#222) — bornée : une aiguille d'URL n'est pas un roman. */
+const MAX_SEARCH_LENGTH = 100;
+
+/** searchParams → aiguille de recherche (trim, bornée, "" = pas de recherche). */
+export function parseJournalSearch(searchParams: RawSearchParams): string {
+  return (first(searchParams.q) ?? "").trim().slice(0, MAX_SEARCH_LENGTH);
+}
+
 /** searchParams → profondeur de liste (multiple de la page, bornée). */
 export function parseJournalDepth(searchParams: RawSearchParams): number {
   const raw = Number(first(searchParams.n));
@@ -79,12 +87,14 @@ export function journalSearchString(
   filters: JournalFilters,
   depth: number = JOURNAL_PAGE_SIZE,
   sort: JournalSort = DEFAULT_JOURNAL_SORT,
+  search: string = "",
 ): string {
   const params = new URLSearchParams();
   if (filters.status !== "all") params.set("etat", filters.status);
   if (filters.category !== "all") params.set("categorie", filters.category);
   if (filters.seriesName !== "all") params.set("serie", filters.seriesName);
   if (filters.month !== "all") params.set("mois", filters.month);
+  if (search.trim() !== "") params.set("q", search.trim());
   if (sort !== DEFAULT_JOURNAL_SORT) params.set("tri", sort);
   if (depth > JOURNAL_PAGE_SIZE) params.set("n", String(depth));
   return params.toString();

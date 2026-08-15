@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Fragment, useState, useTransition } from "react";
+import { Fragment, useEffect, useRef, useState, useTransition } from "react";
 import {
   abandonReading,
   finishReading,
@@ -44,6 +44,12 @@ import {
 } from "./journal-url";
 import { SortSelect } from "@/components/ui/sort-select";
 import { ENTRY_SORT_LABELS } from "@/lib/sort/entry-sort";
+
+/**
+ * Le délai avant d'envoyer la recherche au serveur (#222) : assez long pour ne
+ * pas requêter à chaque frappe, assez court pour que la liste suive la saisie.
+ */
+const SEARCH_DEBOUNCE_MS = 350;
 
 /** Les tris du journal (#217) — « Activité » (#146) reste le défaut. */
 const JOURNAL_SORT_OPTIONS: { value: JournalSort; label: string }[] = [
@@ -122,6 +128,7 @@ export function JournalList({
   entries,
   filters,
   sort,
+  search,
   totalCount,
   hasMore,
   depth,
@@ -132,6 +139,8 @@ export function JournalList({
   entries: JournalEntry[];
   filters: JournalFilters;
   sort: JournalSort;
+  /** L'aiguille de recherche COMMITTÉE dans l'URL (#222) — "" = pas de recherche. */
+  search: string;
   /** Le total qui matche les filtres (toutes pages confondues). */
   totalCount: number;
   hasMore: boolean;
@@ -157,22 +166,67 @@ export function JournalList({
   // retombe sur la vue exacte. Un filtre qui change repart en page 1.
   const router = useRouter();
   const [isLoadingPage, startPageTransition] = useTransition();
+
+  /**
+   * La recherche (#222) — SERVEUR, car le journal est paginé : une recherche
+   * client ne fouillerait que la tranche chargée, en silence. Le champ vit en
+   * état local (la frappe reste fluide) et la navigation part DÉBOUNCÉE ; la
+   * requête normalise l'aiguille comme la vue SQL (parité lib/search).
+   */
+  const [searchInput, setSearchInput] = useState(search);
+  const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const cancelPendingSearch = () => {
+    if (searchTimer.current !== null) clearTimeout(searchTimer.current);
+    searchTimer.current = null;
+  };
+  // Resync sur navigation EXTERNE (bouton retour) — sans écraser une frappe en
+  // cours : si l'input trim correspond déjà à l'URL, on n'y touche pas. Un
+  // timer encore en attente est annulé : il re-committerait l'aiguille
+  // par-dessus l'URL restaurée (review #223).
+  useEffect(() => {
+    cancelPendingSearch();
+    setSearchInput((current) => (current.trim() === search ? current : search));
+  }, [search]);
+  useEffect(() => () => cancelPendingSearch(), []);
+
+  /**
+   * TOUTE navigation annule le timer de recherche et emporte la frappe en
+   * cours (review #223) : sans ça, changer un filtre pendant les 350 ms du
+   * débounce laissait partir le timer APRÈS, avec des filtres périmés dans sa
+   * closure — le choix de l'utilisateur était écrasé.
+   */
   const navigate = (
     nextFilters: JournalFilters,
     nextDepth: number = JOURNAL_PAGE_SIZE,
     nextSort: JournalSort = sort,
+    nextSearch: string = searchInput.trim(),
   ) => {
-    const search = journalSearchString(nextFilters, nextDepth, nextSort);
-    startPageTransition(() => router.replace(`/journal${search ? `?${search}` : ""}`, { scroll: false }));
+    cancelPendingSearch();
+    const searchString = journalSearchString(nextFilters, nextDepth, nextSort, nextSearch);
+    startPageTransition(() => router.replace(`/journal${searchString ? `?${searchString}` : ""}`, { scroll: false }));
   };
   // Filtre ou tri qui change : on repart en page 1 (le tri est conservé à
-  // travers les filtres, et réciproquement).
+  // travers les filtres, et réciproquement — la recherche aussi).
   const setFilters = (nextFilters: JournalFilters) => navigate(nextFilters);
   const setSort = (nextSort: JournalSort) => navigate(filters, JOURNAL_PAGE_SIZE, nextSort);
+  const onSearchChange = (value: string) => {
+    setSearchInput(value);
+    cancelPendingSearch();
+    if (value.trim() === search) return;
+    // Une recherche qui change repart en page 1, comme un filtre.
+    searchTimer.current = setTimeout(() => navigate(filters, JOURNAL_PAGE_SIZE, sort, value.trim()), SEARCH_DEBOUNCE_MS);
+  };
+  /** Le bouton « Réinitialiser » efface filtres ET recherche, d'un coup. */
+  const resetAll = () => {
+    setSearchInput("");
+    navigate(NO_JOURNAL_FILTERS, JOURNAL_PAGE_SIZE, sort, "");
+  };
+
   const hasActiveFilters = hasActiveJournalFilters(filters);
+  const hasSearch = search !== "";
   const visible = entries;
 
-  if (totalCount === 0 && !hasActiveFilters) {
+  if (totalCount === 0 && !hasActiveFilters && !hasSearch) {
     return (
       <p className="mt-6 text-sm text-ink2">
         Ton journal est vide — scanne ton premier bouquin depuis l&apos;onglet Scanner, et il apparaîtra ici.
@@ -189,7 +243,17 @@ export function JournalList({
         label="Filtrer par état"
       />
 
-      <div className="flex flex-wrap gap-2" role="group" aria-label="Filtrer par catégorie, série ou mois">
+      <div className="flex flex-wrap gap-2" role="group" aria-label="Rechercher et filtrer">
+        {/* La recherche (#222) — même rangée et mêmes classes que la Biblio ;
+            flex-WRAP obligatoire (bug #221, vu en prod). */}
+        <input
+          type="search"
+          value={searchInput}
+          onChange={(event) => onSearchChange(event.target.value)}
+          placeholder="Rechercher un titre ou une série…"
+          aria-label="Rechercher dans le journal"
+          className="min-w-[12rem] flex-1 rounded-xl border border-line bg-card px-3 py-2 text-sm text-ink placeholder:text-ink3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+        />
         <select
           aria-label="Catégorie"
           value={filters.category}
@@ -240,25 +304,17 @@ export function JournalList({
 
       {visible.length === 0 ? (
         <div className="py-6 text-center text-sm text-ink2">
-          <p>Aucune lecture pour ces filtres.</p>
-          <button
-            type="button"
-            onClick={() => setFilters(NO_JOURNAL_FILTERS)}
-            className="mt-2 underline underline-offset-2"
-          >
-            Réinitialiser les filtres
+          <p>{hasSearch ? "Aucune lecture ne correspond à la recherche." : "Aucune lecture pour ces filtres."}</p>
+          <button type="button" onClick={resetAll} className="mt-2 underline underline-offset-2">
+            Réinitialiser
           </button>
         </div>
       ) : (
         <>
-          {hasActiveFilters && (
+          {(hasActiveFilters || hasSearch) && (
             <p className="text-xs text-ink3">
               {totalCount} lecture{totalCount > 1 ? "s" : ""} ·{" "}
-              <button
-                type="button"
-                onClick={() => setFilters(NO_JOURNAL_FILTERS)}
-                className="underline underline-offset-2"
-              >
+              <button type="button" onClick={resetAll} className="underline underline-offset-2">
                 réinitialiser
               </button>
             </p>
