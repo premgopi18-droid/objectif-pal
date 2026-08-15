@@ -5,8 +5,10 @@ import type { BilanReading, MonthlyPickRecord } from "@/components/bilan/monthly
 import { PageLoadError } from "@/components/page-load-error";
 import { StatsView } from "@/components/stats/stats-view";
 import { SegmentNav } from "@/components/ui/segment-nav";
+import { readFactVersion, syncMonthlyReports } from "@/lib/bilan/report-sync";
 import { createGcdProvider } from "@/lib/resolution/providers/gcd";
 import { fetchReadingEventFacts } from "@/lib/stats/reading-events";
+import { fetchAllRows } from "@/lib/supabase/pagination";
 import { fetchSeriesCatalog, toGcdIssueId, type SeriesCatalog } from "@/lib/stats/series-catalog";
 import type { StatBookRecord } from "@/lib/stats/compute-stats";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -149,32 +151,63 @@ export default async function BilanPage({
   // l'annulation du malus) et la navigation entre les mois se fait côté client,
   // sans re-requête — le score est toujours dérivé, jamais stocké (§4.7).
   // Les objectifs (§4.11) et distinctions (§4.4) suivent le même contrat.
-  const [readingsResult, purchasesResult, objectivesResult, picksResult] = await Promise.all([
-    // L'inner join sur books élague les livres supprimés en douceur : sans lui,
-    // les lectures/achats d'un livre effacé pèseraient au bilan tout en ayant
-    // disparu de la PAL. book_id est NOT NULL → l'inner join ne perd rien.
-    // `id` et `title` servent aux distinctions (choisir une lecture du mois).
-    supabase
-      .from("readings")
-      .select("id, book_id, status, started_at, finished_at, book:books!inner (title, category, deleted_at)")
-      .eq("status", "finished")
-      .is("deleted_at", null)
-      .is("book.deleted_at", null),
-    supabase
-      .from("purchases")
-      .select("book_id, purchased_at, book:books!inner (deleted_at)")
-      .is("deleted_at", null)
-      .is("book.deleted_at", null),
+  // La VERSION des faits se lit AVANT les faits (review #214) : si une édition
+  // se glisse entre les deux, les agrégats seront tamponnés avec l'ancien
+  // numéro et la prochaine visite recalculera — l'inverse rendrait l'erreur
+  // permanente. `getClaims` : l'identité sans aller-retour réseau (#125).
+  const { data: claims } = await supabase.auth.getClaims();
+  const userId = claims?.claims.sub;
+  const factVersion = userId ? await readFactVersion(supabase, userId) : null;
+
+  // Les lectures et achats croissent sans borne : paginés (#178) — un compte
+  // qui franchira 1 000 lignes ne verra jamais un bilan silencieusement faux.
+  let readingsRows;
+  let purchasesRows;
+  try {
+    [readingsRows, purchasesRows] = await Promise.all([
+      // L'inner join sur books élague les livres supprimés en douceur : sans lui,
+      // les lectures/achats d'un livre effacé pèseraient au bilan tout en ayant
+      // disparu de la PAL. book_id est NOT NULL → l'inner join ne perd rien.
+      // `id` et `title` servent aux distinctions (choisir une lecture du mois).
+      fetchAllRows(async (from, to) => {
+        const { data, error } = await supabase
+          .from("readings")
+          .select("id, book_id, status, started_at, finished_at, book:books!inner (title, category, deleted_at)")
+          .eq("status", "finished")
+          .is("deleted_at", null)
+          .is("book.deleted_at", null)
+          .order("id", { ascending: true })
+          .range(from, to);
+        if (error) throw new Error(error.message);
+        return data ?? [];
+      }),
+      fetchAllRows(async (from, to) => {
+        const { data, error } = await supabase
+          .from("purchases")
+          .select("id, book_id, purchased_at, book:books!inner (deleted_at)")
+          .is("deleted_at", null)
+          .is("book.deleted_at", null)
+          .order("id", { ascending: true })
+          .range(from, to);
+        if (error) throw new Error(error.message);
+        return data ?? [];
+      }),
+    ]);
+  } catch {
+    return <PageLoadError title="Bilan du mois" message="Impossible de charger le bilan — réessaie." />;
+  }
+
+  const [objectivesResult, picksResult] = await Promise.all([
     supabase.from("monthly_objectives").select("month, objective_targets (category, target_count)"),
     supabase.from("monthly_picks").select("month, kind, reading_id, comment"),
   ]);
 
-  if (readingsResult.error || purchasesResult.error || objectivesResult.error || picksResult.error) {
+  if (objectivesResult.error || picksResult.error) {
     return <PageLoadError title="Bilan du mois" message="Impossible de charger le bilan — réessaie." />;
   }
 
   // L'embed `book` est inféré objet (FK many-to-one) : plus de tableau à déplier.
-  const readings: BilanReading[] = (readingsResult.data ?? []).map((row) => ({
+  const readings: BilanReading[] = (readingsRows ?? []).map((row) => ({
     readingId: row.id,
     title: row.book.title,
     bookId: row.book_id,
@@ -184,7 +217,7 @@ export default async function BilanPage({
     finishedAt: row.finished_at,
   }));
 
-  const purchases: PurchaseFact[] = (purchasesResult.data ?? []).map((row) => ({
+  const purchases: PurchaseFact[] = (purchasesRows ?? []).map((row) => ({
     bookId: row.book_id,
     purchasedAt: row.purchased_at,
   }));
@@ -203,6 +236,21 @@ export default async function BilanPage({
     readingId: row.reading_id,
     comment: row.comment,
   }));
+
+  // L'entretien des agrégats de mois clos (epic #182 — le socle de §4.14) :
+  // les faits sont déjà en main, la synchro ne recalcule que si leur version
+  // (lue AVANT les faits, cf. plus haut) a bougé, et n'est JAMAIS bloquante
+  // (le bilan affiché reste le calcul en direct). Le « mois courant » est
+  // celui du serveur (UTC) — à la frontière du mois, un mois peut se clore
+  // jusqu'à 2 h avant l'heure de Paris : sans enjeu pour un cache que la
+  // prochaine visite rafraîchit.
+  if (userId && factVersion !== null) {
+    await syncMonthlyReports(supabase, userId, new Date().toISOString().slice(0, 7), factVersion, {
+      readings,
+      purchases,
+      objectivesByMonth,
+    });
+  }
 
   return (
     <section className="py-6">

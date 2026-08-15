@@ -374,6 +374,38 @@ export type Database = {
           },
         ]
       }
+      monthly_reports: {
+        Row: {
+          computed_at: string
+          fact_version: number
+          month: string
+          report: Json
+          user_id: string
+        }
+        Insert: {
+          computed_at?: string
+          fact_version: number
+          month: string
+          report: Json
+          user_id: string
+        }
+        Update: {
+          computed_at?: string
+          fact_version?: number
+          month?: string
+          report?: Json
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_reports_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       objective_targets: {
         Row: {
           category: Database["public"]["Enums"]["book_category"]
@@ -680,6 +712,29 @@ export type Database = {
             foreignKeyName: "scan_inbox_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      user_fact_versions: {
+        Row: {
+          user_id: string
+          version: number
+        }
+        Insert: {
+          user_id: string
+          version?: number
+        }
+        Update: {
+          user_id?: string
+          version?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "user_fact_versions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: true
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
