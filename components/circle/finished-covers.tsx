@@ -1,10 +1,11 @@
 "use client";
 
+import { ChevronUp } from "lucide-react";
 import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Toast } from "@/components/ui/toast";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
-import { coverGridSlice } from "@/lib/circle/cover-grid";
+import { FINISHED_COVERS_CAP, coverGridSlice } from "@/lib/circle/cover-grid";
 import { formatMonthFrench } from "@/lib/dates";
 import type { StoredFinishedReading } from "@/lib/scoring/closed-months";
 import type { Month } from "@/lib/scoring/types";
@@ -99,6 +100,18 @@ export function FinishedCovers({ readings, ownerDisplayName, month }: FinishedCo
             className="grid aspect-[2/3] place-items-center rounded-lg border border-line bg-card2 text-sm font-black tabular-nums text-ink2 transition active:scale-[0.94] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
           >
             +{hidden}
+          </button>
+        )}
+        {/* Le miroir de « +N » (#239) : la grille dépliée se replie au même
+            endroit, du même geste — jamais un dépli sans retour. */}
+        {isExpanded && readings.length > FINISHED_COVERS_CAP && (
+          <button
+            type="button"
+            onClick={() => setIsExpanded(false)}
+            aria-label="Replier la grille"
+            className="grid aspect-[2/3] place-items-center rounded-lg border border-line bg-card2 text-ink2 transition active:scale-[0.94] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+          >
+            <ChevronUp aria-hidden className="size-5" />
           </button>
         )}
       </div>
