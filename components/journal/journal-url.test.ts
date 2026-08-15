@@ -6,6 +6,7 @@ import {
   journalSearchString,
   parseJournalDepth,
   parseJournalFilters,
+  parseJournalSort,
 } from "./journal-url";
 
 /**
@@ -62,5 +63,22 @@ describe("hasActiveJournalFilters", () => {
   it("détecte la moindre dimension active", () => {
     expect(hasActiveJournalFilters(NO_JOURNAL_FILTERS)).toBe(false);
     expect(hasActiveJournalFilters({ ...NO_JOURNAL_FILTERS, month: "2026-07" })).toBe(true);
+  });
+});
+
+describe("parseJournalSort + round-trip (#217)", () => {
+  it("défaut = activité (#146), les sept tris se lisent, le forgé retombe sur le défaut", () => {
+    expect(parseJournalSort({})).toBe("activite");
+    expect(parseJournalSort({ tri: "note" })).toBe("note");
+    expect(parseJournalSort({ tri: "pirate" })).toBe("activite");
+  });
+
+  it("le défaut n'apparaît pas dans l'URL, les autres tris s'y écrivent et se relisent", () => {
+    expect(journalSearchString(NO_JOURNAL_FILTERS, JOURNAL_PAGE_SIZE, "activite")).toBe("");
+    const search = journalSearchString({ ...NO_JOURNAL_FILTERS, month: "2026-07" }, 100, "titre");
+    const params = Object.fromEntries(new URLSearchParams(search));
+    expect(parseJournalSort(params)).toBe("titre");
+    expect(parseJournalFilters(params).month).toBe("2026-07");
+    expect(parseJournalDepth(params)).toBe(100);
   });
 });

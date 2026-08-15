@@ -3,6 +3,7 @@ import {
   JOURNAL_PAGE_SIZE,
   parseJournalDepth,
   parseJournalFilters,
+  parseJournalSort,
 } from "@/components/journal/journal-url";
 import { PageLoadError } from "@/components/page-load-error";
 import { fetchAllRows } from "@/lib/supabase/pagination";
@@ -29,6 +30,7 @@ export default async function JournalPage({
   const params = await searchParams;
   const filters = parseJournalFilters(params);
   const depth = parseJournalDepth(params);
+  const sort = parseJournalSort(params);
 
   let query = supabase
     .from("journal_entries")
@@ -41,16 +43,37 @@ export default async function JournalPage({
   if (filters.seriesName !== "all") query = query.eq("series_name", filters.seriesName);
   if (filters.month !== "all") query = query.eq("journal_month", filters.month);
 
+  // Le tri (#217) : « activite » est l'ordre contractuel #146 ; les autres
+  // sont des vues alternatives — sans-date et sans-note relégués en bas
+  // (nullsFirst: false), id en départage final pour un ordre total (la
+  // condition de « Charger plus »).
+  const ordered = (() => {
+    switch (sort) {
+      case "lecture":
+        return query.order("journal_date", { ascending: false, nullsFirst: false }).order("created_at", { ascending: false });
+      case "note":
+        return query
+          .order("rating", { ascending: false, nullsFirst: false })
+          .order("journal_date", { ascending: false, nullsFirst: false });
+      case "ajout":
+        return query.order("created_at", { ascending: false });
+      case "ajout-ancien":
+        return query.order("created_at", { ascending: true });
+      case "titre":
+        return query.order("title", { ascending: true });
+      case "titre-inverse":
+        return query.order("title", { ascending: false });
+      default: // « activite » — l'ordre #146, celui des séparateurs de mois
+        return query
+          .order("journal_rank", { ascending: true })
+          .order("journal_date", { ascending: false, nullsFirst: false })
+          .order("created_at", { ascending: false });
+    }
+  })();
+
   // depth + 1 : la ligne de trop dit s'il reste quelque chose à charger.
-  // nullsFirst: false sur journal_date — les dates absentes ferment leur
-  // groupe (le « desc nulls first » de Postgres est le bug d'origine de #146).
   const [entriesResult, optionsResult] = await Promise.all([
-    query
-      .order("journal_rank", { ascending: true })
-      .order("journal_date", { ascending: false, nullsFirst: false })
-      .order("created_at", { ascending: false })
-      .order("id", { ascending: true })
-      .range(0, depth),
+    ordered.order("id", { ascending: true }).range(0, depth),
     // Les options des selects (séries, mois) se dérivent du journal ENTIER,
     // pas de la tranche : 2 colonnes par lecture, paginé anti-troncature
     // (#178) — quelques Ko, pas quelques centaines.
@@ -106,6 +129,7 @@ export default async function JournalPage({
       <JournalList
         entries={entries}
         filters={filters}
+        sort={sort}
         totalCount={count ?? entries.length}
         hasMore={hasMore}
         depth={depth}
