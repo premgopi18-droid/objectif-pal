@@ -141,11 +141,18 @@ export function PalView({
             value={`${monthBalance > 0 ? `+${monthBalance}` : monthBalance} livre${Math.abs(monthBalance) > 1 ? "s" : ""}`}
             tone={monthBalance > 0 ? "bad" : "good"}
             hint={
+              // Court exprès (retour preview #242) : le hint doit tenir sur UNE
+              // ligne pour que la tuile garde sa hauteur — l'explication
+              // complète vit dans l'aria-label du bouton.
               isMonthFilterActive
-                ? "filtre actif — taper pour tout revoir"
+                ? "filtre actif"
                 : `${monthEntries} entrée${monthEntries > 1 ? "s" : ""} · ${monthExits} sortie${monthExits > 1 ? "s" : ""}`
             }
-            className={isMonthFilterActive ? "border-cyan" : ""}
+            // `ring`, PAS `border-cyan` (retour preview #242) : la couleur de
+            // bordure perdait contre le `border-line` de la tuile selon l'ordre
+            // du CSS compilé — le piège documenté au Button (#84). Le ring est
+            // une ombre : aucune collision possible, visible à coup sûr.
+            className={isMonthFilterActive ? "ring-2 ring-cyan" : ""}
           />
         </button>
       </div>
