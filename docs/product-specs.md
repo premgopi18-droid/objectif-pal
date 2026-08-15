@@ -717,7 +717,9 @@ modifiable + photo, #224). La v1 construit le lien, la lecture croisée et la su
   ou choisir — son pseudo. **Seuls les comptes entrés au cercle sont cherchables** : jamais un vrai nom
   ni un début d'adresse email exposés par une recherche.
 - **Demande par pseudo + acceptation.** Je cherche un pseudo, j'envoie une demande, l'autre accepte —
-  l'amitié est symétrique, rien n'est visible avant l'acceptation, dans aucun sens. La demande envoyée
+  l'amitié est symétrique, et **rien du bilan** n'est visible avant l'acceptation : seuls le pseudo et la
+  photo, déjà publiés par l'entrée au cercle, s'échangent avec la demande (le destinataire doit voir qui
+  demande pour décider). La demande envoyée
   reste visible « en attente » et **s'annule** ; une **demande croisée** (chacun a demandé l'autre) vaut
   acceptation automatique.
 - **La recherche est partielle (préfixe)** — taper « lé » trouve « léna23 ». Assumé : les pseudos se

@@ -76,4 +76,8 @@ describe("normalizeSearchPrefix", () => {
     expect(normalizeSearchPrefix("  l ")).toBeNull();
     expect(normalizeSearchPrefix("")).toBeNull();
   });
+
+  it("réduit les espaces internes — la même normalisation que le pseudo sauvé (#224, review #227)", () => {
+    expect(normalizeSearchPrefix("léna  du")).toBe("léna du");
+  });
 });

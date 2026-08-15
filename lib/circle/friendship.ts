@@ -74,8 +74,13 @@ export function classifyExistingForRequest(link: CircleLink): ExistingRequestOut
 /** Le seuil de la recherche (§4.14) : en dessous, on ne cherche pas — même borne que côté SQL. */
 export const SEARCH_PREFIX_MIN_LENGTH = 2;
 
-/** Trim + garde du seuil — `null` si trop court pour chercher. */
+/**
+ * Trim + espaces internes réduits à un (la MÊME normalisation que le pseudo
+ * sauvé, #224 — sinon « léna  du » collé avec un double espace ne trouverait
+ * jamais « léna du », silencieusement), puis garde du seuil — `null` si trop
+ * court pour chercher.
+ */
 export function normalizeSearchPrefix(raw: string): string | null {
-  const value = raw.trim();
+  const value = raw.trim().replace(/\s+/g, " ");
   return value.length >= SEARCH_PREFIX_MIN_LENGTH ? value : null;
 }
