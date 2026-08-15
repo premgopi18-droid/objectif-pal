@@ -8,8 +8,10 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
  * qu'on n'arrive ici qu'avec une session — pas de re-vérification par page.
  *
  * La pastille du Profil (§4.14 : une demande d'ami se VOIT, elle n'est pas
- * poussée) se charge ici, avec la nav — une requête `count` head, rafraîchie
- * au chargement et aux revalidations, jamais bloquante pour le rendu.
+ * poussée) se charge ici, avec la nav — UN SEUL appel réseau (suivi review
+ * #227, lot B) : la fonction SQL lit l'identité dans le jeton, plus de
+ * `getUser()` dans le shell. Rafraîchie au chargement et aux revalidations,
+ * jamais bloquante pour le rendu.
  */
 export default async function AppLayout({
   children,
@@ -17,10 +19,7 @@ export default async function AppLayout({
   children: React.ReactNode;
 }>) {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-  const pendingRequestCount = user ? await getPendingRequestCount(supabase, user.id) : 0;
+  const pendingRequestCount = await getPendingRequestCount(supabase);
 
   return (
     <div className="mx-auto flex w-full max-w-md flex-1 flex-col">

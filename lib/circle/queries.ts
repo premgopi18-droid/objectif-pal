@@ -53,17 +53,19 @@ export async function getCircleView(supabase: SessionSupabaseClient, userId: str
   };
 }
 
-/** Le compte des demandes REÇUES en attente — la pastille de l'onglet Profil (§4.14 : vue, pas poussée). */
-export async function getPendingRequestCount(supabase: SessionSupabaseClient, userId: string): Promise<number> {
-  const { count, error } = await supabase
-    .from("friendships")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending")
-    .neq("requester_id", userId);
+/**
+ * Le compte des demandes REÇUES en attente — la pastille de l'onglet Profil
+ * (§4.14 : vue, pas poussée). Via la fonction SQL `count_pending_friend_requests`
+ * (lot B, suivi review #227) : l'identité vient du jeton (`auth.uid()`), le
+ * layout n'a plus AUCUN aller-retour d'auth — un seul appel réseau, et sans
+ * session la fonction rend 0.
+ */
+export async function getPendingRequestCount(supabase: SessionSupabaseClient): Promise<number> {
+  const { data, error } = await supabase.rpc("count_pending_friend_requests");
   if (error) {
     // La pastille n'a pas le droit de casser la nav : zéro et on le note.
     console.error("[circle] getPendingRequestCount:", error.message);
     return 0;
   }
-  return count ?? 0;
+  return data ?? 0;
 }
