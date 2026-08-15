@@ -68,6 +68,15 @@ export type PalHealth = {
 const monthOf = (date: IsoDate): Month => date.slice(0, 7);
 
 /**
+ * Une entrée de pile appartient-elle au mois de référence ? (#241 — le filtre
+ * de la tuile « Pile ce mois-ci ».) Une date INCONNUE n'appartient à aucun
+ * mois : même règle que les flux ci-dessous, jamais de mois inventé (#101).
+ */
+export function isMonthEntry(enteredAt: IsoDate | null, month: Month): boolean {
+  return enteredAt !== null && monthOf(enteredAt) === month;
+}
+
+/**
  * La santé de la PAL, dérivée des mouvements — fonction PURE, source unique.
  *
  * Chaque livre entré est soit ENCORE en pile, soit SORTI (jamais les deux :

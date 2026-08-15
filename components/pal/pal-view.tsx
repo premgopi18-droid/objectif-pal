@@ -13,7 +13,7 @@ import { formatBookSubtitle } from "@/lib/books/format";
 import { formatDateFrench, localCurrentMonth, localToday } from "@/lib/dates";
 import type { PalEntry } from "@/lib/pal/derive-pal";
 import type { IsoDate } from "@/lib/scoring/types";
-import { computePalHealth } from "@/lib/pal/health";
+import { computePalHealth, isMonthEntry } from "@/lib/pal/health";
 import { matchesSearch } from "@/lib/search/entry-search";
 import { ENTRY_SORT_LABELS, sortEntriesBy, type EntrySortOption } from "@/lib/sort/entry-sort";
 
@@ -82,43 +82,73 @@ export function PalView({
   // au journal), et la normalisation est celle du module commun (accents,
   // ligatures) — « asterix » trouve Astérix ici comme partout.
   const [searchText, setSearchText] = useState("");
+  // Le filtre de la tuile « Pile ce mois-ci » (#241) — en mémoire, comme la
+  // recherche et le tri : l'idiome de cette surface. Il ne montre que les
+  // ENTRÉES du mois encore en pile — les sorties sont des lectures (#142),
+  // elles ont quitté la liste, leur récit vit au Journal.
+  const [isMonthFilterActive, setIsMonthFilterActive] = useState(false);
+  const currentMonth = localCurrentMonth();
   const sortedEntries = useMemo(
     () =>
       sortEntriesBy(
-        entries.filter((entry) =>
-          matchesSearch(entry, searchText, { title: (item) => item.title, seriesName: (item) => item.seriesName }),
-        ),
+        entries
+          .filter((entry) => !isMonthFilterActive || isMonthEntry(entry.enteredAt, currentMonth))
+          .filter((entry) =>
+            matchesSearch(entry, searchText, { title: (item) => item.title, seriesName: (item) => item.seriesName }),
+          ),
         sortOption,
         {
           createdAt: (entry) => entry.createdAt,
           title: (entry) => entry.title,
         },
       ),
-    [entries, searchText, sortOption],
+    [entries, searchText, sortOption, isMonthFilterActive, currentMonth],
   );
 
   // La santé du mois — dérivation PARTAGÉE (lib/pal/health), calculée avec le
   // mois LOCAL de l'appareil. La vue ne recompte plus rien elle-même.
   const { pileSize, monthEntries, monthExits, monthBalance } = computePalHealth(
     { entryDates, exitDates, undatedEntryCount, undatedExitCount, disposalExitDates },
-    localCurrentMonth(),
+    currentMonth,
   );
 
   return (
     <div className="mt-4 flex flex-col gap-5">
-      <dl className="grid grid-cols-2 gap-3">
-        {/* Solde POSITIF = la pile gonfle = rouge ; négatif = vert (specs design §2). */}
+      <div className="grid grid-cols-2 gap-3">
+        {/* Solde POSITIF = la pile gonfle = rouge ; négatif = vert (specs design §2).
+            Cette tuile-ci reste INERTE (#241, décision) : sur ce segment, la
+            liste EST déjà « Dans la pile » — un filtre qui ne change rien
+            apprendrait que les tuiles sont parfois mortes. */}
         <StatTile label="Dans la pile" value={pileSize} hint={`livre${pileSize > 1 ? "s" : ""} non lu${pileSize > 1 ? "s" : ""}`} />
         {/* La tuile parle de LIVRES, jamais d'un nombre signé nu (#133,
             found-in-prod) : « −8 » se lisait comme un score de −8 points,
-            alors que c'est le flux de la pile — le score vit au Bilan. */}
-        <StatTile
-          label="Pile ce mois-ci"
-          value={`${monthBalance > 0 ? `+${monthBalance}` : monthBalance} livre${Math.abs(monthBalance) > 1 ? "s" : ""}`}
-          tone={monthBalance > 0 ? "bad" : "good"}
-          hint={`${monthEntries} entrée${monthEntries > 1 ? "s" : ""} · ${monthExits} sortie${monthExits > 1 ? "s" : ""}`}
-        />
-      </dl>
+            alors que c'est le flux de la pile — le score vit au Bilan.
+            Depuis #241 c'est aussi un FILTRE : un tap ne montre que les
+            entrées du mois encore en pile, un tap ramène tout. */}
+        <button
+          type="button"
+          onClick={() => setIsMonthFilterActive((active) => !active)}
+          aria-pressed={isMonthFilterActive}
+          aria-label={
+            isMonthFilterActive
+              ? "Désactiver le filtre des entrées du mois"
+              : "Ne montrer que les livres entrés en pile ce mois-ci"
+          }
+          className="rounded-card text-left transition active:scale-[0.98] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+        >
+          <StatTile
+            label="Pile ce mois-ci"
+            value={`${monthBalance > 0 ? `+${monthBalance}` : monthBalance} livre${Math.abs(monthBalance) > 1 ? "s" : ""}`}
+            tone={monthBalance > 0 ? "bad" : "good"}
+            hint={
+              isMonthFilterActive
+                ? "filtre actif — taper pour tout revoir"
+                : `${monthEntries} entrée${monthEntries > 1 ? "s" : ""} · ${monthExits} sortie${monthExits > 1 ? "s" : ""}`
+            }
+            className={isMonthFilterActive ? "border-cyan" : ""}
+          />
+        </button>
+      </div>
 
       {error && <ErrorAlert message={error} />}
 
@@ -144,7 +174,11 @@ export function PalView({
             </div>
           )}
           {sortedEntries.length === 0 ? (
-            <p className="py-6 text-center text-sm text-ink2">Aucun livre de la pile ne correspond à la recherche.</p>
+            <p className="py-6 text-center text-sm text-ink2">
+              {isMonthFilterActive && searchText.trim() === ""
+                ? "Aucune entrée de ce mois-ci n'est encore en pile — un livre entré puis lu dans le mois est déjà au Journal."
+                : "Aucun livre de la pile ne correspond à la recherche."}
+            </p>
           ) : (
           <ul className="flex flex-col gap-3">
             {sortedEntries.map((entry) => (
