@@ -7,7 +7,7 @@ import { fileToWebpBlob } from "@/lib/books/cover-photo";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { recordAvatarPhoto, removeAvatarPhoto, updateDisplayName } from "@/lib/profile/actions";
 import { AVATAR_PHOTO, AVATARS_BUCKET, avatarPath } from "@/lib/profile/avatar";
-import { DISPLAY_NAME_MAX_LENGTH } from "@/lib/profile/display-name";
+import { DISPLAY_NAME_MAX_LENGTH, normalizeDisplayName } from "@/lib/profile/display-name";
 
 /**
  * L'édition du profil (issue #224) — pseudo et photo. La photo suit le patron
@@ -38,7 +38,11 @@ export function ProfileEditor({ displayName, hasAvatar }: ProfileEditorProps) {
 
   const busy = isUploading || isPending;
 
-  const runAction = (action: () => Promise<{ ok: true } | { ok: false; error: string }>, doneMessage: string) => {
+  const runAction = (
+    action: () => Promise<{ ok: true } | { ok: false; error: string }>,
+    doneMessage: string,
+    onSuccess?: () => void,
+  ) => {
     setError(null);
     setSavedMessage(null);
     startTransition(async () => {
@@ -48,8 +52,15 @@ export function ProfileEditor({ displayName, hasAvatar }: ProfileEditorProps) {
         return;
       }
       setSavedMessage(doneMessage);
+      onSuccess?.();
     });
   };
+
+  // La comparaison se fait sur la valeur NORMALISÉE (review #225) — le module
+  // est pur et isomorphe : « Léna  x » (double espace) est reconnu comme déjà
+  // égal au « Léna x » sauvé, le bouton se désactive vraiment.
+  const normalizedInput = normalizeDisplayName(nameInput);
+  const isNameUnchanged = normalizedInput.ok && normalizedInput.value === displayName;
 
   async function handleFile(file: File) {
     setIsUploading(true);
@@ -104,18 +115,29 @@ export function ProfileEditor({ displayName, hasAvatar }: ProfileEditorProps) {
         className="flex flex-wrap gap-2"
         onSubmit={(event) => {
           event.preventDefault();
-          runAction(() => updateDisplayName(nameInput), "Pseudo enregistré ✓");
+          if (!normalizedInput.ok) {
+            setError(normalizedInput.error);
+            return;
+          }
+          const { value } = normalizedInput;
+          // Au succès, l'input se resynchronise sur la valeur normalisée
+          // (review #225) : ce qui est affiché est ce qui est sauvé.
+          runAction(() => updateDisplayName(value), "Pseudo enregistré ✓", () => setNameInput(value));
         }}
       >
         <input
           value={nameInput}
-          onChange={(event) => setNameInput(event.target.value)}
+          onChange={(event) => {
+            setNameInput(event.target.value);
+            // Un « ✓ » à côté d'un texte non sauvé mentirait (review #225).
+            setSavedMessage(null);
+          }}
           maxLength={DISPLAY_NAME_MAX_LENGTH}
           aria-label="Pseudo"
           placeholder="Ton pseudo"
           className={INPUT_CLASS}
         />
-        <Button type="submit" variant="ghost" disabled={busy || nameInput.trim() === displayName}>
+        <Button type="submit" variant="ghost" disabled={busy || isNameUnchanged}>
           Enregistrer
         </Button>
       </form>

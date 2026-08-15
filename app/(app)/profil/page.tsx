@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { InstallSection } from "@/components/install-section";
 import { LogoutButton } from "@/components/logout-button";
@@ -49,12 +50,18 @@ export default async function ProfilPage() {
 
       {/* La photo de profil (#224) si posée — sinon l'avatar historique :
           initiale sur dégradé, encre `--bg0` (pas de blanc — audit #66, AA).
-          URL maison versionnée (?v=) → <img> nue, comme les couvertures
-          internes : next/image n'optimiserait rien de plus sur 56 px. */}
+          `unoptimized` : l'idiome maison pour nos URLs Storage versionnées
+          (?v=), comme book-cover — l'optimiseur n'apporterait rien sur 56 px. */}
       <div className="flex items-center gap-4">
         {avatarUrl !== null ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={avatarUrl} alt="" className="size-14 shrink-0 rounded-full object-cover" />
+          <Image
+            src={avatarUrl}
+            alt=""
+            width={56}
+            height={56}
+            unoptimized
+            className="size-14 shrink-0 rounded-full object-cover"
+          />
         ) : (
           <div
             aria-hidden
