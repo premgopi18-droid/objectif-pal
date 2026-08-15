@@ -149,10 +149,17 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
    **Sentry armé et vérifié** (projet EU `objectif-pal`), **ouverture plafonnée** (#211 : tout compte
    Google entre, jauge 100 — l'URL peut être annoncée à l'antenne), et **#32 lot C livré** (#212 :
    journal paginé 50/page, filtres côté requête, ordre #146 contractualisé dans la vue `journal_entries`).
-2. **Prochain chantier — agrégats des mois clos** (Phase 2, session dédiée) : matérialiser les bilans
-   clos côté serveur — allège bilan/stats ET fournit le socle « agrégats servis » de **§4.14 Amis**
-   (cap : le 1er septembre, premiers bilans comparés du cercle). ⚠️ Le sur-fetch de la PAL (lot B défait
-   par #101) se retraite dans ce chantier, avec `ownerships` dans l'équation.
+2. **Les agrégats des mois clos sont livrés le 15/08/2026** (PR #214 : `monthly_reports` +
+   `user_fact_versions` versionnées par triggers, synchro jamais bloquante depuis la page Bilan), tout
+   comme le **profil personnalisable** (#224/#225 : pseudo modifiable + photo — l'unicité arrive avec
+   la v1 amis). **Prochain chantier — Amis v1 (§4.14, spécifié le 15/08/2026, complété au tour du même
+   jour)** : amitié symétrique par demande de pseudo (unicité + confirmation du pseudo à l'entrée du
+   cercle — les défauts Google/email ne sont jamais cherchables ; recherche par préfixe bornée), bilans
+   clos comparés (rapport + distinctions + titres, jamais les avis), classement privé du cercle (par
+   mois + cumul annuel, « — » hors rang sans ligne), **job Actions du 1er du mois** qui matérialise les
+   agrégats de tous, et **refonte du Profil en espace personnel** (carte de paliste, cercle, réglages en
+   sous-page `/profil/reglages`) — pastille, pas de push. Cap : le 1er septembre. ⚠️ Le sur-fetch de la
+   PAL (lot B défait par #101) reste à retraiter, avec `ownerships` dans l'équation.
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs
 roman) à partir de Google Books — on n'a que des indices (éditeur, pages, langue). La catégorie proposée doit

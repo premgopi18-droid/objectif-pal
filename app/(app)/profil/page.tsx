@@ -1,8 +1,10 @@
 import Image from "next/image";
+import { CircleSection } from "@/components/circle/circle-section";
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { InstallSection } from "@/components/install-section";
 import { LogoutButton } from "@/components/logout-button";
 import { ProfileEditor } from "@/components/profile/profile-editor";
+import { getCircleView, type CircleView } from "@/lib/circle/queries";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 /**
@@ -39,6 +41,10 @@ export default async function ProfilPage() {
   const { data: profile } = user
     ? await supabase.from("profiles").select("display_name, avatar_url").eq("id", user.id).single()
     : { data: null };
+
+  // Le cercle (§4.14) : la porte, les demandes, les amis.
+  const emptyCircle: CircleView = { joined: false, friends: [], received: [], sent: [] };
+  const circle = user ? await getCircleView(supabase, user.id) : emptyCircle;
 
   const displayName = profile?.display_name ?? user?.email ?? "lecteur";
   const initial = displayName.charAt(0).toUpperCase();
@@ -81,6 +87,19 @@ export default async function ProfilPage() {
       <section className="flex flex-col gap-3">
         <h2 className={SECTION_LABEL}>Personnaliser</h2>
         <ProfileEditor displayName={displayName} hasAvatar={avatarUrl !== null} />
+      </section>
+
+      {/* Le cercle (§4.14, lot A) : porte d'entrée, recherche, demandes, amis.
+          Les bilans comparés arrivent au lot B. */}
+      <section className="flex flex-col gap-3">
+        <h2 className={SECTION_LABEL}>Le cercle</h2>
+        <CircleSection
+          joined={circle.joined}
+          currentDisplayName={displayName}
+          friends={circle.friends}
+          received={circle.received}
+          sent={circle.sent}
+        />
       </section>
 
       <section className="flex flex-col gap-3">

@@ -65,7 +65,7 @@ fait du livre, et parce que la règle de pile n'était écrite qu'à **un seul e
 |---|---|---|
 | **P0** | **Journal de lecture** (scan, catégorie, états, dates) + **achats** + **note et avis** + **bilan mensuel au barème** + analyses + **auth**, **PWA**, **export** | C'est le produit. Le bilan est le livrable ; le score n'est qu'une multiplication du décompte, il vient gratuitement avec. |
 | **P1** | **Objectifs mensuels** (cible par catégorie, jauge, bonus +3) + **distinctions du mois** | Le jeu de l'émission, et l'habillage éditorial du bilan. Ne servent à rien sans données : on les branche quand P0 tourne. |
-| **P2** | **Compétition** Prem vs Léna (comparaison mensuelle, « meilleur paliste » +5) | Plus tard. Le modèle de données est prêt à l'accueillir. |
+| **P2** | **Compétition** Prem vs Léna (comparaison mensuelle, « meilleur paliste » +5) | La **comparaison** arrive par les amis (§4.14, v1 spécifiée le 15/08/2026) ; seul le bonus +5 reste P2 — il touche au barème. |
 
 **Conséquence : la saisie doit être irréprochable avant tout le reste.** Une stat ne vaut que ce que vaut le
 journal. Scanner, classer et dater un bouquin doit être rapide et sans friction — c'est là qu'on met l'effort.
@@ -699,6 +699,118 @@ finition, où l'utilisateur saisit les infos sous les yeux (même principe que �
 > `inbox-` pour ne pas heurter la photo d'un livre) et reste une **photo maison**, donc reprenable plus tard
 > (#47).
 
+### 4.14 Les amis — le cercle et ses bilans comparés (décisions du 15/08/2026, v1 à livrer)
+
+Le multi-utilisateur promis depuis §1 prend sa première forme : **comparer son bilan à celui de ses amis**.
+Pas un réseau social — le cercle de l'émission et ses auditeurs, qui veulent se dire « et toi, ton mois ? ».
+Cap : **le 1er septembre**, premiers bilans comparés à l'antenne.
+
+Le socle est livré : les **agrégats des mois clos** (`monthly_reports`, #214) et l'**identité** (pseudo
+modifiable + photo, #224). La v1 construit le lien, la lecture croisée et la surface.
+
+#### Le lien : une amitié symétrique, sur demande acceptée
+
+- **Le pseudo devient unique, et se confirme à l'entrée du cercle.** #224 a livré le pseudo *modifiable*,
+  pas son *unicité* — et le pseudo par défaut est le **nom Google** ou le **début de l'email** (trigger
+  d'inscription) : un nom **subi**, que personne n'a choisi de publier. La v1 pose donc une contrainte
+  d'unicité (insensible à la casse) et une **porte** : au premier usage du cercle, l'app fait confirmer —
+  ou choisir — son pseudo. **Seuls les comptes entrés au cercle sont cherchables** : jamais un vrai nom
+  ni un début d'adresse email exposés par une recherche.
+- **Demande par pseudo + acceptation.** Je cherche un pseudo, j'envoie une demande, l'autre accepte —
+  l'amitié est symétrique, et **rien du bilan** n'est visible avant l'acceptation : seuls le pseudo et la
+  photo, déjà publiés par l'entrée au cercle, s'échangent avec la demande (le destinataire doit voir qui
+  demande pour décider). La demande envoyée
+  reste visible « en attente » et **s'annule** ; une **demande croisée** (chacun a demandé l'autre) vaut
+  acceptation automatique.
+- **La recherche est partielle (préfixe)** — taper « lé » trouve « léna23 ». Assumé : les pseudos se
+  découvrent. Les garde-fous bornent l'effet annuaire : minimum de caractères, résultats plafonnés,
+  quota par la RPC existante (`consume_action_quota`), normalisation partagée avec #224 (casse, espaces),
+  et la recherche n'expose que **pseudo + photo** — jamais une donnée de lecture.
+- **Deux gestes de sortie, silencieux** : refuser une demande, retirer un ami. L'autre ne reçoit rien —
+  il ne me voit simplement plus (et moi non plus : le retrait est symétrique). Le refus **supprime** la
+  demande : rien n'empêche d'en renvoyer une — le quota borne l'acharnement, et un refus par erreur (un
+  mauvais tap) n'est pas définitif. Pas de blocage en v1 : à ~100 comptes qui se connaissent, on attendra
+  un besoin réel.
+- **Pas d'opt-out séparé** : accepter = partager, retirer = arrêter. Un seul mécanisme, pas
+  d'interrupteur « partager mon bilan » — simple à expliquer à l'antenne, un état de moins à gérer.
+
+#### Ce qu'un ami voit — et ne verra jamais
+
+- **Tous mes mois clos, passés compris** : accepter, c'est ouvrir son bilan. Le cercle veut comparer
+  l'année entière, et la fonction de lecture n'a aucune date d'amitié à croiser.
+- Par mois clos : **le rapport du moteur** (score, détail des points, jauges d'objectif, bonus),
+  **les distinctions** et **les titres terminés** — exactement la ligne d'agrégat, la matière du bilan
+  d'antenne.
+- **Jamais les notes ni les avis** — garanti par construction : ils ne sont **pas dans l'agrégat**
+  (§4.3 : l'avis est un cadeau à l'antenne, pas une donnée publiée).
+- **Jamais le mois en cours** : il n'a pas de ligne (le socle le grave déjà) — l'app ne spoile pas le
+  reveal.
+
+#### Le classement du cercle — privé, sans enjeu de barème
+
+Chaque utilisateur a un cercle différent (mes amis ≠ les tiens) : un classement ne peut donc être que
+**le mien, vu par moi** — moi + mes amis, triés par score. Ce n'est pas un mode compétition : pas de
+bonus, pas de podium officiel, **un ordre d'affichage** dérivé des agrégats déjà servis.
+
+- **Par mois clos** : je navigue de mois en mois, chaque mois a son tri.
+- **Cumul de l'année** : la somme des mois clos de l'année — le fil « paliste de l'année ».
+- **L'ami sans ligne un mois donné s'affiche « — », hors classement** : pas de ligne = pas de bilan à
+  raconter. Le zéro reste réservé à un mois **joué** (une ligne existe : achats sans lecture, objectif
+  raté…) — on ne confond pas « n'a rien fait » et « pas de bilan ».
+- **Ex-aequo = même rang** : à score égal, pas de départage artificiel.
+- Le « **meilleur paliste +5** » reste **P2** : il touche au barème et exigera de définir un cercle de
+  référence officiel — précisément ce que la v1 ne veut pas trancher.
+
+#### La surface : le Profil devient l'espace personnel
+
+Le Profil d'aujourd'hui est une page de réglages. Il se refond en **espace personnel**, à deux étages :
+
+- **Le moi public** — photo, pseudo, et la **carte de paliste** : distinctions cumulées par type,
+  meilleur mois (score), total de l'année en cours, nombre de lectures. Tout se dérive des agrégats —
+  zéro donnée nouvelle. La carte est aussi un aperçu honnête : *c'est ce que tes amis voient de toi*
+  (leur fiche ami affiche la même, plus leurs bilans clos).
+- **Le cercle** — demandes en attente en tête, liste d'amis, entrée vers les bilans comparés et les
+  deux classements.
+- **Le moi privé, replié** — exports, installation PWA, session, zone dangereuse descendent en
+  sous-page `/profil/reglages`. **L'attribution GCD/Metron reste au pied du Profil** : c'est une
+  obligation de licence (§6), pas un réglage.
+
+#### Pas de notifications — une pastille
+
+Une demande d'ami doit être **vue**, pas poussée : **pastille sur l'onglet Profil** (compte des demandes
+en attente, chargé avec la nav) + section « Demandes » en tête de page. Le modèle est celui de la boîte
+de finition (§4.13), pas du push. Le vrai système de notifications reste au backlog (§12) ; le jour où il
+existera, les demandes s'y brancheront. Le retrait étant silencieux, la demande entrante est de toute
+façon **la seule chose à signaler**.
+
+#### L'architecture : des agrégats servis, jamais de RLS élargie
+
+Le principe gravé dans le socle (#214) : un ami lit **les lignes `monthly_reports`** via une fonction
+`security definer` dédiée qui **vérifie l'amitié**, jamais les lectures brutes — l'avis ne peut pas
+fuiter, même par bug. Les policies RLS existantes (chacun ses lignes) ne bougent pas — **y compris
+`profiles`** : lire le pseudo + photo d'autrui (recherche, liste d'amis, fiche) passe par la même porte
+contrôlée, `profiles_select_own` ne s'élargit pas (la photo, elle, est déjà servie par URL — bucket
+`avatars` public). Côté données : une table `friendships` (paire canonique, statut demande/acceptée,
+qui a demandé — le schéma exact se documente en §7 à la livraison), `on delete cascade` des **deux**
+côtés du lien (la suppression de compte #205 n'a rien de plus à faire), les quotas sur demande +
+recherche, et **l'export (§4.10) embarque `friendships`** — le cercle fait partie de « tout ce que
+l'app sait ».
+
+#### La fraîcheur : un job mensuel, les visites au fil de l'eau
+
+Les lignes d'agrégat sont entretenues par la page Bilan **du propriétaire** (#214) : sans filet, le
+bilan d'août d'un ami n'existerait le 1er septembre que s'il a rouvert son Bilan depuis. Pour fiabiliser
+le rendez-vous mensuel : un **job GitHub Actions le 1er du mois** (service-role, même moteur TS — le
+moule exact des jobs Covers/Maintenance existants, ~2-3 min/mois sur un quota qui n'en voit rien)
+matérialise les mois clos de **tous** les comptes. Les visites gardent la fraîcheur au fil de l'eau ;
+si un trou subsiste malgré tout, la fiche ami affiche « bilan pas encore relevé », jamais un zéro
+inventé.
+
+#### Ce que la v1 ne construit pas
+
+Le blocage de compte, l'opt-out de partage, le « meilleur paliste +5 » (P2), le push, et le modèle
+follow asymétrique (écarté : il exigerait un réglage public/privé — plus de spec, pas moins).
+
 ---
 
 ## 5. Le scan — architecture
@@ -1094,6 +1206,20 @@ au maximum (unicité sur `(user_id, month, kind)`).
 **`monthly_objectives`** (P1) — `user_id`, `month` (1er du mois).
 **`objective_targets`** (P1) — `objective_id`, `category`, `target_count`.
 
+**`friendships`** (§4.14, lot A) — le lien du cercle, en **paire canonique** (`user_low < user_high`,
+unicité sur la paire : une seule ligne possible par duo — la demande croisée se cogne dessus et devient
+acceptation) : `id`, `user_low`, `user_high`, `requester_id` (départage reçu/envoyé), `status`
+(`pending`/`accepted`), `created_at`, `accepted_at`. RLS : chaque membre de la paire lit ; seul le
+demandeur insère (`pending`, les **deux** comptes entrés au cercle — vérifié par `is_circle_member()`,
+`security definer`) ; seul le **destinataire** accepte, et l'update ne peut toucher que
+`status`/`accepted_at` (GRANT par colonnes — la paire est infalsifiable) ; refuser/annuler/retirer =
+DELETE par l'un ou l'autre, **silencieux**. Exception assumée à « suppression douce partout » : un lien
+est un état relationnel, pas une donnée de lecture. `profiles` gagne `circle_joined_at` (la porte §4.14)
+et un **index unique sur `lower(display_name)`**. Deux fonctions `security definer` servent les profils
+d'autrui (pseudo + photo seulement) : `search_circle_profiles(prefix)` (préfixe ≥ 2, 10 résultats, sous
+quota, comptes entrés au cercle seulement, jokers LIKE échappés) et `get_circle_profiles()` (les comptes
+liés à l'appelant) — `profiles_select_own` ne bouge pas.
+
 ### Tables de référence (GCD, en lecture seule)
 
 **`gcd_issues`** — **`gcd_id`**, `barcode` *(indexé)*, `barcode_prefix` *(indexé)*, `series_id`, `number`,
@@ -1268,8 +1394,10 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
   cœur (favoris). **L'architecture les accueille déjà** — ce sera un bouton de plus sur la feuille du scan et une
   table par action. Et la wishlist nourrit la santé de la PAL : *ce que je convoite* vs *ce que j'achète* vs *ce
   que je lis*, c'est le récit complet de l'émission.
-- **Mode multi** (P2) : comparaison mensuelle Prem vs Léna + « meilleur paliste du mois » (+5).
-- **Notifications** : rappel de fin de mois, objectif presque atteint.
+- **Mode multi** (P2) : la comparaison mensuelle est **spécifiée en §4.14** (amis, 15/08/2026) ; reste ici
+  le « meilleur paliste du mois » (+5), qui touche au barème et exige un cercle de référence officiel.
+- **Notifications** : rappel de fin de mois, objectif presque atteint — et les demandes d'ami (§4.14) s'y
+  brancheront le jour venu (v1 : pastille seulement).
 - **Instance Metron auto-hébergée** : leur code est en GPL, leurs données en CC BY-SA — une option si le volume
   d'appels dépassait un jour leur usage « personnel normal ». Peu probable : GCD fait déjà l'identification, et
   Metron ne sert qu'aux couvertures.

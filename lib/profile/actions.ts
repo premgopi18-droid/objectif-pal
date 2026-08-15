@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
 import { AVATARS_BUCKET, avatarPath } from "@/lib/profile/avatar";
-import { normalizeDisplayName } from "@/lib/profile/display-name";
+import { PSEUDO_TAKEN_MESSAGE, normalizeDisplayName } from "@/lib/profile/display-name";
 import { getSessionOrError } from "@/lib/supabase/server";
 
 /**
@@ -26,6 +26,8 @@ export async function updateDisplayName(raw: string): Promise<ProfileActionResul
     .update({ display_name: normalized.value })
     .eq("id", session.user.id);
   if (error) {
+    // Le pseudo est unique depuis §4.14 : la violation d'unicité a un vrai message.
+    if (error.code === "23505") return { ok: false, error: PSEUDO_TAKEN_MESSAGE };
     console.error("[profile] updateDisplayName:", error.message);
     return { ok: false, error: GENERIC_ERROR_MESSAGE };
   }

@@ -20,7 +20,12 @@ const TABS = [
   { href: "/profil", label: "Profil", icon: User },
 ] as const;
 
-export function BottomNavigation() {
+type BottomNavigationProps = {
+  /** Demandes d'ami en attente (§4.14) : pastille sur l'onglet Profil, 0 = rien. */
+  pendingRequestCount?: number;
+};
+
+export function BottomNavigation({ pendingRequestCount = 0 }: BottomNavigationProps) {
   const pathname = usePathname();
 
   return (
@@ -62,7 +67,19 @@ export function BottomNavigation() {
                   isActive ? "text-ink" : "text-ink3"
                 }`}
               >
-                <Icon aria-hidden className="size-[23px]" />
+                <span className="relative">
+                  <Icon aria-hidden className="size-[23px]" />
+                  {/* La pastille des demandes d'ami (§4.14) — cyan sur liseré
+                      sombre pour se détacher de l'icône, plafonnée à 9+. */}
+                  {href === "/profil" && pendingRequestCount > 0 && (
+                    <span
+                      aria-label={`${pendingRequestCount} demande${pendingRequestCount > 1 ? "s" : ""} d'ami en attente`}
+                      className="absolute -right-2 -top-1.5 grid min-w-4 place-items-center rounded-full border-2 border-bg0 bg-cyan px-0.5 text-[9px] font-black leading-4 text-bg0"
+                    >
+                      {pendingRequestCount > 9 ? "9+" : pendingRequestCount}
+                    </span>
+                  )}
+                </span>
                 {label}
                 {/* Le trait dégradé 14×3px sous le libellé marque l'onglet actif (§3). */}
                 <span
