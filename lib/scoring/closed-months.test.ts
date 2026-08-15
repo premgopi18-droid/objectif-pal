@@ -11,6 +11,15 @@ import type { PurchaseFact } from "./types";
  */
 
 let counter = 0;
+/** Les métadonnées publiques neutres du livre de test (#236). */
+const emptyBook = {
+  coverUrl: null,
+  seriesName: null,
+  authors: null,
+  publisher: null,
+  pageCount: null,
+  isbn: null,
+};
 const reading = (overrides: Partial<BilanReadingFact> = {}): BilanReadingFact => {
   counter += 1;
   return {
@@ -21,6 +30,7 @@ const reading = (overrides: Partial<BilanReadingFact> = {}): BilanReadingFact =>
     status: "finished",
     startedAt: null,
     finishedAt: "2026-06-10",
+    book: emptyBook,
     ...overrides,
   };
 };
@@ -97,5 +107,40 @@ describe("buildStoredMonthlyReport", () => {
       objectivesByMonth: {},
     });
     expect(stored.finishedReadings.map((entry) => entry.title)).toEqual(["Astérix", "Zola"]);
+  });
+
+  it("les terminées embarquent les métadonnées PUBLIQUES du livre (#236) — et la catégorie de la lecture", () => {
+    const stored = buildStoredMonthlyReport("2026-06", {
+      readings: [
+        reading({
+          finishedAt: "2026-06-10",
+          title: "Feral. tome I",
+          category: "comics",
+          book: {
+            coverUrl: "https://exemple.test/cover.webp",
+            seriesName: "Feral",
+            authors: "Tony Fleecs",
+            publisher: "Panini France",
+            pageCount: 128,
+            isbn: "9791039127967",
+          },
+        }),
+      ],
+      purchases: [],
+      objectivesByMonth: {},
+    });
+    expect(stored.finishedReadings).toEqual([
+      {
+        readingId: expect.any(String),
+        title: "Feral. tome I",
+        category: "comics",
+        coverUrl: "https://exemple.test/cover.webp",
+        seriesName: "Feral",
+        authors: "Tony Fleecs",
+        publisher: "Panini France",
+        pageCount: 128,
+        isbn: "9791039127967",
+      },
+    ]);
   });
 });

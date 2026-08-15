@@ -20,12 +20,58 @@ const validStored = () => ({
 });
 
 describe("parseStoredMonthlyReport", () => {
-  it("accepte une ligne écrite par buildStoredMonthlyReport", () => {
+  it("accepte une ligne écrite par buildStoredMonthlyReport — les métadonnées absentes deviennent null (ligne d'avant #236)", () => {
     const parsed = parseStoredMonthlyReport(validStored());
     expect(parsed).not.toBeNull();
     expect(parsed?.report.total).toBe(4.5);
     expect(parsed?.report.objective?.achieved).toBe(true);
-    expect(parsed?.finishedReadings).toEqual([{ readingId: "r1", title: "One Piece T.1" }]);
+    expect(parsed?.finishedReadings).toEqual([
+      {
+        readingId: "r1",
+        title: "One Piece T.1",
+        category: null,
+        coverUrl: null,
+        seriesName: null,
+        authors: null,
+        publisher: null,
+        pageCount: null,
+        isbn: null,
+      },
+    ]);
+  });
+
+  it("embarque les métadonnées publiques du livre quand la ligne les porte (#236)", () => {
+    const stored = validStored();
+    stored.finishedReadings = [
+      {
+        readingId: "r1",
+        title: "One Piece T.1",
+        category: "manga",
+        coverUrl: "https://exemple.test/c.webp",
+        seriesName: "One Piece",
+        authors: "Eiichirō Oda",
+        publisher: "Glénat",
+        pageCount: 192,
+        isbn: "9782723488526",
+      },
+    ] as never;
+    const parsed = parseStoredMonthlyReport(stored);
+    expect(parsed?.finishedReadings[0]).toMatchObject({
+      category: "manga",
+      coverUrl: "https://exemple.test/c.webp",
+      isbn: "9782723488526",
+      pageCount: 192,
+    });
+  });
+
+  it("un champ de métadonnée mal typé est ignoré CHAMP PAR CHAMP — la ligne survit (#236)", () => {
+    const stored = validStored();
+    stored.finishedReadings = [
+      { readingId: "r1", title: "One Piece T.1", coverUrl: 42, category: "poésie", pageCount: "beaucoup" },
+    ] as never;
+    const parsed = parseStoredMonthlyReport(stored);
+    expect(parsed).not.toBeNull();
+    expect(parsed?.finishedReadings[0]).toMatchObject({ coverUrl: null, category: null, pageCount: null });
   });
 
   it("accepte un objectif absent (null) et des catégories manquantes (zéro par défaut)", () => {

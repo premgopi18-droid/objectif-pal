@@ -13,7 +13,8 @@ import { addMonths, formatMonthFrench, localCurrentMonth } from "@/lib/dates";
 import { computeMonthlyReport } from "@/lib/scoring/monthly-report";
 import { formatPoints, reportToText, type PickLine } from "@/lib/scoring/report-text";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
-import type { BookCategory, MonthlyObjective, PurchaseFact, ReadingFact } from "@/lib/scoring/types";
+import type { BilanReadingFact } from "@/lib/scoring/closed-months";
+import type { BookCategory, MonthlyObjective, PurchaseFact } from "@/lib/scoring/types";
 
 /**
  * La vue du bilan — le décompte par catégorie, les achats non lus, l'objectif
@@ -25,11 +26,12 @@ import type { BookCategory, MonthlyObjective, PurchaseFact, ReadingFact } from "
  * (+vert/−rouge), CTA « Copier » dégradé + toast — tout aux tokens.
  */
 
-/** Une lecture du bilan : le fait du moteur + de quoi nommer une distinction. */
-export type BilanReading = ReadingFact & {
-  readingId: string;
-  title: string;
-};
+/**
+ * Une lecture du bilan : le fait du moteur + de quoi nommer une distinction —
+ * c'est le MÊME contrat que la matérialisation des mois clos (#236 : les
+ * métadonnées publiques du livre voyagent avec, pour la ligne d'agrégat).
+ */
+export type BilanReading = BilanReadingFact;
 
 /** Une distinction telle que la page la charge (mois en `YYYY-MM`). */
 export type MonthlyPickRecord = {

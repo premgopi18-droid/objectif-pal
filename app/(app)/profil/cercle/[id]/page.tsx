@@ -94,7 +94,11 @@ export default async function FriendPage({ params }: { params: Promise<{ id: str
                 <h2 className="mb-2 text-sm font-extrabold capitalize text-ink2">{formatMonthFrench(month)}</h2>
                 <Card>
                   {stored !== undefined ? (
-                    <MonthReportCard stored={stored} picks={friend.picksByMonth[month] ?? []} />
+                    <MonthReportCard
+                      stored={stored}
+                      picks={friend.picksByMonth[month] ?? []}
+                      ownerDisplayName={friend.displayName}
+                    />
                   ) : (
                     <p className="text-sm text-ink3">Bilan indisponible pour ce mois.</p>
                   )}

@@ -155,7 +155,11 @@ export function CircleReportsView({ participants, currentYear }: CircleReportsVi
                 </button>
                 {isOpen && stored !== undefined && selectedMonth !== null && (
                   <div className="border-t border-line p-3">
-                    <MonthReportCard stored={stored} picks={participant.picksByMonth[selectedMonth] ?? []} />
+                    <MonthReportCard
+                      stored={stored}
+                      picks={participant.picksByMonth[selectedMonth] ?? []}
+                      ownerDisplayName={participant.displayName}
+                    />
                   </div>
                 )}
               </Card>

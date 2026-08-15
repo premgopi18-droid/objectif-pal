@@ -164,7 +164,11 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
    mon Profil ET la fiche ami : l'aperçu honnête est structurel), le **Profil en espace personnel**
    (identité + carte + cercle, réglages descendus en sous-page `/profil/reglages`, attribution
    maintenue au pied — licence §6), et le parseur d'agrégat resserré (format du mois). **Amis v1 est
-   complet.** Cap : premiers bilans comparés à l'antenne le 1er septembre — le job doit avoir tourné.
+   complet**, et le 16/08 l'affine encore : carte héros au palmarès en médailles (#234, maquette validée)
+   et **terminés du mois en couvertures** (#236 : métadonnées publiques du livre dans la ligne d'agrégat,
+   grille plafonnée-dépliable, feuille au tap avec ISBN copiable — ⚠️ après déploiement, bump one-shot
+   des `user_fact_versions` + run manuel du job pour rematérialiser le parc). Cap : premiers bilans
+   comparés à l'antenne le 1er septembre — le job doit avoir tourné.
    ⚠️ Le sur-fetch de la PAL (lot B défait par #101) reste à retraiter, avec `ownerships` dans l'équation.
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs
