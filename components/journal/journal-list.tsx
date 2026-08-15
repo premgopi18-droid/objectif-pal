@@ -180,12 +180,20 @@ export function JournalList({
     searchTimer.current = null;
   };
   // Resync sur navigation EXTERNE (bouton retour) — sans écraser une frappe en
-  // cours : si l'input trim correspond déjà à l'URL, on n'y touche pas. Un
-  // timer encore en attente est annulé : il re-committerait l'aiguille
-  // par-dessus l'URL restaurée (review #223).
+  // cours : si l'input trim correspond déjà à l'URL, on n'y touche pas.
+  // AJUSTEMENT PENDANT LE RENDU (#228, pattern React « adjusting state when
+  // props change ») : le setState dans un effet déclenchait un rendu en
+  // cascade — ici React re-rend avant de committer, et le lint repasse au
+  // vert. L'annulation du timer reste dans un effet (c'est un effet de bord,
+  // pas un état) : en attente, il re-committerait l'aiguille par-dessus l'URL
+  // restaurée (review #223).
+  const [previousSearch, setPreviousSearch] = useState(search);
+  if (previousSearch !== search) {
+    setPreviousSearch(search);
+    if (searchInput.trim() !== search) setSearchInput(search);
+  }
   useEffect(() => {
     cancelPendingSearch();
-    setSearchInput((current) => (current.trim() === search ? current : search));
   }, [search]);
   useEffect(() => () => cancelPendingSearch(), []);
 
