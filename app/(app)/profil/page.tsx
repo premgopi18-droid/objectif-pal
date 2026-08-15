@@ -1,6 +1,7 @@
 import { DeleteAccountButton } from "@/components/delete-account-button";
 import { InstallSection } from "@/components/install-section";
 import { LogoutButton } from "@/components/logout-button";
+import { ProfileEditor } from "@/components/profile/profile-editor";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 /**
@@ -35,30 +36,45 @@ export default async function ProfilPage() {
   } = await supabase.auth.getUser();
 
   const { data: profile } = user
-    ? await supabase.from("profiles").select("display_name").eq("id", user.id).single()
+    ? await supabase.from("profiles").select("display_name, avatar_url").eq("id", user.id).single()
     : { data: null };
 
   const displayName = profile?.display_name ?? user?.email ?? "lecteur";
   const initial = displayName.charAt(0).toUpperCase();
+  const avatarUrl = profile?.avatar_url ?? null;
 
   return (
     <section className="flex min-h-full flex-col gap-8 py-6">
       <h1 className="text-[22px] font-black uppercase italic tracking-tight">Profil</h1>
 
-      {/* Avatar rond dégradé + initiale. Encre `--bg0` sur le dégradé, pas de
-          blanc — décision d'audit #66 (le blanc échoue AA sur le cran vert). */}
+      {/* La photo de profil (#224) si posée — sinon l'avatar historique :
+          initiale sur dégradé, encre `--bg0` (pas de blanc — audit #66, AA).
+          URL maison versionnée (?v=) → <img> nue, comme les couvertures
+          internes : next/image n'optimiserait rien de plus sur 56 px. */}
       <div className="flex items-center gap-4">
-        <div
-          aria-hidden
-          className="grid size-14 shrink-0 place-items-center rounded-full bg-grad text-[22px] font-black text-bg0"
-        >
-          {initial}
-        </div>
+        {avatarUrl !== null ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={avatarUrl} alt="" className="size-14 shrink-0 rounded-full object-cover" />
+        ) : (
+          <div
+            aria-hidden
+            className="grid size-14 shrink-0 place-items-center rounded-full bg-grad text-[22px] font-black text-bg0"
+          >
+            {initial}
+          </div>
+        )}
         <div className="min-w-0">
           <p className="truncate font-extrabold">{displayName}</p>
           {user?.email && <p className="truncate text-sm text-ink2">{user.email}</p>}
         </div>
       </div>
+
+      {/* Personnalisation (#224) : pseudo + photo — la donnée que le cercle
+          d'amis (§4.14) affichera telle quelle. */}
+      <section className="flex flex-col gap-3">
+        <h2 className={SECTION_LABEL}>Personnaliser</h2>
+        <ProfileEditor displayName={displayName} hasAvatar={avatarUrl !== null} />
+      </section>
 
       <section className="flex flex-col gap-3">
         <h2 className={SECTION_LABEL}>Mes données</h2>

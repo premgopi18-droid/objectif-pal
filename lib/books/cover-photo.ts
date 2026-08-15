@@ -80,13 +80,18 @@ export function isOwnHouseCoverPhotoUrl(
 
 /**
  * Redimensionne et convertit la photo en WebP via canvas — jamais l'image
- * brute du capteur (souvent plusieurs Mo) sur le réseau.
+ * brute du capteur (souvent plusieurs Mo) sur le réseau. Dimensions et qualité
+ * en options depuis #224 (l'avatar recompresse plus petit) — défauts inchangés :
+ * la couverture reste le cas historique.
  */
-export async function fileToWebpBlob(file: File): Promise<Blob> {
+export async function fileToWebpBlob(
+  file: File,
+  { maxDimension, webpQuality }: { maxDimension: number; webpQuality: number } = COVER_PHOTO,
+): Promise<Blob> {
   // `from-image` : l'orientation EXIF du capteur est appliquée — sans ça,
   // une photo prise en portrait peut atterrir couchée selon le navigateur.
   const bitmap = await createImageBitmap(file, { imageOrientation: "from-image" });
-  const scale = Math.min(1, COVER_PHOTO.maxDimension / Math.max(bitmap.width, bitmap.height));
+  const scale = Math.min(1, maxDimension / Math.max(bitmap.width, bitmap.height));
   const width = Math.max(1, Math.round(bitmap.width * scale));
   const height = Math.max(1, Math.round(bitmap.height * scale));
 
@@ -102,7 +107,7 @@ export async function fileToWebpBlob(file: File): Promise<Blob> {
     canvas.toBlob(
       (blob) => (blob ? resolve(blob) : reject(new Error("conversion WebP impossible"))),
       "image/webp",
-      COVER_PHOTO.webpQuality,
+      webpQuality,
     );
   });
 }

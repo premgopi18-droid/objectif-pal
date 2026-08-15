@@ -3,6 +3,7 @@
 import { createAdminClient } from "@/lib/supabase/admin";
 import { COVERS_BUCKET } from "@/lib/books/cover-photo";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
+import { AVATARS_BUCKET } from "@/lib/profile/avatar";
 import { getSessionOrError } from "@/lib/supabase/server";
 
 /**
@@ -31,31 +32,46 @@ export type DeleteAccountResult = { ok: true } | { ok: false; error: string };
 
 const STORAGE_PAGE_SIZE = 100;
 
+/**
+ * Vide le dossier {user_id}/ d'un bucket — par pages, jusqu'à épuisement.
+ * Pas d'offset (review #206) : chaque remove fait remonter la page
+ * suivante — on reliste depuis le début jusqu'à une page vide ou incomplète.
+ */
+async function purgeStorageFolder(
+  admin: ReturnType<typeof createAdminClient>,
+  bucket: string,
+  userId: string,
+): Promise<boolean> {
+  for (;;) {
+    const { data: objects, error: listError } = await admin.storage
+      .from(bucket)
+      .list(userId, { limit: STORAGE_PAGE_SIZE });
+    if (listError) {
+      console.error(`[account] deleteAccount storage list (${bucket}):`, listError.message);
+      return false;
+    }
+    if (!objects || objects.length === 0) return true;
+    const paths = objects.map((object) => `${userId}/${object.name}`);
+    const { error: removeError } = await admin.storage.from(bucket).remove(paths);
+    if (removeError) {
+      console.error(`[account] deleteAccount storage remove (${bucket}):`, removeError.message);
+      return false;
+    }
+    if (objects.length < STORAGE_PAGE_SIZE) return true;
+  }
+}
+
 export async function deleteAccount(): Promise<DeleteAccountResult> {
   const session = await getSessionOrError();
   if (!session) return { ok: false, error: "Authentification requise." };
   const { user } = session;
   const admin = createAdminClient();
 
-  // 1. Les photos du dossier {user_id}/ — par pages, jusqu'à épuisement.
-  // Pas d'offset (review #206) : chaque remove fait remonter la page
-  // suivante — on reliste depuis le début jusqu'à une page vide ou incomplète.
-  for (;;) {
-    const { data: objects, error: listError } = await admin.storage
-      .from(COVERS_BUCKET)
-      .list(user.id, { limit: STORAGE_PAGE_SIZE });
-    if (listError) {
-      console.error("[account] deleteAccount storage list:", listError.message);
+  // 1. Les fichiers Storage — photos maison (covers) ET avatar (#224).
+  for (const bucket of [COVERS_BUCKET, AVATARS_BUCKET]) {
+    if (!(await purgeStorageFolder(admin, bucket, user.id))) {
       return { ok: false, error: GENERIC_ERROR_MESSAGE };
     }
-    if (!objects || objects.length === 0) break;
-    const paths = objects.map((object) => `${user.id}/${object.name}`);
-    const { error: removeError } = await admin.storage.from(COVERS_BUCKET).remove(paths);
-    if (removeError) {
-      console.error("[account] deleteAccount storage remove:", removeError.message);
-      return { ok: false, error: GENERIC_ERROR_MESSAGE };
-    }
-    if (objects.length < STORAGE_PAGE_SIZE) break;
   }
 
   // 2. L'invitation — l'email ne doit survivre nulle part.
