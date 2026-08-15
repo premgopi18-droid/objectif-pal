@@ -1,3 +1,4 @@
+import { FinishedCovers } from "@/components/circle/finished-covers";
 import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { ALL_PICK_KINDS, PICK_KIND_BADGE_STATE, PICK_KIND_LABELS, PICK_KIND_MEDALS } from "@/lib/books/pick-kinds";
@@ -22,10 +23,12 @@ import { ALL_CATEGORIES } from "@/lib/scoring/types";
 type MonthReportCardProps = {
   stored: StoredMonthlyReport;
   picks: ParticipantPick[];
+  /** Le pseudo du propriétaire du bilan — le contexte de la feuille du livre (#236). */
+  ownerDisplayName: string;
 };
 
 
-export function MonthReportCard({ stored, picks }: MonthReportCardProps) {
+export function MonthReportCard({ stored, picks, ownerDisplayName }: MonthReportCardProps) {
   const { report, finishedReadings } = stored;
   const categoryLines = ALL_CATEGORIES.map((category) => [category, report.finishedByCategory[category]] as const).filter(
     ([, count]) => count > 0,
@@ -91,17 +94,10 @@ export function MonthReportCard({ stored, picks }: MonthReportCardProps) {
         </div>
       )}
 
+      {/* Les terminés en COUVERTURES (#236) : grille plafonnée-dépliable +
+          feuille d'info au tap — remplace la liste de titres. */}
       {finishedReadings.length > 0 && (
-        <div>
-          <p className="text-xs font-bold uppercase tracking-[0.12em] text-ink3">Terminés ce mois-là</p>
-          <ul className="mt-1 flex flex-col gap-0.5 text-sm text-ink2">
-            {finishedReadings.map((reading) => (
-              <li key={reading.readingId} className="truncate">
-                {reading.title}
-              </li>
-            ))}
-          </ul>
-        </div>
+        <FinishedCovers readings={finishedReadings} ownerDisplayName={ownerDisplayName} month={report.month} />
       )}
     </div>
   );

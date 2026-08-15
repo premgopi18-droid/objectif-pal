@@ -61,10 +61,25 @@ export function parseStoredMonthlyReport(value: unknown): StoredMonthlyReport | 
     objective = { progress, achieved: report.objective.achieved, bonus: report.objective.bonus };
   }
 
+  // Les métadonnées publiques du livre (#236) : optionnelles et tolérées
+  // champ par champ — une ligne d'AVANT #236 n'en a aucune (repli titre à
+  // l'affichage), et une couverture mal typée ne jette pas la ligne. Seuls
+  // `readingId` et `title` restent éliminatoires : sans eux, rien à afficher.
+  const optionalString = (candidate: unknown): string | null => (typeof candidate === "string" ? candidate : null);
   const finishedReadings = [];
   for (const entry of value.finishedReadings) {
     if (!isRecord(entry) || typeof entry.readingId !== "string" || typeof entry.title !== "string") return null;
-    finishedReadings.push({ readingId: entry.readingId, title: entry.title });
+    finishedReadings.push({
+      readingId: entry.readingId,
+      title: entry.title,
+      category: ALL_CATEGORIES.find((known) => known === entry.category) ?? null,
+      coverUrl: optionalString(entry.coverUrl),
+      seriesName: optionalString(entry.seriesName),
+      authors: optionalString(entry.authors),
+      publisher: optionalString(entry.publisher),
+      pageCount: isFiniteNumber(entry.pageCount) ? entry.pageCount : null,
+      isbn: optionalString(entry.isbn),
+    });
   }
 
   return {

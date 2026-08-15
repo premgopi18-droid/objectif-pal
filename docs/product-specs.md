@@ -739,7 +739,14 @@ modifiable + photo, #224). La v1 construit le lien, la lecture croisée et la su
 - **Tous mes mois clos, passés compris** : accepter, c'est ouvrir son bilan. Le cercle veut comparer
   l'année entière, et la fonction de lecture n'a aucune date d'amitié à croiser.
 - Par mois clos : **le rapport du moteur** (score, détail des points, jauges d'objectif, bonus),
-  **les distinctions** et **les titres terminés** — la ligne d'agrégat, la matière du bilan d'antenne.
+  **les distinctions** et **les terminés du mois** — la ligne d'agrégat, la matière du bilan d'antenne.
+  Depuis #236 (16/08/2026), chaque terminée embarque les **métadonnées publiques du livre** — couverture,
+  série, auteurs, catégorie, éditeur, pages, **ISBN** : des faits du livre, jamais de l'utilisateur. À
+  l'écran : les terminés en **grille de couvertures** (plafonnée à ~2 rangées, tuile « +N » qui déplie),
+  et un tap ouvre la **feuille du livre** (ISBN copiable — le pont voulu vers la librairie, sans lien
+  sortant). Le **résumé/synopsis a été écarté** (pas de donnée en base, backfill dévoreur des quotas
+  partagés, poids des lignes) — s'il revient un jour : capture au scan pour les futurs livres, jamais de
+  backfill.
   Les distinctions ne sont pas DANS la ligne (les picks ne sont pas versionnés, choix #214) : elles sont
   **servies à part** par une fonction dédiée, mois clos seulement (décision lot B, 15/08/2026 — tranche le
   point ouvert du lot C, option « servie »). Le **type et la lecture distinguée** voyagent, le titre se

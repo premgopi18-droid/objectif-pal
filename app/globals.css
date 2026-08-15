@@ -113,6 +113,28 @@ textarea {
 }
 
 /*
+ * La feuille du livre (#236) : glissée du bas + fond qui s'assombrit, à
+ * l'ouverture seulement (la fermeture démonte, nette). Neutralisées par le
+ * bloc prefers-reduced-motion ci-dessous, comme tout le reste.
+ */
+@keyframes sheet-in {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+@keyframes fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+/*
  * prefers-reduced-motion : LE point de vérité unique (design-specs §6, #73).
  * Coupe d'un coup toute animation/transition CSS de l'app — la ligne de scan
  * (#69), les active:scale des boutons, les transitions d'onglets/segments. Les

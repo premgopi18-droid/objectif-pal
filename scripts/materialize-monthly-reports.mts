@@ -66,7 +66,11 @@ async function loadFacts(userId: string) {
     fetchAllRows(async (from, to) => {
       const { data, error } = await supabase
         .from("readings")
-        .select("id, book_id, status, started_at, finished_at, book:books!inner (title, category, deleted_at)")
+        // Le MÊME select que la page Bilan (#236) : les métadonnées publiques
+        // du livre partent dans la ligne d'agrégat.
+        .select(
+          "id, book_id, status, started_at, finished_at, book:books!inner (title, category, deleted_at, cover_url, series_name, authors, publisher, page_count, isbn)",
+        )
         .eq("user_id", userId)
         .eq("status", "finished")
         .is("deleted_at", null)
@@ -103,6 +107,14 @@ async function loadFacts(userId: string) {
     status: row.status,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
+    book: {
+      coverUrl: row.book.cover_url,
+      seriesName: row.book.series_name,
+      authors: row.book.authors,
+      publisher: row.book.publisher,
+      pageCount: row.book.page_count,
+      isbn: row.book.isbn,
+    },
   }));
   const purchases: PurchaseFact[] = purchasesRows.map((row) => ({
     bookId: row.book_id,

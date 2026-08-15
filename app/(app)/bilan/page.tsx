@@ -168,11 +168,15 @@ export default async function BilanPage({
       // L'inner join sur books élague les livres supprimés en douceur : sans lui,
       // les lectures/achats d'un livre effacé pèseraient au bilan tout en ayant
       // disparu de la PAL. book_id est NOT NULL → l'inner join ne perd rien.
-      // `id` et `title` servent aux distinctions (choisir une lecture du mois).
+      // `id` et `title` servent aux distinctions ; les métadonnées PUBLIQUES du
+      // livre (#236 : couverture, série, auteurs, éditeur, pages, ISBN) partent
+      // dans la ligne d'agrégat — c'est ce qu'un ami voit d'une terminée.
       fetchAllRows(async (from, to) => {
         const { data, error } = await supabase
           .from("readings")
-          .select("id, book_id, status, started_at, finished_at, book:books!inner (title, category, deleted_at)")
+          .select(
+            "id, book_id, status, started_at, finished_at, book:books!inner (title, category, deleted_at, cover_url, series_name, authors, publisher, page_count, isbn)",
+          )
           .eq("status", "finished")
           .is("deleted_at", null)
           .is("book.deleted_at", null)
@@ -215,6 +219,14 @@ export default async function BilanPage({
     status: row.status,
     startedAt: row.started_at,
     finishedAt: row.finished_at,
+    book: {
+      coverUrl: row.book.cover_url,
+      seriesName: row.book.series_name,
+      authors: row.book.authors,
+      publisher: row.book.publisher,
+      pageCount: row.book.page_count,
+      isbn: row.book.isbn,
+    },
   }));
 
   const purchases: PurchaseFact[] = (purchasesRows ?? []).map((row) => ({
