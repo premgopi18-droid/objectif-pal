@@ -103,13 +103,13 @@ describe("la recherche en mémoire", () => {
 
 describe("le tri", () => {
   it("« récents » : derniers ajoutés d'abord ; « alphabétique » : titres en ordre français", () => {
-    expect(sortLibraryEntries(entries, "recent").map((entry) => entry.bookId)).toEqual(["b", "c", "a"]);
-    expect(sortLibraryEntries(entries, "alphabetical").map((entry) => entry.bookId)).toEqual(["a", "c", "b"]);
+    expect(sortLibraryEntries(entries, "activite").map((entry) => entry.bookId)).toEqual(["b", "c", "a"]);
+    expect(sortLibraryEntries(entries, "titre").map((entry) => entry.bookId)).toEqual(["a", "c", "b"]);
   });
 
   it("ne mute pas l'entrée (la liste d'origine reste dans son ordre)", () => {
     const before = entries.map((entry) => entry.bookId);
-    sortLibraryEntries(entries, "alphabetical");
+    sortLibraryEntries(entries, "titre");
     expect(entries.map((entry) => entry.bookId)).toEqual(before);
   });
 });
@@ -208,17 +208,17 @@ describe("« Récents » = dernière activité (#146)", () => {
       }),
       bookRow({ id: "fiche-neuve", created_at: "2026-07-21T09:00:00Z" }),
     ]);
-    const sorted = sortLibraryEntries([justCreated, oldButActive], "recent");
+    const sorted = sortLibraryEntries([justCreated, oldButActive], "activite");
     expect(sorted[0].bookId).toBe("vieux-mais-actif");
   });
 
   it("sans aucune activité, la création de fiche fait foi — comme avant", () => {
     const entries = deriveLibrary([
       bookRow({ id: "ancien", created_at: "2026-07-01T10:00:00Z" }),
-      bookRow({ id: "recent", created_at: "2026-07-21T10:00:00Z" }),
+      bookRow({ id: "activite", created_at: "2026-07-21T10:00:00Z" }),
     ]);
-    const sorted = sortLibraryEntries(entries, "recent");
-    expect(sorted[0].bookId).toBe("recent");
+    const sorted = sortLibraryEntries(entries, "activite");
+    expect(sorted[0].bookId).toBe("activite");
   });
 });
 

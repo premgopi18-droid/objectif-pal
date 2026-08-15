@@ -22,7 +22,14 @@ import {
   type LibrarySortOrder,
   type LibraryStatus,
 } from "@/lib/library/derive-library";
+import { SortSelect } from "@/components/ui/sort-select";
+import { ENTRY_SORT_LABELS } from "@/lib/sort/entry-sort";
 import type { ComponentProps } from "react";
+
+/** Les tris de l'inventaire (#217) — « Activité récente » = l'ancien « Récents » (#146). */
+const LIBRARY_SORT_OPTIONS = (["ajout", "ajout-ancien", "activite", "titre", "titre-inverse"] as const).map(
+  (value) => ({ value, label: ENTRY_SORT_LABELS[value] }),
+);
 
 /**
  * La vue Bibliothèque (issue #49, #152) — l'INVENTAIRE du possédé, recherche en
@@ -49,7 +56,8 @@ type LibraryViewProps = {
 
 export function LibraryView({ entries }: LibraryViewProps) {
   const [searchText, setSearchText] = useState("");
-  const [sortOrder, setSortOrder] = useState<LibrarySortOrder>("recent");
+  // « Ajout récent » par défaut (#217) : le dernier scan en haut.
+  const [sortOrder, setSortOrder] = useState<LibrarySortOrder>("ajout");
   const { run, isPending, error } = useBookGestures();
   /** La fiche ouverte en édition — une seule à la fois (#100). */
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -118,14 +126,9 @@ export function LibraryView({ entries }: LibraryViewProps) {
           aria-label="Rechercher dans la bibliothèque"
           className="flex-1 rounded-xl border border-line bg-card px-3 py-2.5 text-sm text-ink placeholder:text-ink3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
         />
-        <Button
-          type="button"
-          variant="ghost"
-          aria-label="Changer le tri"
-          onClick={() => setSortOrder(sortOrder === "recent" ? "alphabetical" : "recent")}
-        >
-          {sortOrder === "recent" ? "Récents" : "A → Z"}
-        </Button>
+        {/* Le sélecteur commun (#217) — « Ajout récent » par défaut, et
+            « Activité récente » préserve l'ancien « Récents » (#146). */}
+        <SortSelect value={sortOrder} options={LIBRARY_SORT_OPTIONS} onChange={setSortOrder} className="shrink-0" />
       </div>
 
       {error && <ErrorAlert message={error} />}

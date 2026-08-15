@@ -36,6 +36,8 @@ export type PalEntry = {
   issueNumber: string | null;
   category: BookCategory;
   coverUrl: string | null;
+  /** La création de la FICHE (le moment du scan) — la clé du tri « ajout » (#217). */
+  createdAt: string;
   /** La date d'entrée en pile — `null` si elle est inconnue (« je possède » sans date, #101). */
   enteredAt: IsoDate | null;
   /**
@@ -334,7 +336,7 @@ type Tables = Database["public"]["Tables"];
  */
 export type PalBookRecord = Pick<
   Tables["books"]["Row"],
-  "id" | "title" | "series_name" | "issue_number" | "category" | "cover_url" | "deleted_at"
+  "id" | "title" | "series_name" | "issue_number" | "category" | "cover_url" | "created_at" | "deleted_at"
 > & {
   purchases: Pick<Tables["purchases"]["Row"], "id" | "purchased_at" | "deleted_at">[] | null;
   readings: Pick<Tables["readings"]["Row"], "status" | "finished_at" | "deleted_at">[] | null;
@@ -420,6 +422,7 @@ export function derivePal(books: PalBookRecord[]): PalDerivation {
       issueNumber: book.issue_number,
       category: book.category,
       coverUrl: book.cover_url,
+      createdAt: book.created_at,
       enteredAt: movement.entryDate,
       entrySource:
         movement.entryVia.kind === "purchase"
