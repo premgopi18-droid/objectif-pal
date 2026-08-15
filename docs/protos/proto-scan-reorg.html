@@ -169,6 +169,25 @@
   .try { font-size: 12.5px; color: var(--ink3); margin-top: 10px; }
   .try::before { content: "👆 "; }
 
+  /* ====== Rafale ====== */
+  .setcard { display: flex; flex-direction: column; gap: 10px; border: 1px solid var(--line); background: var(--card); border-radius: 16px; padding: 12px; }
+  .seg { flex: 1; min-width: 0; border: none; border-radius: 12px; padding: 8px 5px; font: inherit; font-size: 12px; font-weight: 500; background: var(--card2); color: var(--ink2); cursor: pointer; }
+  .seg.on { background: color-mix(in srgb, var(--cyan) 15%, transparent); color: var(--ink); box-shadow: inset 0 0 0 1px var(--cyan); }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .rrow.sm { padding: 9px 11px; margin-top: 0; gap: 9px; align-items: center; }
+  .rrow.sm b { font-size: 12.5px; }
+  .cam { position: relative; height: 148px; border-radius: 16px; background: #0a0518; border: 1px solid var(--line); overflow: hidden; display: grid; place-items: center; color: var(--ink3); font-size: 12px; margin-top: 12px; }
+  .cam .scanline { position: absolute; left: 8%; right: 8%; height: 2px; background: var(--grad); opacity: .8; animation: scan 2.4s ease-in-out infinite; }
+  @keyframes scan { 0%, 100% { top: 18%; } 50% { top: 82%; } }
+  .badge { flex-shrink: 0; border-radius: 999px; padding: 3px 9px; font-size: 11px; font-weight: 600; }
+  .badge.pile { background: color-mix(in srgb, var(--cyan) 15%, transparent); color: var(--cyan); }
+  .badge.done { background: color-mix(in srgb, var(--green) 15%, transparent); color: var(--green); }
+  .badge.penalty { background: color-mix(in srgb, var(--red) 15%, transparent); color: var(--red); }
+  .badge.inbox { background: color-mix(in srgb, var(--amber) 15%, transparent); color: var(--amber); }
+  .chip { flex-shrink: 0; border: 1px solid var(--line); border-radius: 999px; padding: 3px 8px; font-size: 11px; color: var(--ink2); background: none; cursor: pointer; }
+  .srow { display: flex; align-items: center; gap: 8px; border: 1px solid var(--line); background: var(--card); border-radius: 14px; padding: 8px 10px; }
+  .srow .t { flex: 1; min-width: 0; font-size: 13px; color: var(--ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
   /* ====== Matrice ====== */
   .table-wrap { overflow-x: auto; margin-top: 24px; border: 1px solid var(--line); border-radius: 20px; }
   table { border-collapse: collapse; width: 100%; min-width: 780px; font-size: 13.5px; }
@@ -213,6 +232,7 @@
     <a href="#opt-a">A · Intention d’abord</a>
     <a href="#opt-b">B · Tiroir « déjà à moi »</a>
     <a href="#opt-c">C · Sélecteur + Valider</a>
+    <a href="#rafale">Rafale · réglages</a>
     <a href="#matrice">Matrice des cas</a>
     <a href="#verdict">Verdict</a>
   </nav>
@@ -328,6 +348,34 @@
         </ul>
         <div class="verdict"><b>En une phrase :</b> la seule option qui répond frontalement à « bien pouvoir faire toutes les possibilités sur le scan simple » — les 5 gestes deviennent des égaux lisibles, au prix d’un tap de plus sur l’achat.</div>
         <div class="verdict" style="margin-top:12px"><b>Variante « champs au-dessus »</b> (activée par défaut dans le proto) : on vérifie la fiche — catégorie, date — <em>avant</em> de choisir le geste, et l’écran se termine naturellement sur le bouton de validation. Deux revers à connaître : quand on change d’intention en bas, le libellé de la date se met à jour <em>au-dessus du pouce</em>, hors du regard ; et la case « Je ne sais plus quand » apparaît/disparaît au-dessus des choix, ce qui fait bouger la mise en page. Décoche l’interrupteur au-dessus du téléphone pour comparer les deux ordres.</div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ==================== RAFALE ==================== -->
+  <section class="opt" id="rafale">
+    <div class="opt-head"><span class="tag">Après #166</span><h2>Rafale — la barre de réglages</h2></div>
+    <p class="opt-sub">Le moteur de la rafale ne bouge pas d'un pixel (capture découplée, boîte de finition, badges, liste de session). Seule la <strong>barre de réglages</strong> passe au langage du scan solo : cartes radio à pastille, hint dynamique, et <strong>date au libellé contextuel</strong>. Bascule l'interrupteur pour comparer.</p>
+    <div class="duo">
+      <div class="phone-col">
+        <label class="sim"><input type="checkbox" id="sim-burst" checked> Version proposée (cohérente avec le solo)</label>
+        <div class="phone"><div class="screen" id="ph-r"><div class="scroll"></div></div></div>
+        <p class="try">Change d'intention et coche « Je connais la date » — dans les deux versions — pour sentir la différence.</p>
+      </div>
+      <div class="argu">
+        <h3>Les trois changements</h3>
+        <ul class="pro">
+          <li><strong>La date dit enfin ce qu'elle date.</strong> Aujourd'hui le champ s'appelle « Date » alors que son sens change avec l'intention (acquisition pour « Je possède »/« J'achète », fin de lecture pour les deux autres) — la règle n'existe que dans un commentaire de code. Proposé : le libellé contextuel du solo (« À moi depuis » / « Terminé le » / « Acheté le »), réutilisé depuis <code>SHEET_INTENTS.dateLabel</code>.</li>
+          <li><strong>Les intentions passent en cartes radio 2×2</strong> — même langage visuel que la feuille solo (pastille, bord cyan actif), fini les 4 segments écrasés sur une ligne de 360 px. Sous la grille, <strong>une ligne de hint dynamique</strong> (celle de l'intention sélectionnée) explique l'effet du geste — la pédagogie du solo pour une seule ligne de hauteur : la caméra reste au-dessus du pli.</li>
+          <li><strong>Un seul fichier de vocabulaire.</strong> Les libellés courts de rafale rejoignent <code>sheet-intents.ts</code> (champ <code>burstLabel</code>) : toute la langue du scan au même endroit, divergences assumées testables, et la 6ᵉ intention #164 n'aura qu'un seul fichier à remplir.</li>
+        </ul>
+        <h3 style="margin-top:22px">Ce qu'on garde tel quel (et pourquoi)</h3>
+        <ul class="con">
+          <li><strong>La polarité de la case</strong> : « Je connais la date » (défaut = sans date) reste l'inverse du solo (« Je ne sais plus quand », défaut = aujourd'hui) — sur une étagère d'avant, la date inconnue EST le cas nominal. Chaque défaut est juste dans son contexte ; on documente, on n'harmonise pas.</li>
+          <li><strong>Pas de cartes complètes avec hints intégrés</strong> : elles doubleraient la hauteur de la barre et pousseraient la caméra sous le pli — le hint dynamique donne la même info pour une ligne.</li>
+          <li><strong>Tout le moteur</strong> : pipeline scan→écriture→boîte, badges de rangement réel (#139), correction de catégorie inline, retrait réversible, session persistante (#131) — durci par de vrais bugs de prod, on n'y touche pas.</li>
+        </ul>
+        <div class="verdict"><b>Bonus visible dans le proto :</b> avec « J'achète » sélectionné et la date non cochée, la version proposée dit « Achat daté d'aujourd'hui — coche pour changer » : le défaut silencieux de l'achat (#120) devient explicite.</div>
       </div>
     </div>
   </section>
@@ -640,6 +688,64 @@
   });
   document.getElementById("sim-reread").addEventListener("change", (e) => { reread = e.target.checked; renderC(); });
   document.getElementById("sim-order").addEventListener("change", (e) => { fieldsTop = e.target.checked; renderC(); });
+
+  /* ==================== RAFALE ==================== */
+  const BURST_INTENTS = {
+    own:      { seg: "Je possède", hint: "L’étagère d’avant l’app — ils entrent dans la pile", dateLabel: "À moi depuis" },
+    own_read: { seg: "Possédé, déjà lu", hint: "À moi et déjà terminés — Biblio, pas PAL", dateLabel: "Terminé le" },
+    read:     { seg: "Lu — emprunt", hint: "Médiathèque, prêt — je ne les possède pas", dateLabel: "Terminé le" },
+    purchase: { seg: "J’achète · −1/livre", hint: "Le retour de librairie — le seul geste qui touche au barème", dateLabel: "Acheté le" },
+  };
+  const R = { intent: "own", dateKnown: false, proposed: true };
+  const renderR = mount("ph-r", () => {
+    const it = BURST_INTENTS[R.intent];
+    const dateCheck = `<label class="checkrow" style="margin-top:0"><input type="checkbox" data-a="dk" ${R.dateKnown ? "checked" : ""}> Je connais la date</label>`;
+    const settings = R.proposed
+      ? `<div class="setcard">
+          <div class="grid2" role="radiogroup" aria-label="Ce que je fais de ces livres">
+            ${Object.entries(BURST_INTENTS).map(([k, v]) => `
+              <button type="button" class="rrow sm${R.intent === k ? " on" : ""}" data-a="pick" data-v="${k}" role="radio" aria-checked="${R.intent === k}">
+                <span class="dot"></span><b>${v.seg}</b>
+              </button>`).join("")}
+          </div>
+          <p class="note" style="margin:0;min-height:16px">${it.hint}</p>
+          ${dateCheck}
+          ${R.dateKnown
+            ? dateRow(it.dateLabel, TODAY)
+            : R.intent === "purchase"
+              ? `<p class="note" style="margin:0">Achat daté d’aujourd’hui — coche pour changer.</p>`
+              : ""}
+        </div>`
+      : `<div class="setcard">
+          <div style="display:flex;gap:6px" role="group" aria-label="Ce que je fais de ces livres">
+            ${Object.entries(BURST_INTENTS).map(([k, v]) => `
+              <button type="button" class="seg${R.intent === k ? " on" : ""}" data-a="pick" data-v="${k}">${v.seg}</button>`).join("")}
+          </div>
+          ${dateCheck}
+          ${R.dateKnown ? `<input class="dinput" type="date" value="${TODAY}" max="${TODAY}" aria-label="Date" data-a="noop" style="align-self:flex-start">` : ""}
+        </div>`;
+    return `
+      <div style="display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:12px">
+        <div>
+          <h3 class="stitle" style="margin:0">Scan d’étagère</h3>
+          <p class="ssub" style="margin:2px 0 0">Chaque scan est enregistré aussitôt, rien ne se perd.</p>
+        </div>
+        <button type="button" class="pill" data-a="noop">Terminer</button>
+      </div>
+      ${settings}
+      <div class="cam"><span class="scanline"></span>Caméra — vise les codes-barres à la chaîne</div>
+      <button type="button" class="btn btn-ghost" data-a="noop" style="margin-top:10px">Pas de code-barres — photographier</button>
+      <p class="note" style="margin-top:12px"><strong style="color:var(--ink)">2</strong> ajoutés · 1 à compléter</p>
+      <div style="display:flex;flex-direction:column;gap:8px;margin-top:8px">
+        <div class="srow"><span class="t">Sillage T.4 — Le signe des démons</span><button type="button" class="chip" data-a="noop">BD<span style="color:var(--amber)"> ?</span></button><span class="badge pile">Dans la PAL</span><span style="color:var(--ink3)">×</span></div>
+        <div class="srow"><span class="t">One Piece T.42</span><button type="button" class="chip" data-a="noop">Manga</button><span class="badge done">Lu</span><span style="color:var(--ink3)">×</span></div>
+        <div class="srow"><span class="t">9782756012345</span><span class="badge inbox">À compléter</span><span style="color:var(--ink3)">×</span></div>
+      </div>`;
+  }, (a, t) => {
+    if (a === "pick") R.intent = t.dataset.v;
+    else if (a === "dk") R.dateKnown = !R.dateKnown;
+  });
+  document.getElementById("sim-burst").addEventListener("change", (e) => { R.proposed = e.target.checked; renderR(); });
 })();
 </script>
 

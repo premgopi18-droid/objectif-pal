@@ -461,6 +461,16 @@ Pas un écran à part : le score **est** le total du bilan. Décomposition visib
 et plus tard bonus objectif) + historique des mois précédents. **Entièrement dérivé** du journal et des achats :
 aucune saisie spécifique, aucun stockage de score.
 
+> **Le cache des mois clos (livré le 15/08/2026, PR #214 — le socle « agrégats servis » de §4.14).** Le score
+> reste dérivé ; les mois **clos** sont simplement **matérialisés** dans `monthly_reports` (§7), un cache que
+> la page Bilan entretient quand la **version des faits** a bougé (`user_fact_versions`, bumpée par
+> **triggers** sur lectures, achats, livres et objectifs — aucune action applicative à instrumenter,
+> impossible d'oublier un chemin). Le recalcul se paie **à la modification, pas à la visite** ; le mois
+> courant garde son calcul en direct (fraîcheur, fuseau) ; un cache vidé se reconstruit à l'identique depuis
+> les faits. La propriété du barème qui rend le mois clos stable : « une lecture terminée un mois suivant
+> n'efface rien » — seule une édition **rétroactive** périme un mois clos, et c'est exactement ce que la
+> version détecte.
+
 ### 4.8 Authentification (P0)
 
 **Connexion Google (OAuth), via Supabase Auth.** Un bouton, un tap, pas de mot de passe à retenir.
@@ -469,6 +479,30 @@ aucune saisie spécifique, aucun stockage de score.
 > d'environnement (`NEXT_PUBLIC_SITE_URL`), **le login depuis une preview renvoie sur la prod**. Il faut
 > construire le `redirectTo` à partir de l'**origine réelle de la requête**, pas d'une constante — sinon on ne
 > peut plus tester un flux authentifié ailleurs qu'en production.
+
+**L'ouverture plafonnée (décidé le 15/08/2026, epic #182)** : l'URL est annoncée **à l'antenne**, à une
+audience — pas à un cercle dont on connaîtrait les emails. La porte est donc : **tout compte Google entre,
+premier arrivé premier servi, dans la limite de ~100 comptes** (le garde-fou vit dans le trigger
+d'inscription ; au-delà, `/login` affiche « L'app affiche complet »). La table `allowed_emails` reste en
+réserve, dormante, si la porte doit se refermer un jour (option « code d'invitation à l'antenne »). Le
+plafond est un garde-fou d'**infra gratuite** (jauges partagées dimensionnées pour ~100), pas une règle
+produit — il se relève le jour où l'infra suit.
+
+**La suppression de compte (RGPD, livré le 15/08/2026)** : dans le Profil, zone dangereuse, confirmation
+par saisie de « SUPPRIMER ». Efface **tout** — données (cascade SQL exercée et vérifiée), photos du
+Storage (couvertures maison **et avatar**), entrée d'invitation. Les contributions bibliographiques au
+cache partagé restent (ce ne sont pas des données personnelles), anonymisées (`created_by → null`).
+L'export (§4.10) juste au-dessus reste le chemin naturel : partir **avec** ses données.
+
+**Le profil personnalisable (issue #224, livré le 15/08/2026)** : le pseudo (`display_name`, semé depuis
+Google à l'inscription) devient **modifiable**, et une **photo de profil** s'ajoute — c'est la donnée que
+le cercle d'amis (§4.14) affichera telle quelle (« pseudo + avatar + score »). Prénom/nom **écartés
+volontairement** : aucun écran ne les affiche, on ne collecte pas de donnée personnelle sans usage.
+Architecture : bucket Storage `avatars` **séparé** de `covers` (la purge mensuelle des orphelins ratisse
+`covers` et y effacerait un avatar), **un seul objet par utilisateur** (`{user_id}/avatar.webp`, écrasé à
+chaque changement — le stockage est plafonné par le nombre de comptes, ~15 Ko en WebP 256 px compressé
+côté client), URL versionnée `?v=` pour percer les caches. Pseudo normalisé (trim, espaces réduits,
+borne 40) par une règle **pure et partagée** client/serveur.
 
 ### 4.9 L'app est une PWA (P0)
 
@@ -513,6 +547,13 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
   pagination #32), tri « récents / A→Z », et les **gestes existants** : « je commence », photo de
   couverture (#33/#47). L'édition des métadonnées reste au rescan **(v1 livrée — voir la puce « à
   construire » ci-dessous, qui la remplace)**.
+- **Tri & recherche unifiés (livré le 15/08/2026, #217/#222)** : le tri devient un **sélecteur commun** aux
+  trois listes (comparateur pur `lib/sort/entry-sort`) — défaut « ajout récent », A→Z/Z→A **article compté**
+  (décision du 15/08), « Activité récente » préservant l'ordre #146 — et le Journal gagne **7 ordres via
+  l'URL** (l'Activité #146 reste le défaut). La recherche passe par un **module commun** `lib/search`
+  (accents ET ligatures — « coeur » trouve « Cœur » — parité avec `unaccent` SQL) : **en SQL au Journal**
+  (colonne `search_text` de la vue `journal_entries`, compatible pagination #212), en mémoire à la PAL et à
+  la Biblio (listes bornées).
 - **Badge d'état** (priorité) : En cours > Lu > Dans la PAL (possédé non lu — l'abandon n'en sort pas,
   §4.6) > Abandonné > **Sans activité** (l'angle mort, enfin visible).
 - **Édition de fiche** (issue #100, livrée le 20/07/2026) : **formulaire complet** depuis la Biblio — titre,
@@ -699,6 +740,76 @@ finition, où l'utilisateur saisit les infos sous les yeux (même principe que �
 > `inbox-` pour ne pas heurter la photo d'un livre) et reste une **photo maison**, donc reprenable plus tard
 > (#47).
 
+### 4.14 Les amis — voir le bilan de l'autre (spécifié le 25/07/2026, pas construit)
+
+Le premier pas du multi-utilisateur (§1, horizon 4-5 personnes qui se connaissent toutes). Le but n'est **pas**
+un réseau social : c'est de pouvoir regarder **le bilan mensuel de l'autre** — la matière de l'antenne — depuis
+l'app. Quatre décisions de cadrage (25/07/2026), toutes dans le sens de la version la plus sobre :
+
+1. **Le lien est une amitié mutuelle, créée par invitation.** L'app génère un **lien d'invitation** à durée
+   limitée, partagé hors de l'app (WhatsApp…) ; l'ouvrir connecté et confirmer **crée l'amitié** — le lien vaut
+   demande, la confirmation vaut acceptation. Pas de recherche par email (il faudrait connaître l'adresse exacte
+   du compte Google, et ça révélerait l'existence d'un compte). Le lien **survit à l'inscription** : on peut
+   inviter quelqu'un qui n'a pas encore de compte. Le retrait est **unilatéral, immédiat et symétrique** — sans
+   notification, en suppression douce (§7), et la ré-invitation reste possible.
+2. **Un ami voit le bilan, rien d'autre.** Exactement ce qui se dit à l'antenne : **score du mois, décompte de
+   lectures terminées par catégorie, objectif atteint ou non, et les trois distinctions** (titres élus, **sans
+   le commentaire**). Ni journal, ni notes, ni avis, ni PAL, ni biblio, ni courbes : le détail des lectures
+   reste privé. Élargir plus tard restera possible ; l'inverse, non. *(Assoupli au second temps par le fil
+   d'activité, ci-dessous — titres et notes des lectures terminées ; l'avis, jamais.)*
+3. **Mois clos seulement — l'app ne spoile jamais le reveal.** Le mois courant de l'autre est invisible jusqu'à
+   sa clôture : chacun découvre le bilan de l'autre **à l'émission**. L'app est le registre, l'antenne reste le
+   spectacle. (Un mois est clos quand il est strictement antérieur au mois courant — les dates sont des `date`,
+   §7, pas de piège de fuseau.) *(Le fil d'activité, second temps, assouplit ce point pour les lectures seules —
+   les chiffres restent scellés, voir ci-dessous.)*
+4. **Lecture seule, et pas de compétition.** Aucune réaction, aucun commentaire, aucune écriture croisée. Le
+   « meilleur paliste du mois » (+5, §3) reste **parqué** : ce système est le **substrat** du P2, pas le P2 —
+   le classement et son barème se spécifieront à part, en voyant de vraies données comparées.
+
+**Surface UI** : un **segment « Amis »** dans l'onglet Bilan (à côté de Bilan / Stats) — c'est là qu'on compare
+des bilans. La **gestion** du lien (inviter, retirer) vit dans le Profil. La nav 5 onglets ne bouge pas.
+
+> **⚠️ L'architecture qui rend tout ça sûr : des agrégats servis, pas de RLS élargie.** Puisqu'un ami ne voit
+> que des chiffres, **aucune politique RLS des tables existantes ne bouge** — « tu ne lis que tes lignes »
+> reste vrai sur `readings`, `purchases`, `monthly_picks`, partout. Le bilan de l'ami est calculé **côté
+> serveur** (fonction `security definer` ou server action) qui vérifie l'amitié puis renvoie **les agrégats
+> seuls**. Les lignes brutes — avis compris — restent physiquement inaccessibles : un avis ne peut pas fuiter,
+> même par bug d'affichage. La seule RLS croisée du système est celle de `friendships` elle-même.
+
+> **Effet de bord connu** : l'ouverture multi-utilisateur est le déclencheur déclaré du **#32 lot C**
+> (pagination du journal). À 4-5 amis consultant des agrégats, rien ne presse — mais le sujet remonte dans la
+> file le jour où l'app sort du cercle. *(Livré depuis : #212, 15/08/2026 — journal paginé côté requête,
+> l'ordre #146 contractualisé dans la vue `journal_entries`.)*
+
+#### Le fil d'activité — le second temps (spécifié le 25/07/2026, pas construit)
+
+Une fois les bilans consultables, le fil fait vivre l'app **entre deux émissions** : « Léna a terminé
+*[titre]* ★★★★ ». Décisions du 25/07/2026 :
+
+- **Un seul événement : la lecture terminée.** Pas de « commencé », pas d'abandon, pas d'achat dans le fil —
+  chaque item montre **titre, catégorie et note** (étoiles). **L'avis n'apparaît jamais** : il reste privé,
+  sans exception ni réglage. C'est ce qui rend le fil sans friction — rien à masquer, donc rien à configurer.
+- **En direct, chiffres scellés — l'assouplissement est assumé.** Le fil coule au fil de l'eau (c'est tout son
+  intérêt), ce qui rogne consciemment les points 2 et 3 ci-dessus **pour les lectures seules** : score,
+  objectif et distinctions du mois courant restent invisibles jusqu'à la clôture. L'antenne garde son reveal
+  chiffré ; on accepte qu'un ami attentif puisse « compter » les lectures vues passer.
+- **Le fil démarre à l'amitié, avec une journée d'amorce.** Les items visibles sont ceux datés d'au plus
+  **1 jour avant la création de l'amitié** (constante `FEED_BACKFILL_DAYS = 1`, ajustable) — le fil n'est pas
+  vide au premier regard, sans pour autant déballer l'historique. La borne ne vaut que pour le **fil** : les
+  bilans des mois clos restent consultables sans limite (décision v1, inchangée).
+- **Une lecture sans date n'apparaît pas** (« déjà lu » sans date, §4.13) : pas de date → pas d'événement
+  datable, exactement comme elle ne compte dans aucun mois (§7). Le tri suit `finished_at` (une `date` — les
+  items d'un même jour s'ordonnent entre eux par date d'enregistrement).
+
+> **Zéro migration au-delà de la v1 amis.** Les lectures terminées seules, l'avis jamais montré, pas de
+> masquage par lecture : le fil est une **pure dérivation** de `readings` + `friendships` — aucune colonne,
+> aucune table de plus. Et l'architecture v1 tient telle quelle : les **projections servies** généralisent les
+> agrégats (le serveur compose les items et ne renvoie **que les champs décidés** — le champ `comment` ne
+> transite jamais), toujours **zéro élargissement RLS** sur les tables existantes.
+
+**Surface UI** : le segment « Amis » du Bilan s'ouvre sur le **fil**, les bilans clos de chaque ami restant
+accessibles depuis leurs items ou une entrée par ami.
+
 ---
 
 ## 5. Le scan — architecture
@@ -856,6 +967,18 @@ redistribution), **zéro quota**, et c'est **l'exemplaire réel** avec sa vraie 
 >   `capture` — le navigateur propose nativement caméra ou photothèque). Usage privé, l'argument « aucune
 >   redistribution » tient.
 > - **Compression** : 800 px de grand côté, WebP qualité 0,8 (~60-150 Ko) ; un seul objet par livre, écrasé.
+
+> **Décision du 15/08/2026 — le RAPATRIEMENT des couvertures (epic #182, Phase 2) : la posture change.**
+> Le hotlink permanent décrit dans cette section n'existe plus : chaque couverture résolue est désormais
+> **copiée chez nous** (WebP 400 px ~18 Ko, `{user_id}/cover-{book_id}.webp`, cache navigateur 1 an) par un
+> job quotidien — le hotlink ne dure qu'**un jour au plus** après le scan, la réparation #53 couvrant cette
+> fenêtre. Pourquoi : la panne corrélée (un CDN qui coupe = des centaines de couvertures mortes d'un coup —
+> 83 couvertures Inventaire ont RÉELLEMENT été retrouvées mortes en prod lors de la migration), le quota de
+> transformations Vercel (nos WebP sont servis `unoptimized`), et l'egress. La cascade de résolution et ses
+> crans ci-dessus restent inchangés : les sources servent à **trouver** ; le bucket sert à **garder**. Le
+> cache partagé (`barcode_cache`) conserve l'URL **source** — chaque compte internalise sa copie. Posture
+> assumée : on passe d'« afficher depuis la source » à « héberger une copie réduite à but d'identification »,
+> avec attribution au Profil (pratique standard des apps de bibliothèque).
 
 > **Décisions du 19/07/2026 (deuxième vague — le trou VF)** — déclencheur : *Batman : La Cour des Hiboux*
 > (Urban Comics 2022, 9791026820963), fiche Google Books **sans image**, inconnu d'OpenLibrary, d'Inventaire
@@ -1094,6 +1217,25 @@ au maximum (unicité sur `(user_id, month, kind)`).
 **`monthly_objectives`** (P1) — `user_id`, `month` (1er du mois).
 **`objective_targets`** (P1) — `objective_id`, `category`, `target_count`.
 
+**`monthly_reports`** (livré 15/08/2026, §4.7) — le **cache matérialisé** des bilans des mois clos :
+`user_id`, `month` (1er du mois), `report` (jsonb — rapport moteur + terminées du mois), `fact_version`
+(la version des faits au moment du calcul), `computed_at`. RLS own, et **DELETE permis** (exception assumée
+à « suppression douce partout » : c'est un cache, un mois redevenu vide se retire, les faits sont ailleurs).
+C'est **cette table** que lira un ami via la fonction dédiée (§4.14) — jamais les lignes brutes.
+**`user_fact_versions`** (livré 15/08/2026) — un compteur par utilisateur, bumpé par **triggers** sur
+readings/purchases/books (ciblé titre/catégorie/deleted_at)/objectifs : c'est lui qui périme le cache.
+Aucune policy d'écriture — seul le trigger (`security definer`) écrit.
+
+**`friend_invites`** (§4.14, pas construit) — un lien d'invitation : `inviter_id`, `token` (opaque, non
+devinable), `expires_at`, `accepted_by` / `accepted_at` (nullables), `deleted_at`. Un token accepté ou expiré
+est mort ; la révocation est une suppression douce.
+
+**`friendships`** (§4.14, pas construit) — le lien mutuel, **une ligne par paire** : `user_low_id`,
+`user_high_id` (la paire normalisée `low < high` rend l'unicité triviale et interdit le doublon inversé),
+`created_at`, `deleted_at`. Retrait = suppression douce ; ré-invitation = nouvelle ligne. **Seule table du
+système d'amis avec RLS croisée** (chaque membre de la paire lit la ligne) — les bilans des amis passent par
+des agrégats servis, jamais par un élargissement des politiques existantes (§4.14).
+
 ### Tables de référence (GCD, en lecture seule)
 
 **`gcd_issues`** — **`gcd_id`**, `barcode` *(indexé)*, `barcode_prefix` *(indexé)*, `series_id`, `number`,
@@ -1120,6 +1262,8 @@ Pas de `user_id` sur ces trois tables : **données publiques**. **RLS activée q
 
 **Le score.** Il est **toujours dérivé** des lectures, des achats et du barème. Aucune colonne `points`, aucune
 table `scores`. Changer le barème ne demandera **aucune migration** — juste une constante et un redéploiement.
+(`monthly_reports` n'y déroge pas : c'est un **cache** des mois clos, jetable et reconstruit à l'identique
+depuis les faits — §4.7.)
 
 ---
 
@@ -1268,7 +1412,10 @@ sans réécrire l'app**. Le lock-in ne vient jamais de l'outil, il vient de ses 
   cœur (favoris). **L'architecture les accueille déjà** — ce sera un bouton de plus sur la feuille du scan et une
   table par action. Et la wishlist nourrit la santé de la PAL : *ce que je convoite* vs *ce que j'achète* vs *ce
   que je lis*, c'est le récit complet de l'émission.
-- **Mode multi** (P2) : comparaison mensuelle Prem vs Léna + « meilleur paliste du mois » (+5).
+- **Mode multi** (P2) : comparaison mensuelle Prem vs Léna + « meilleur paliste du mois » (+5). **Son
+  substrat est désormais spécifié** — le système d'amis (§4.14, 25/07/2026) : lien mutuel par invitation,
+  bilans des mois clos en lecture seule, puis **fil d'activité** en second temps (lectures terminées en
+  direct, note sans avis). Le classement et le +5 restent à spécifier à part.
 - **Notifications** : rappel de fin de mois, objectif presque atteint.
 - **Instance Metron auto-hébergée** : leur code est en GPL, leurs données en CC BY-SA — une option si le volume
   d'appels dépassait un jour leur usage « personnel normal ». Peu probable : GCD fait déjà l'identification, et

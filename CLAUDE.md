@@ -74,7 +74,7 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > globale du blanc), séparation emblème/titre par composantes connexes (le rayon bleu est soudé au « O » :
 > coupe chirurgicale dans le noir fusionné, appliquée à l'emblème seul), anti-halo + décontamination des
 > bords, icônes en PNG palette (÷5 sur le poids) — icônes, maskable, favicon et splash enfin **nets**.
-> Restent : #32 lot C (différé volontaire) et l'idée produit #97 (passerelle League of Comic Geeks).
+> Reste l'idée produit #97 (passerelle League of Comic Geeks).
 > **Le 14/08/2026, décision d'ouvrir à 30-40 utilisateurs (plafond ~100, à coût nul)** : audit complet en
 > 4 passes (base/RLS, accès données, chaîne externe, auth/exploitation), plan « Objectif 100 » (epic #182),
 > et **la Phase 0 livrée le jour même** (PRs #183→#188, 445 → 521 tests) : inscription sur **allowlist**
@@ -85,7 +85,28 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > 7 j + file client à 2), **troncature PostgREST éradiquée** (`fetchAllRows` sur export et `reading_events`),
 > cache partagé assaini (couvertures d'hôtes connus seuls, `created_by`, bornes 1 000 car.), et
 > **observabilité** : Sentry (erreurs seulement, DSN à poser) + CI GitHub Actions (tests+build par PR,
-> contrat #60 quotidien contre la prod).**
+> contrat #60 quotidien contre la prod). **Les Phases 1 ET 2-couvertures suivent le 15/08/2026**
+> (PRs #190→#212) : backups hebdo chiffrés validés jusqu'à la restauration, région `cdg1` co-localisée,
+> politesse de la chaîne externe (UA identifiant, budget 7 s, rafale en file), SW auto-réparant (garde #60
+> au précache, v5), finitions base + certification zéro dérive (91 objets), refresh GCD en staging+bascule
+> (~ms d'indisponibilité), cloisonnement RLS prouvé chaque jour en CI (2 comptes de test), catalogue GCD
+> caché 24 h, suppression de compte RGPD (cascade exercée sur compte jetable) + purge mensuelle versionnée,
+> **couvertures rapatriées** (#208 : 610 internes / 0 hotlink, quotidien + cacheControl 1 an), Sentry armé
+> et vérifié (projet EU `objectif-pal`), **ouverture plafonnée** (#211 : tout compte Google entre, jauge
+> 100 — l'URL peut être annoncée à l'antenne) et **#32 lot C** (#212 : journal paginé 50/page, filtres côté
+> requête, ordre #146 contractualisé dans la vue `journal_entries`). **Les agrégats des mois clos sont
+> livrés le même jour** (PR #214 — le socle « agrégats servis » de §4.14 Amis) : le score reste DÉRIVÉ
+> (§4.7), `monthly_reports` n'est qu'un **cache matérialisé** des mois clos (RLS own), invalidé par
+> `user_fact_versions` que des **triggers** sur readings/purchases/books/objectifs bumpent — aucun chemin
+> applicatif à instrumenter. `closed-months.ts` (pur) appelle le moteur tel quel (pas de barème dupliqué),
+> `report-sync.ts` recalcule à la modification et non à la visite (purge des mois vides, jamais bloquant),
+> la page Bilan garde le direct pour le mois courant et gagne la pagination anti-troncature (#178) —
+> validé sur 8 mois de données réelles. La journée se termine en confort d'usage : **tri des listes**
+> (#217 lots 1+2 : comparateur commun `lib/sort/entry-sort`, ajout récent par défaut en PAL/Biblio,
+> 7 ordres au Journal via l'URL, l'Activité #146 restant le défaut), **recherche** (#222 : module
+> `lib/search` — accents, ligatures, parité unaccent — SQL au Journal via `search_text`, PAL en mémoire,
+> Biblio alignée) et **profil personnalisable** (#224 : pseudo + photo, bucket avatars séparé écrasé au
+> même chemin avec URL versionnée, cascade RGPD étendue aux deux buckets) — 521 → 543 tests.**
 
 ## Stack
 
@@ -139,20 +160,12 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
 
 ## Prochaines étapes
 
-1. **Ouverture (epic #182)** — **Phases 1 ET 2-couvertures livrées le 15/08/2026** (PRs #190→#212) :
-   backups hebdo chiffrés validés jusqu'à la restauration, région `cdg1` co-localisée, politesse de la
-   chaîne externe (UA identifiant, budget 7 s, rafale en file), SW auto-réparant (garde #60 au précache,
-   v5), finitions base + **certification zéro dérive** (91 objets), refresh GCD en staging+bascule (~ms
-   d'indisponibilité), **cloisonnement RLS prouvé chaque jour en CI** (2 comptes de test), catalogue GCD
-   caché 24 h, **suppression de compte RGPD** (cascade exercée sur compte jetable) + purge mensuelle
-   versionnée, **couvertures rapatriées** (#208 : 610 internes / 0 hotlink, quotidien + cacheControl 1 an),
-   **Sentry armé et vérifié** (projet EU `objectif-pal`), **ouverture plafonnée** (#211 : tout compte
-   Google entre, jauge 100 — l'URL peut être annoncée à l'antenne), et **#32 lot C livré** (#212 :
-   journal paginé 50/page, filtres côté requête, ordre #146 contractualisé dans la vue `journal_entries`).
-2. **Prochain chantier — agrégats des mois clos** (Phase 2, session dédiée) : matérialiser les bilans
-   clos côté serveur — allège bilan/stats ET fournit le socle « agrégats servis » de **§4.14 Amis**
-   (cap : le 1er septembre, premiers bilans comparés du cercle). ⚠️ Le sur-fetch de la PAL (lot B défait
-   par #101) se retraite dans ce chantier, avec `ownerships` dans l'équation.
+1. **Prochain chantier — §4.14 Amis** (cap : le 1er septembre, premiers bilans comparés du cercle) :
+   le socle « agrégats servis » est en place (PR #214). Restent l'invitation par lien
+   (`friend_invites`/`friendships`), le segment « Amis » de l'onglet Bilan et le fil d'activité.
+   ⚠️ La spec vit en **brouillon non commité** dans `docs/product-specs.md` — la commiter d'abord.
+2. **Sur-fetch de la PAL** (lot B défait par #101) : **non couvert par #214** — à retraiter dans une
+   session dédiée, avec `ownerships` dans l'équation.
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs
 roman) à partir de Google Books — on n'a que des indices (éditeur, pages, langue). La catégorie proposée doit
