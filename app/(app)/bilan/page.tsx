@@ -5,7 +5,7 @@ import type { BilanReading, MonthlyPickRecord } from "@/components/bilan/monthly
 import { PageLoadError } from "@/components/page-load-error";
 import { StatsView } from "@/components/stats/stats-view";
 import { SegmentNav } from "@/components/ui/segment-nav";
-import { syncMonthlyReports } from "@/lib/bilan/report-sync";
+import { readFactVersion, syncMonthlyReports } from "@/lib/bilan/report-sync";
 import { createGcdProvider } from "@/lib/resolution/providers/gcd";
 import { fetchReadingEventFacts } from "@/lib/stats/reading-events";
 import { fetchAllRows } from "@/lib/supabase/pagination";
@@ -151,6 +151,14 @@ export default async function BilanPage({
   // l'annulation du malus) et la navigation entre les mois se fait côté client,
   // sans re-requête — le score est toujours dérivé, jamais stocké (§4.7).
   // Les objectifs (§4.11) et distinctions (§4.4) suivent le même contrat.
+  // La VERSION des faits se lit AVANT les faits (review #214) : si une édition
+  // se glisse entre les deux, les agrégats seront tamponnés avec l'ancien
+  // numéro et la prochaine visite recalculera — l'inverse rendrait l'erreur
+  // permanente. `getClaims` : l'identité sans aller-retour réseau (#125).
+  const { data: claims } = await supabase.auth.getClaims();
+  const userId = claims?.claims.sub;
+  const factVersion = userId ? await readFactVersion(supabase, userId) : null;
+
   // Les lectures et achats croissent sans borne : paginés (#178) — un compte
   // qui franchira 1 000 lignes ne verra jamais un bilan silencieusement faux.
   let readingsRows;
@@ -230,16 +238,14 @@ export default async function BilanPage({
   }));
 
   // L'entretien des agrégats de mois clos (epic #182 — le socle de §4.14) :
-  // les faits sont déjà en main, la synchro ne recalcule que si leur version a
-  // bougé, et n'est JAMAIS bloquante (le bilan affiché reste le calcul en
-  // direct). `getClaims` : l'identité sans aller-retour réseau (#125). Le
-  // « mois courant » est celui du serveur (UTC) — à la frontière du mois, un
-  // mois peut se clore jusqu'à 2 h avant l'heure de Paris : sans enjeu pour un
-  // cache que la prochaine visite raffraîchit.
-  const { data: claims } = await supabase.auth.getClaims();
-  const userId = claims?.claims.sub;
-  if (userId) {
-    await syncMonthlyReports(supabase, userId, new Date().toISOString().slice(0, 7), {
+  // les faits sont déjà en main, la synchro ne recalcule que si leur version
+  // (lue AVANT les faits, cf. plus haut) a bougé, et n'est JAMAIS bloquante
+  // (le bilan affiché reste le calcul en direct). Le « mois courant » est
+  // celui du serveur (UTC) — à la frontière du mois, un mois peut se clore
+  // jusqu'à 2 h avant l'heure de Paris : sans enjeu pour un cache que la
+  // prochaine visite rafraîchit.
+  if (userId && factVersion !== null) {
+    await syncMonthlyReports(supabase, userId, new Date().toISOString().slice(0, 7), factVersion, {
       readings,
       purchases,
       objectivesByMonth,

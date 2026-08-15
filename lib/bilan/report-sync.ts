@@ -28,10 +28,23 @@ type SessionSupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClien
 /** La version « jamais bumpée » : cohérente avec le `values (owner, 2)` du trigger. */
 const INITIAL_FACT_VERSION = 1;
 
+/**
+ * Lit la version des faits — À APPELER AVANT de charger les faits (review
+ * #214) : si une édition arrive entre cette lecture et le calcul, les lignes
+ * sont tamponnées avec l'ANCIEN numéro et la visite suivante recalcule —
+ * l'erreur est auto-corrigeante. Dans l'autre ordre, elle serait permanente.
+ */
+export async function readFactVersion(supabase: SessionSupabaseClient, userId: string): Promise<number> {
+  const { data } = await supabase.from("user_fact_versions").select("version").eq("user_id", userId).maybeSingle();
+  return data?.version ?? INITIAL_FACT_VERSION;
+}
+
 export async function syncMonthlyReports(
   supabase: SessionSupabaseClient,
   userId: string,
   currentMonth: Month,
+  /** La version lue AVANT le chargement des faits (readFactVersion). */
+  factVersion: number,
   facts: {
     readings: BilanReadingFact[];
     purchases: PurchaseFact[];
@@ -39,11 +52,8 @@ export async function syncMonthlyReports(
   },
 ): Promise<void> {
   try {
-    const [{ data: versionRow }, { data: storedRows }] = await Promise.all([
-      supabase.from("user_fact_versions").select("version").eq("user_id", userId).maybeSingle(),
-      supabase.from("monthly_reports").select("month, fact_version").eq("user_id", userId),
-    ]);
-    const currentVersion = versionRow?.version ?? INITIAL_FACT_VERSION;
+    const { data: storedRows } = await supabase.from("monthly_reports").select("month, fact_version").eq("user_id", userId);
+    const currentVersion = factVersion;
 
     const closedMonths = listClosedActivityMonths(facts, currentMonth);
     const stored = storedRows ?? [];

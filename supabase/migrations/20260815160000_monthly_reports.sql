@@ -101,8 +101,11 @@ create trigger readings_bump_fact_version
 create trigger purchases_bump_fact_version
   after insert or update or delete on purchases
   for each row execute function bump_fact_version();
+-- Ciblé par colonnes (review #214) : titre (dans l'agrégat), catégorie (les
+-- points), deleted_at (l'élagage). Un changement de cover_url — le job de
+-- rapatriement #208 en fait chaque nuit — ne périme rien.
 create trigger books_bump_fact_version
-  after insert or update or delete on books
+  after insert or delete or update of title, category, deleted_at on books
   for each row execute function bump_fact_version();
 create trigger monthly_objectives_bump_fact_version
   after insert or update or delete on monthly_objectives
