@@ -19,6 +19,24 @@ export type JournalFilters = {
 
 export const NO_JOURNAL_FILTERS: JournalFilters = { status: "all", category: "all", seriesName: "all", month: "all" };
 
+/**
+ * Les tris du journal (#217) — « activite » est LE défaut (#146 : l'en-cours
+ * en tête, les sans-date relégués — c'est déjà « date de lecture », en mieux
+ * rangé) ; les autres sont des vues alternatives, sans séparateurs de mois
+ * (ils n'ont de sens que dans l'ordre activité).
+ */
+export type JournalSort = "activite" | "lecture" | "note" | "ajout" | "ajout-ancien" | "titre" | "titre-inverse";
+
+export const DEFAULT_JOURNAL_SORT: JournalSort = "activite";
+
+const JOURNAL_SORTS: JournalSort[] = ["activite", "lecture", "note", "ajout", "ajout-ancien", "titre", "titre-inverse"];
+
+/** searchParams → tri sûr (valeur inconnue = défaut). */
+export function parseJournalSort(searchParams: RawSearchParams): JournalSort {
+  const raw = first(searchParams.tri);
+  return JOURNAL_SORTS.includes(raw as JournalSort) ? (raw as JournalSort) : DEFAULT_JOURNAL_SORT;
+}
+
 /** La page du journal : ce qu'un écran de téléphone absorbe sans peine. */
 export const JOURNAL_PAGE_SIZE = 50;
 /** Le plafond de profondeur — au-delà, une URL forgée ne charge pas plus. */
@@ -54,15 +72,20 @@ export function parseJournalDepth(searchParams: RawSearchParams): number {
 }
 
 /**
- * Filtres + profondeur → query string (sans « ? »). Les valeurs par défaut
- * n'apparaissent pas : l'URL nue reste `/journal`.
+ * Filtres + tri + profondeur → query string (sans « ? »). Les valeurs par
+ * défaut n'apparaissent pas : l'URL nue reste `/journal`.
  */
-export function journalSearchString(filters: JournalFilters, depth: number = JOURNAL_PAGE_SIZE): string {
+export function journalSearchString(
+  filters: JournalFilters,
+  depth: number = JOURNAL_PAGE_SIZE,
+  sort: JournalSort = DEFAULT_JOURNAL_SORT,
+): string {
   const params = new URLSearchParams();
   if (filters.status !== "all") params.set("etat", filters.status);
   if (filters.category !== "all") params.set("categorie", filters.category);
   if (filters.seriesName !== "all") params.set("serie", filters.seriesName);
   if (filters.month !== "all") params.set("mois", filters.month);
+  if (sort !== DEFAULT_JOURNAL_SORT) params.set("tri", sort);
   if (depth > JOURNAL_PAGE_SIZE) params.set("n", String(depth));
   return params.toString();
 }

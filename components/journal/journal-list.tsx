@@ -34,12 +34,27 @@ import type { BookCategory, ReadingStatus } from "@/lib/scoring/types";
 import type { ComponentProps } from "react";
 import { monthSeparatorBefore, UNDATED_SEPARATOR } from "./month-separator";
 import {
+  DEFAULT_JOURNAL_SORT,
   JOURNAL_PAGE_SIZE,
   NO_JOURNAL_FILTERS,
   hasActiveJournalFilters,
   journalSearchString,
   type JournalFilters,
+  type JournalSort,
 } from "./journal-url";
+import { SortSelect } from "@/components/ui/sort-select";
+import { ENTRY_SORT_LABELS } from "@/lib/sort/entry-sort";
+
+/** Les tris du journal (#217) — « Activité » (#146) reste le défaut. */
+const JOURNAL_SORT_OPTIONS: { value: JournalSort; label: string }[] = [
+  { value: "activite", label: "Activité" },
+  { value: "lecture", label: "Date de lecture" },
+  { value: "note", label: "Mieux notées" },
+  { value: "ajout", label: ENTRY_SORT_LABELS.ajout },
+  { value: "ajout-ancien", label: ENTRY_SORT_LABELS["ajout-ancien"] },
+  { value: "titre", label: ENTRY_SORT_LABELS.titre },
+  { value: "titre-inverse", label: ENTRY_SORT_LABELS["titre-inverse"] },
+];
 
 /**
  * La liste du journal — specs §4.2. « Terminé » est LE geste qui rapporte les
@@ -106,6 +121,7 @@ const SELECT_CLASS =
 export function JournalList({
   entries,
   filters,
+  sort,
   totalCount,
   hasMore,
   depth,
@@ -115,6 +131,7 @@ export function JournalList({
   /** La TRANCHE affichée — déjà filtrée et triée par la vue SQL (#32 lot C). */
   entries: JournalEntry[];
   filters: JournalFilters;
+  sort: JournalSort;
   /** Le total qui matche les filtres (toutes pages confondues). */
   totalCount: number;
   hasMore: boolean;
@@ -140,11 +157,18 @@ export function JournalList({
   // retombe sur la vue exacte. Un filtre qui change repart en page 1.
   const router = useRouter();
   const [isLoadingPage, startPageTransition] = useTransition();
-  const navigate = (nextFilters: JournalFilters, nextDepth: number = JOURNAL_PAGE_SIZE) => {
-    const search = journalSearchString(nextFilters, nextDepth);
+  const navigate = (
+    nextFilters: JournalFilters,
+    nextDepth: number = JOURNAL_PAGE_SIZE,
+    nextSort: JournalSort = sort,
+  ) => {
+    const search = journalSearchString(nextFilters, nextDepth, nextSort);
     startPageTransition(() => router.replace(`/journal${search ? `?${search}` : ""}`, { scroll: false }));
   };
+  // Filtre ou tri qui change : on repart en page 1 (le tri est conservé à
+  // travers les filtres, et réciproquement).
   const setFilters = (nextFilters: JournalFilters) => navigate(nextFilters);
+  const setSort = (nextSort: JournalSort) => navigate(filters, JOURNAL_PAGE_SIZE, nextSort);
   const hasActiveFilters = hasActiveJournalFilters(filters);
   const visible = entries;
 
@@ -207,6 +231,9 @@ export function JournalList({
             </option>
           ))}
         </select>
+        {/* Le tri (#217) — dans l'URL comme les filtres : la vue SQL ordonne,
+            « Charger plus » prolonge, le retour navigateur retombe juste. */}
+        <SortSelect value={sort} options={JOURNAL_SORT_OPTIONS} onChange={setSort} className="min-w-[9rem] flex-1" />
       </div>
 
       {error && <ErrorAlert message={error} />}
@@ -239,9 +266,11 @@ export function JournalList({
           <ul className="flex flex-col gap-3">
             {visible.map((entry, index) => {
               // Le carnet de lecture (#146) : un séparateur quand le mois de
-              // fin change, dans la section des terminées datées seulement.
+              // fin change — SEULEMENT dans l'ordre Activité (#217) : dans les
+              // autres tris, les mois ne sont pas contigus, l'en-tête mentirait.
               // Fragment : JournalItem rend son propre <li>, le séparateur a le sien.
-              const separatorMonth = monthSeparatorBefore(visible[index - 1] ?? null, entry);
+              const separatorMonth =
+                sort === DEFAULT_JOURNAL_SORT ? monthSeparatorBefore(visible[index - 1] ?? null, entry) : null;
               return (
                 <Fragment key={entry.id}>
                   {separatorMonth !== null && (
@@ -270,7 +299,7 @@ export function JournalList({
               variant="ghost"
               block
               disabled={isLoadingPage}
-              onClick={() => navigate(filters, depth + JOURNAL_PAGE_SIZE)}
+              onClick={() => navigate(filters, depth + JOURNAL_PAGE_SIZE, sort)}
             >
               {isLoadingPage
                 ? "Chargement…"
