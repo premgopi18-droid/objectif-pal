@@ -163,19 +163,7 @@ export function FinishedCovers({ readings, ownerDisplayName, month }: FinishedCo
                     </span>
                   )}
                 </div>
-                {selected.isbn !== null && (
-                  <div className="mt-1 flex items-center gap-2 text-sm">
-                    <span className="text-ink3">ISBN</span>
-                    <span className="select-all font-bold tabular-nums text-ink2">{selected.isbn}</span>
-                    <button
-                      type="button"
-                      onClick={() => copyIsbn(selected.isbn as string)}
-                      className="rounded-lg border border-line bg-card2 px-2 py-1 text-xs font-bold text-ink transition active:scale-[0.95] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
-                    >
-                      📋 Copier
-                    </button>
-                  </div>
-                )}
+                {selected.isbn !== null && <IsbnRow isbn={selected.isbn} onCopy={copyIsbn} />}
               </div>
             </div>
             <p className="mt-3 border-t border-line pt-3 text-xs leading-relaxed text-ink3">
@@ -187,6 +175,23 @@ export function FinishedCovers({ readings, ownerDisplayName, month }: FinishedCo
       )}
 
       <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
+    </div>
+  );
+}
+
+/** La ligne ISBN — extraite pour que le rétrécissement `isbn: string` traverse proprement (review #237). */
+function IsbnRow({ isbn, onCopy }: { isbn: string; onCopy: (isbn: string) => void }) {
+  return (
+    <div className="mt-1 flex items-center gap-2 text-sm">
+      <span className="text-ink3">ISBN</span>
+      <span className="select-all font-bold tabular-nums text-ink2">{isbn}</span>
+      <button
+        type="button"
+        onClick={() => onCopy(isbn)}
+        className="rounded-lg border border-line bg-card2 px-2 py-1 text-xs font-bold text-ink transition active:scale-[0.95] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+      >
+        📋 Copier
+      </button>
     </div>
   );
 }
