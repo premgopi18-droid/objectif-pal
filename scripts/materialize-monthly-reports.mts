@@ -131,6 +131,20 @@ let fresh = 0;
 let updated = 0;
 let failed = 0;
 
+/** La comparaison de fraîcheur — la même que la synchro, utilisée avant ET après (review #232). */
+async function readFreshness(userId: string, closedMonths: string[], factVersion: number): Promise<boolean> {
+  const { data: storedRows, error } = await supabase
+    .from("monthly_reports")
+    .select("month, fact_version")
+    .eq("user_id", userId);
+  if (error) throw new Error(error.message);
+  const storedByMonth = new Map((storedRows ?? []).map((row) => [row.month.slice(0, 7), row.fact_version]));
+  return (
+    closedMonths.every((month) => storedByMonth.get(month) === factVersion) &&
+    (storedRows ?? []).every((row) => closedMonths.includes(row.month.slice(0, 7)))
+  );
+}
+
 for (const profile of profiles) {
   try {
     // L'ordre anti-course de la review #214 : la version AVANT les faits.
@@ -138,17 +152,7 @@ for (const profile of profiles) {
     const facts = await loadFacts(profile.id);
     const closedMonths = listClosedActivityMonths(facts, currentMonth);
 
-    const { data: storedRows, error: storedError } = await supabase
-      .from("monthly_reports")
-      .select("month, fact_version")
-      .eq("user_id", profile.id);
-    if (storedError) throw new Error(storedError.message);
-    const storedByMonth = new Map((storedRows ?? []).map((row) => [row.month.slice(0, 7), row.fact_version]));
-    const isFresh =
-      closedMonths.every((month) => storedByMonth.get(month) === factVersion) &&
-      (storedRows ?? []).every((row) => closedMonths.includes(row.month.slice(0, 7)));
-
-    if (isFresh) {
+    if (await readFreshness(profile.id, closedMonths, factVersion)) {
       fresh += 1;
       console.log(`  ✓ ${profile.display_name} — frais (${closedMonths.length} mois clos)`);
       continue;
@@ -160,8 +164,17 @@ for (const profile of profiles) {
     }
     // La même synchro que la page Bilan — elle refait sa propre lecture des
     // lignes (freshness incluse) : le travail en double est négligeable, la
-    // logique reste UNIQUE. Elle logge ses échecs sans jeter.
+    // logique reste UNIQUE. Elle logge ses échecs SANS JETER (contrat « jamais
+    // bloquante », pensé pour la page) — d'où la re-vérification juste après
+    // (review #232) : un échec interne laisserait sinon le job en faux vert,
+    // le pire mode de panne d'un job de fiabilité.
     await syncMonthlyReports(supabase, profile.id, currentMonth, factVersion, facts);
+    if (!(await readFreshness(profile.id, closedMonths, factVersion))) {
+      // Nuance assumée : une édition utilisateur GLISSÉE pendant la synchro
+      // (version bumpée entre-temps) compterait ici en échec — improbable à
+      // 04:00 le 1er, et un faux rouge se relance, un faux vert se rate.
+      throw new Error("toujours périmé après synchro — voir le log [bilan] ci-dessus");
+    }
     updated += 1;
     console.log(`  ✓ ${profile.display_name} — recalculé (${closedMonths.length} mois clos)`);
   } catch (error) {
