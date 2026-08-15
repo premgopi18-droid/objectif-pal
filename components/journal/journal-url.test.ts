@@ -6,6 +6,7 @@ import {
   journalSearchString,
   parseJournalDepth,
   parseJournalFilters,
+  parseJournalSearch,
   parseJournalSort,
 } from "./journal-url";
 
@@ -56,6 +57,21 @@ describe("journalSearchString", () => {
 
   it("la profondeur ne s'écrit qu'au-delà d'une page", () => {
     expect(journalSearchString(NO_JOURNAL_FILTERS, JOURNAL_PAGE_SIZE * 2)).toBe("n=100");
+  });
+});
+
+describe("parseJournalSearch + round-trip (#222)", () => {
+  it("défaut = pas de recherche, trim, et une aiguille forgée est bornée", () => {
+    expect(parseJournalSearch({})).toBe("");
+    expect(parseJournalSearch({ q: "  astérix  " })).toBe("astérix");
+    expect(parseJournalSearch({ q: "x".repeat(500) })).toHaveLength(100);
+  });
+
+  it("l'aiguille s'écrit dans l'URL et se relit exactement (accents compris)", () => {
+    expect(journalSearchString(NO_JOURNAL_FILTERS, JOURNAL_PAGE_SIZE, "activite", "")).toBe("");
+    const search = journalSearchString(NO_JOURNAL_FILTERS, JOURNAL_PAGE_SIZE, "activite", "Père & fils");
+    const params = Object.fromEntries(new URLSearchParams(search));
+    expect(parseJournalSearch(params)).toBe("Père & fils");
   });
 });
 

@@ -757,6 +757,7 @@ export type Database = {
           journal_rank: number | null
           page_count: number | null
           rating: number | null
+          search_text: string | null
           series_name: string | null
           started_at: string | null
           status: Database["public"]["Enums"]["reading_status"] | null

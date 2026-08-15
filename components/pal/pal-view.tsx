@@ -14,6 +14,7 @@ import { formatDateFrench, localCurrentMonth, localToday } from "@/lib/dates";
 import type { PalEntry } from "@/lib/pal/derive-pal";
 import type { IsoDate } from "@/lib/scoring/types";
 import { computePalHealth } from "@/lib/pal/health";
+import { matchesSearch } from "@/lib/search/entry-search";
 import { ENTRY_SORT_LABELS, sortEntriesBy, type EntrySortOption } from "@/lib/sort/entry-sort";
 
 /** Les tris de la pile (#217) — pas d'« activité » ici : une pile n'a que des non-lus. */
@@ -77,13 +78,23 @@ export function PalView({
 
   // « Ajout récent » par défaut (#217) : le dernier scan en haut de la pile.
   const [sortOption, setSortOption] = useState<PalSortOption>("ajout");
+  // La recherche (#222) — en MÉMOIRE : la pile n'est pas paginée (contrairement
+  // au journal), et la normalisation est celle du module commun (accents,
+  // ligatures) — « asterix » trouve Astérix ici comme partout.
+  const [searchText, setSearchText] = useState("");
   const sortedEntries = useMemo(
     () =>
-      sortEntriesBy(entries, sortOption, {
-        createdAt: (entry) => entry.createdAt,
-        title: (entry) => entry.title,
-      }),
-    [entries, sortOption],
+      sortEntriesBy(
+        entries.filter((entry) =>
+          matchesSearch(entry, searchText, { title: (item) => item.title, seriesName: (item) => item.seriesName }),
+        ),
+        sortOption,
+        {
+          createdAt: (entry) => entry.createdAt,
+          title: (entry) => entry.title,
+        },
+      ),
+    [entries, searchText, sortOption],
   );
 
   // La santé du mois — dérivation PARTAGÉE (lib/pal/health), calculée avec le
@@ -118,8 +129,23 @@ export function PalView({
       ) : (
         <>
           {entries.length > 1 && (
-            <SortSelect value={sortOption} options={PAL_SORT_OPTIONS} onChange={setSortOption} className="self-start" />
+            // flex-WRAP obligatoire (bug #221, vu en prod) : un <select> a une
+            // largeur incompressible — même patron que la Biblio et le Journal.
+            <div className="flex flex-wrap gap-2">
+              <input
+                type="search"
+                value={searchText}
+                onChange={(event) => setSearchText(event.target.value)}
+                placeholder="Rechercher un titre ou une série…"
+                aria-label="Rechercher dans la pile"
+                className="min-w-[12rem] flex-1 rounded-xl border border-line bg-card px-3 py-2.5 text-sm text-ink placeholder:text-ink3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+              />
+              <SortSelect value={sortOption} options={PAL_SORT_OPTIONS} onChange={setSortOption} className="min-w-[9rem] flex-1" />
+            </div>
           )}
+          {sortedEntries.length === 0 ? (
+            <p className="py-6 text-center text-sm text-ink2">Aucun livre de la pile ne correspond à la recherche.</p>
+          ) : (
           <ul className="flex flex-col gap-3">
             {sortedEntries.map((entry) => (
             <li key={entry.bookId}>
@@ -175,6 +201,7 @@ export function PalView({
             </li>
             ))}
           </ul>
+          )}
         </>
       )}
     </div>

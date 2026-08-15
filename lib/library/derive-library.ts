@@ -1,4 +1,5 @@
 import { bookToMovement } from "@/lib/pal/derive-pal";
+import { matchesSearch } from "@/lib/search/entry-search";
 import { sortEntriesBy, type EntrySortOption } from "@/lib/sort/entry-sort";
 import type { BookCategory } from "@/lib/scoring/types";
 import type { Database } from "@/lib/supabase/database.types";
@@ -163,23 +164,14 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
   return entries;
 }
 
-/** Minuscules + accents aplatis : « Astérix » se trouve en tapant « asterix ». */
-const normalizeForSearch = (text: string) =>
-  text
-    .toLowerCase()
-    .normalize("NFD")
-    // La plage des diacritiques combinants, en échappé : lisible, et insensible
-    // à une normalisation d'encodage accidentelle du fichier (review #63).
-    .replace(/[̀-ͯ]/g, "");
-
-/** La recherche en mémoire (même réserve que les filtres du journal #34 : client tant que pas de pagination #32). */
+/**
+ * La recherche en mémoire — déléguée au module commun (#222), qui apporte à la
+ * Biblio ce que sa normalisation locale (NFD seul) manquait : les ligatures —
+ * « coeur » trouve désormais « Cœur » ici comme au Journal et à la PAL.
+ */
 export function filterLibraryEntries(entries: LibraryEntry[], searchText: string): LibraryEntry[] {
-  const needle = normalizeForSearch(searchText.trim());
-  if (!needle) return entries;
-  return entries.filter(
-    (entry) =>
-      normalizeForSearch(entry.title).includes(needle) ||
-      (entry.seriesName !== null && normalizeForSearch(entry.seriesName).includes(needle)),
+  return entries.filter((entry) =>
+    matchesSearch(entry, searchText, { title: (item) => item.title, seriesName: (item) => item.seriesName }),
   );
 }
 
