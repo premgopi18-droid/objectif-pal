@@ -166,19 +166,6 @@ export function JournalList({
   // retombe sur la vue exacte. Un filtre qui change repart en page 1.
   const router = useRouter();
   const [isLoadingPage, startPageTransition] = useTransition();
-  const navigate = (
-    nextFilters: JournalFilters,
-    nextDepth: number = JOURNAL_PAGE_SIZE,
-    nextSort: JournalSort = sort,
-    nextSearch: string = search,
-  ) => {
-    const searchString = journalSearchString(nextFilters, nextDepth, nextSort, nextSearch);
-    startPageTransition(() => router.replace(`/journal${searchString ? `?${searchString}` : ""}`, { scroll: false }));
-  };
-  // Filtre ou tri qui change : on repart en page 1 (le tri est conservé à
-  // travers les filtres, et réciproquement — la recherche aussi).
-  const setFilters = (nextFilters: JournalFilters) => navigate(nextFilters);
-  const setSort = (nextSort: JournalSort) => navigate(filters, JOURNAL_PAGE_SIZE, nextSort);
 
   /**
    * La recherche (#222) — SERVEUR, car le journal est paginé : une recherche
@@ -188,24 +175,49 @@ export function JournalList({
    */
   const [searchInput, setSearchInput] = useState(search);
   const searchTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Resync sur navigation externe (bouton retour) — sans écraser une frappe en
-  // cours : si l'input trim correspond déjà à l'URL, on n'y touche pas.
+  const cancelPendingSearch = () => {
+    if (searchTimer.current !== null) clearTimeout(searchTimer.current);
+    searchTimer.current = null;
+  };
+  // Resync sur navigation EXTERNE (bouton retour) — sans écraser une frappe en
+  // cours : si l'input trim correspond déjà à l'URL, on n'y touche pas. Un
+  // timer encore en attente est annulé : il re-committerait l'aiguille
+  // par-dessus l'URL restaurée (review #223).
   useEffect(() => {
+    cancelPendingSearch();
     setSearchInput((current) => (current.trim() === search ? current : search));
   }, [search]);
-  useEffect(() => () => {
-    if (searchTimer.current !== null) clearTimeout(searchTimer.current);
-  }, []);
+  useEffect(() => () => cancelPendingSearch(), []);
+
+  /**
+   * TOUTE navigation annule le timer de recherche et emporte la frappe en
+   * cours (review #223) : sans ça, changer un filtre pendant les 350 ms du
+   * débounce laissait partir le timer APRÈS, avec des filtres périmés dans sa
+   * closure — le choix de l'utilisateur était écrasé.
+   */
+  const navigate = (
+    nextFilters: JournalFilters,
+    nextDepth: number = JOURNAL_PAGE_SIZE,
+    nextSort: JournalSort = sort,
+    nextSearch: string = searchInput.trim(),
+  ) => {
+    cancelPendingSearch();
+    const searchString = journalSearchString(nextFilters, nextDepth, nextSort, nextSearch);
+    startPageTransition(() => router.replace(`/journal${searchString ? `?${searchString}` : ""}`, { scroll: false }));
+  };
+  // Filtre ou tri qui change : on repart en page 1 (le tri est conservé à
+  // travers les filtres, et réciproquement — la recherche aussi).
+  const setFilters = (nextFilters: JournalFilters) => navigate(nextFilters);
+  const setSort = (nextSort: JournalSort) => navigate(filters, JOURNAL_PAGE_SIZE, nextSort);
   const onSearchChange = (value: string) => {
     setSearchInput(value);
-    if (searchTimer.current !== null) clearTimeout(searchTimer.current);
+    cancelPendingSearch();
     if (value.trim() === search) return;
     // Une recherche qui change repart en page 1, comme un filtre.
-    searchTimer.current = setTimeout(() => navigate(filters, JOURNAL_PAGE_SIZE, sort, value), SEARCH_DEBOUNCE_MS);
+    searchTimer.current = setTimeout(() => navigate(filters, JOURNAL_PAGE_SIZE, sort, value.trim()), SEARCH_DEBOUNCE_MS);
   };
   /** Le bouton « Réinitialiser » efface filtres ET recherche, d'un coup. */
   const resetAll = () => {
-    if (searchTimer.current !== null) clearTimeout(searchTimer.current);
     setSearchInput("");
     navigate(NO_JOURNAL_FILTERS, JOURNAL_PAGE_SIZE, sort, "");
   };
