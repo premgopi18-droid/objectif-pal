@@ -1,7 +1,9 @@
 "use client";
 
+import { useMemo, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { BookRow } from "@/components/ui/book-row";
+import { SortSelect } from "@/components/ui/sort-select";
 import { StatTile } from "@/components/ui/stat-tile";
 import { ErrorAlert } from "@/components/error-alert";
 import { FinishReadingButton, RemoveButton, StartReadingButton, useBookGestures } from "@/components/library/book-gestures";
@@ -12,6 +14,14 @@ import { formatDateFrench, localCurrentMonth, localToday } from "@/lib/dates";
 import type { PalEntry } from "@/lib/pal/derive-pal";
 import type { IsoDate } from "@/lib/scoring/types";
 import { computePalHealth } from "@/lib/pal/health";
+import { ENTRY_SORT_LABELS, sortEntriesBy, type EntrySortOption } from "@/lib/sort/entry-sort";
+
+/** Les tris de la pile (#217) — pas d'« activité » ici : une pile n'a que des non-lus. */
+type PalSortOption = Exclude<EntrySortOption, "activite">;
+const PAL_SORT_OPTIONS = (["ajout", "ajout-ancien", "titre", "titre-inverse"] as const).map((value) => ({
+  value,
+  label: ENTRY_SORT_LABELS[value],
+}));
 
 /**
  * La vue PAL — la pile à lire et sa santé (specs §4.5 et §4.6). Le geste :
@@ -65,6 +75,17 @@ export function PalView({
 }: PalViewProps) {
   const { run, isPending, error } = useBookGestures();
 
+  // « Ajout récent » par défaut (#217) : le dernier scan en haut de la pile.
+  const [sortOption, setSortOption] = useState<PalSortOption>("ajout");
+  const sortedEntries = useMemo(
+    () =>
+      sortEntriesBy(entries, sortOption, {
+        createdAt: (entry) => entry.createdAt,
+        title: (entry) => entry.title,
+      }),
+    [entries, sortOption],
+  );
+
   // La santé du mois — dérivation PARTAGÉE (lib/pal/health), calculée avec le
   // mois LOCAL de l'appareil. La vue ne recompte plus rien elle-même.
   const { pileSize, monthEntries, monthExits, monthBalance } = computePalHealth(
@@ -95,8 +116,12 @@ export function PalView({
           Ta pile est vide — soit tu es un paliste modèle, soit tu n&apos;as pas encore scanné tes achats 🙂
         </p>
       ) : (
-        <ul className="flex flex-col gap-3">
-          {entries.map((entry) => (
+        <>
+          {entries.length > 1 && (
+            <SortSelect value={sortOption} options={PAL_SORT_OPTIONS} onChange={setSortOption} className="self-start" />
+          )}
+          <ul className="flex flex-col gap-3">
+            {sortedEntries.map((entry) => (
             <li key={entry.bookId}>
               <BookRow
                 title={entry.title}
@@ -148,8 +173,9 @@ export function PalView({
                 }
               />
             </li>
-          ))}
-        </ul>
+            ))}
+          </ul>
+        </>
       )}
     </div>
   );

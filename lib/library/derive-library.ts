@@ -1,4 +1,5 @@
 import { bookToMovement } from "@/lib/pal/derive-pal";
+import { sortEntriesBy, type EntrySortOption } from "@/lib/sort/entry-sort";
 import type { BookCategory } from "@/lib/scoring/types";
 import type { Database } from "@/lib/supabase/database.types";
 
@@ -182,17 +183,18 @@ export function filterLibraryEntries(entries: LibraryEntry[], searchText: string
   );
 }
 
-export type LibrarySortOrder = "recent" | "alphabetical";
+export type LibrarySortOrder = EntrySortOption;
 
+/**
+ * Le tri de l'inventaire — délégué au comparateur commun (#217). « activite »
+ * garde la sémantique historique de la Biblio (#146) : dernière ACTIVITÉ, pas
+ * seulement la création de fiche — la fiche d'avant-hier commencée hier
+ * remonte, une rafale n'enterre plus le livre qu'on vient de finir.
+ */
 export function sortLibraryEntries(entries: LibraryEntry[], order: LibrarySortOrder): LibraryEntry[] {
-  const sorted = [...entries];
-  if (order === "alphabetical") {
-    sorted.sort((left, right) => left.title.localeCompare(right.title, "fr"));
-  } else {
-    // « Récents » = dernière ACTIVITÉ (#146), plus la création de fiche : la
-    // fiche d'avant-hier commencée hier remonte, une rafale n'enterre plus
-    // le livre qu'on vient de finir.
-    sorted.sort((left, right) => right.lastActivityAt.localeCompare(left.lastActivityAt));
-  }
-  return sorted;
+  return sortEntriesBy(entries, order, {
+    createdAt: (entry) => entry.createdAt,
+    title: (entry) => entry.title,
+    activityAt: (entry) => entry.lastActivityAt,
+  });
 }
