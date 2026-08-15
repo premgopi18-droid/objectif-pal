@@ -33,7 +33,9 @@ export function CircleReportsView({ participants, currentYear }: CircleReportsVi
   );
   const [monthIndex, setMonthIndex] = useState(0); // 0 = le plus récent
   const [openParticipantId, setOpenParticipantId] = useState<string | null>(null);
-  const selectedMonth = months[monthIndex] ?? null;
+  // Clamp : si la liste des mois rétrécit entre deux revalidations, l'index
+  // retombe sur un mois existant plutôt que sur un trou.
+  const selectedMonth = months[Math.min(monthIndex, months.length - 1)] ?? null;
 
   const monthRanking = useMemo(() => {
     if (selectedMonth === null) return [];
@@ -195,7 +197,7 @@ export function CircleReportsView({ participants, currentYear }: CircleReportsVi
 function RankBadge({ entry }: { entry: RankedEntry }) {
   return (
     <span
-      aria-label={entry.rank !== null ? `${entry.rank}ᵉ` : "hors classement"}
+      aria-label={entry.rank === null ? "hors classement" : entry.rank === 1 ? "1er" : `${entry.rank}e`}
       className={`grid size-7 shrink-0 place-items-center rounded-full text-xs font-black ${
         entry.rank === 1 ? "bg-grad text-bg0" : "border border-line bg-card2 text-ink2"
       }`}

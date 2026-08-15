@@ -4,6 +4,7 @@ import { ALL_PICK_KINDS, PICK_KIND_LABELS, type PickKind } from "@/lib/books/pic
 import type { ParticipantPick } from "@/lib/circle/report-queries";
 import type { StoredMonthlyReport } from "@/lib/scoring/closed-months";
 import { formatPoints, formatPointsLabel } from "@/lib/scoring/report-text";
+import { SCORING_SCALE } from "@/lib/scoring/scale";
 import type { BookCategory } from "@/lib/scoring/types";
 import { ALL_CATEGORIES } from "@/lib/scoring/types";
 
@@ -54,7 +55,11 @@ export function MonthReportCard({ stored, picks }: MonthReportCardProps) {
       <div className="flex flex-col gap-1 text-sm">
         {categoryLines.length === 0 && <p className="text-ink3">Aucune lecture terminée ce mois-là.</p>}
         {categoryLines.map(([category, count]) => (
-          <DetailLine key={category} label={`${count} ${CATEGORY_LABELS[category as BookCategory]}`} />
+          <DetailLine
+            key={category}
+            label={`${count} ${CATEGORY_LABELS[category as BookCategory]}`}
+            points={formatPoints(count * SCORING_SCALE.pointsByCategory[category as BookCategory])}
+          />
         ))}
         {report.unreadPurchaseCount > 0 && (
           <DetailLine
