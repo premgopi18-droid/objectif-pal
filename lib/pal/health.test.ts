@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { bookToMovement } from "./derive-pal";
-import { computePalHealth, type PalMovements } from "./health";
+import { computePalHealth, isMonthEntry, type PalMovements } from "./health";
 
 /**
  * La santé de la PAL est la dérivation PARTAGÉE (issue #67) : elle doit rendre
@@ -257,5 +257,18 @@ describe("les cessions (#142) — du stock, jamais du flux", () => {
     expect(health.pileSize).toBe(0); // 2 entrés − 1 lu − 1 donné : le stock dit vrai
     expect(health.monthExits).toBe(1); // seule la LECTURE compte au mois
     expect(health.monthBalance).toBe(1); // 2 entrées − 1 lue
+  });
+});
+
+describe("isMonthEntry (#241) — le filtre de la tuile « Pile ce mois-ci »", () => {
+  it("une entrée du mois de référence matche, les autres mois non — bornes comprises", () => {
+    expect(isMonthEntry("2026-08-01", "2026-08")).toBe(true);
+    expect(isMonthEntry("2026-08-31", "2026-08")).toBe(true);
+    expect(isMonthEntry("2026-07-31", "2026-08")).toBe(false);
+    expect(isMonthEntry("2026-09-01", "2026-08")).toBe(false);
+  });
+
+  it("une date d'entrée INCONNUE n'appartient à aucun mois (#101 — jamais de mois inventé)", () => {
+    expect(isMonthEntry(null, "2026-08")).toBe(false);
   });
 });
