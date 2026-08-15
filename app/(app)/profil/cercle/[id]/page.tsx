@@ -3,9 +3,11 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { MonthReportCard } from "@/components/circle/month-report-card";
 import { PageLoadError } from "@/components/page-load-error";
+import { PalisteCard } from "@/components/profile/paliste-card";
 import { Card } from "@/components/ui/card";
 import { getCircleReportsView } from "@/lib/circle/report-queries";
 import { formatMonthFrench } from "@/lib/dates";
+import { derivePalisteCard } from "@/lib/profile/paliste-card";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 /**
@@ -14,7 +16,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
  * l'amitié, rien d'autre. Un id qui n'est pas un ami accepté → 404 : la
  * fonction `security definer` ne sert que les amis, la fiche ne peut donc
  * rien montrer d'autre (défense en profondeur, pas seulement de l'UI).
- * La carte de paliste s'y raccordera au lot C (#230).
+ * En tête : la carte de paliste (lot C, #230) — le MÊME composant que sur mon
+ * Profil, dérivé des mêmes agrégats : l'« aperçu honnête » par construction.
  */
 export default async function FriendPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -34,6 +37,14 @@ export default async function FriendPage({ params }: { params: Promise<{ id: str
   ]
     .sort()
     .reverse();
+
+  // La carte de paliste de l'ami — les picks servis sont déjà « mois clos
+  // seulement » (RPC lot B), le mois courant est celui du serveur (UTC).
+  const card = derivePalisteCard(
+    Object.values(friend.reportsByMonth),
+    Object.entries(friend.picksByMonth).flatMap(([month, picks]) => picks.map((pick) => ({ month, kind: pick.kind }))),
+    new Date().toISOString().slice(0, 7),
+  );
 
   return (
     <section className="flex flex-col gap-5 py-6">
@@ -75,6 +86,7 @@ export default async function FriendPage({ params }: { params: Promise<{ id: str
         </p>
       ) : (
         <div className="flex flex-col gap-4">
+          <PalisteCard card={card} />
           {months.map((month) => {
             const stored = friend.reportsByMonth[month];
             return (

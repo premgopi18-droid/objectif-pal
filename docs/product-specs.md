@@ -770,8 +770,12 @@ Le Profil d'aujourd'hui est une page de réglages. Il se refond en **espace pers
 
 - **Le moi public** — photo, pseudo, et la **carte de paliste** : distinctions cumulées par type,
   meilleur mois (score), total de l'année en cours, nombre de lectures. Tout se dérive des agrégats —
-  zéro donnée nouvelle. La carte est aussi un aperçu honnête : *c'est ce que tes amis voient de toi*
-  (leur fiche ami affiche la même, plus leurs bilans clos).
+  zéro donnée nouvelle, zéro recalcul du moteur, et **uniquement les mois clos** (la carte ne spoile pas
+  le reveal : une distinction du mois courant n'y compte pas encore). Décisions du lot C (15/08/2026) :
+  à **égalité** de meilleur mois, le plus **récent** l'emporte (la forme du moment bat le souvenir) ;
+  une année sans mois clos affiche un total à **zéro**, assumé (janvier). La carte est aussi un aperçu
+  honnête : *c'est ce que tes amis voient de toi* — le **même composant** rend la mienne et celle d'une
+  fiche ami, la garantie est structurelle.
 - **Le cercle** — demandes en attente en tête, liste d'amis, entrée vers les bilans comparés et les
   deux classements.
 - **Le moi privé, replié** — exports, installation PWA, session, zone dangereuse descendent en

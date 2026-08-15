@@ -16,3 +16,14 @@ export const PICK_KIND_LABELS: Record<PickKind, string> = {
   good_surprise: "La bonne surprise",
   bad_surprise: "La mauvaise surprise",
 };
+
+/**
+ * La couleur sémantique de chaque distinction, dans le vocabulaire du Badge
+ * (§4.14, lots B et C — carte de mois du cercle et carte de paliste) :
+ * préférée = magenta signature, bonne surprise = vert, mauvaise = rouge.
+ */
+export const PICK_KIND_BADGE_STATE: Record<PickKind, "pile" | "done" | "penalty"> = {
+  favorite: "pile",
+  good_surprise: "done",
+  bad_surprise: "penalty",
+};

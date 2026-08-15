@@ -20,11 +20,14 @@ const isRecord = (value: unknown): value is Record<string, unknown> =>
 
 const isFiniteNumber = (value: unknown): value is number => typeof value === "number" && Number.isFinite(value);
 
+/** Le format `YYYY-MM` — la même rigueur pour la clé de mois que pour les chiffres (review #232). */
+const MONTH_PATTERN = /^\d{4}-\d{2}$/;
+
 export function parseStoredMonthlyReport(value: unknown): StoredMonthlyReport | null {
   if (!isRecord(value) || !isRecord(value.report) || !Array.isArray(value.finishedReadings)) return null;
   const report = value.report;
 
-  if (typeof report.month !== "string") return null;
+  if (typeof report.month !== "string" || !MONTH_PATTERN.test(report.month)) return null;
   if (!isFiniteNumber(report.total) || !isFiniteNumber(report.readingPoints)) return null;
   if (!isFiniteNumber(report.unreadPurchaseCount) || !isFiniteNumber(report.purchasePenalty)) return null;
   if (!isRecord(report.finishedByCategory)) return null;

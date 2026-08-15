@@ -1,96 +1,100 @@
 import Image from "next/image";
+import Link from "next/link";
 import { CircleSection } from "@/components/circle/circle-section";
-import { DeleteAccountButton } from "@/components/delete-account-button";
-import { InstallSection } from "@/components/install-section";
-import { LogoutButton } from "@/components/logout-button";
+import { PalisteCard } from "@/components/profile/paliste-card";
 import { ProfileEditor } from "@/components/profile/profile-editor";
 import { getCircleView, type CircleView } from "@/lib/circle/queries";
+import { parseStoredMonthlyReport } from "@/lib/circle/stored-report";
+import { derivePalisteCard } from "@/lib/profile/paliste-card";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 /**
- * Le profil : qui est connecté, les exports, la déconnexion, et l'attribution
- * des données — GCD et Metron sont en CC BY-SA 4.0, les créditer est une
- * OBLIGATION de licence (specs §6), pas une politesse : contenu et liens
- * intacts, seul le style change (design-specs §5 « Profil »).
+ * Le Profil — l'ESPACE PERSONNEL (§4.14, lot C) : le moi public (photo,
+ * pseudo, carte de paliste — exactement ce que le cercle voit), le cercle,
+ * la personnalisation, et une entrée vers les réglages (`/profil/reglages` —
+ * exports, application, session, zone dangereuse y sont descendus).
+ *
+ * L'attribution GCD/Metron reste AU PIED DE CETTE PAGE : obligation de
+ * licence CC BY-SA 4.0 (specs §6), pas un réglage — elle ne descend pas.
+ *
+ * La carte se dérive des SEULS agrégats (`monthly_reports` + `monthly_picks`)
+ * — aucun fait brut chargé ici, zéro recalcul du moteur (§4.14). `getClaims` :
+ * l'identité sans aller-retour réseau (#125).
  */
-
-// Les exports sont des téléchargements → des ancres (`<a download>`), pas des
-// <button> : impossible d'imbriquer le <button> du composant Button dans une
-// ancre. On reprend donc l'allure du Button ghost via les tokens (§4), à
-// l'identique de la variante `ghost` — cible tactile ≥ 44px (`min-h-11`).
-const GHOST_LINK =
-  "inline-flex min-h-11 items-center justify-center gap-2 rounded-xl border border-line " +
-  "bg-card2 px-4 py-3 text-sm font-bold text-ink transition active:scale-[0.97] " +
-  "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan";
 
 const SECTION_LABEL = "text-xs font-extrabold uppercase tracking-[0.1em] text-ink3";
 
-const CSV_TABLES = {
-  books: "livres",
-  readings: "lectures",
-  reading_events: "événements",
-  purchases: "achats",
-} as const;
-
 export default async function ProfilPage() {
   const supabase = await createServerSupabaseClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
+  const { data: claims } = await supabase.auth.getClaims();
+  const userId = claims?.claims.sub;
+  const email = typeof claims?.claims.email === "string" ? claims.claims.email : null;
 
-  const { data: profile } = user
-    ? await supabase.from("profiles").select("display_name, avatar_url").eq("id", user.id).single()
-    : { data: null };
-
-  // Le cercle (§4.14) : la porte, les demandes, les amis.
   const emptyCircle: CircleView = { joined: false, friends: [], received: [], sent: [] };
-  const circle = user ? await getCircleView(supabase, user.id) : emptyCircle;
+  const [{ data: profile }, circle, { data: reportRows }, { data: pickRows }] = userId
+    ? await Promise.all([
+        supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single(),
+        getCircleView(supabase, userId),
+        supabase.from("monthly_reports").select("month, report"),
+        supabase.from("monthly_picks").select("month, kind"),
+      ])
+    : [{ data: null }, emptyCircle, { data: null }, { data: null }];
 
-  const displayName = profile?.display_name ?? user?.email ?? "lecteur";
+  const displayName = profile?.display_name ?? email ?? "lecteur";
   const initial = displayName.charAt(0).toUpperCase();
   const avatarUrl = profile?.avatar_url ?? null;
+
+  // La carte : les lignes illisibles s'écartent (parseur défensif du lot B),
+  // le mois courant est celui du serveur (UTC — la convention de la synchro).
+  const storedReports = (reportRows ?? [])
+    .map((row) => parseStoredMonthlyReport(row.report))
+    .filter((parsed) => parsed !== null);
+  const picks = (pickRows ?? []).map((row) => ({ month: row.month.slice(0, 7), kind: row.kind }));
+  const card = derivePalisteCard(storedReports, picks, new Date().toISOString().slice(0, 7));
 
   return (
     <section className="flex min-h-full flex-col gap-8 py-6">
       <h1 className="text-[22px] font-black uppercase italic tracking-tight">Profil</h1>
 
-      {/* La photo de profil (#224) si posée — sinon l'avatar historique :
-          initiale sur dégradé, encre `--bg0` (pas de blanc — audit #66, AA).
-          `unoptimized` : l'idiome maison pour nos URLs Storage versionnées
-          (?v=), comme book-cover — l'optimiseur n'apporterait rien sur 56 px. */}
-      <div className="flex items-center gap-4">
-        {avatarUrl !== null ? (
-          <Image
-            src={avatarUrl}
-            alt=""
-            width={56}
-            height={56}
-            unoptimized
-            className="size-14 shrink-0 rounded-full object-cover"
-          />
-        ) : (
-          <div
-            aria-hidden
-            className="grid size-14 shrink-0 place-items-center rounded-full bg-grad text-[22px] font-black text-bg0"
-          >
-            {initial}
+      {/* Le moi public : la photo (#224) si posée — sinon l'initiale sur
+          dégradé, encre `--bg0` (audit #66, AA) — et la carte de paliste,
+          l'aperçu honnête : c'est EXACTEMENT ce que le cercle voit. */}
+      <div className="flex flex-col gap-4">
+        <div className="flex items-center gap-4">
+          {avatarUrl !== null ? (
+            <Image
+              src={avatarUrl}
+              alt=""
+              width={56}
+              height={56}
+              unoptimized
+              className="size-14 shrink-0 rounded-full object-cover"
+            />
+          ) : (
+            <div
+              aria-hidden
+              className="grid size-14 shrink-0 place-items-center rounded-full bg-grad text-[22px] font-black text-bg0"
+            >
+              {initial}
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="truncate font-extrabold">{displayName}</p>
+            {email !== null && <p className="truncate text-sm text-ink2">{email}</p>}
           </div>
-        )}
-        <div className="min-w-0">
-          <p className="truncate font-extrabold">{displayName}</p>
-          {user?.email && <p className="truncate text-sm text-ink2">{user.email}</p>}
         </div>
+        <PalisteCard card={card} />
       </div>
 
       {/* Personnalisation (#224) : pseudo + photo — la donnée que le cercle
-          d'amis (§4.14) affichera telle quelle. */}
+          d'amis (§4.14) affiche telle quelle. */}
       <section className="flex flex-col gap-3">
         <h2 className={SECTION_LABEL}>Personnaliser</h2>
         <ProfileEditor displayName={displayName} hasAvatar={avatarUrl !== null} />
       </section>
 
-      {/* Le cercle (§4.14, lot A) : porte d'entrée, recherche, demandes, amis.
-          Les bilans comparés arrivent au lot B. */}
+      {/* Le cercle (§4.14) : porte d'entrée, recherche, demandes, amis, et
+          l'accès aux bilans comparés (/profil/cercle, lot B). */}
       <section className="flex flex-col gap-3">
         <h2 className={SECTION_LABEL}>Le cercle</h2>
         <CircleSection
@@ -102,45 +106,19 @@ export default async function ProfilPage() {
         />
       </section>
 
+      {/* Le moi privé, replié (lot C) : tout ce qui se touche deux fois par
+          an vit en sous-page — la page respire. */}
       <section className="flex flex-col gap-3">
-        <h2 className={SECTION_LABEL}>Mes données</h2>
-        <p className="text-sm text-ink2">
-          Tout ce que l&apos;app sait — livres, lectures avec notes et avis, journal des changements d&apos;état,
-          achats, y compris ce que tu as supprimé. Tes données sont à toi.
-        </p>
-        <a href="/api/export" download className={`${GHOST_LINK} w-full`}>
-          Exporter tout (JSON)
-        </a>
-        <p className="text-xs text-ink3">Ou en CSV, table par table :</p>
-        <div className="flex flex-wrap gap-2">
-          {(Object.keys(CSV_TABLES) as (keyof typeof CSV_TABLES)[]).map((table) => (
-            <a key={table} href={`/api/export?format=csv&table=${table}`} download className={GHOST_LINK}>
-              {CSV_TABLES[table]}
-            </a>
-          ))}
-        </div>
-      </section>
-
-      {/* « Application » (#89) : installation guidée de la PWA. Le composant
-          client porte sa propre <section> (titre compris) pour disparaître
-          entièrement une fois l'app installée. */}
-      <InstallSection labelClassName={SECTION_LABEL} />
-
-      <section className="flex flex-col gap-3">
-        <h2 className={SECTION_LABEL}>Session</h2>
-        <LogoutButton />
-      </section>
-
-      {/* RGPD (epic #182) : le droit à l'effacement, complet — données,
-          photos, invitation. L'export est juste au-dessus : partir AVEC ses
-          données reste le chemin naturel. */}
-      <section className="flex flex-col gap-3">
-        <h2 className={SECTION_LABEL}>Zone dangereuse</h2>
-        <p className="text-sm text-ink2">
-          Supprimer ton compte efface définitivement tout — livres, lectures, notes et avis, photos, historique,
-          invitation. Aucun retour en arrière. Pense à exporter tes données d&apos;abord.
-        </p>
-        <DeleteAccountButton />
+        <h2 className={SECTION_LABEL}>Réglages</h2>
+        <Link
+          href="/profil/reglages"
+          className="inline-flex min-h-11 w-full items-center justify-between rounded-xl border border-line bg-card2 px-4 py-3 text-sm font-bold text-ink transition active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+        >
+          Mes données, application, session…
+          <span aria-hidden className="text-ink3">
+            →
+          </span>
+        </Link>
       </section>
 
       <footer className="mt-auto border-t border-line pt-4 text-xs leading-relaxed text-ink3">

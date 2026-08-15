@@ -158,9 +158,13 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
    test d'isolation étendu), parsing défensif du jsonb, classements par mois clos et cumul annuel
    (ex-aequo même rang, « — » hors rang), fiche ami + vue comparée sous `/profil/cercle`, **job Actions
    du 1er du mois** (`materialize-monthly-reports.mts` via tsx — le moteur réutilisé, zéro barème
-   dupliqué), et le shell passé à UN appel réseau (`count_pending_friend_requests`). **Prochain
-   chantier — lot C (#230)** : carte de paliste + Profil en espace personnel (réglages en sous-page).
-   Cap : premiers bilans comparés à l'antenne le 1er septembre — le job doit avoir tourné le 1er.
+   dupliqué), et le shell passé à UN appel réseau (`count_pending_friend_requests`). **Lot C (#230)
+   livré dans la foulée** : la **carte de paliste** (dérivation pure des seuls agrégats — distinctions
+   cumulées, meilleur mois avec égalité au plus récent, total de l'année, lectures — UN composant pour
+   mon Profil ET la fiche ami : l'aperçu honnête est structurel), le **Profil en espace personnel**
+   (identité + carte + cercle, réglages descendus en sous-page `/profil/reglages`, attribution
+   maintenue au pied — licence §6), et le parseur d'agrégat resserré (format du mois). **Amis v1 est
+   complet.** Cap : premiers bilans comparés à l'antenne le 1er septembre — le job doit avoir tourné.
    ⚠️ Le sur-fetch de la PAL (lot B défait par #101) reste à retraiter, avec `ownerships` dans l'équation.
 
 **Point ouvert à traiter au moment du scan** : deviner la catégorie du barème pour la **VF** (BD vs manga vs

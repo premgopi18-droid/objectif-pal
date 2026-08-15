@@ -57,6 +57,15 @@ describe("parseStoredMonthlyReport", () => {
     expect(parseStoredMonthlyReport(badCount)).toBeNull();
   });
 
+  it("rejette un mois qui n'est pas au format YYYY-MM (review #232)", () => {
+    const badMonth = validStored();
+    (badMonth.report as Record<string, unknown>).month = "juillet 2026";
+    expect(parseStoredMonthlyReport(badMonth)).toBeNull();
+    const truncated = validStored();
+    (truncated.report as Record<string, unknown>).month = "2026-7";
+    expect(parseStoredMonthlyReport(truncated)).toBeNull();
+  });
+
   it("rejette les formes qui ne sont pas une ligne d'agrégat", () => {
     expect(parseStoredMonthlyReport(null)).toBeNull();
     expect(parseStoredMonthlyReport("{}")).toBeNull();
