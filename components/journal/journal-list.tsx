@@ -1,6 +1,7 @@
 "use client";
 
-import { Fragment, useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
+import { Fragment, useState, useTransition } from "react";
 import {
   abandonReading,
   finishReading,
@@ -31,16 +32,14 @@ import { formatPointsLabel } from "@/lib/scoring/report-text";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
 import type { BookCategory, ReadingStatus } from "@/lib/scoring/types";
 import type { ComponentProps } from "react";
+import { monthSeparatorBefore, UNDATED_SEPARATOR } from "./month-separator";
 import {
-  distinctMonths,
-  distinctSeriesNames,
-  filterJournalEntries,
-  monthSeparatorBefore,
-  sortJournalEntries,
-  UNDATED_SEPARATOR,
+  JOURNAL_PAGE_SIZE,
   NO_JOURNAL_FILTERS,
+  hasActiveJournalFilters,
+  journalSearchString,
   type JournalFilters,
-} from "./filter-journal-entries";
+} from "./journal-url";
 
 /**
  * La liste du journal — specs §4.2. « Terminé » est LE geste qui rapporte les
@@ -104,8 +103,26 @@ const SELECT_CLASS =
   "min-w-[9rem] flex-1 rounded-xl border border-line bg-card px-3 py-2 text-sm text-ink " +
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan";
 
-export function JournalList({ entries }: { entries: JournalEntry[] }) {
-  const [filters, setFilters] = useState<JournalFilters>(NO_JOURNAL_FILTERS);
+export function JournalList({
+  entries,
+  filters,
+  totalCount,
+  hasMore,
+  depth,
+  seriesOptions,
+  monthOptions,
+}: {
+  /** La TRANCHE affichée — déjà filtrée et triée par la vue SQL (#32 lot C). */
+  entries: JournalEntry[];
+  filters: JournalFilters;
+  /** Le total qui matche les filtres (toutes pages confondues). */
+  totalCount: number;
+  hasMore: boolean;
+  depth: number;
+  /** Les options des selects — dérivées du journal ENTIER, pas de la tranche. */
+  seriesOptions: string[];
+  monthOptions: string[];
+}) {
   // Un seul Toast pour toute la liste — la célébration de « Terminé ✓ » (#73).
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   /**
@@ -117,16 +134,21 @@ export function JournalList({ entries }: { entries: JournalEntry[] }) {
   const [editingCategory, setEditingCategory] = useState<{ bookId: string; category: BookCategory } | null>(null);
   const { run, isPending, error, setError } = useBookGestures();
 
-  // Les options des selects viennent des entrées elles-mêmes (dérivées en
-  // mémoire) ; le filtrage est un Array.filter — aucune requête (§4.2, #34).
-  const seriesOptions = useMemo(() => distinctSeriesNames(entries), [entries]);
-  const monthOptions = useMemo(() => distinctMonths(entries), [entries]);
-  // Filtré PUIS trié « activité d'abord » (#146) — le tri SQL brut mettait les
-  // sans-date en tête et enterrait la lecture en cours.
-  const visible = useMemo(() => sortJournalEntries(filterJournalEntries(entries, filters)), [entries, filters]);
-  const hasActiveFilters = Object.values(filters).some((value) => value !== "all");
+  // Filtres et profondeur vivent dans l'URL (#32 lot C) : changer un filtre
+  // NAVIGUE (replace, sans saut de scroll) — le serveur rend la tranche, les
+  // gestes continuent de rafraîchir par revalidation, et le bouton retour
+  // retombe sur la vue exacte. Un filtre qui change repart en page 1.
+  const router = useRouter();
+  const [isLoadingPage, startPageTransition] = useTransition();
+  const navigate = (nextFilters: JournalFilters, nextDepth: number = JOURNAL_PAGE_SIZE) => {
+    const search = journalSearchString(nextFilters, nextDepth);
+    startPageTransition(() => router.replace(`/journal${search ? `?${search}` : ""}`, { scroll: false }));
+  };
+  const setFilters = (nextFilters: JournalFilters) => navigate(nextFilters);
+  const hasActiveFilters = hasActiveJournalFilters(filters);
+  const visible = entries;
 
-  if (entries.length === 0) {
+  if (totalCount === 0 && !hasActiveFilters) {
     return (
       <p className="mt-6 text-sm text-ink2">
         Ton journal est vide — scanne ton premier bouquin depuis l&apos;onglet Scanner, et il apparaîtra ici.
@@ -204,7 +226,7 @@ export function JournalList({ entries }: { entries: JournalEntry[] }) {
         <>
           {hasActiveFilters && (
             <p className="text-xs text-ink3">
-              {visible.length} lecture{visible.length > 1 ? "s" : ""} ·{" "}
+              {totalCount} lecture{totalCount > 1 ? "s" : ""} ·{" "}
               <button
                 type="button"
                 onClick={() => setFilters(NO_JOURNAL_FILTERS)}
@@ -239,6 +261,22 @@ export function JournalList({ entries }: { entries: JournalEntry[] }) {
               );
             })}
           </ul>
+          {/* « Charger plus » (#32 lot C) : la profondeur grandit dans l'URL —
+              le serveur re-rend la liste étendue dans le MÊME ordre (la vue
+              fait foi), le scroll ne bouge pas. */}
+          {hasMore && (
+            <Button
+              type="button"
+              variant="ghost"
+              block
+              disabled={isLoadingPage}
+              onClick={() => navigate(filters, depth + JOURNAL_PAGE_SIZE)}
+            >
+              {isLoadingPage
+                ? "Chargement…"
+                : `Charger plus (${totalCount - visible.length} restante${totalCount - visible.length > 1 ? "s" : ""})`}
+            </Button>
+          )}
         </>
       )}
 

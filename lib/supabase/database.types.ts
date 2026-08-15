@@ -355,6 +355,13 @@ export type Database = {
             foreignKeyName: "monthly_picks_reading_id_fkey"
             columns: ["reading_id"]
             isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "monthly_picks_reading_id_fkey"
+            columns: ["reading_id"]
+            isOneToOne: false
             referencedRelation: "readings"
             referencedColumns: ["id"]
           },
@@ -433,6 +440,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "ownerships_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["book_id"]
+          },
+          {
             foreignKeyName: "ownerships_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -493,6 +507,13 @@ export type Database = {
             referencedColumns: ["id"]
           },
           {
+            foreignKeyName: "purchases_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["book_id"]
+          },
+          {
             foreignKeyName: "purchases_user_id_fkey"
             columns: ["user_id"]
             isOneToOne: false
@@ -524,6 +545,13 @@ export type Database = {
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "reading_events_reading_id_fkey"
+            columns: ["reading_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "reading_events_reading_id_fkey"
             columns: ["reading_id"]
@@ -584,6 +612,13 @@ export type Database = {
             isOneToOne: false
             referencedRelation: "books"
             referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "readings_book_id_fkey"
+            columns: ["book_id"]
+            isOneToOne: false
+            referencedRelation: "journal_entries"
+            referencedColumns: ["book_id"]
           },
           {
             foreignKeyName: "readings_user_id_fkey"
@@ -652,7 +687,37 @@ export type Database = {
       }
     }
     Views: {
-      [_ in never]: never
+      journal_entries: {
+        Row: {
+          book_id: string | null
+          category: Database["public"]["Enums"]["book_category"] | null
+          comment: string | null
+          cover_url: string | null
+          created_at: string | null
+          finished_at: string | null
+          id: string | null
+          issue_number: string | null
+          journal_date: string | null
+          journal_month: string | null
+          journal_rank: number | null
+          page_count: number | null
+          rating: number | null
+          series_name: string | null
+          started_at: string | null
+          status: Database["public"]["Enums"]["reading_status"] | null
+          title: string | null
+          user_id: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "readings_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
     }
     Functions: {
       consume_action_quota: { Args: { action_kind: string }; Returns: boolean }
