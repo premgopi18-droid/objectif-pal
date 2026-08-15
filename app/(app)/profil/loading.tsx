@@ -1,7 +1,8 @@
 /**
- * Squelette du profil (#126) — affiché instantanément au tap pendant le rendu
- * serveur : titre, bloc identité, puis les blocs d'actions (export, crédits,
- * déconnexion), la silhouette de la page.
+ * Squelette du profil (#126, refondu au lot C §4.14) — affiché instantanément
+ * au tap pendant le rendu serveur : titre, identité, la grille 2×2 de la
+ * carte de paliste, puis les sections (personnaliser, cercle, réglages) —
+ * la silhouette de l'espace personnel.
  */
 export default function ProfilLoading() {
   return (
@@ -9,11 +10,21 @@ export default function ProfilLoading() {
       <span className="sr-only">Chargement…</span>
       <div aria-hidden className="animate-pulse">
         <div className="h-8 w-28 rounded bg-foreground/10" />
-        <div className="mt-4 rounded-xl border border-foreground/10 p-4">
-          <div className="h-4 w-1/2 rounded bg-foreground/10" />
-          <div className="mt-2 h-3 w-2/3 rounded bg-foreground/10" />
+        <div className="mt-4 flex items-center gap-4">
+          <div className="size-14 shrink-0 rounded-full bg-foreground/10" />
+          <div className="min-w-0 flex-1">
+            <div className="h-4 w-1/2 rounded bg-foreground/10" />
+            <div className="mt-2 h-3 w-2/3 rounded bg-foreground/10" />
+          </div>
         </div>
-        <div className="mt-3 rounded-xl border border-foreground/10 p-4">
+        {/* La carte de paliste : la grille 2×2 des tuiles. */}
+        <div className="mt-4 grid grid-cols-2 gap-2">
+          <div className="h-20 rounded-card bg-foreground/10" />
+          <div className="h-20 rounded-card bg-foreground/10" />
+          <div className="h-20 rounded-card bg-foreground/10" />
+          <div className="h-20 rounded-card bg-foreground/10" />
+        </div>
+        <div className="mt-6 rounded-xl border border-foreground/10 p-4">
           <div className="h-4 w-1/3 rounded bg-foreground/10" />
           <div className="mt-2 h-9 w-full rounded-xl bg-foreground/10" />
         </div>
