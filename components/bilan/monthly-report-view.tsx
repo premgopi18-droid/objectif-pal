@@ -1,6 +1,6 @@
 "use client";
 
-import { ChevronLeft, ChevronRight, Copy } from "lucide-react";
+import { ChevronLeft, ChevronRight, Share2 } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ObjectiveSection } from "@/components/bilan/objective-section";
 import { PicksSection } from "@/components/bilan/picks-section";
@@ -136,16 +136,31 @@ export function MonthlyReportView({ readings, purchases, objectivesByMonth, pick
     [monthPicks, readings],
   );
 
-  async function copyReport() {
-    // Le presse-papiers peut rejeter (permission, focus, navigateur) : pour LE
-    // bouton du livrable, un échec muet est interdit — le texte s'affiche alors
-    // dans une zone sélectionnable, toujours récupérable.
+  async function shareReport() {
+    const text = reportToText(report, pickLines);
+    // Le partage NATIF d'abord (#245) : la feuille iOS/Android — qui contient
+    // déjà « Copier » parmi ses cibles — sur les plateformes réelles de la
+    // PWA. « Pour l'antenne » était le vocabulaire du duo fondateur ; à 100
+    // comptes, le bilan se partage.
+    if (typeof navigator.share === "function") {
+      try {
+        await navigator.share({ text });
+        return; // Partagé — ou copié via la feuille native, c'est son affaire.
+      } catch (error) {
+        // Refermer la feuille n'est PAS une erreur : silence total.
+        if (error instanceof DOMException && error.name === "AbortError") return;
+        // Autre refus (permission, contexte) : on retombe sur la copie.
+      }
+    }
+    // Le repli copie (desktop, ou partage refusé). Le presse-papiers peut
+    // rejeter (permission, focus) : pour LE bouton du livrable, un échec muet
+    // est interdit — le texte s'affiche alors dans une zone sélectionnable.
     try {
-      await navigator.clipboard.writeText(reportToText(report, pickLines));
+      await navigator.clipboard.writeText(text);
       setCopyFallbackText(null);
-      setToastMessage("Bilan copié pour l'antenne ✓");
+      setToastMessage("Bilan copié ✓");
     } catch {
-      setCopyFallbackText(reportToText(report, pickLines));
+      setCopyFallbackText(text);
     }
   }
 
@@ -230,9 +245,9 @@ export function MonthlyReportView({ readings, purchases, objectivesByMonth, pick
       <PicksSection key={`picks-${month}`} month={month} finishedReadings={finishedReadingsOfMonth} picks={monthPicks} />
 
       {/* Le geste-livrable (design-specs §5) : CTA dégradé pleine largeur + toast. */}
-      <Button variant="grad" block onClick={copyReport} className="mt-1">
-        <Copy aria-hidden className="size-5" />
-        Copier pour l&apos;antenne
+      <Button variant="grad" block onClick={shareReport} className="mt-1">
+        <Share2 aria-hidden className="size-5" />
+        Partager mon bilan
       </Button>
 
       {copyFallbackText && (
