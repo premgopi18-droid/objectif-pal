@@ -458,6 +458,32 @@ export type Database = {
           },
         ]
       }
+      monthly_reveals: {
+        Row: {
+          month: string
+          revealed_at: string
+          user_id: string
+        }
+        Insert: {
+          month: string
+          revealed_at?: string
+          user_id: string
+        }
+        Update: {
+          month?: string
+          revealed_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "monthly_reveals_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       objective_targets: {
         Row: {
           category: Database["public"]["Enums"]["book_category"]
@@ -852,6 +878,7 @@ export type Database = {
           computed_at: string
           month: string
           report: Json
+          revealed: boolean
           user_id: string
         }[]
       }
@@ -864,6 +891,10 @@ export type Database = {
         }[]
       }
       is_circle_member: { Args: { member_id: string }; Returns: boolean }
+      is_month_revealed: {
+        Args: { owner_id: string; report_month: string }
+        Returns: boolean
+      }
       merge_books: {
         Args: { keep_book_id: string; merge_book_id: string }
         Returns: undefined

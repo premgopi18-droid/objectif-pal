@@ -32,8 +32,10 @@ export default async function FriendPage({ params }: { params: Promise<{ id: str
   const friend = view.participants.find((participant) => participant.id === id && !participant.isMe);
   if (!view.joined || friend === undefined) notFound();
 
+  // Les mois verrouillés (#243) figurent dans la liste : l'existence sans la
+  // donnée — « le bilan de X arrive ».
   const months = [
-    ...new Set([...Object.keys(friend.reportsByMonth), ...friend.unreadableMonths]),
+    ...new Set([...Object.keys(friend.reportsByMonth), ...friend.unreadableMonths, ...friend.lockedMonths]),
   ]
     .sort()
     .reverse();
@@ -99,6 +101,11 @@ export default async function FriendPage({ params }: { params: Promise<{ id: str
                       picks={friend.picksByMonth[month] ?? []}
                       ownerDisplayName={friend.displayName}
                     />
+                  ) : friend.lockedMonths.includes(month) ? (
+                    <p className="text-sm text-ink3">
+                      🔒 Pas encore révélé — le bilan de {friend.displayName} arrive (au plus tard le 1ᵉʳ du mois
+                      prochain).
+                    </p>
                   ) : (
                     <p className="text-sm text-ink3">Bilan indisponible pour ce mois.</p>
                   )}

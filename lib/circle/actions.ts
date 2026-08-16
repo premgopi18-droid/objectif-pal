@@ -9,6 +9,7 @@ import {
   toCircleLink,
 } from "@/lib/circle/friendship";
 import { PSEUDO_TAKEN_MESSAGE, normalizeDisplayName } from "@/lib/profile/display-name";
+import type { Month } from "@/lib/scoring/types";
 import { getSessionOrError } from "@/lib/supabase/server";
 
 /**
@@ -261,4 +262,33 @@ export async function cancelFriendRequest(otherId: string): Promise<CircleAction
 
 export async function removeFriend(otherId: string): Promise<CircleActionResult> {
   return deleteFriendship(otherId, { status: "accepted" });
+}
+
+/**
+ * Révéler un mois clos au cercle (#243) — le geste de fin d'émission, à SENS
+ * UNIQUE (aucune policy UPDATE/DELETE : comme l'antenne, on ne dé-révèle
+ * pas). La RLS n'accepte qu'un mois CLOS (frontière UTC) ; re-révéler est
+ * idempotent. Sans reveal manuel, la bascule automatique s'en charge au 1er
+ * du mois suivant — un prédicat de temps côté serveur, pas une action.
+ */
+export async function revealMonth(month: Month): Promise<CircleActionResult> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+
+  const { error } = await session.supabase
+    .from("monthly_reveals")
+    .insert({ user_id: session.user.id, month: `${month}-01` });
+  if (error && error.code === UNIQUE_VIOLATION) {
+    // Déjà révélé (double tap, deux onglets) : l'état voulu est acquis.
+    return { ok: true, message: "Déjà révélé au cercle ✓" };
+  }
+  if (error) {
+    if (error.code === RLS_VIOLATION) return { ok: false, error: "Ce mois n'est pas encore clos — rien à révéler." };
+    console.error("[circle] revealMonth:", error.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+
+  revalidatePath("/bilan");
+  revalidatePath("/profil/cercle");
+  return { ok: true, message: "Révélé au cercle ✓" };
 }

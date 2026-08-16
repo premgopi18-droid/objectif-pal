@@ -201,14 +201,22 @@ export default async function BilanPage({
     return <PageLoadError title="Bilan du mois" message="Impossible de charger le bilan — réessaie." />;
   }
 
-  const [objectivesResult, picksResult] = await Promise.all([
+  const [objectivesResult, picksResult, revealsResult, profileResult] = await Promise.all([
     supabase.from("monthly_objectives").select("month, objective_targets (category, target_count)"),
     supabase.from("monthly_picks").select("month, kind, reading_id, comment"),
+    // Le reveal au cercle (#243) : mes reveals manuels + suis-je entré au
+    // cercle (sans cercle, la section reveal n'a rien à raconter).
+    supabase.from("monthly_reveals").select("month"),
+    userId ? supabase.from("profiles").select("circle_joined_at").eq("id", userId).single() : Promise.resolve({ data: null, error: null }),
   ]);
 
   if (objectivesResult.error || picksResult.error) {
     return <PageLoadError title="Bilan du mois" message="Impossible de charger le bilan — réessaie." />;
   }
+  // Un échec sur les reveals ne bloque pas le bilan (la section s'affichera au
+  // prochain chargement) — le livrable d'antenne passe d'abord.
+  const revealedMonths = (revealsResult.data ?? []).map((row) => row.month.slice(0, 7));
+  const inCircle = profileResult.data?.circle_joined_at != null;
 
   // L'embed `book` est inféré objet (FK many-to-one) : plus de tableau à déplier.
   const readings: BilanReading[] = (readingsRows ?? []).map((row) => ({
@@ -268,7 +276,14 @@ export default async function BilanPage({
     <section className="py-6">
       <h1 className="text-2xl font-bold">Bilan du mois</h1>
       <div className="mt-4">{segments}</div>
-      <MonthlyReportView readings={readings} purchases={purchases} objectivesByMonth={objectivesByMonth} picks={picks} />
+      <MonthlyReportView
+        readings={readings}
+        purchases={purchases}
+        objectivesByMonth={objectivesByMonth}
+        picks={picks}
+        revealedMonths={revealedMonths}
+        inCircle={inCircle}
+      />
     </section>
   );
 }
