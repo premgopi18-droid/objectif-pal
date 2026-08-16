@@ -4,6 +4,7 @@ import { ChevronLeft, ChevronRight, Copy } from "lucide-react";
 import { useMemo, useState } from "react";
 import { ObjectiveSection } from "@/components/bilan/objective-section";
 import { PicksSection } from "@/components/bilan/picks-section";
+import { RevealSection } from "@/components/bilan/reveal-section";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Toast } from "@/components/ui/toast";
@@ -46,6 +47,10 @@ type MonthlyReportViewProps = {
   purchases: PurchaseFact[];
   objectivesByMonth: Record<string, MonthlyObjective>;
   picks: MonthlyPickRecord[];
+  /** Mes reveals manuels (`YYYY-MM`) — la section reveal du cercle (#243). */
+  revealedMonths: string[];
+  /** Entré au cercle ? Sans cercle, la section reveal n'a rien à raconter. */
+  inCircle: boolean;
 };
 
 /** « × 3 pts », « × 0,5 pt », « × −1 pt » — le barème par unité, virgule française. */
@@ -89,7 +94,7 @@ function DetailRow({
   );
 }
 
-export function MonthlyReportView({ readings, purchases, objectivesByMonth, picks }: MonthlyReportViewProps) {
+export function MonthlyReportView({ readings, purchases, objectivesByMonth, picks, revealedMonths, inCircle }: MonthlyReportViewProps) {
   const currentMonth = localCurrentMonth();
   const [month, setMonth] = useState(currentMonth);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -243,6 +248,20 @@ export function MonthlyReportView({ readings, purchases, objectivesByMonth, pick
             className="rounded-xl border border-line bg-card2 p-3 font-mono text-sm text-ink"
           />
         </div>
+      )}
+
+      {/* Le reveal au cercle (#243) — le geste qui SUIT la copie : on lit le
+          bilan à l'antenne, puis on le révèle aux amis. Sur les mois CLOS
+          seulement. La frontière mois clos/courant est celle de l'appareil ici
+          (comme toute la vue) quand la RLS juge en UTC : à la frontière exacte
+          du mois, l'insert peut être refusé — message doux, jamais générique. */}
+      {inCircle && month < currentMonth && (
+        <RevealSection
+          month={month}
+          currentMonth={currentMonth}
+          revealedMonths={revealedMonths}
+          onDone={(message) => setToastMessage(message)}
+        />
       )}
 
       <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />

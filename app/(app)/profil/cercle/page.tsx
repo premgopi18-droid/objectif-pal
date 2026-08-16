@@ -20,7 +20,8 @@ export default async function CircleReportsPage() {
   }
 
   const view = await getCircleReportsView(supabase, userId);
-  const currentYear = new Date().toISOString().slice(0, 4);
+  const currentMonth = new Date().toISOString().slice(0, 7);
+  const currentYear = currentMonth.slice(0, 4);
 
   return (
     <section className="flex flex-col gap-5 py-6">
@@ -46,7 +47,12 @@ export default async function CircleReportsPage() {
           vos mois clos s&apos;affichent côte à côte.
         </p>
       ) : (
-        <CircleReportsView participants={view.participants} currentYear={currentYear} />
+        <CircleReportsView
+          participants={view.participants}
+          currentYear={currentYear}
+          currentMonth={currentMonth}
+          myManualReveals={view.myManualReveals}
+        />
       )}
     </section>
   );

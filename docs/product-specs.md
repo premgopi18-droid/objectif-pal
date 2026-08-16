@@ -753,8 +753,33 @@ modifiable + photo, #224). La v1 construit le lien, la lecture croisée et la su
   résout via les terminées de la ligne ; le **commentaire éditorial** de la distinction reste local en v1.
 - **Jamais les notes ni les avis** — garanti par construction : ils ne sont **pas dans l'agrégat**
   (§4.3 : l'avis est un cadeau à l'antenne, pas une donnée publiée).
-- **Jamais le mois en cours** : il n'a pas de ligne (le socle le grave déjà) — l'app ne spoile pas le
-  reveal.
+- **Jamais le mois en cours** : il n'a pas de ligne (le socle le grave déjà).
+- **Et le dernier mois clos attend son émission** (#243, décisions du 16/08/2026) — voir « Le reveal
+  appartient à l'émission » ci-dessous : un mois clos reste **verrouillé** pour le cercle jusqu'au reveal
+  manuel de son propriétaire, ou jusqu'à la bascule automatique au 1ᵉʳ du mois suivant.
+
+#### Le reveal appartient à l'émission (#243, 16/08/2026)
+
+La première version croyait le reveal protégé par la clôture du mois — faux : le reveal, c'est
+**l'émission**, enregistrée plus tard dans le mois. Les règles :
+
+- **Le bouton « Révéler au cercle » vit sur le Bilan du mois clos**, à côté de « Copier pour
+  l'antenne » — le même rituel de fin d'émission. Il n'apparaît qu'aux comptes entrés au cercle.
+- **Bascule automatique au 1ᵉʳ du mois suivant la clôture** (UTC) : juillet, clos le 1ᵉʳ août, est
+  auto-visible le 1ᵉʳ septembre. C'est un **prédicat de temps** (`is_month_revealed`), pas une action —
+  aucun cron. La date de bascule est affichée sous le bouton : rien ne surprend.
+- **Le verrou est côté serveur, jamais côté UI** (le patron des avis) : `get_circle_monthly_reports`
+  sert la ligne verrouillée avec `report` **NULL** (l'existence = le teasing, la donnée = rien) ;
+  `get_circle_monthly_picks` **filtre** les mois verrouillés. Conséquence automatique : la carte de
+  paliste et le cumul annuel d'un ami **excluent** ses mois verrouillés (servir le cumul plein
+  permettrait de déduire le score par soustraction).
+- **À sens unique** — comme l'antenne : `monthly_reveals` n'a **aucune policy UPDATE ni DELETE**,
+  l'irréversibilité est structurelle (prouvée par le test d'isolation en CI). On ne révèle qu'un mois
+  **clos**.
+- **À l'écran** : un mois verrouillé d'un ami s'affiche « 🔒 à révéler » — la ligne existe, **aucun
+  chiffre**, hors classement, entre les classés et les « — ». MA propre ligne me montre toujours MES
+  chiffres, avec un badge 🔒 tant que le cercle ne les voit pas. Le cumul annuel d'un ami « saute » à
+  son reveal — voulu.
 
 #### Le classement du cercle — privé, sans enjeu de barème
 
@@ -767,6 +792,9 @@ bonus, pas de podium officiel, **un ordre d'affichage** dérivé des agrégats d
 - **L'ami sans ligne un mois donné s'affiche « — », hors classement** : pas de ligne = pas de bilan à
   raconter. Le zéro reste réservé à un mois **joué** (une ligne existe : achats sans lecture, objectif
   raté…) — on ne confond pas « n'a rien fait » et « pas de bilan ».
+- **L'ami pas encore révélé s'affiche « 🔒 à révéler », hors classement aussi** (#243) — trois états,
+  trois rendus, jamais confondus : classé / 🔒 verrouillé / « — ». Ordre d'affichage : les classés, puis
+  les 🔒, puis les « — ». Le podium d'un mois se remplit au fil des reveals du cercle.
 - **Ex-aequo = même rang** : à score égal, pas de départage artificiel.
 - Le « **meilleur paliste +5** » reste **P2** : il touche au barème et exigera de définir un cercle de
   référence officiel — précisément ce que la v1 ne veut pas trancher.
@@ -1236,7 +1264,11 @@ seulement, jokers LIKE échappés), `get_circle_profiles()` (pseudo + photo des 
 `get_circle_monthly_reports()` (lot B — les lignes d'agrégat des amis **acceptés**, jamais une lecture
 brute) et `get_circle_monthly_picks()` (lot B — type + lecture des distinctions des **mois clos** des amis,
 filtre UTC comme la synchro #214). S'y ajoute `count_pending_friend_requests()` (`security invoker` — la
-RLS fait autorité) : la pastille de la nav en un seul appel, l'identité lue dans le jeton.
+RLS fait autorité) : la pastille de la nav en un seul appel, l'identité lue dans le jeton. **Le reveal
+(#243)** : table `monthly_reveals` (`user_id`, `month` au 1ᵉʳ, `revealed_at` — SELECT/INSERT own, mois
+clos seulement, **aucune policy UPDATE/DELETE** : sens unique structurel) et prédicat
+`is_month_revealed(owner, month)` (`security definer`, réutilisé par les deux RPC du cercle) : révélé
+manuellement OU un mois entier écoulé depuis la clôture.
 
 ### Tables de référence (GCD, en lecture seule)
 

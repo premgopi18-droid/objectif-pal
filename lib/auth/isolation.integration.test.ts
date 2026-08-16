@@ -154,6 +154,40 @@ describe.runIf(shouldRun)("cloisonnement inter-utilisateurs (RLS)", () => {
     expect(rawError).toBeNull();
     expect(rawReadings).toEqual([]);
 
+    // LE REVEAL (#243) — sens unique, chacun le sien.
+    // B ne révèle PAS un mois de A (RLS insert : user_id = soi).
+    const { error: crossReveal } = await b.client
+      .from("monthly_reveals")
+      .insert({ user_id: a.userId, month: "2020-01-01" });
+    expect(crossReveal).not.toBeNull();
+    // A ne révèle PAS le mois COURANT (with check : mois clos seulement).
+    const currentMonthFirst = `${new Date().toISOString().slice(0, 7)}-01`;
+    const { error: currentReveal } = await a.client
+      .from("monthly_reveals")
+      .insert({ user_id: a.userId, month: currentMonthFirst });
+    expect(currentReveal).not.toBeNull();
+    // A révèle un mois clos — idempotent entre deux exécutions (23505 toléré :
+    // il n'y a PAS de DELETE, c'est le sens unique).
+    const { error: revealError } = await a.client
+      .from("monthly_reveals")
+      .insert({ user_id: a.userId, month: "2020-01-01" });
+    expect(revealError === null || revealError.code === "23505").toBe(true);
+    // L'irréversibilité est STRUCTURELLE : le delete de A sur SON reveal ne
+    // touche aucune ligne (aucune policy), la ligne survit.
+    await a.client.from("monthly_reveals").delete().eq("user_id", a.userId).eq("month", "2020-01-01");
+    const { data: survived } = await a.client
+      .from("monthly_reveals")
+      .select("month")
+      .eq("month", "2020-01-01");
+    expect(survived?.length).toBe(1);
+    // Et B ne voit pas les reveals de A (select own only).
+    const { data: revealSweep, error: revealSweepError } = await b.client
+      .from("monthly_reveals")
+      .select("user_id")
+      .neq("user_id", b.userId);
+    expect(revealSweepError).toBeNull();
+    expect(revealSweep).toEqual([]);
+
     // Nettoyage : le lien part, la porte se referme — rien ne s'accumule.
     await b.client.from("friendships").delete().eq("user_low", low).eq("user_high", high);
     await a.client.from("profiles").update({ circle_joined_at: null }).eq("id", a.userId);

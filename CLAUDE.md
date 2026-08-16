@@ -167,7 +167,11 @@ Si une PR contient une migration `supabase/migrations/` → l'appliquer sur Supa
    complet**, et le 16/08 l'affine encore : carte héros au palmarès en médailles (#234, maquette validée)
    et **terminés du mois en couvertures** (#236 : métadonnées publiques du livre dans la ligne d'agrégat,
    grille plafonnée-dépliable, feuille au tap avec ISBN copiable — ⚠️ après déploiement, bump one-shot
-   des `user_fact_versions` + run manuel du job pour rematérialiser le parc). Cap : premiers bilans
+   des `user_fact_versions` + run manuel du job pour rematérialiser le parc). Et **le reveal appartient
+   à l'émission (#243)** : le dernier mois clos reste verrouillé au cercle (`report` NULL servi, picks
+   filtrés, carte/cumul auto-exclus) jusqu'au bouton « Révéler au cercle » du Bilan ou à la bascule
+   auto au 1ᵉʳ du mois suivant — prédicat de temps `is_month_revealed`, zéro cron, sens unique
+   structurel (pas de policy UPDATE/DELETE sur `monthly_reveals`), prouvé en CI. Cap : premiers bilans
    comparés à l'antenne le 1er septembre — le job doit avoir tourné.
    ⚠️ Le sur-fetch de la PAL (lot B défait par #101) reste à retraiter, avec `ownerships` dans l'équation.
 
