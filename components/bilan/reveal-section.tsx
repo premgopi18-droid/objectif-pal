@@ -10,7 +10,7 @@ import type { Month } from "@/lib/scoring/types";
 
 /**
  * Le reveal au cercle (#243) — « le reveal appartient à l'émission » : le
- * bouton vit sur le Bilan du mois clos, à côté du « Copier pour l'antenne »,
+ * bouton vit sur le Bilan du mois clos, à côté du « Partager mon bilan » (#245),
  * parce que c'est le même rituel : on copie, on enregistre l'émission, on
  * révèle. À SENS UNIQUE (pas de dé-reveal), avec la bascule automatique en
  * filet au 1er du mois suivant — affichée pour que rien ne surprenne.

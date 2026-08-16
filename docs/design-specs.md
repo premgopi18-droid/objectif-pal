@@ -46,7 +46,7 @@ signature, confettis, énergie jeu télévisé.
 
 **Le dégradé signature** : `linear-gradient(100deg, #F32FB6, #8C5CF6 45%, #2BD7F0 75%, #3BE596)`.
 C'est LA marque — il est réservé aux moments qui comptent : bouton scan central, segment actif,
-score du mois, CTA principaux (« Je commence », « Copier pour l'antenne »), logo « PAL », indicateur
+score du mois, CTA principaux (« Je commence », « Partager mon bilan »), logo « PAL », indicateur
 d'onglet actif. **Partout ailleurs, la page reste calme** (surfaces violettes sombres, texte lavande) —
 c'est ce contraste qui fait tenir le dégradé sans vulgarité.
 
@@ -165,7 +165,7 @@ la palette, choisis par hash du titre — stable d'un rendu à l'autre).
   avec « Je commence ». **Biblio / Tous** : recherche + tri existants (#49), badges d'état.
 - **Bilan / Bilan** : nav mois ← → , **score du mois en héros** (52px, italique, dégradé), détail au
   barème en lignes (+vert/−rouge), jauge d'objectif (dégradé), distinctions 🏆💀 avec commentaires,
-  CTA « 📋 Copier pour l'antenne » (le geste-livrable, bouton dégradé pleine largeur).
+  CTA « Partager mon bilan » (#245 — feuille de partage native, repli copie ; le geste-livrable, bouton dégradé pleine largeur).
 - **Bilan / Stats** : tuiles (pile, finis, pages, note moyenne), **courbe de PAL** (trait dégradé,
   aire violette translucide, point terminal cyan, grille discrète), barres de répartition (une couleur
   de palette par catégorie, stable).
