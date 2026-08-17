@@ -42,6 +42,11 @@ async function signIn(email: string, password: string) {
   return { client, userId: data.user.id };
 }
 
+// 30 s comme le contrat #60 : ces tests enchaînent une douzaine d'allers-retours
+// séquentiels vers la prod (runner GitHub aux US ↔ base en Europe) — le défaut
+// Vitest de 5 s est structurellement trop juste un matin lent (échec du 17/08).
+const INTEGRATION_TIMEOUT_MS = 30000;
+
 describe.runIf(shouldRun)("cloisonnement inter-utilisateurs (RLS)", () => {
   it("A écrit ; B ne voit rien, ne modifie rien, ne raccroche rien", async () => {
     const a = await signIn(
@@ -93,7 +98,7 @@ describe.runIf(shouldRun)("cloisonnement inter-utilisateurs (RLS)", () => {
       expect(error).toBeNull();
       expect(rows).toEqual([]);
     }
-  });
+  }, INTEGRATION_TIMEOUT_MS);
 
   it("le cercle (§4.14) : un non-ami ne lit aucun agrégat, un ami ne lit QUE des agrégats", async () => {
     const a = await signIn(
@@ -192,7 +197,7 @@ describe.runIf(shouldRun)("cloisonnement inter-utilisateurs (RLS)", () => {
     await b.client.from("friendships").delete().eq("user_low", low).eq("user_high", high);
     await a.client.from("profiles").update({ circle_joined_at: null }).eq("id", a.userId);
     await b.client.from("profiles").update({ circle_joined_at: null }).eq("id", b.userId);
-  });
+  }, INTEGRATION_TIMEOUT_MS);
 });
 
 describe.runIf(!shouldRun)("cloisonnement inter-utilisateurs (RLS)", () => {
