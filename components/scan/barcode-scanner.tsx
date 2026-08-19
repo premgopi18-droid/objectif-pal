@@ -117,6 +117,13 @@ export function BarcodeScanner({ onCode, continuous = false }: BarcodeScannerPro
       const now = performance.now();
       const last = lastEmittedRef.current;
       if (continuousRef.current && last?.code === code && now - last.at < SAME_CODE_MUTE_MILLISECONDS) {
+        // Le code muté est CONSOMMÉ (#249) : sans ce nettoyage, un pending dont
+        // le timer a déjà tiré restait accroché SANS timer — et tous les scans
+        // suivants ne faisaient plus qu'écraser son code, jamais émis : le
+        // scanner mourait en silence jusqu'au démontage.
+        if (pendingRef.current) clearTimeout(pendingRef.current.timer);
+        pendingRef.current = null;
+        setPendingDisplay(null);
         return;
       }
 
@@ -124,6 +131,9 @@ export function BarcodeScanner({ onCode, continuous = false }: BarcodeScannerPro
       lastEmittedRef.current = { code, at: now };
       if (pendingRef.current) clearTimeout(pendingRef.current.timer);
       pendingRef.current = null;
+      // Le hint du code en attente meurt avec lui (#249) : sans ça, il restait
+      // affiché jusqu'au prochain code en grâce.
+      setPendingDisplay(null);
       onCodeRef.current(code);
 
       // Le cœur de la rafale : on se réarme au lieu de s'arrêter.
@@ -173,8 +183,17 @@ export function BarcodeScanner({ onCode, continuous = false }: BarcodeScannerPro
             code: digits,
             timer: setTimeout(() => pendingRef.current && emit(pendingRef.current.code), SUPPLEMENT_GRACE_MILLISECONDS),
           };
+        } else if (continuousRef.current && pendingRef.current.code !== digits) {
+          // EN RAFALE (#249) : un code DIFFÉRENT pendant la grâce, c'est que le
+          // livre précédent est déjà rangé — son supplément ne viendra jamais.
+          // On l'émet TOUT DE SUITE (sinon il serait silencieusement perdu,
+          // écrasé par le suivant), et le nouveau livre suit son cours normal :
+          // les frames le reliront après le réarmement — la sourdine ne mute
+          // que le code émis, pas lui.
+          emit(pendingRef.current.code);
         } else {
-          // On suit le dernier code vu (l'utilisateur a pu changer de bouquin).
+          // Scan UNITAIRE : on suit le dernier code vu (l'utilisateur a pu
+          // changer de bouquin avant de valider quoi que ce soit).
           pendingRef.current.code = digits;
         }
       } catch (error) {
