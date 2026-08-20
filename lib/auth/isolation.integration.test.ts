@@ -115,13 +115,15 @@ describe.runIf(shouldRun)("cloisonnement inter-utilisateurs (RLS)", () => {
     // permis aux deux membres — la sortie silencieuse de la spec).
     await a.client.from("friendships").delete().eq("user_low", low).eq("user_high", high);
 
-    // NON-AMIS : les deux fonctions du cercle ne rendent RIEN à B.
+    // NON-AMIS : les deux fonctions du cercle ne rendent RIEN d'AUTRUI à B.
+    // (Depuis #252 elles servent aussi SES propres lignes — le mode
+    // spectateur — donc l'assertion filtre : zéro ligne d'un autre compte.)
     const { data: reportsBefore, error: reportsBeforeError } = await b.client.rpc("get_circle_monthly_reports");
     expect(reportsBeforeError).toBeNull();
-    expect(reportsBefore).toEqual([]);
+    expect((reportsBefore ?? []).filter((row) => row.user_id !== b.userId)).toEqual([]);
     const { data: picksBefore, error: picksBeforeError } = await b.client.rpc("get_circle_monthly_picks");
     expect(picksBeforeError).toBeNull();
-    expect(picksBefore).toEqual([]);
+    expect((picksBefore ?? []).filter((row) => row.user_id !== b.userId)).toEqual([]);
 
     // La porte (§4.14) : les deux comptes de test entrent au cercle — la
     // policy d'INSERT de `friendships` l'exige des deux côtés.
@@ -144,11 +146,63 @@ describe.runIf(shouldRun)("cloisonnement inter-utilisateurs (RLS)", () => {
     expect(acceptError).toBeNull();
     expect(accepted?.length).toBe(1);
 
-    // AMIS : B reçoit les agrégats de A — possiblement zéro ligne (les comptes
-    // de test n'ont pas forcément de mois clos), mais JAMAIS ceux d'un tiers.
+    // AMIS : B reçoit les agrégats de A (et les siens, #252) — JAMAIS ceux
+    // d'un tiers.
     const { data: reportsAfter, error: reportsAfterError } = await b.client.rpc("get_circle_monthly_reports");
     expect(reportsAfterError).toBeNull();
-    for (const row of reportsAfter ?? []) expect(row.user_id).toBe(a.userId);
+    for (const row of reportsAfter ?? []) expect([a.userId, b.userId]).toContain(row.user_id);
+
+    // LE MODE SPECTATEUR (#252) — la parité « moi vu par le cercle ≡ ce que
+    // l'ami voit de moi », prouvée sur les deux états du verrou (#243).
+    // A pose deux mois-témoins : un mois ANCIEN (auto-révélé, le prédicat de
+    // temps) et le DERNIER mois clos (verrouillé : aucun reveal manuel dessus).
+    const nowUtc = new Date();
+    const lastClosedMonth = new Date(Date.UTC(nowUtc.getUTCFullYear(), nowUtc.getUTCMonth() - 1, 1))
+      .toISOString()
+      .slice(0, 10);
+    // 2020-02 : auto-révélé par le temps, et JAMAIS touché par le bloc reveal
+    // ci-dessous (qui, lui, révèle 2020-01 manuellement).
+    const oldMonth = "2020-02-01";
+    const witnessReport = (month: string) => ({
+      report: {
+        month: month.slice(0, 7),
+        finishedByCategory: { roman: 1 },
+        readingPoints: 5,
+        unreadPurchaseCount: 0,
+        purchasePenalty: 0,
+        objective: null,
+        total: 5,
+      },
+      finishedReadings: [],
+    });
+    for (const month of [oldMonth, lastClosedMonth]) {
+      const { error: witnessError } = await a.client
+        .from("monthly_reports")
+        .upsert({ user_id: a.userId, month, report: witnessReport(month), fact_version: 1 }, { onConflict: "user_id,month" });
+      expect(witnessError).toBeNull();
+    }
+
+    // Les deux regards sur les lignes de A : l'ami (B) et le spectateur (A).
+    const { data: friendSees, error: friendSeesError } = await b.client.rpc("get_circle_monthly_reports");
+    expect(friendSeesError).toBeNull();
+    const { data: spectatorSees, error: spectatorSeesError } = await a.client.rpc("get_circle_monthly_reports");
+    expect(spectatorSeesError).toBeNull();
+    const servedRowsOfA = (rows: NonNullable<typeof friendSees>) =>
+      rows
+        .filter((row) => row.user_id === a.userId)
+        .map(({ month, report, revealed }) => ({ month, report, revealed }))
+        .sort((left, right) => left.month.localeCompare(right.month));
+    // La parité mot pour mot : mêmes mois, mêmes données, même verrou.
+    expect(servedRowsOfA(spectatorSees ?? [])).toEqual(servedRowsOfA(friendSees ?? []));
+    // Et le verrou est DANS la vérité servie, aussi pour le propriétaire :
+    // le dernier mois clos arrive sans sa donnée, l'ancien arrive en clair.
+    const spectatorRows = servedRowsOfA(spectatorSees ?? []);
+    const lockedRow = spectatorRows.find((row) => row.month === lastClosedMonth);
+    expect(lockedRow?.revealed).toBe(false);
+    expect(lockedRow?.report).toBeNull();
+    const revealedRow = spectatorRows.find((row) => row.month === oldMonth);
+    expect(revealedRow?.revealed).toBe(true);
+    expect(revealedRow?.report).not.toBeNull();
 
     // L'amitié n'ouvre RIEN d'autre : les lectures brutes (notes, avis) de A
     // restent invisibles — c'est tout le principe « agrégats servis ».
@@ -194,6 +248,9 @@ describe.runIf(shouldRun)("cloisonnement inter-utilisateurs (RLS)", () => {
     expect(revealSweep).toEqual([]);
 
     // Nettoyage : le lien part, la porte se referme — rien ne s'accumule.
+    // Les mois-témoins aussi (DELETE own : c'est un cache) — sinon le
+    // « dernier mois clos » en laisserait un nouveau chaque mois.
+    await a.client.from("monthly_reports").delete().eq("user_id", a.userId).in("month", [oldMonth, lastClosedMonth]);
     await b.client.from("friendships").delete().eq("user_low", low).eq("user_high", high);
     await a.client.from("profiles").update({ circle_joined_at: null }).eq("id", a.userId);
     await b.client.from("profiles").update({ circle_joined_at: null }).eq("id", b.userId);

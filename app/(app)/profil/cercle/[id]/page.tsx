@@ -1,13 +1,9 @@
 import Image from "next/image";
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { MonthReportCard } from "@/components/circle/month-report-card";
+import { CircleMonthsList } from "@/components/circle/circle-months-list";
 import { PageLoadError } from "@/components/page-load-error";
-import { PalisteCard } from "@/components/profile/paliste-card";
-import { Card } from "@/components/ui/card";
 import { getCircleReportsView } from "@/lib/circle/report-queries";
-import { formatMonthFrench } from "@/lib/dates";
-import { derivePalisteCard } from "@/lib/profile/paliste-card";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 /**
@@ -16,8 +12,8 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
  * l'amitié, rien d'autre. Un id qui n'est pas un ami accepté → 404 : la
  * fonction `security definer` ne sert que les amis, la fiche ne peut donc
  * rien montrer d'autre (défense en profondeur, pas seulement de l'UI).
- * En tête : la carte de paliste (lot C, #230) — le MÊME composant que sur mon
- * Profil, dérivé des mêmes agrégats : l'« aperçu honnête » par construction.
+ * Le corps (carte de paliste + mois servis) est le composant PARTAGÉ avec le
+ * mode spectateur (#252) — même rendu, même vérité.
  */
 export default async function FriendPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
@@ -31,22 +27,6 @@ export default async function FriendPage({ params }: { params: Promise<{ id: str
   const view = await getCircleReportsView(supabase, userId);
   const friend = view.participants.find((participant) => participant.id === id && !participant.isMe);
   if (!view.joined || friend === undefined) notFound();
-
-  // Les mois verrouillés (#243) figurent dans la liste : l'existence sans la
-  // donnée — « le bilan de X arrive ».
-  const months = [
-    ...new Set([...Object.keys(friend.reportsByMonth), ...friend.unreadableMonths, ...friend.lockedMonths]),
-  ]
-    .sort()
-    .reverse();
-
-  // La carte de paliste de l'ami — les picks servis sont déjà « mois clos
-  // seulement » (RPC lot B), le mois courant est celui du serveur (UTC).
-  const card = derivePalisteCard(
-    Object.values(friend.reportsByMonth),
-    Object.entries(friend.picksByMonth).flatMap(([month, picks]) => picks.map((pick) => ({ month, kind: pick.kind }))),
-    new Date().toISOString().slice(0, 7),
-  );
 
   return (
     <section className="flex flex-col gap-5 py-6">
@@ -81,40 +61,7 @@ export default async function FriendPage({ params }: { params: Promise<{ id: str
         </div>
       </div>
 
-      {months.length === 0 ? (
-        <p className="text-sm text-ink2">
-          Rien encore — les bilans apparaissent au premier mois clos. Le mois en cours reste secret jusqu&apos;au
-          bilan.
-        </p>
-      ) : (
-        <div className="flex flex-col gap-4">
-          <PalisteCard card={card} />
-          {months.map((month) => {
-            const stored = friend.reportsByMonth[month];
-            return (
-              <div key={month}>
-                <h2 className="mb-2 text-sm font-extrabold capitalize text-ink2">{formatMonthFrench(month)}</h2>
-                <Card>
-                  {stored !== undefined ? (
-                    <MonthReportCard
-                      stored={stored}
-                      picks={friend.picksByMonth[month] ?? []}
-                      ownerDisplayName={friend.displayName}
-                    />
-                  ) : friend.lockedMonths.includes(month) ? (
-                    <p className="text-sm text-ink3">
-                      🔒 Pas encore révélé — le bilan de {friend.displayName} arrive (au plus tard le 1ᵉʳ du mois
-                      prochain).
-                    </p>
-                  ) : (
-                    <p className="text-sm text-ink3">Bilan indisponible pour ce mois.</p>
-                  )}
-                </Card>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      <CircleMonthsList participant={friend} />
     </section>
   );
 }

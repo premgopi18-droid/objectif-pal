@@ -47,6 +47,13 @@ export type CircleReportsView = {
   participants: CircleParticipant[];
   /** MES reveals manuels (`YYYY-MM`) — l'état de ce que le cercle voit de moi (#243). */
   myManualReveals: Month[];
+  /**
+   * MOI vu par le cercle (#252, le mode spectateur) : mes lignes telles que
+   * les RPC les servent à mes amis — verrou du reveal compris. Jamais
+   * fusionné avec mon participant direct : les surfaces existantes me
+   * montrent TOUT (RLS), le spectateur montre LA VÉRITÉ SERVIE.
+   */
+  meAsCircleSees: CircleParticipant;
 };
 
 export async function getCircleReportsView(
@@ -79,56 +86,69 @@ export async function getCircleReportsView(
   const { friendIds } = splitCircleLinks(links ?? [], userId);
   const profileById = new Map((linkedProfiles ?? []).map((row) => [row.id, row]));
 
+  const makeParticipant = (
+    id: string,
+    displayName: string,
+    avatarUrl: string | null,
+    isMe: boolean,
+  ): CircleParticipant => ({
+    id,
+    displayName,
+    avatarUrl,
+    isMe,
+    reportsByMonth: {},
+    unreadableMonths: [],
+    lockedMonths: [],
+    picksByMonth: {},
+  });
+
   const participants = new Map<string, CircleParticipant>();
   const addParticipant = (id: string, displayName: string, avatarUrl: string | null, isMe: boolean) => {
-    participants.set(id, {
-      id,
-      displayName,
-      avatarUrl,
-      isMe,
-      reportsByMonth: {},
-      unreadableMonths: [],
-      lockedMonths: [],
-      picksByMonth: {},
-    });
+    participants.set(id, makeParticipant(id, displayName, avatarUrl, isMe));
   };
 
   addParticipant(userId, myProfile?.display_name ?? "moi", myProfile?.avatar_url ?? null, true);
+  // Le spectateur (#252) — alimenté par les seules lignes RPC qui me visent.
+  const meAsCircleSees = makeParticipant(userId, myProfile?.display_name ?? "moi", myProfile?.avatar_url ?? null, true);
   for (const friendId of friendIds) {
     const profile = profileById.get(friendId);
     // Filet (course avec une suppression de compte) : anonyme plutôt qu'absent.
     addParticipant(friendId, profile?.display_name ?? "lecteur", profile?.avatar_url ?? null, false);
   }
 
-  const ingestReport = (ownerId: string, monthDate: string, rawReport: unknown) => {
-    const participant = participants.get(ownerId);
+  const ingestReport = (participant: CircleParticipant | undefined, monthDate: string, rawReport: unknown) => {
     if (participant === undefined) return; // ligne d'un compte retiré entre deux requêtes
     const month = monthDate.slice(0, 7);
     const parsed = parseStoredMonthlyReport(rawReport);
     if (parsed === null) participant.unreadableMonths.push(month);
     else participant.reportsByMonth[month] = parsed;
   };
-  for (const row of myReports ?? []) ingestReport(userId, row.month, row.report);
+  for (const row of myReports ?? []) ingestReport(participants.get(userId), row.month, row.report);
   for (const row of friendReports ?? []) {
+    // Depuis #252, les RPC me servent AUSSI mes propres lignes (le mode
+    // spectateur) : elles vont au participant dédié, jamais au direct.
+    const target = row.user_id === userId ? meAsCircleSees : participants.get(row.user_id);
     // Le verrou serveur (#243) : `report` NULL = mois pas encore révélé —
     // un ÉTAT à part entière, jamais confondu avec une ligne illisible.
     if (!row.revealed || row.report === null) {
-      participants.get(row.user_id)?.lockedMonths.push(row.month.slice(0, 7));
+      target?.lockedMonths.push(row.month.slice(0, 7));
       continue;
     }
-    ingestReport(row.user_id, row.month, row.report);
+    ingestReport(target, row.month, row.report);
   }
 
-  const ingestPick = (ownerId: string, monthDate: string, kind: PickKind, readingId: string) => {
-    const participant = participants.get(ownerId);
+  const ingestPick = (participant: CircleParticipant | undefined, monthDate: string, kind: PickKind, readingId: string) => {
     if (participant === undefined) return;
     const month = monthDate.slice(0, 7);
     (participant.picksByMonth[month] ??= []).push({ kind, readingId });
   };
   // Mes picks incluent le mois COURANT — sans enjeu : l'UI n'affiche que les
   // mois portés par une ligne d'agrégat, et le mois courant n'en a jamais.
-  for (const row of myPicks ?? []) ingestPick(userId, row.month, row.kind, row.reading_id);
-  for (const row of friendPicks ?? []) ingestPick(row.user_id, row.month, row.kind, row.reading_id);
+  for (const row of myPicks ?? []) ingestPick(participants.get(userId), row.month, row.kind, row.reading_id);
+  for (const row of friendPicks ?? []) {
+    const target = row.user_id === userId ? meAsCircleSees : participants.get(row.user_id);
+    ingestPick(target, row.month, row.kind, row.reading_id);
+  }
 
   return {
     joined,
@@ -136,5 +156,6 @@ export async function getCircleReportsView(
       left.displayName.localeCompare(right.displayName, "fr", { sensitivity: "base" }),
     ),
     myManualReveals: (myReveals ?? []).map((row) => row.month.slice(0, 7)),
+    meAsCircleSees,
   };
 }

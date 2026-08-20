@@ -781,6 +781,26 @@ La première version croyait le reveal protégé par la clôture du mois — fau
   chiffres, avec un badge 🔒 tant que le cercle ne les voit pas. Le cumul annuel d'un ami « saute » à
   son reveal — voulu.
 
+#### Le mode spectateur — mon profil vu par mon cercle (#252, 17/08/2026)
+
+Le complément naturel du reveal : depuis le Profil (« 👀 Voir mon profil comme mon cercle »,
+`/profil/apercu`), je vois ma fiche **telle que le cercle la voit** — on ne révèle plus à l'aveugle,
+on vérifie. Les règles :
+
+- **Jamais une simulation** : les deux RPC du cercle servent « amis acceptés **ou soi-même** » —
+  la page rend mes lignes exactement comme elles partent chez mes amis, verrou compris (dernier
+  mois clos non révélé : 🔒, `report` NULL, carte de paliste et cumul l'excluent). Une copie
+  client de `is_month_revealed` finirait par dériver ; la vérité servie ne le peut pas. Aucune
+  donnée nouvelle n'est exposée : on ne s'ouvre que soi, déjà lisible par RLS.
+- **La parité spectateur ≡ ami est prouvée en CI** par le test d'isolation : mêmes lignes servies
+  au propriétaire et à un ami accepté, mois verrouillé compris.
+- **Le rendu est le composant partagé de la fiche ami** (`CircleMonthsList`) — la même garantie
+  structurelle que la carte de paliste. Sur un mois 🔒, un raccourci mène au bouton « Révéler au
+  cercle » du Bilan.
+- **L'entrée n'apparaît qu'aux comptes entrés au cercle** : sans cercle, personne ne me voit —
+  rien à montrer. Les surfaces existantes ne bougent pas : partout ailleurs, je vois TOUT de moi
+  (RLS), le spectateur est la seule vue « servie ».
+
 #### Le classement du cercle — privé, sans enjeu de barème
 
 Chaque utilisateur a un cercle différent (mes amis ≠ les tiens) : un classement ne peut donc être que
@@ -1261,9 +1281,10 @@ et un **index unique sur `lower(display_name)`**. Les fonctions `security define
 porte vers les données d'autrui, `profiles_select_own` et les policies `monthly_reports` ne bougent pas :
 `search_circle_profiles(prefix)` (préfixe ≥ 2, 10 résultats, sous quota, comptes entrés au cercle
 seulement, jokers LIKE échappés), `get_circle_profiles()` (pseudo + photo des comptes liés à l'appelant),
-`get_circle_monthly_reports()` (lot B — les lignes d'agrégat des amis **acceptés**, jamais une lecture
-brute) et `get_circle_monthly_picks()` (lot B — type + lecture des distinctions des **mois clos** des amis,
-filtre UTC comme la synchro #214). S'y ajoute `count_pending_friend_requests()` (`security invoker` — la
+`get_circle_monthly_reports()` (lot B — les lignes d'agrégat des amis **acceptés ou de soi-même**
+(#252, mode spectateur), jamais une lecture brute) et `get_circle_monthly_picks()` (lot B — type +
+lecture des distinctions des **mois clos** des amis acceptés ou de soi-même, filtre UTC comme la
+synchro #214). S'y ajoute `count_pending_friend_requests()` (`security invoker` — la
 RLS fait autorité) : la pastille de la nav en un seul appel, l'identité lue dans le jeton. **Le reveal
 (#243)** : table `monthly_reveals` (`user_id`, `month` au 1ᵉʳ, `revealed_at` — SELECT/INSERT own, mois
 clos seulement, **aucune policy UPDATE/DELETE** : sens unique structurel) et prédicat
