@@ -21,6 +21,11 @@ import type { BookCategory } from "@/lib/scoring/types";
  * égaux : plus de cases à effet de bord, plus de bouton au sens variable.
  */
 
+/** L'intention pré-sélectionnée — le geste quotidien à un tap (#165). L'état
+ * initial de la case « Je ne sais plus quand » en dérive (#254) : une seule
+ * source, les deux ne peuvent pas diverger. */
+const INITIAL_INTENT: SheetIntent = "start";
+
 /** Les champs de la feuille, stylés une fois sur les tokens (§2). */
 const INPUT_CLASS =
   "w-full rounded-xl border border-line bg-card2 px-3 py-2.5 text-ink placeholder:text-ink3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan";
@@ -75,8 +80,8 @@ export function BookActionSheet({
   // (#254) : sur les gestes à date facultative, « Je ne sais plus quand » est
   // PRÉ-COCHÉ — le champ pré-rempli à aujourd'hui datait silencieusement tout
   // un inventaire au jour du scan.
-  const [dateUnknown, setDateUnknown] = useState(defaultDateUnknown("start"));
-  const [intent, setIntent] = useState<SheetIntent>("start");
+  const [dateUnknown, setDateUnknown] = useState(defaultDateUnknown(INITIAL_INTENT));
+  const [intent, setIntent] = useState<SheetIntent>(INITIAL_INTENT);
   const config = SHEET_INTENTS[intent];
 
   // Changer d'intention remet « Je ne sais plus quand » au défaut du geste
