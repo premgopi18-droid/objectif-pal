@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { INTENT_LABELS } from "@/lib/books/scan-inbox";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
-import { ctaLabel, submittedDate, SHEET_INTENT_ORDER, SHEET_INTENTS } from "./sheet-intents";
+import { ctaLabel, defaultDateUnknown, submittedDate, SHEET_INTENT_ORDER, SHEET_INTENTS } from "./sheet-intents";
 
 /**
  * La feuille d'actions du scan simple (#165) : cinq intentions égales, un
@@ -80,6 +80,19 @@ describe("submittedDate — la date réellement soumise", () => {
   it("champ vidé sur un geste à date obligatoire : la fonction rend la date telle quelle — la garde du composant bloque en amont", () => {
     expect(submittedDate("start", "", false)).toBe("");
     expect(submittedDate("purchase", "", false)).toBe("");
+  });
+});
+
+describe("defaultDateUnknown — le défaut du rattrapage (#254)", () => {
+  it("« Je ne sais plus quand » est PRÉ-COCHÉ sur les gestes à date facultative — un inventaire d'étagère ne se date pas à aujourd'hui", () => {
+    expect(defaultDateUnknown("own")).toBe(true);
+    expect(defaultDateUnknown("own_read")).toBe(true);
+    expect(defaultDateUnknown("read")).toBe(true);
+  });
+
+  it("décoché sur les gestes à date obligatoire — aujourd'hui y est le bon défaut", () => {
+    expect(defaultDateUnknown("start")).toBe(false);
+    expect(defaultDateUnknown("purchase")).toBe(false);
   });
 });
 

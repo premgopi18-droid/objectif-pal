@@ -90,6 +90,19 @@ export const SHEET_INTENTS: Record<SheetIntent, SheetIntentConfig> = {
 };
 
 /**
+ * L'état initial de « Je ne sais plus quand » à la sélection d'une intention
+ * (#254) : COCHÉ pour les gestes à date facultative. Ces trois gestes sont le
+ * rattrapage de l'étagère d'avant l'app — leur vraie date est presque toujours
+ * inconnue, et le champ pré-rempli à aujourd'hui fabriquait de fausses données
+ * en silence (un inventaire d'étagère devenu « 23 acquisitions du jour » en
+ * prod, des points de lecture tombés dans le mauvais bilan). Même défaut que
+ * la rafale (« je connais la date » décoché) : les deux surfaces racontent la
+ * même histoire. Le cas réel daté (cadeau reçu ce mois-ci, fini hier) reste à
+ * un tap : décocher la case rend le champ date.
+ */
+export const defaultDateUnknown = (intent: SheetIntent): boolean => SHEET_INTENTS[intent].dateOptional;
+
+/**
  * La date réellement soumise : nulle SEULEMENT quand le geste autorise le
  * facultatif ET que la date est inconnue — déclarée par la case, OU par un
  * champ vidé à la main (review #166 : bloquer sur champ vide recréait un
