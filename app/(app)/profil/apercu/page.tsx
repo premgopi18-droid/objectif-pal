@@ -64,8 +64,8 @@ export default async function SpectatorPage() {
 
       {!view.joined ? (
         <p className="text-sm text-ink2">
-          Tu n&apos;es pas encore entré au cercle — personne ne voit ton profil pour l&apos;instant. La porte est
-          sur ton <Link href="/profil" className="font-bold text-cyan underline">Profil</Link>.
+          Tu n&apos;as pas encore rejoint le cercle — personne ne voit ton profil pour l&apos;instant. La porte
+          est sur ton <Link href="/profil" className="font-bold text-cyan underline">Profil</Link>.
         </p>
       ) : (
         <CircleMonthsList participant={me} spectator />
