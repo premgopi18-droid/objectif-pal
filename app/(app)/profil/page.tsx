@@ -84,6 +84,20 @@ export default async function ProfilPage() {
           </div>
         </div>
         <PalisteCard card={card} />
+        {/* Le mode spectateur (#252) : ma fiche telle que les RPC la servent
+            au cercle, verrou du reveal compris. Sans cercle rejoint, personne
+            ne me voit — l'entrée n'aurait rien à montrer. */}
+        {circle.joined && (
+          <Link
+            href="/profil/apercu"
+            className="inline-flex min-h-11 w-full items-center justify-between rounded-xl border border-line bg-card2 px-4 py-3 text-sm font-bold text-ink transition active:scale-[0.97] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+          >
+            👀 Voir mon profil comme mon cercle
+            <span aria-hidden className="text-ink3">
+              →
+            </span>
+          </Link>
+        )}
       </div>
 
       {/* Personnalisation (#224) : pseudo + photo — la donnée que le cercle
