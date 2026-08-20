@@ -165,6 +165,15 @@ est **collée au champ date** et n'apparaît que quand la date est facultative (
 d'intention ne fait jamais bouger la liste sous le doigt) ; chaque intention porte une **note** qui dit son
 effet. La logique vit dans `components/scan/sheet-intents.ts` (pure, testée), la feuille ne fait que l'afficher.
 
+**Le défaut de date des gestes de rattrapage** *(#254, 20/08/2026)* : sur les trois intentions à date
+facultative (« Je le possède déjà », « Possédé, déjà lu », « Lu — emprunt »), « Je ne sais plus quand » est
+**pré-cochée** — même défaut que la rafale (« je connais la date » décochée). Ces gestes racontent l'étagère et
+les lectures **d'avant l'app** : leur vraie date est presque toujours inconnue, et le champ pré-rempli à
+aujourd'hui fabriquait de fausses données en silence (constaté en prod : un inventaire d'étagère devenu
+« +23 livres ce mois-ci », et une lecture passée datée d'aujourd'hui créditerait le mauvais bilan). Le cas
+réel daté (cadeau reçu ce mois-ci, terminé hier) reste à un tap : décocher la case rend le champ date. Sur les
+gestes à date obligatoire (« Je commence », « J'achète »), aujourd'hui reste le bon défaut.
+
 Explicite, impossible de se tromper, et ça couvre le cas réel : acheter trois bouquins en librairie sans en
 commencer aucun. Deviner à la place de l'utilisateur fausserait **la stat la plus importante de l'émission** (la
 santé de la PAL).

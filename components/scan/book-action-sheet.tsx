@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { displayableIssueNumber, formatBookSubtitle } from "@/lib/books/format";
 import { localToday } from "@/lib/dates";
-import { ctaLabel, submittedDate, SHEET_INTENT_ORDER, SHEET_INTENTS, type SheetIntent } from "./sheet-intents";
+import { ctaLabel, defaultDateUnknown, submittedDate, SHEET_INTENT_ORDER, SHEET_INTENTS, type SheetIntent } from "./sheet-intents";
 import type { BookInput } from "@/lib/books/actions";
 import type { ResolvedBook } from "@/lib/resolution/types";
 import type { BookCategory } from "@/lib/scoring/types";
@@ -20,6 +20,11 @@ import type { BookCategory } from "@/lib/scoring/types";
  * au-dessus des choix), le geste se décide ensuite. Les cinq gestes sont des
  * égaux : plus de cases à effet de bord, plus de bouton au sens variable.
  */
+
+/** L'intention pré-sélectionnée — le geste quotidien à un tap (#165). L'état
+ * initial de la case « Je ne sais plus quand » en dérive (#254) : une seule
+ * source, les deux ne peuvent pas diverger. */
+const INITIAL_INTENT: SheetIntent = "start";
 
 /** Les champs de la feuille, stylés une fois sur les tokens (§2). */
 const INPUT_CLASS =
@@ -71,17 +76,20 @@ export function BookActionSheet({
   const [date, setDate] = useState(localToday());
   // L'étagère d'avant l'app n'a pas de date connue (#101). On ne l'invente pas :
   // sans date, le livre compte dans le stock de la PAL sans peser sur les flux
-  // du mois, et une lecture passée ne crédite aucun bilan.
-  const [dateUnknown, setDateUnknown] = useState(false);
-  const [intent, setIntent] = useState<SheetIntent>("start");
+  // du mois, et une lecture passée ne crédite aucun bilan. D'où le défaut
+  // (#254) : sur les gestes à date facultative, « Je ne sais plus quand » est
+  // PRÉ-COCHÉ — le champ pré-rempli à aujourd'hui datait silencieusement tout
+  // un inventaire au jour du scan.
+  const [dateUnknown, setDateUnknown] = useState(defaultDateUnknown(INITIAL_INTENT));
+  const [intent, setIntent] = useState<SheetIntent>(INITIAL_INTENT);
   const config = SHEET_INTENTS[intent];
 
-  // Changer d'intention réinitialise « Je ne sais plus quand » : pas d'état
-  // caché reporté d'un geste à l'autre (#165) — c'était LA friction de
-  // l'ancienne feuille.
+  // Changer d'intention remet « Je ne sais plus quand » au défaut du geste
+  // choisi (#254) : pas d'état caché reporté d'un geste à l'autre (#165) —
+  // c'était LA friction de l'ancienne feuille.
   const selectIntent = (next: SheetIntent) => {
     setIntent(next);
-    setDateUnknown(false);
+    setDateUnknown(defaultDateUnknown(next));
   };
 
   // Un champ date vidé à la main ne bloque QUE les gestes à date obligatoire
