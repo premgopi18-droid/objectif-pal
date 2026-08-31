@@ -464,6 +464,23 @@ son achat disparaisse de l'historique.
 
 Depuis la vue PAL, un tap sur un livre non lu = *« je le commence »*.
 
+**Gestes groupés de la Pile (#256, décisions du 31/08/2026).** « Sélectionner » passe la vue en mode
+sélection (cases sur les lignes, barre d'actions au-dessus de la nav). Deux gestes de lot, et une règle
+commune : **on continue et on rapporte** — un refus (doublon, lecture en cours) n'annule jamais le reste du
+lot, les échecs sont rapportés livre par livre.
+
+- **« Marquer comme lus »** : une **date commune** pour tout le lot — les points tombent dans le bilan du
+  mois choisi (§4.2) — ou **« lectures passées, date inconnue »** : sortie de pile sans toucher aucun mois,
+  **0 point** (le principe de §4.13 : seuls les mouvements datés alimentent les flux — dater un rattrapage
+  d'aujourd'hui fabriquerait un faux pic). Une lecture **en cours** est terminée à la date commune ; en mode
+  « date inconnue », elle est refusée (pas de fin inconnue sur une lecture active, décision du 20/07/2026).
+- **« Je ne le possède plus »** : clôt la possession du lot, datée du jour (sortie par cession — du stock,
+  jamais le flux du mois). **Confirmé avant d'agir**, et l'asymétrie est voulue : le geste **unitaire** reste
+  sans confirmation (réversible) — c'est le lot qui multiplie la fausse manip, pas le geste.
+
+Aucun quota sur les gestes groupés : les gestes unitaires équivalents n'en consomment pas (la RPC de quota ne
+couvre que les actions coûteuses), le lot est borné et dédupliqué.
+
 ### 4.7 Score du mois (P0 — c'est le bilan)
 
 Pas un écran à part : le score **est** le total du bilan. Décomposition visible (points de lecture, malus achats,
