@@ -115,3 +115,27 @@ export function sortByCompletionEffort(items: ScanInboxItem[]): ScanInboxItem[] 
     return left.created_at.localeCompare(right.created_at);
   });
 }
+
+/**
+ * Le compte-rendu de l'« Écarter la sélection » (#258) — pur, testé. L'UPDATE
+ * du lot est unique (un seul `in(ids)`), le serveur ne sait donc pas QUELS
+ * éléments ont manqué, seulement combien : on le dit tel quel, sans inventer.
+ * `dismissed < requested` = des lignes déjà traitées entre-temps (autre
+ * onglet, double tap) — pas une erreur, un fait à annoncer.
+ */
+export function formatDismissOutcome(
+  requested: number,
+  dismissed: number,
+): { kind: "all" | "partial" | "none"; message: string } {
+  if (dismissed === 0) {
+    return { kind: "none", message: "Rien à écarter — ces éléments étaient déjà traités." };
+  }
+  const plural = dismissed > 1 ? "s" : "";
+  if (dismissed < requested) {
+    return {
+      kind: "partial",
+      message: `${dismissed} sur ${requested} écarté${plural} — les autres étaient déjà traités.`,
+    };
+  }
+  return { kind: "all", message: `${dismissed} scan${plural} écarté${plural}` };
+}

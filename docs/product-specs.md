@@ -704,6 +704,13 @@ Déclarer un livre à la fois ne tient pas à l'échelle d'une étagère : le ge
   silencieux). Entorse ASSUMÉE au principe « la rafale ne touche pas au barème » : une session d'achats doit
   y toucher — le principe devient **« l'intention de session décide, et elle est affichée »**.
 
+**Écarter en lot (#258, décisions du 31/08/2026).** Après une rafale, la boîte garde aussi des scans à
+jeter (codes illisibles, doublons, scans accidentels). « Sélectionner » → cases sur les cartes +
+« **Écarter la sélection** », le même patron que la Pile (§4.6). Même sémantique que l'« Écarter »
+unitaire : suppression douce (§7, rien n'est effacé), photos non purgées. Le « Compléter », lui, reste
+unitaire — chaque fiche exige des métadonnées propres. Le compte annoncé est celui des lignes réellement
+basculées (une ligne déjà traitée ailleurs ne compte pas, et ce n'est pas une erreur).
+
 **La catégorie se corrige inline** dans la liste de session (une puce, un tiroir partagé), sans jamais
 interrompre le scan — la mettre dans la boucle l'arrêterait. Un marqueur « ? » ne s'affiche que sur les
 **devinettes VF** (§5.5) : GCD et Metron portent un vrai `series_type`, la VF n'a que des indices. Signaler

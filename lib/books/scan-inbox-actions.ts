@@ -202,6 +202,46 @@ export async function completeScanInboxItem(itemId: string, input: BookInput): P
   return result;
 }
 
+/** La borne de l'écart groupé (#258) — même esprit que MAX_BULK_BOOKS : un lot n'est pas un import. */
+const MAX_DISMISS_ITEMS = 100;
+
+/**
+ * Écarter PLUSIEURS éléments d'un coup (#258) — la fin de rafale qui balaie
+ * les scans ratés. Même sémantique que le geste unitaire : suppression douce
+ * (§7, rien n'est effacé), photos non touchées. UN seul UPDATE `in(ids)`
+ * scopé `user_id` — atomique gratuitement ; le `count` dit combien ont
+ * réellement basculé (des lignes déjà traitées entre-temps ne comptent pas),
+ * le client annonce l'écart sans inventer lesquels.
+ */
+export async function dismissScanInboxItems(
+  itemIds: string[],
+): Promise<{ ok: true; dismissed: number } | { ok: false; error: string }> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+  const { supabase, user } = session;
+
+  const ids = [...new Set(itemIds)];
+  if (ids.length === 0) return { ok: false, error: "Aucun élément sélectionné." };
+  if (ids.length > MAX_DISMISS_ITEMS) {
+    return { ok: false, error: `Pas plus de ${MAX_DISMISS_ITEMS} éléments à la fois.` };
+  }
+
+  const { error, count } = await supabase
+    .from("scan_inbox")
+    .update({ deleted_at: new Date().toISOString() }, { count: "exact" })
+    .in("id", ids)
+    .eq("user_id", user.id)
+    .is("deleted_at", null);
+  if (error) {
+    console.error("[scan-inbox] dismissScanInboxItems:", error.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+
+  revalidatePath("/");
+  revalidatePath("/finition");
+  return { ok: true, dismissed: count ?? 0 };
+}
+
 /** Écarter un élément — scan raté, livre de quelqu'un d'autre. Suppression douce (§7). */
 export async function dismissScanInboxItem(itemId: string): Promise<JournalActionResult> {
   const session = await getSessionOrError();
