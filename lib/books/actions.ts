@@ -663,6 +663,9 @@ export async function softDeletePurchase(purchaseId: string): Promise<JournalAct
  * exécute, il ne décide pas.
  */
 
+/** La largeur des paquets du retrait groupé (review #259) — 5 cœurs en vol, pas plus. */
+const OWNERSHIP_EXIT_CONCURRENCY = 5;
+
 /** Déduplique et borne le lot — un lot n'est pas un import. */
 function validateBulkIds(bookIds: string[]): { ids: string[] } | { error: string } {
   const ids = [...new Set(bookIds)];
@@ -810,10 +813,18 @@ export async function endOwnershipsForBooks(
 
   const failures: BulkFailure[] = [];
   let succeeded = 0;
-  for (const bookId of validated.ids) {
-    const result = await endOwnershipCore(session.supabase, session.user.id, bookId, disposedAt);
-    if (result.ok) succeeded += 1;
-    else failures.push({ bookId, error: result.error });
+  // Par PAQUETS (review #259) : chaque cœur coûte ~4 requêtes, la série pure
+  // gelait la barre d'actions sur un gros carton. Les livres sont indépendants
+  // (aucune écriture croisée) — la parallélisation ne change rien aux gardes.
+  for (let start = 0; start < validated.ids.length; start += OWNERSHIP_EXIT_CONCURRENCY) {
+    const chunk = validated.ids.slice(start, start + OWNERSHIP_EXIT_CONCURRENCY);
+    const results = await Promise.all(
+      chunk.map((bookId) => endOwnershipCore(session.supabase, session.user.id, bookId, disposedAt)),
+    );
+    results.forEach((result, index) => {
+      if (result.ok) succeeded += 1;
+      else failures.push({ bookId: chunk[index], error: result.error });
+    });
   }
 
   if (succeeded > 0) revalidateLibrarySurfaces();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState, useTransition } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { BookRow } from "@/components/ui/book-row";
 import { Button } from "@/components/ui/button";
 import { SortSelect } from "@/components/ui/sort-select";
@@ -112,6 +112,9 @@ export function PalView({
   const [isReadSheetOpen, setIsReadSheetOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isBulkPending, startBulkTransition] = useTransition();
+  // Mémoïsé (review #259) : l'effet de la feuille en dépend — une identité
+  // instable rejouait le focus du CTA à chaque bascule d'état du parent.
+  const closeReadSheet = useCallback(() => setIsReadSheetOpen(false), []);
 
   const currentMonth = localCurrentMonth();
   const sortedEntries = useMemo(
@@ -446,7 +449,7 @@ export function PalView({
         <BulkReadSheet
           count={selectedIds.size}
           isPending={isBulkPending}
-          onCancel={() => setIsReadSheetOpen(false)}
+          onCancel={closeReadSheet}
           onSubmit={submitBulkRead}
         />
       )}
