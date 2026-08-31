@@ -547,8 +547,9 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
   resterait fausse pour toujours. Les champs **code-barres et source restent intouchables** — c'est le pont de
   re-résolution (§7), une saisie humaine dessus le casserait en silence.
 - **Alignement de catégorie par série** (#257, décisions du 31/08/2026) : quand l'app se trompe de catégorie
-  sur un tome, elle s'est presque sûrement trompée sur **toute la série**. Après l'enregistrement d'une fiche,
-  si d'autres livres du **même `series_name`** (comparaison exacte) portent une autre catégorie, une feuille
+  sur un tome, elle s'est presque sûrement trompée sur **toute la série**. Après l'enregistrement d'une fiche
+  **dont la catégorie a changé** (une série volontairement mixte ne re-propose rien à chaque édition des
+  pages), si d'autres livres du **même `series_name`** (comparaison exacte) portent une autre catégorie, une feuille
   propose « Appliquer aux N tomes » — le lot est **implicite**, la série est la sélection ; refuser = la fiche
   seule (un hors-série peut différer). Le **compte vient du serveur** (la Biblio n'affiche que l'inventaire —
   les emprunts lus de la même série lui échappent), et le toast annonce le compte **réel** de l'UPDATE. Les

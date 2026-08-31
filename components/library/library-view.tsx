@@ -73,28 +73,36 @@ export function LibraryView({ entries }: LibraryViewProps) {
   const [mergingId, setMergingId] = useState<string | null>(null);
   /** La proposition d'alignement de série (#257), rendue par l'enregistrement. */
   const [alignProposal, setAlignProposal] = useState<SeriesAlignProposal | null>(null);
+  /** L'échec de l'alignement — affiché DANS la feuille : l'ErrorAlert de la
+      page vivrait sous l'overlay, invisible tant que la feuille est ouverte. */
+  const [alignError, setAlignError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [isAligning, startAlignTransition] = useTransition();
   // Mémoïsé (leçon review #259) : l'effet de la feuille en dépend.
-  const closeAlignSheet = useCallback(() => setAlignProposal(null), []);
+  const closeAlignSheet = useCallback(() => {
+    setAlignProposal(null);
+    setAlignError(null);
+  }, []);
 
   function confirmSeriesAlign(proposal: SeriesAlignProposal) {
-    setEditError(null);
+    setAlignError(null);
     startAlignTransition(async () => {
       try {
         const result = await applyCategoryToSeries(proposal.seriesName, proposal.category);
         if (!result.ok) {
-          setEditError(result.error);
+          // La feuille RESTE ouverte sur échec (review #261) : l'erreur
+          // s'affiche dedans, le CTA se réactive — pas besoin de
+          // ré-enregistrer la fiche pour retrouver la proposition.
+          setAlignError(result.error);
           return;
         }
         // Le toast annonce le compte RÉEL de l'UPDATE, jamais celui de la
         // proposition — entre la feuille et le tap, un autre onglet a pu bouger.
         setToastMessage(seriesAlignedToastMessage(result.updated, CATEGORY_LABELS[proposal.category]));
+        closeAlignSheet();
       } catch {
         // Serveur injoignable : la promesse de la Server Action rejette.
-        setEditError(NETWORK_ERROR_MESSAGE);
-      } finally {
-        setAlignProposal(null);
+        setAlignError(NETWORK_ERROR_MESSAGE);
       }
     });
   }
@@ -284,6 +292,7 @@ export function LibraryView({ entries }: LibraryViewProps) {
         <SeriesAlignSheet
           proposal={alignProposal}
           isPending={isAligning}
+          errorMessage={alignError}
           onCancel={closeAlignSheet}
           onConfirm={() => confirmSeriesAlign(alignProposal)}
         />
@@ -304,11 +313,14 @@ export function LibraryView({ entries }: LibraryViewProps) {
 function SeriesAlignSheet({
   proposal,
   isPending,
+  errorMessage,
   onCancel,
   onConfirm,
 }: {
   proposal: SeriesAlignProposal;
   isPending: boolean;
+  /** L'échec du geste, affiché DANS la feuille (elle reste ouverte, review #261). */
+  errorMessage: string | null;
   onCancel: () => void;
   onConfirm: () => void;
 }) {
@@ -340,6 +352,11 @@ function SeriesAlignSheet({
         <div aria-hidden className="mx-auto h-1 w-10 rounded-full bg-line" />
         <h2 className="mt-3 text-base font-black text-ink">{copy.title}</h2>
         <p className="mt-1 text-sm leading-relaxed text-ink2">{copy.body}</p>
+        {errorMessage !== null && (
+          <div className="mt-3">
+            <ErrorAlert message={errorMessage} />
+          </div>
+        )}
         <div className="mt-4 flex flex-col gap-3">
           <Button ref={ctaRef} type="button" variant="grad" block disabled={isPending} onClick={onConfirm}>
             {copy.cta}

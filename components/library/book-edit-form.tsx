@@ -66,7 +66,11 @@ export function BookEditForm({
           return;
         }
         onDone();
-        if (result.seriesAlign !== null) onSeriesAlign(result.seriesAlign);
+        // La proposition ne part que si la catégorie a CHANGÉ (review #261,
+        // décision 1 du ticket) : une série volontairement mixte (hors-série
+        // gardé tel quel) ne doit pas la rouvrir à chaque édition des pages —
+        // le nagging apprendrait à ignorer une feuille qui touche aux points.
+        if (result.seriesAlign !== null && category !== entry.category) onSeriesAlign(result.seriesAlign);
       } catch {
         // Serveur injoignable : la promesse de la Server Action rejette.
         onError(NETWORK_ERROR_MESSAGE);
