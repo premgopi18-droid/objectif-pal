@@ -19,11 +19,14 @@ type BookRowProps = {
   placeholderEmoji?: string;
   /** La zone d'action à droite (badge, bouton…). */
   action?: ReactNode;
+  /** La zone AVANT la vignette (la case du mode sélection #256). */
+  leading?: ReactNode;
 };
 
-export function BookRow({ title, meta, coverUrl = null, bookId = null, placeholderEmoji, action }: BookRowProps) {
+export function BookRow({ title, meta, coverUrl = null, bookId = null, placeholderEmoji, action, leading }: BookRowProps) {
   return (
     <article className="flex items-center gap-3 rounded-card border border-line bg-card p-3">
+      {leading}
       <BookCover
         coverUrl={coverUrl}
         size="small"

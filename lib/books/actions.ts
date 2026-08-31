@@ -8,6 +8,12 @@ import { getReadingInProgressError } from "@/lib/books/reading-guards";
 import { mergeBookFieldsOnRescan } from "@/lib/books/book-merge";
 import { manualEntryToCacheEntry } from "@/lib/books/manual-cache";
 import { isBookInPile } from "@/lib/books/pile-guard";
+import {
+  MAX_BULK_BOOKS,
+  planBulkRead,
+  type BulkActionResult,
+  type BulkFailure,
+} from "@/lib/books/bulk-read-plan";
 import { isInInventory } from "@/lib/library/derive-library";
 import { createCacheProvider } from "@/lib/resolution/providers/cache";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
@@ -443,11 +449,27 @@ export async function recordOwnership(input: BookInput, ownedSince: string | nul
 export async function endOwnership(bookId: string, disposedAt: string): Promise<JournalActionResult> {
   const session = await getSessionOrError();
   if (!session) return { ok: false, error: "Authentification requise." };
-  const { supabase, user } = session;
 
   if (!isValidIsoDate(disposedAt)) return { ok: false, error: "Date de sortie invalide." };
 
-  const facts = await loadPileFacts(supabase, user.id, bookId);
+  const result = await endOwnershipCore(session.supabase, session.user.id, bookId, disposedAt);
+  if (result.ok) revalidateLibrarySurfaces();
+  return result;
+}
+
+/**
+ * Le cœur du geste, partagé avec le lot (#256) : gardes et écriture, SANS auth
+ * ni revalidation — l'appelant les porte. Jamais exporté : depuis un fichier
+ * "use server", un export devient un endpoint public, et celui-ci prend un
+ * `userId` en confiance.
+ */
+async function endOwnershipCore(
+  supabase: Awaited<ReturnType<typeof createServerSupabaseClient>>,
+  userId: string,
+  bookId: string,
+  disposedAt: string,
+): Promise<JournalActionResult> {
+  const facts = await loadPileFacts(supabase, userId, bookId);
   if ("error" in facts) return { ok: false, error: facts.error };
 
   const existing = facts.ownerships.find((ownership) => ownership.deleted_at === null) ?? null;
@@ -476,16 +498,15 @@ export async function endOwnership(bookId: string, disposedAt: string): Promise<
         .from("ownerships")
         .update({ disposed_at: disposedAt })
         .eq("id", existing.id)
-        .eq("user_id", user.id)
+        .eq("user_id", userId)
     : await supabase
         .from("ownerships")
-        .insert({ user_id: user.id, book_id: bookId, owned_since: null, disposed_at: disposedAt });
+        .insert({ user_id: userId, book_id: bookId, owned_since: null, disposed_at: disposedAt });
   if (error) {
     console.error("[books] endOwnership:", error.message);
     return { ok: false, error: GENERIC_ERROR_MESSAGE };
   }
 
-  revalidateLibrarySurfaces();
   return { ok: true };
 }
 
@@ -631,4 +652,170 @@ export async function softDeletePurchase(purchaseId: string): Promise<JournalAct
   revalidatePath("/bibliotheque");
   revalidatePath("/bilan");
   return { ok: true };
+}
+
+/*
+ * ─── Les gestes GROUPÉS de la pile (#256) ────────────────────────────────────
+ * Le principe : « on continue et on rapporte » — chaque livre du lot est
+ * indépendant, un refus n'annule pas les autres, et le résultat porte les
+ * réussites ET les échecs (le client les retraduit en titres). Les décisions
+ * par livre viennent du plan PUR (lib/books/bulk-read-plan.ts) : le serveur
+ * exécute, il ne décide pas.
+ */
+
+/** Déduplique et borne le lot — un lot n'est pas un import. */
+function validateBulkIds(bookIds: string[]): { ids: string[] } | { error: string } {
+  const ids = [...new Set(bookIds)];
+  if (ids.length === 0) return { error: "Aucun livre sélectionné." };
+  if (ids.length > MAX_BULK_BOOKS) return { error: `Pas plus de ${MAX_BULK_BOOKS} livres à la fois.` };
+  return { ids };
+}
+
+/**
+ * « Marquer comme lus » groupé (#256) — une lecture terminée par livre, à une
+ * date COMMUNE, ou sans date (« lectures passées » : 0 point, aucun mois —
+ * le principe #101, la leçon de #254). Une lecture EN COURS est terminée à la
+ * date commune ; les refus doux (doublon, fin avant début) sont rapportés.
+ *
+ * Aucun quota : les gestes unitaires équivalents n'en consomment pas
+ * (`consume_action_quota` ne couvre que les actions coûteuses — lookup,
+ * réparation de couverture), et le lot est borné par la pile de l'utilisateur.
+ */
+export async function markBooksAsRead(
+  bookIds: string[],
+  finishedAt: string | null,
+): Promise<BulkActionResult> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+  const { supabase, user } = session;
+
+  const validated = validateBulkIds(bookIds);
+  if ("error" in validated) return { ok: false, error: validated.error };
+  if (finishedAt !== null && !isValidIsoDate(finishedAt)) {
+    return { ok: false, error: "Date de fin invalide." };
+  }
+  const { ids } = validated;
+
+  // Les faits du lot en DEUX requêtes, pas 2×N : les fiches (existence,
+  // propriété — la RLS le garantit aussi, le message est plus clair ici) et
+  // toutes les lectures vivantes de ces livres.
+  const [books, readings] = await Promise.all([
+    supabase.from("books").select("id").in("id", ids).eq("user_id", user.id).is("deleted_at", null),
+    supabase
+      .from("readings")
+      .select("id, book_id, status, started_at, finished_at")
+      .in("book_id", ids)
+      .eq("user_id", user.id)
+      .is("deleted_at", null),
+  ]);
+  const loadFailure = books.error ?? readings.error;
+  if (loadFailure) {
+    console.error("[books] markBooksAsRead:", loadFailure.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+  const knownBookIds = new Set((books.data ?? []).map((book) => book.id));
+  const readingRows = readings.data ?? [];
+
+  const failures: BulkFailure[] = [];
+  const toInsert: string[] = [];
+  const toFinish: { bookId: string; readingId: string }[] = [];
+  for (const bookId of ids) {
+    if (!knownBookIds.has(bookId)) {
+      failures.push({ bookId, error: "Livre introuvable." });
+      continue;
+    }
+    const bookReadings = readingRows.filter((reading) => reading.book_id === bookId);
+    const inProgressRow = bookReadings.find((reading) => reading.status === "reading") ?? null;
+    const decision = planBulkRead(
+      {
+        inProgress: inProgressRow
+          ? { readingId: inProgressRow.id, startedAt: inProgressRow.started_at }
+          : null,
+        hasUndatedFinish: bookReadings.some(
+          (reading) => reading.status === "finished" && reading.finished_at === null,
+        ),
+        finishedDates: bookReadings.flatMap((reading) =>
+          reading.status === "finished" && reading.finished_at !== null ? [reading.finished_at] : [],
+        ),
+      },
+      finishedAt,
+    );
+    if (decision.kind === "refuse") failures.push({ bookId, error: decision.error });
+    else if (decision.kind === "finish") toFinish.push({ bookId, readingId: decision.readingId });
+    else toInsert.push(bookId);
+  }
+
+  let succeeded = 0;
+  if (toInsert.length > 0) {
+    // `started_at` NULL : une lecture rétroactive n'a pas de début connu, on
+    // n'en invente pas (contrainte `readings_undated_finish_has_no_start`).
+    // Le trigger en base écrit reading_events tout seul, atomiquement.
+    const { error } = await supabase.from("readings").insert(
+      toInsert.map((bookId) => ({
+        user_id: user.id,
+        book_id: bookId,
+        status: "finished" as const,
+        started_at: null,
+        finished_at: finishedAt,
+      })),
+    );
+    if (error) {
+      console.error("[books] markBooksAsRead insert:", error.message);
+      for (const bookId of toInsert) failures.push({ bookId, error: GENERIC_ERROR_MESSAGE });
+    } else {
+      succeeded += toInsert.length;
+    }
+  }
+  if (finishedAt !== null) {
+    // Le plan ne produit des « finish » qu'en mode daté — ce garde ne filtre
+    // rien, il porte le rétrécissement TypeScript de `finishedAt`.
+    for (const { bookId, readingId } of toFinish) {
+      const { error, count } = await supabase
+        .from("readings")
+        .update({ status: "finished", finished_at: finishedAt }, { count: "exact" })
+        .eq("id", readingId)
+        .eq("user_id", user.id)
+        .eq("status", "reading")
+        .is("deleted_at", null);
+      if (error) {
+        console.error("[books] markBooksAsRead finish:", error.message);
+        failures.push({ bookId, error: GENERIC_ERROR_MESSAGE });
+      } else if (!count) {
+        failures.push({ bookId, error: "Lecture introuvable ou déjà terminée." });
+      } else {
+        succeeded += 1;
+      }
+    }
+  }
+
+  if (succeeded > 0) revalidateLibrarySurfaces();
+  return { ok: true, succeeded, failures };
+}
+
+/**
+ * « Je ne le possède plus » groupé (#256) — la purge du carton donné/revendu.
+ * Une auth, puis le CŒUR du geste unitaire par livre (gardes comprises :
+ * inventaire, sortie ≥ acquisition) et UNE revalidation pour le lot.
+ */
+export async function endOwnershipsForBooks(
+  bookIds: string[],
+  disposedAt: string,
+): Promise<BulkActionResult> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+
+  const validated = validateBulkIds(bookIds);
+  if ("error" in validated) return { ok: false, error: validated.error };
+  if (!isValidIsoDate(disposedAt)) return { ok: false, error: "Date de sortie invalide." };
+
+  const failures: BulkFailure[] = [];
+  let succeeded = 0;
+  for (const bookId of validated.ids) {
+    const result = await endOwnershipCore(session.supabase, session.user.id, bookId, disposedAt);
+    if (result.ok) succeeded += 1;
+    else failures.push({ bookId, error: result.error });
+  }
+
+  if (succeeded > 0) revalidateLibrarySurfaces();
+  return { ok: true, succeeded, failures };
 }

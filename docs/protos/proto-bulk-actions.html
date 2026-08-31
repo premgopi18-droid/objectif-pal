@@ -1,0 +1,865 @@
+<title>Protos sélection multiple</title>
+<style>
+  /* ── Tokens « nuit du plateau » (globals.css, design-specs §2) ─────────── */
+  :root {
+    --bg0: #120826; --bg1: #1b0f38; --card: #221345; --card2: #2b1a55;
+    --line: rgba(255,255,255,.08);
+    --ink: #f4effc; --ink2: #b3a5d6; --ink3: #9083bc;
+    --magenta: #f32fb6; --violet: #8c5cf6; --cyan: #2bd7f0;
+    --green: #3be596; --amber: #ffb63b; --red: #ff5470;
+    --grad: linear-gradient(100deg, #f32fb6, #8c5cf6 45%, #2bd7f0 75%, #3be596);
+    --page: #0a0614; /* le sol du proto, plus profond que l'app, pour détacher les cadrans */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--page); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 32px 20px 64px; min-height: 100vh;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  input, select { font: inherit; }
+
+  /* ── Chrome du proto (autour des téléphones) ──────────────────────────── */
+  .intro { max-width: 900px; margin: 0 auto 40px; }
+  .intro h1 { font-size: 1.35rem; font-weight: 800; letter-spacing: -.01em; }
+  .intro p { margin-top: 10px; font-size: .92rem; line-height: 1.55; color: var(--ink2); max-width: 62ch; }
+  .intro .hint { color: var(--ink3); font-size: .84rem; margin-top: 6px; }
+
+  .protos { display: flex; flex-wrap: wrap; gap: 40px 32px; justify-content: center; max-width: 1400px; margin: 0 auto; }
+  .proto { width: 390px; max-width: 100%; }
+  .proto > .tag {
+    display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--cyan);
+    border: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent);
+    background: color-mix(in srgb, var(--cyan) 10%, transparent);
+    padding: 3px 10px; border-radius: 999px; margin-bottom: 8px;
+  }
+  .proto > h2 { font-size: 1.02rem; font-weight: 700; margin-bottom: 6px; text-wrap: balance; }
+  .proto > .note { font-size: .84rem; line-height: 1.5; color: var(--ink3); margin-bottom: 8px; min-height: 3.8em; }
+  .proto > .note b { color: var(--ink2); font-weight: 600; }
+  .replay {
+    font-size: .8rem; color: var(--ink3); text-decoration: underline; text-underline-offset: 2px;
+    margin-bottom: 12px; display: inline-block;
+  }
+  .replay:hover { color: var(--ink2); }
+
+  /* ── Le cadran ────────────────────────────────────────────────────────── */
+  .phone {
+    position: relative; height: 730px; border-radius: 28px; overflow: hidden;
+    background: linear-gradient(175deg, var(--bg1), var(--bg0) 38%);
+    border: 1px solid rgba(255,255,255,.12);
+    box-shadow: 0 18px 48px rgba(0,0,0,.55);
+  }
+  .screen { position: absolute; inset: 0; overflow-y: auto; padding: 18px 16px 132px; scrollbar-width: none; }
+  .screen::-webkit-scrollbar { display: none; }
+
+  .apptitle { font-size: 1.28rem; font-weight: 800; letter-spacing: -.01em; }
+  .seg { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px; margin-top: 14px; }
+  .seg button { flex: 1; padding: 7px 0; border-radius: 999px; font-size: .82rem; font-weight: 700; color: var(--ink3); }
+  .seg button.on { background: var(--card2); color: var(--ink); }
+
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-top: 14px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 13px 15px; text-align: left; width: 100%; }
+  .tile .lbl { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); }
+  .tile .val { font-size: 27px; font-weight: 900; font-variant-numeric: tabular-nums; margin-top: 2px; }
+  .tile .val.bad { color: var(--red); }
+  .tile .val.good { color: var(--green); }
+  .tile .hint { font-size: 11.5px; color: var(--ink2); margin-top: 2px; }
+  button.tile { transition: transform .1s; }
+  button.tile:active { transform: scale(.98); }
+  button.tile.ring { box-shadow: 0 0 0 2px var(--cyan); }
+
+  .toolbar { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
+  .search {
+    flex: 1; min-width: 130px; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 9px 12px; font-size: 16px; color: var(--ink);
+  }
+  .search::placeholder { color: var(--ink3); }
+  .sortsel {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 9px 10px; font-size: 16px; color: var(--ink2); font-weight: 600; max-width: 130px;
+  }
+
+  /* Boutons (button.tsx) */
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    border-radius: 12px; font-weight: 700; font-size: .85rem; padding: 9px 14px;
+    transition: transform .1s; white-space: nowrap;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn.grad { background: var(--grad); color: var(--bg0); box-shadow: 0 4px 16px color-mix(in srgb, var(--violet) 40%, transparent); }
+  .btn.ghost { background: var(--card2); color: var(--ink); border: 1px solid var(--line); }
+  .btn.done { background: var(--green); color: var(--bg0); }
+  .btn.danger { background: var(--card2); color: var(--red); border: 1px solid var(--line); }
+  .btn.block { width: 100%; padding: 13px 16px; font-size: .95rem; }
+  .btn[disabled] { opacity: .45; pointer-events: none; }
+
+  /* Ligne de livre (book-row.tsx) */
+  .rows { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; list-style: none; }
+  .row {
+    display: flex; align-items: center; gap: 11px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 20px; padding: 11px;
+    transition: opacity .35s, border-color .15s;
+  }
+  .row.gone { opacity: 0; }
+  .cover {
+    width: 42px; height: 60px; flex: none; border-radius: 7px;
+    background: var(--grad); color: var(--bg0);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; font-size: 1.15rem;
+  }
+  .row .mid { min-width: 0; flex: 1; }
+  .row .title { font-size: 14.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .meta { font-size: 12px; color: var(--ink2); margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .meta .d { color: var(--ink3); }
+  .row .meta .lk { color: var(--ink3); text-decoration: underline; text-underline-offset: 2px; cursor: pointer; background: none; border: 0; font-size: 12px; padding: 0; }
+  .row .act { flex: none; display: flex; flex-direction: column; align-items: flex-end; gap: 5px; }
+  .badge {
+    display: inline-block; font-size: 10.5px; font-weight: 700; padding: 3px 9px; border-radius: 999px;
+  }
+  .badge.read { background: color-mix(in srgb, var(--green) 18%, transparent); color: var(--green); }
+  .badge.reading { background: color-mix(in srgb, var(--cyan) 16%, transparent); color: var(--cyan); }
+  .stars { font-size: 11px; color: var(--amber); letter-spacing: 1px; }
+  .emptymsg { padding: 24px 8px; text-align: center; font-size: .84rem; color: var(--ink2); line-height: 1.5; }
+
+  /* Mode sélection (#256) */
+  .chk {
+    flex: none; width: 26px; height: 26px; border-radius: 9px;
+    border: 2px solid var(--ink3); background: transparent;
+    display: none; align-items: center; justify-content: center;
+    color: var(--bg0); font-size: 15px; font-weight: 900;
+  }
+  .phone.selmode .chk { display: flex; }
+  .phone.selmode .row .act { display: none; }
+  .row.sel { border-color: color-mix(in srgb, var(--cyan) 55%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cyan) 55%, transparent); }
+  .row.sel .chk { background: var(--cyan); border-color: var(--cyan); }
+  .phone.selmode .row { cursor: pointer; }
+
+  /* Barres du bas */
+  .tabbar {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 3;
+    display: flex; align-items: center; justify-content: space-around;
+    background: color-mix(in srgb, var(--bg0) 88%, black); border-top: 1px solid var(--line);
+    padding: 9px 6px 13px;
+  }
+  .tabbar .tb { display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 9.5px; font-weight: 700; color: var(--ink3); width: 56px; }
+  .tabbar .tb.on { color: var(--ink); }
+  .tabbar .tb .ic { font-size: 17px; }
+  .tabbar .scanfab {
+    width: 50px; height: 50px; border-radius: 50%; background: var(--grad);
+    display: flex; align-items: center; justify-content: center; font-size: 21px;
+    margin-top: -26px; box-shadow: 0 4px 16px color-mix(in srgb, var(--violet) 40%, transparent);
+    border: 4px solid var(--bg0); color: var(--bg0);
+  }
+  .actionbar {
+    position: absolute; left: 10px; right: 10px; bottom: 74px; z-index: 4;
+    background: var(--card2); border: 1px solid var(--line); border-radius: 18px;
+    padding: 10px 12px; display: none; flex-direction: column; gap: 9px;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5);
+  }
+  .phone.selmode .actionbar { display: flex; }
+  .actionbar .top { display: flex; align-items: center; justify-content: space-between; }
+  .actionbar .count { font-size: .85rem; font-weight: 700; }
+  .actionbar .count span { color: var(--cyan); }
+  .actionbar .cancel { font-size: .82rem; color: var(--ink3); text-decoration: underline; text-underline-offset: 2px; }
+  .actionbar .acts { display: flex; gap: 8px; }
+  .actionbar .acts .btn { flex: 1; padding: 11px 8px; font-size: .84rem; }
+
+  /* Feuille (sheet-in de globals.css) */
+  .backdrop { position: absolute; inset: 0; z-index: 5; background: rgba(6,3,14,.62); display: none; animation: fade .18s; }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 6; display: none;
+    background: var(--bg1); border-top: 1px solid var(--line);
+    border-radius: 22px 22px 0 0; padding: 18px 18px 22px;
+    animation: rise .22s ease-out;
+  }
+  .phone.sheet-open .backdrop, .phone.sheet-open .sheet.main { display: block; }
+  .phone.sheet2-open .backdrop, .phone.sheet2-open .sheet.second { display: block; }
+  @keyframes rise { from { transform: translateY(100%); } to { transform: translateY(0); } }
+  @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
+  @media (prefers-reduced-motion: reduce) { * { animation-duration: .01ms !important; transition-duration: .01ms !important; } }
+  .sheet .grip { width: 38px; height: 4px; border-radius: 999px; background: var(--ink3); opacity: .5; margin: 0 auto 14px; }
+  .sheet h3 { font-size: 1.02rem; font-weight: 800; }
+  .sheet .sub { font-size: .82rem; color: var(--ink2); margin-top: 4px; line-height: 1.45; }
+  .sheet .sub b { color: var(--ink); }
+
+  .opt {
+    display: flex; gap: 11px; align-items: flex-start; width: 100%; text-align: left;
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px;
+    padding: 13px 14px; margin-top: 10px;
+  }
+  .opt .radio { flex: none; width: 20px; height: 20px; border-radius: 50%; border: 2px solid var(--ink3); margin-top: 1px; }
+  .opt.on { border-color: color-mix(in srgb, var(--cyan) 55%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cyan) 55%, transparent); }
+  .opt.on .radio { border-color: var(--cyan); border-width: 6px; }
+  .opt .t { font-size: .9rem; font-weight: 700; }
+  .opt .d { font-size: .78rem; color: var(--ink2); margin-top: 3px; line-height: 1.4; display: block; }
+  .opt .d em { color: var(--amber); font-style: normal; font-weight: 600; }
+  .datefield { margin-top: 10px; margin-left: 31px; display: flex; align-items: center; gap: 9px; transition: opacity .15s; }
+  .datefield label { font-size: .8rem; color: var(--ink2); font-weight: 600; }
+  .datefield input {
+    background: var(--card2); border: 1px solid var(--line); border-radius: 12px;
+    color: var(--ink); font-size: 16px; padding: 8px 11px; width: 150px; color-scheme: dark;
+  }
+  .sheet .cta { margin-top: 16px; }
+
+  /* Toast */
+  .toast {
+    position: absolute; left: 50%; transform: translateX(-50%) translateY(8px);
+    bottom: 150px; z-index: 8; background: var(--card2); border: 1px solid var(--line);
+    color: var(--ink); font-size: .84rem; font-weight: 700; padding: 10px 16px;
+    border-radius: 999px; box-shadow: 0 8px 24px rgba(0,0,0,.5);
+    opacity: 0; pointer-events: none; transition: opacity .25s, transform .25s;
+    white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast .ok { color: var(--green); }
+
+  /* Dialogue de confirmation (émule le window.confirm natif — idiome Biblio) */
+  .confirmwrap { position: absolute; inset: 0; z-index: 7; display: none; align-items: center; justify-content: center; background: rgba(6,3,14,.62); animation: fade .18s; }
+  .phone.confirm-open .confirmwrap { display: flex; }
+  .confirmbox {
+    width: 82%; background: #2a2733; border: 1px solid rgba(255,255,255,.14);
+    border-radius: 14px; padding: 16px 16px 10px; box-shadow: 0 12px 32px rgba(0,0,0,.6);
+    font-family: system-ui, sans-serif; /* volontairement neutre : c'est le dialogue SYSTÈME */
+  }
+  .confirmbox .msg { font-size: .86rem; line-height: 1.45; color: #f0eef4; }
+  .confirmbox .btns { display: flex; justify-content: flex-end; gap: 4px; margin-top: 12px; }
+  .confirmbox .btns button { padding: 8px 14px; border-radius: 8px; font-size: .86rem; font-weight: 600; color: #9db7ff; }
+  .confirmbox .btns button:active { background: rgba(255,255,255,.08); }
+
+  /* Confetti (#73 — WAAPI comme dans l'app) */
+  .confetto { position: absolute; width: 7px; height: 7px; border-radius: 2px; z-index: 9; pointer-events: none; }
+
+  /* ── Proto B : formulaire d'édition (#257) ────────────────────────────── */
+  .field { margin-top: 14px; }
+  .field .flbl { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: var(--ink3); margin-bottom: 7px; }
+  .finput {
+    width: 100%; background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 11px 13px; font-size: 16px; color: var(--ink);
+  }
+  .finput:focus { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  .finput.muted { color: var(--ink2); }
+  .fpair { display: grid; grid-template-columns: 1fr 84px; gap: 8px; }
+  .catseg { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+  .catseg button {
+    background: var(--card); border: 1px solid var(--line); border-radius: 12px;
+    padding: 10px 4px; font-size: .82rem; font-weight: 700; color: var(--ink2);
+  }
+  .catseg button.on { background: var(--card2); color: var(--ink); border-color: color-mix(in srgb, var(--cyan) 55%, transparent); box-shadow: 0 0 0 1px color-mix(in srgb, var(--cyan) 55%, transparent); }
+  .seriesrow { display: flex; align-items: center; gap: 9px; margin-top: 12px; }
+  .minicover { width: 30px; height: 43px; border-radius: 5px; background: var(--grad); color: var(--bg0); display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: .8rem; flex: none; }
+  .seriesrow .st { font-size: .82rem; color: var(--ink2); line-height: 1.35; }
+  .seriesrow .st b { color: var(--ink); }
+
+  /* ── Proto C : boîte de finition (#258) ───────────────────────────────── */
+  .intentbadge {
+    display: inline-block; font-size: 10.5px; font-weight: 700; padding: 3px 9px;
+    border-radius: 999px; background: color-mix(in srgb, var(--violet) 22%, transparent);
+    color: color-mix(in srgb, var(--violet) 45%, var(--ink)); margin-top: 4px;
+  }
+  .intentbadge.buy { background: color-mix(in srgb, var(--red) 16%, transparent); color: color-mix(in srgb, var(--red) 70%, var(--ink)); }
+  .cover.photocover { background: var(--card2); color: var(--ink3); font-size: 1.2rem; border: 1px dashed var(--ink3); }
+
+  footer { max-width: 900px; margin: 56px auto 0; font-size: .8rem; color: var(--ink3); line-height: 1.5; }
+</style>
+
+<div class="intro">
+  <h1>Protos — sélection multiple &amp; gestes groupés</h1>
+  <p>Trois maquettes interactives pour les tickets #256, #257 et #258, dans l'identité « nuit du plateau ».
+  Les données sont factices et tout vit en mémoire — mais <b style="color:var(--ink2)">tout se manipule</b> :
+  recherche, tri, segments, tuile-filtre, gestes unitaires et groupés, feuilles.</p>
+  <p class="hint">« ↺ Rejouer » sous chaque titre remet le cadran à zéro.</p>
+</div>
+
+<div class="protos">
+
+  <!-- ══════════ Proto A — #256 : PAL, mode sélection ══════════ -->
+  <section class="proto">
+    <span class="tag">#256 · Pile</span>
+    <h2>Mode sélection de la PAL</h2>
+    <p class="note">« <b>Sélectionner</b> » → cases + barre d'actions. « Marquer comme lus » ouvre la feuille :
+    <b>date commune</b> ou « lecture passée » (0 point, principe #101). Les gestes unitaires, la recherche,
+    le tri, la tuile-filtre (#241) et le segment « Tous » marchent aussi.</p>
+    <button class="replay" onclick="resetA()">↺ Rejouer</button>
+    <div class="phone" id="phoneA">
+      <div class="screen">
+        <div class="apptitle">Bibliothèque</div>
+        <div class="seg" role="tablist">
+          <button id="segPile" class="on" onclick="setView('pile')">Pile (PAL)</button>
+          <button id="segTous" onclick="setView('tous')">Tous</button>
+        </div>
+        <div class="tiles" id="palTiles">
+          <div class="tile"><div class="lbl">Dans la pile</div><div class="val" id="pileCount">6</div><div class="hint" id="pileHint">livres non lus</div></div>
+          <button class="tile" id="monthTile" onclick="toggleMonthFilter()" aria-pressed="false">
+            <div class="lbl">Pile ce mois-ci</div><div class="val bad" id="monthVal">+4 livres</div><div class="hint" id="monthHint">6 entrées · 2 sorties</div>
+          </button>
+        </div>
+        <div class="toolbar">
+          <input class="search" id="searchA" type="search" placeholder="Rechercher…" oninput="renderA()" aria-label="Rechercher dans la pile">
+          <select class="sortsel" id="sortA" onchange="renderA()" aria-label="Trier">
+            <option value="ajout">Ajout récent</option>
+            <option value="ajout-ancien">Ajout ancien</option>
+            <option value="titre">Titre A→Z</option>
+            <option value="titre-inverse">Titre Z→A</option>
+          </select>
+          <button class="btn ghost" id="selToggle" onclick="toggleSel()">Sélectionner</button>
+        </div>
+        <ul class="rows" id="palRows"></ul>
+      </div>
+
+      <div class="actionbar">
+        <div class="top">
+          <div class="count"><span id="selCount">0</span> livre(s) sélectionné(s)</div>
+          <button class="cancel" onclick="toggleSel()">Annuler</button>
+        </div>
+        <div class="acts">
+          <button class="btn done" id="bulkReadBtn" disabled onclick="openSheetA()">Marquer comme lus</button>
+          <button class="btn danger" id="bulkDisposeBtn" disabled onclick="bulkDispose()">Je ne le possède plus</button>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <button class="tb" onclick="offProto('toastA')"><span class="ic">🏠</span>Accueil</button>
+        <button class="tb on"><span class="ic">📚</span>Biblio</button>
+        <button class="scanfab" onclick="offProto('toastA')">▣</button>
+        <button class="tb" onclick="offProto('toastA')"><span class="ic">📊</span>Bilan</button>
+        <button class="tb" onclick="offProto('toastA')"><span class="ic">👤</span>Profil</button>
+      </div>
+
+      <div class="backdrop" onclick="closeSheets('phoneA')"></div>
+      <div class="sheet main">
+        <div class="grip"></div>
+        <h3>Marquer <span id="sheetCount">3</span> livres comme lus</h3>
+        <p class="sub">La même règle s'applique à toute la sélection.</p>
+        <button class="opt on" id="optDated" onclick="pickOpt(true)">
+          <span class="radio"></span>
+          <span><span class="t">Je viens de les lire</span>
+          <span class="d">Une date commune pour le lot — les points tombent dans le bilan de ce mois-là.</span></span>
+        </button>
+        <div class="datefield" id="dateField">
+          <label for="commonDate">Terminés le</label>
+          <input type="date" id="commonDate" value="2026-08-31">
+        </div>
+        <button class="opt" id="optPast" onclick="pickOpt(false)">
+          <span class="radio"></span>
+          <span><span class="t">Lectures passées, date inconnue</span>
+          <span class="d">Ils sortent de la pile sans toucher aucun mois — <em>0 point</em>, c'est un fait de bibliothèque.</span></span>
+        </button>
+        <button class="btn done block cta" onclick="confirmBulkRead()">Marquer comme lus ✓</button>
+      </div>
+      <div class="confirmwrap" onclick="if (event.target === this) closeConfirm()">
+        <div class="confirmbox" role="alertdialog" aria-modal="true">
+          <div class="msg" id="confirmMsg"></div>
+          <div class="btns">
+            <button onclick="closeConfirm()">Annuler</button>
+            <button onclick="doBulkDispose()">OK</button>
+          </div>
+        </div>
+      </div>
+      <div class="toast" id="toastA"></div>
+    </div>
+  </section>
+
+  <!-- ══════════ Proto B — #257 : catégorie par série ══════════ -->
+  <section class="proto">
+    <span class="tag">#257 · Fiche</span>
+    <h2>Corriger la catégorie de toute la série</h2>
+    <p class="note">Le formulaire d'édition (#100) est <b>éditable</b>. Changer la catégorie propose
+    d'<b>aligner les autres tomes</b> de la série (ils démarrent en « BD ») ; refuser = la fiche seule.
+    Une série déjà alignée ne re-propose rien.</p>
+    <button class="replay" onclick="resetB()">↺ Rejouer</button>
+    <div class="phone" id="phoneB">
+      <div class="screen">
+        <div class="apptitle">Modifier la fiche</div>
+        <div class="field">
+          <div class="flbl">Titre</div>
+          <input class="finput" id="fTitle" value="Berserk T.4">
+        </div>
+        <div class="field">
+          <div class="flbl">Série · numéro</div>
+          <div class="fpair">
+            <input class="finput" id="fSeries" value="Berserk">
+            <input class="finput" id="fNum" value="4" inputmode="numeric">
+          </div>
+        </div>
+        <div class="field">
+          <div class="flbl">Catégorie</div>
+          <div class="catseg" id="catSeg">
+            <button data-cat="BD" class="on" onclick="pickCat(this)">BD</button>
+            <button data-cat="Manga" onclick="pickCat(this)">Manga</button>
+            <button data-cat="Roman" onclick="pickCat(this)">Roman</button>
+            <button data-cat="Comics" onclick="pickCat(this)">Comics</button>
+          </div>
+        </div>
+        <div class="field">
+          <div class="flbl">Pages</div>
+          <input class="finput" id="fPages" value="224" inputmode="numeric">
+        </div>
+        <div class="field">
+          <div class="flbl">ISBN</div>
+          <input class="finput muted" value="9782723428248" readonly aria-label="ISBN (non modifiable)">
+        </div>
+        <div class="field" style="margin-top:22px">
+          <button class="btn grad block" onclick="saveSheetB()">Enregistrer</button>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <button class="tb" onclick="offProto('toastB')"><span class="ic">🏠</span>Accueil</button>
+        <button class="tb on"><span class="ic">📚</span>Biblio</button>
+        <button class="scanfab" onclick="offProto('toastB')">▣</button>
+        <button class="tb" onclick="offProto('toastB')"><span class="ic">📊</span>Bilan</button>
+        <button class="tb" onclick="offProto('toastB')"><span class="ic">👤</span>Profil</button>
+      </div>
+
+      <div class="backdrop" onclick="closeSheets('phoneB')"></div>
+      <div class="sheet main">
+        <div class="grip"></div>
+        <h3 id="alignTitle">Toute la série en « Manga » ?</h3>
+        <p class="sub" id="alignSub"></p>
+        <div class="seriesrow">
+          <div class="minicover">B</div><div class="minicover">B</div><div class="minicover">B</div>
+          <div class="st" id="alignDetail"></div>
+        </div>
+        <button class="btn grad block cta" id="alignCta" onclick="alignSeries()"></button>
+        <button class="btn ghost block" style="margin-top:8px" onclick="closeSheets('phoneB'); showToast('toastB','Cette fiche seulement ✓')">Cette fiche seulement</button>
+      </div>
+      <div class="toast" id="toastB"></div>
+    </div>
+  </section>
+
+  <!-- ══════════ Proto C — #258 : finition, rejet groupé ══════════ -->
+  <section class="proto">
+    <span class="tag">#258 · Finition</span>
+    <h2>Ignorer plusieurs scans d'un coup</h2>
+    <p class="note">Même patron que la PAL : « <b>Sélectionner</b> », cases, « Ignorer la sélection ».
+    « <b>Compléter</b> » ouvre la mini-fiche — l'intention du scan est conservée, jamais redemandée.</p>
+    <button class="replay" onclick="resetC()">↺ Rejouer</button>
+    <div class="phone" id="phoneC">
+      <div class="screen">
+        <div class="apptitle">À compléter</div>
+        <p style="font-size:.84rem;color:var(--ink2);margin-top:10px;line-height:1.5" id="finIntro"></p>
+        <div class="toolbar" style="justify-content:flex-end">
+          <button class="btn ghost" id="selToggleC" onclick="toggleSelC()">Sélectionner</button>
+        </div>
+        <ul class="rows" id="finRows"></ul>
+      </div>
+
+      <div class="actionbar">
+        <div class="top">
+          <div class="count"><span id="selCountC">0</span> élément(s) sélectionné(s)</div>
+          <button class="cancel" onclick="toggleSelC()">Annuler</button>
+        </div>
+        <div class="acts">
+          <button class="btn danger" id="bulkDismissBtn" disabled onclick="bulkDismiss()">Ignorer la sélection</button>
+        </div>
+      </div>
+
+      <div class="tabbar">
+        <button class="tb" onclick="offProto('toastC')"><span class="ic">🏠</span>Accueil</button>
+        <button class="tb" onclick="offProto('toastC')"><span class="ic">📚</span>Biblio</button>
+        <button class="scanfab" onclick="offProto('toastC')">▣</button>
+        <button class="tb" onclick="offProto('toastC')"><span class="ic">📊</span>Bilan</button>
+        <button class="tb on"><span class="ic">👤</span>Profil</button>
+      </div>
+
+      <div class="backdrop" onclick="closeSheets('phoneC')"></div>
+      <div class="sheet main">
+        <div class="grip"></div>
+        <h3 id="cTitle">Compléter la fiche</h3>
+        <p class="sub" id="cSub"></p>
+        <div class="field">
+          <div class="flbl">Titre</div>
+          <input class="finput" id="cInputTitle" placeholder="Titre du livre">
+        </div>
+        <div class="field">
+          <div class="flbl">Catégorie</div>
+          <div class="catseg" id="cCatSeg">
+            <button data-cat="BD" onclick="pickCatC(this)">BD</button>
+            <button data-cat="Manga" class="on" onclick="pickCatC(this)">Manga</button>
+            <button data-cat="Roman" onclick="pickCatC(this)">Roman</button>
+            <button data-cat="Comics" onclick="pickCatC(this)">Comics</button>
+          </div>
+        </div>
+        <button class="btn grad block cta" id="cCta" onclick="completeItem()"></button>
+      </div>
+      <div class="toast" id="toastC"></div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  Proto sans logique réelle — <code>docs/protos/proto-bulk-actions.html</code>. Les décisions produit vivent dans les issues
+  #256 / #257 / #258 ; les tokens et composants viennent de <code>app/globals.css</code> et <code>components/ui/</code>.
+</footer>
+
+<script>
+  const GRAD_COLORS = ["#f32fb6", "#8c5cf6", "#2bd7f0", "#3be596"];
+  const REDUCED = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function showToast(id, html) {
+    const t = document.getElementById(id);
+    t.innerHTML = html;
+    t.classList.add("show");
+    clearTimeout(t._h);
+    t._h = setTimeout(() => t.classList.remove("show"), 2600);
+  }
+  function offProto(toastId) { showToast(toastId, "Le proto s'arrête ici 🙂"); }
+  function closeSheets(phoneId) { document.getElementById(phoneId).classList.remove("sheet-open", "sheet2-open"); }
+
+  /* Confettis (#73) — WAAPI, coupés si prefers-reduced-motion, comme dans l'app. */
+  function burstConfetti(phone, x, y) {
+    if (REDUCED) return;
+    for (let i = 0; i < 14; i++) {
+      const c = document.createElement("div");
+      c.className = "confetto";
+      c.style.background = GRAD_COLORS[i % 4];
+      c.style.left = x + "px"; c.style.top = y + "px";
+      phone.appendChild(c);
+      const angle = Math.random() * Math.PI * 2, dist = 40 + Math.random() * 70;
+      c.animate(
+        [
+          { transform: "translate(0,0) rotate(0)", opacity: 1 },
+          { transform: `translate(${Math.cos(angle) * dist}px, ${Math.sin(angle) * dist - 30}px) rotate(${240 + Math.random() * 360}deg)`, opacity: 0 },
+        ],
+        { duration: 650 + Math.random() * 350, easing: "cubic-bezier(.15,.6,.4,1)" }
+      ).onfinish = () => c.remove();
+    }
+  }
+  function burstAt(phoneId, target) {
+    const phone = document.getElementById(phoneId);
+    const pr = phone.getBoundingClientRect(), tr = target.getBoundingClientRect();
+    burstConfetti(phone, tr.left - pr.left + tr.width / 2, tr.top - pr.top + tr.height / 2);
+  }
+
+  /* ═════════ Proto A — la pile ═════════ */
+  const CURRENT_MONTH = "2026-08";
+  const INITIAL_BOOKS = [
+    /* created = ordre d'ajout ; entered = mois d'entrée en pile (null = étagère d'avant, #101) */
+    { id: 1, t: "Berserk T.4", m: "Berserk · T.4 · BD", d: "Acheté le 12/08/2026", entered: "2026-08", src: "purchase", created: 6, status: "pile" },
+    { id: 2, t: "Le Problème à trois corps", m: "Roman", d: "Acheté le 05/08/2026", entered: "2026-08", src: "purchase", created: 5, status: "reading" },
+    { id: 3, t: "One Piece T.108", m: "One Piece · T.108 · Manga", d: "Acheté le 02/08/2026", entered: "2026-08", src: "purchase", created: 4, status: "pile" },
+    { id: 4, t: "Watchmen", m: "Comics", d: "Possédé depuis le 20/07/2026", entered: "2026-07", src: "own", created: 3, status: "pile" },
+    { id: 5, t: "Astérix chez les Pictes", m: "Astérix · T.35 · BD", d: "Déjà dans ma bibliothèque", entered: null, src: "own", created: 2, status: "pile" },
+    { id: 6, t: "Chainsaw Man T.2", m: "Chainsaw Man · T.2 · Manga", d: "Acheté le 14/07/2026", entered: "2026-07", src: "purchase", created: 1, status: "pile" },
+    /* déjà lus — visibles dans « Tous » seulement */
+    { id: 7, t: "Dune", m: "Roman", d: "Terminé le 22/07/2026", created: 0, status: "read", stars: 4 },
+    { id: 8, t: "Chainsaw Man T.1", m: "Chainsaw Man · T.1 · Manga", d: "Terminé le 03/08/2026", created: 0, status: "read", stars: 5 },
+  ];
+  let books, view, monthFilter, selected;
+
+  function resetA() {
+    books = INITIAL_BOOKS.map(b => ({ ...b }));
+    view = "pile"; monthFilter = false; selected = new Set();
+    document.getElementById("phoneA").classList.remove("selmode", "sheet-open");
+    document.getElementById("selToggle").textContent = "Sélectionner";
+    document.getElementById("searchA").value = "";
+    document.getElementById("sortA").value = "ajout";
+    document.getElementById("segPile").classList.add("on");
+    document.getElementById("segTous").classList.remove("on");
+    renderA();
+  }
+
+  function setView(v) {
+    view = v;
+    document.getElementById("segPile").classList.toggle("on", v === "pile");
+    document.getElementById("segTous").classList.toggle("on", v === "tous");
+    if (v === "tous" && document.getElementById("phoneA").classList.contains("selmode")) toggleSel();
+    renderA();
+  }
+
+  function toggleMonthFilter() {
+    monthFilter = !monthFilter;
+    const tile = document.getElementById("monthTile");
+    tile.classList.toggle("ring", monthFilter);
+    tile.setAttribute("aria-pressed", String(monthFilter));
+    renderA();
+  }
+
+  function pileBooks() { return books.filter(b => b.status === "pile" || b.status === "reading"); }
+
+  function normalize(s) { return s.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase(); }
+
+  function visibleBooks() {
+    let list = view === "pile" ? pileBooks() : books.slice();
+    if (view === "pile" && monthFilter) list = list.filter(b => b.entered === CURRENT_MONTH);
+    const q = normalize(document.getElementById("searchA").value.trim());
+    if (q) list = list.filter(b => normalize(b.t + " " + b.m).includes(q));
+    const sort = document.getElementById("sortA").value;
+    list.sort((a, b) =>
+      sort === "ajout" ? b.created - a.created :
+      sort === "ajout-ancien" ? a.created - b.created :
+      sort === "titre" ? a.t.localeCompare(b.t, "fr") : b.t.localeCompare(a.t, "fr"));
+    return list;
+  }
+
+  function renderA() {
+    /* tuiles — la santé (#241) : uniquement les livres encore en pile */
+    const pile = pileBooks();
+    document.getElementById("pileCount").textContent = pile.length;
+    document.getElementById("pileHint").textContent = "livre" + (pile.length > 1 ? "s" : "") + " non lu" + (pile.length > 1 ? "s" : "");
+    const entries = pile.filter(b => b.entered === CURRENT_MONTH).length + 2; /* +2 : entrées déjà lues dans le mois */
+    const exits = 8 - pile.length; /* les sorties simulées depuis l'état initial (2 au départ) */
+    const balance = entries - exits;
+    const mv = document.getElementById("monthVal");
+    mv.textContent = (balance > 0 ? "+" + balance : balance) + " livre" + (Math.abs(balance) > 1 ? "s" : "");
+    mv.className = "val " + (balance > 0 ? "bad" : "good");
+    document.getElementById("monthHint").textContent = monthFilter ? "filtre actif" : entries + " entrées · " + exits + " sortie" + (exits > 1 ? "s" : "");
+    document.getElementById("palTiles").style.display = view === "pile" ? "grid" : "none";
+    document.getElementById("selToggle").style.display = view === "pile" ? "" : "none";
+
+    /* lignes */
+    const list = visibleBooks();
+    const ul = document.getElementById("palRows");
+    ul.innerHTML = "";
+    if (list.length === 0) {
+      ul.innerHTML = `<li class="emptymsg">${monthFilter && !document.getElementById("searchA").value.trim()
+        ? "Aucune entrée de ce mois-ci n'est encore en pile — un livre entré puis lu dans le mois est déjà au Journal."
+        : "Aucun livre ne correspond à la recherche."}</li>`;
+      syncCount();
+      return;
+    }
+    list.forEach(b => {
+      const li = document.createElement("li");
+      const removeLink = b.status === "read" ? "" :
+        b.src === "purchase"
+          ? `<button class="lk" onclick="event.stopPropagation(); removeBook(${b.id}, 'achat annulé')">Je ne l'ai pas acheté</button>`
+          : `<button class="lk" onclick="event.stopPropagation(); removeBook(${b.id}, 'possession close')">Je ne le possède plus</button>`;
+      const act =
+        b.status === "read"
+          ? `<span class="badge read">Lue ✓</span>${b.stars ? `<span class="stars">${"★".repeat(b.stars)}${"☆".repeat(5 - b.stars)}</span>` : ""}`
+          : b.status === "reading"
+            ? `<span class="badge reading">En cours</span><button class="btn done" onclick="event.stopPropagation(); finishBook(${b.id}, this)">Terminé ✓</button>`
+            : `<button class="btn grad" onclick="event.stopPropagation(); startBook(${b.id})">Je commence</button>`;
+      li.innerHTML = `
+        <div class="row ${selected.has(b.id) ? "sel" : ""}" onclick="rowTap(${b.id}, this)">
+          <span class="chk">✓</span>
+          <div class="cover">${b.t[0]}</div>
+          <div class="mid">
+            <div class="title">${b.t}</div>
+            <div class="meta">${b.m}</div>
+            <div class="meta"><span class="d">${b.d}</span>${removeLink ? " · " + removeLink : ""}</div>
+          </div>
+          <div class="act">${act}</div>
+        </div>`;
+      ul.appendChild(li);
+    });
+    syncCount();
+  }
+
+  /* gestes unitaires */
+  function startBook(id) {
+    const b = books.find(x => x.id === id);
+    b.status = "reading";
+    renderA();
+    showToast("toastA", `<span class="ok">✓</span> Lecture démarrée — ${b.t}`);
+  }
+  function finishBook(id, btn) {
+    burstAt("phoneA", btn);
+    const b = books.find(x => x.id === id);
+    b.status = "read"; b.d = "Terminé le 31/08/2026"; b.stars = 0;
+    setTimeout(renderA, REDUCED ? 0 : 250);
+    showToast("toastA", `<span class="ok">✓</span> Terminé — la lecture est au Journal`);
+  }
+  function removeBook(id, why) {
+    const b = books.find(x => x.id === id);
+    books = books.filter(x => x.id !== id);
+    selected.delete(id);
+    renderA();
+    showToast("toastA", `<span class="ok">✓</span> ${b.t} — ${why}`);
+  }
+
+  /* mode sélection (#256) */
+  function toggleSel() {
+    const phone = document.getElementById("phoneA");
+    phone.classList.toggle("selmode");
+    selected.clear();
+    document.getElementById("selToggle").textContent = phone.classList.contains("selmode") ? "Sélection…" : "Sélectionner";
+    renderA();
+  }
+  function rowTap(id, row) {
+    if (!document.getElementById("phoneA").classList.contains("selmode")) return;
+    if (books.find(b => b.id === id)?.status === "read") return;
+    selected.has(id) ? selected.delete(id) : selected.add(id);
+    row.classList.toggle("sel", selected.has(id));
+    syncCount();
+  }
+  function syncCount() {
+    const n = selected.size;
+    document.getElementById("selCount").textContent = n;
+    document.getElementById("bulkReadBtn").disabled = n === 0;
+    document.getElementById("bulkDisposeBtn").disabled = n === 0;
+  }
+  function openSheetA() {
+    document.getElementById("sheetCount").textContent = selected.size;
+    document.getElementById("phoneA").classList.add("sheet-open");
+  }
+  function pickOpt(dated) {
+    document.getElementById("optDated").classList.toggle("on", dated);
+    document.getElementById("optPast").classList.toggle("on", !dated);
+    document.getElementById("dateField").style.opacity = dated ? "1" : ".35";
+    document.getElementById("commonDate").disabled = !dated;
+  }
+  function confirmBulkRead() {
+    const dated = document.getElementById("optDated").classList.contains("on");
+    const n = selected.size;
+    const cta = document.querySelector("#phoneA .sheet .cta");
+    if (dated) burstAt("phoneA", cta);
+    selected.forEach(id => {
+      const b = books.find(x => x.id === id);
+      b.status = "read";
+      b.d = dated ? "Terminé le " + formatFr(document.getElementById("commonDate").value) : "Lue — date inconnue";
+    });
+    closeSheets("phoneA"); toggleSel();
+    showToast("toastA", dated
+      ? `<span class="ok">✓</span> ${n} lectures enregistrées`
+      : `<span class="ok">✓</span> ${n} lectures passées — 0 point`);
+  }
+  /* Confirmation AVANT le retrait groupé (décision 31/08, ticket #256) — le lot
+     multiplie la fausse manip ; le geste unitaire, lui, reste sans confirmation.
+     Dans l'app ce sera un window.confirm (l'idiome Biblio) — ici on l'émule. */
+  function bulkDispose() {
+    const n = selected.size;
+    document.getElementById("confirmMsg").textContent =
+      `Ne plus posséder ${n === 1 ? "ce livre" : "ces " + n + " livres"} ? ` +
+      `${n === 1 ? "Il quittera" : "Ils quitteront"} la pile — lectures, achats et points restent au bilan.`;
+    document.getElementById("phoneA").classList.add("confirm-open");
+  }
+  function closeConfirm() { document.getElementById("phoneA").classList.remove("confirm-open"); }
+  function doBulkDispose() {
+    closeConfirm();
+    const n = selected.size;
+    books = books.filter(b => !selected.has(b.id));
+    toggleSel();
+    showToast("toastA", `<span class="ok">✓</span> ${n} livre${n > 1 ? "s" : ""} ne ${n > 1 ? "sont" : "n'est"} plus possédé${n > 1 ? "s" : ""}`);
+  }
+  function formatFr(iso) { const [y, m, d] = iso.split("-"); return `${d}/${m}/${y}`; }
+
+  /* ═════════ Proto B — catégorie série ═════════ */
+  let currentCat, seriesCat; /* seriesCat = la catégorie des AUTRES tomes */
+  const SERIES_SIZE = 11;
+
+  function resetB() {
+    currentCat = "BD"; seriesCat = "BD";
+    document.querySelectorAll("#catSeg button").forEach(b => b.classList.toggle("on", b.dataset.cat === "BD"));
+    document.getElementById("fTitle").value = "Berserk T.4";
+    document.getElementById("fSeries").value = "Berserk";
+    document.getElementById("fNum").value = "4";
+    document.getElementById("fPages").value = "224";
+    closeSheets("phoneB");
+  }
+  function pickCat(btn) {
+    document.querySelectorAll("#catSeg button").forEach(b => b.classList.remove("on"));
+    btn.classList.add("on");
+    currentCat = btn.dataset.cat;
+    if (currentCat !== seriesCat) openAlignSheet();
+  }
+  function openAlignSheet() {
+    const series = document.getElementById("fSeries").value || "la série";
+    document.getElementById("alignTitle").textContent = `Toute la série en « ${currentCat} » ?`;
+    document.getElementById("alignSub").innerHTML =
+      `<b>${SERIES_SIZE} autres tomes</b> de <b>${series}</b> sont encore en « ${seriesCat} ». Les points de leurs lectures suivront la nouvelle catégorie.`;
+    document.getElementById("alignDetail").innerHTML = `${series} T.1 → T.3, T.5 → T.12<br><b>${seriesCat} → ${currentCat}</b>`;
+    document.getElementById("alignCta").textContent = `Appliquer aux ${SERIES_SIZE} tomes`;
+    document.getElementById("phoneB").classList.add("sheet-open");
+  }
+  function alignSeries() {
+    seriesCat = currentCat;
+    closeSheets("phoneB");
+    showToast("toastB", `<span class="ok">✓</span> ${SERIES_SIZE + 1} tomes en « ${currentCat} »`);
+  }
+  function saveSheetB() {
+    showToast("toastB", `<span class="ok">✓</span> Fiche enregistrée — ${document.getElementById("fTitle").value}`);
+  }
+
+  /* ═════════ Proto C — finition ═════════ */
+  const INITIAL_FIN = [
+    { id: 1, t: "Code 9791032710556", i: "Lu — c'était un emprunt", cta: "Marquer comme lu (emprunt)", cov: "?", cls: "" },
+    { id: 2, t: "Livre photographié", i: "Je le possède", cta: "Ajouter à ma bibliothèque", cov: "📷", cls: "photocover" },
+    { id: 3, t: "Code 3760049561234", i: "Achat (−1)", cta: "Enregistrer l'achat (−1)", cov: "?", cls: "", buy: true },
+    { id: 4, t: "Code 9782205088161", i: "Je le possède", cta: "Ajouter à ma bibliothèque", cov: "?", cls: "" },
+    { id: 5, t: "Livre photographié", i: "Déjà lu", cta: "Marquer comme lu", cov: "📷", cls: "photocover" },
+  ];
+  let finItems, selectedC, openItemId;
+
+  function resetC() {
+    finItems = INITIAL_FIN.map(x => ({ ...x }));
+    selectedC = new Set(); openItemId = null;
+    document.getElementById("phoneC").classList.remove("selmode", "sheet-open");
+    document.getElementById("selToggleC").textContent = "Sélectionner";
+    renderC();
+  }
+  function renderC() {
+    const n = finItems.length;
+    document.getElementById("finIntro").textContent = n === 0
+      ? "Rien à compléter — tous tes scans sont allés au bout. 🎉"
+      : `${n} livre${n > 1 ? "s" : ""} scanné${n > 1 ? "s" : ""} que l'app n'a pas su identifier. L'intention choisie au scan est conservée.`;
+    document.getElementById("selToggleC").style.display = n === 0 ? "none" : "";
+    const ul = document.getElementById("finRows");
+    ul.innerHTML = "";
+    finItems.forEach(it => {
+      const li = document.createElement("li");
+      li.innerHTML = `
+        <div class="row ${selectedC.has(it.id) ? "sel" : ""}" onclick="rowTapC(${it.id}, this)">
+          <span class="chk">✓</span>
+          <div class="cover ${it.cls}">${it.cov}</div>
+          <div class="mid">
+            <div class="title">${it.t}</div>
+            <div class="meta">Aucune fiche trouvée — à compléter</div>
+            <span class="intentbadge ${it.buy ? "buy" : ""}">${it.i}</span>
+          </div>
+          <div class="act"><button class="btn ghost" onclick="event.stopPropagation(); openComplete(${it.id})">Compléter</button></div>
+        </div>`;
+      ul.appendChild(li);
+    });
+    syncCountC();
+  }
+  function toggleSelC() {
+    const phone = document.getElementById("phoneC");
+    phone.classList.toggle("selmode");
+    selectedC.clear();
+    document.getElementById("selToggleC").textContent = phone.classList.contains("selmode") ? "Sélection…" : "Sélectionner";
+    renderC();
+  }
+  function rowTapC(id, row) {
+    if (!document.getElementById("phoneC").classList.contains("selmode")) return;
+    selectedC.has(id) ? selectedC.delete(id) : selectedC.add(id);
+    row.classList.toggle("sel", selectedC.has(id));
+    syncCountC();
+  }
+  function syncCountC() {
+    const n = selectedC.size;
+    document.getElementById("selCountC").textContent = n;
+    const btn = document.getElementById("bulkDismissBtn");
+    btn.disabled = n === 0;
+    btn.textContent = n > 0 ? `Ignorer la sélection (${n})` : "Ignorer la sélection";
+  }
+  function bulkDismiss() {
+    const n = selectedC.size;
+    finItems = finItems.filter(it => !selectedC.has(it.id));
+    toggleSelC();
+    showToast("toastC", `<span class="ok">✓</span> ${n} scans ignorés`);
+  }
+  function openComplete(id) {
+    openItemId = id;
+    const it = finItems.find(x => x.id === id);
+    document.getElementById("cSub").innerHTML = `${it.t} — intention du scan : <b>${it.i}</b>.`;
+    document.getElementById("cInputTitle").value = "";
+    document.getElementById("cCta").textContent = it.cta;
+    document.getElementById("phoneC").classList.add("sheet-open");
+  }
+  function pickCatC(btn) {
+    document.querySelectorAll("#cCatSeg button").forEach(b => b.classList.remove("on"));
+    btn.classList.add("on");
+  }
+  function completeItem() {
+    const title = document.getElementById("cInputTitle").value.trim();
+    if (!title) { showToast("toastC", "Il manque le titre 🙂"); return; }
+    finItems = finItems.filter(x => x.id !== openItemId);
+    closeSheets("phoneC");
+    renderC();
+    showToast("toastC", `<span class="ok">✓</span> ${title} — fiche complétée`);
+  }
+
+  resetA(); resetB(); resetC();
+</script>
