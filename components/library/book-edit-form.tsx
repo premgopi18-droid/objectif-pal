@@ -5,6 +5,7 @@ import { CategoryPicker } from "@/components/category-picker";
 import { Button } from "@/components/ui/button";
 import { updateBookDetails } from "@/lib/books/library-actions";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
+import type { SeriesAlignProposal } from "@/lib/books/series-align";
 import type { LibraryEntry } from "@/lib/library/derive-library";
 import type { BookCategory } from "@/lib/scoring/types";
 
@@ -27,10 +28,17 @@ export function BookEditForm({
   entry,
   onDone,
   onError,
+  onSeriesAlign,
 }: {
   entry: LibraryEntry;
   onDone: () => void;
   onError: (message: string) => void;
+  /**
+   * La fiche sauvée appartient à une série dont d'autres tomes divergent
+   * (#257) : le parent ouvre la feuille de proposition — le compte vient du
+   * serveur, pas de la liste affichée.
+   */
+  onSeriesAlign: (proposal: SeriesAlignProposal) => void;
 }) {
   const [title, setTitle] = useState(entry.title);
   const [seriesName, setSeriesName] = useState(entry.seriesName ?? "");
@@ -58,6 +66,11 @@ export function BookEditForm({
           return;
         }
         onDone();
+        // La proposition ne part que si la catégorie a CHANGÉ (review #261,
+        // décision 1 du ticket) : une série volontairement mixte (hors-série
+        // gardé tel quel) ne doit pas la rouvrir à chaque édition des pages —
+        // le nagging apprendrait à ignorer une feuille qui touche aux points.
+        if (result.seriesAlign !== null && category !== entry.category) onSeriesAlign(result.seriesAlign);
       } catch {
         // Serveur injoignable : la promesse de la Server Action rejette.
         onError(NETWORK_ERROR_MESSAGE);

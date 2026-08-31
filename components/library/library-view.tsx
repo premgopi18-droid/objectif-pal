@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import { Badge } from "@/components/ui/badge";
 import { BookRow } from "@/components/ui/book-row";
 import { Button } from "@/components/ui/button";
+import { Toast } from "@/components/ui/toast";
 import { CoverPhotoButton } from "@/components/cover-photo-button";
 import { ErrorAlert } from "@/components/error-alert";
 import { BookEditForm } from "@/components/library/book-edit-form";
@@ -12,8 +13,14 @@ import { FinishReadingButton, RemoveButton, StartReadingButton, useBookGestures 
 import { endOwnership } from "@/lib/books/actions";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import { isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
+import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { formatBookSubtitle } from "@/lib/books/format";
-import { softDeleteBook } from "@/lib/books/library-actions";
+import { applyCategoryToSeries, softDeleteBook } from "@/lib/books/library-actions";
+import {
+  seriesAlignSheetCopy,
+  seriesAlignedToastMessage,
+  type SeriesAlignProposal,
+} from "@/lib/books/series-align";
 import { localToday } from "@/lib/dates";
 import {
   filterLibraryEntries,
@@ -64,6 +71,41 @@ export function LibraryView({ entries }: LibraryViewProps) {
   const [editError, setEditError] = useState<string | null>(null);
   /** Le livre CONSERVÉ d'une fusion en cours (#100) — un seul à la fois. */
   const [mergingId, setMergingId] = useState<string | null>(null);
+  /** La proposition d'alignement de série (#257), rendue par l'enregistrement. */
+  const [alignProposal, setAlignProposal] = useState<SeriesAlignProposal | null>(null);
+  /** L'échec de l'alignement — affiché DANS la feuille : l'ErrorAlert de la
+      page vivrait sous l'overlay, invisible tant que la feuille est ouverte. */
+  const [alignError, setAlignError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+  const [isAligning, startAlignTransition] = useTransition();
+  // Mémoïsé (leçon review #259) : l'effet de la feuille en dépend.
+  const closeAlignSheet = useCallback(() => {
+    setAlignProposal(null);
+    setAlignError(null);
+  }, []);
+
+  function confirmSeriesAlign(proposal: SeriesAlignProposal) {
+    setAlignError(null);
+    startAlignTransition(async () => {
+      try {
+        const result = await applyCategoryToSeries(proposal.seriesName, proposal.category);
+        if (!result.ok) {
+          // La feuille RESTE ouverte sur échec (review #261) : l'erreur
+          // s'affiche dedans, le CTA se réactive — pas besoin de
+          // ré-enregistrer la fiche pour retrouver la proposition.
+          setAlignError(result.error);
+          return;
+        }
+        // Le toast annonce le compte RÉEL de l'UPDATE, jamais celui de la
+        // proposition — entre la feuille et le tap, un autre onglet a pu bouger.
+        setToastMessage(seriesAlignedToastMessage(result.updated, CATEGORY_LABELS[proposal.category]));
+        closeAlignSheet();
+      } catch {
+        // Serveur injoignable : la promesse de la Server Action rejette.
+        setAlignError(NETWORK_ERROR_MESSAGE);
+      }
+    });
+  }
 
   const visible = useMemo(
     () => sortLibraryEntries(filterLibraryEntries(entries, searchText), sortOrder),
@@ -177,6 +219,7 @@ export function LibraryView({ entries }: LibraryViewProps) {
                   <BookEditForm
                     entry={entry}
                     onDone={() => setEditingId(null)}
+                    onSeriesAlign={setAlignProposal}
                     onError={(message) => {
                       setEditError(message);
                       setEditingId(null);
@@ -244,6 +287,90 @@ export function LibraryView({ entries }: LibraryViewProps) {
           })}
         </ul>
       )}
+
+      {alignProposal !== null && (
+        <SeriesAlignSheet
+          proposal={alignProposal}
+          isPending={isAligning}
+          errorMessage={alignError}
+          onCancel={closeAlignSheet}
+          onConfirm={() => confirmSeriesAlign(alignProposal)}
+        />
+      )}
+
+      <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
+    </div>
+  );
+}
+
+/**
+ * La feuille d'alignement de série (#257, maquette validée le 31/08) — patron
+ * maison (finished-covers/#256) : dialog, fond cliquable, Échap, animations
+ * sous le kill-switch prefers-reduced-motion. Le lot est IMPLICITE : pas de
+ * cases, la série est la sélection. Refuser = la fiche seule (un hors-série
+ * peut légitimement différer).
+ */
+function SeriesAlignSheet({
+  proposal,
+  isPending,
+  errorMessage,
+  onCancel,
+  onConfirm,
+}: {
+  proposal: SeriesAlignProposal;
+  isPending: boolean;
+  /** L'échec du geste, affiché DANS la feuille (elle reste ouverte, review #261). */
+  errorMessage: string | null;
+  onCancel: () => void;
+  onConfirm: () => void;
+}) {
+  const ctaRef = useRef<HTMLButtonElement>(null);
+  const copy = seriesAlignSheetCopy(proposal, CATEGORY_LABELS[proposal.category]);
+
+  // Échap ferme ; le focus part sur le CTA à l'ouverture (dialog).
+  useEffect(() => {
+    ctaRef.current?.focus();
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onCancel();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onCancel]);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={copy.title}
+      className="animate-[fade-in_240ms_ease] fixed inset-0 z-50 flex items-end bg-black/60"
+      onClick={onCancel}
+    >
+      <div
+        className="animate-[sheet-in_280ms_cubic-bezier(0.32,0.72,0.24,1)] w-full rounded-t-2xl border-t border-line bg-card p-4 pb-8"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div aria-hidden className="mx-auto h-1 w-10 rounded-full bg-line" />
+        <h2 className="mt-3 text-base font-black text-ink">{copy.title}</h2>
+        <p className="mt-1 text-sm leading-relaxed text-ink2">{copy.body}</p>
+        {errorMessage !== null && (
+          <div className="mt-3">
+            <ErrorAlert message={errorMessage} />
+          </div>
+        )}
+        <div className="mt-4 flex flex-col gap-3">
+          <Button ref={ctaRef} type="button" variant="grad" block disabled={isPending} onClick={onConfirm}>
+            {copy.cta}
+          </Button>
+          <button
+            type="button"
+            onClick={onCancel}
+            disabled={isPending}
+            className="py-2 text-sm text-ink3 disabled:opacity-50"
+          >
+            Cette fiche seulement
+          </button>
+        </div>
+      </div>
     </div>
   );
 }
