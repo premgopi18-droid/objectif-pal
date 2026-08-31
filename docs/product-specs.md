@@ -546,6 +546,16 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
   rescan ne peut pas : un livre **saisi à la main n'a pas de code-barres**, donc rien à rescanner, et sa fiche
   resterait fausse pour toujours. Les champs **code-barres et source restent intouchables** — c'est le pont de
   re-résolution (§7), une saisie humaine dessus le casserait en silence.
+- **Alignement de catégorie par série** (#257, décisions du 31/08/2026) : quand l'app se trompe de catégorie
+  sur un tome, elle s'est presque sûrement trompée sur **toute la série**. Après l'enregistrement d'une fiche,
+  si d'autres livres du **même `series_name`** (comparaison exacte) portent une autre catégorie, une feuille
+  propose « Appliquer aux N tomes » — le lot est **implicite**, la série est la sélection ; refuser = la fiche
+  seule (un hors-série peut différer). Le **compte vient du serveur** (la Biblio n'affiche que l'inventaire —
+  les emprunts lus de la même série lui échappent), et le toast annonce le compte **réel** de l'UPDATE. Les
+  mois clos se resynchronisent tout seuls (trigger `books_bump_fact_version` sur `category` → version des
+  faits → bilans matérialisés rejoués à la prochaine visite du Bilan) — les bilans comparés du cercle restent
+  justes sans job manuel. v1 au formulaire d'édition ; la correction inline du scan pourra suivre avec la
+  même action.
   > **Corriger la catégorie recalcule les bilans passés**, et c'est voulu : le score est toujours dérivé (§7),
   > donc le bilan corrigé est le bon — c'était une erreur de saisie. Le formulaire l'annonce avant
   > d'enregistrer, plutôt que de le faire en douce.

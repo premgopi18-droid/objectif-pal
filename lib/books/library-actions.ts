@@ -12,6 +12,7 @@ import {
   type BookEditInput,
   type BookEditPayload,
 } from "@/lib/books/book-edit";
+import type { SeriesAlignProposal } from "@/lib/books/series-align";
 
 /**
  * « Retirer de la bibliothèque » (issue #49) — suppression douce du LIVRE
@@ -97,15 +98,102 @@ export async function updateBookCategory(bookId: string, category: BookCategory)
  *
  * La validation vit dans `prepareBookEdit` (pure, testée) : la même règle vaut
  * ici et à l'écran, sans être écrite deux fois.
+ *
+ * Depuis #257, le retour porte aussi la PROPOSITION d'alignement de série :
+ * quand la fiche sauvée appartient à une série dont d'AUTRES tomes ont une
+ * autre catégorie, on renvoie leur compte — c'est le serveur qui compte, pas
+ * la Biblio affichée : elle ne montre que l'inventaire, et les emprunts lus
+ * de la même série lui échappent. Un échec de CE comptage ne fait jamais
+ * échouer l'enregistrement (la fiche est sauvée, la proposition est un bonus).
  */
-export async function updateBookDetails(bookId: string, input: BookEditInput): Promise<JournalActionResult> {
+export async function updateBookDetails(
+  bookId: string,
+  input: BookEditInput,
+): Promise<{ ok: true; seriesAlign: SeriesAlignProposal | null } | { ok: false; error: string }> {
   const session = await getSessionOrError();
   if (!session) return { ok: false, error: "Authentification requise." };
 
   const prepared = prepareBookEdit(input);
   if (!prepared.ok) return { ok: false, error: prepared.error };
 
-  return writeBookFields(session, bookId, prepared.payload, "updateBookDetails");
+  const written = await writeBookFields(session, bookId, prepared.payload, "updateBookDetails");
+  if (!written.ok) return written;
+
+  return { ok: true, seriesAlign: await findSeriesAlignProposal(session, bookId, prepared.payload) };
+}
+
+/**
+ * Le comptage de la divergence de série (#257) — les AUTRES livres de
+ * l'utilisateur portant exactement le même `series_name` (la clé du lot,
+ * comparaison stricte — la normalisation d'affichage ne s'applique pas ici)
+ * avec une autre catégorie. `null` = rien à proposer.
+ */
+async function findSeriesAlignProposal(
+  session: NonNullable<Awaited<ReturnType<typeof getSessionOrError>>>,
+  bookId: string,
+  payload: BookEditPayload,
+): Promise<SeriesAlignProposal | null> {
+  if (payload.series_name === null) return null;
+
+  const { count, error } = await session.supabase
+    .from("books")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", session.user.id)
+    .eq("series_name", payload.series_name)
+    .neq("id", bookId)
+    .neq("category", payload.category)
+    .is("deleted_at", null);
+  if (error) {
+    console.error("[library] findSeriesAlignProposal:", error.message);
+    return null;
+  }
+  if (!count) return null;
+
+  return { seriesName: payload.series_name, category: payload.category, divergentCount: count };
+}
+
+/**
+ * Appliquer la catégorie à TOUTE la série (#257) — le lot implicite : pas de
+ * cases à cocher, la série EST la sélection. UN seul UPDATE scopé user sur
+ * les livres au même `series_name` et à la catégorie différente — le compte
+ * RÉEL est renvoyé (entre la proposition et le tap, un autre onglet a pu
+ * bouger), c'est lui que le client annonce.
+ *
+ * Les mois clos suivent tout seuls : le trigger `books_bump_fact_version`
+ * couvre `update of category` (migration 20260815160000) → la version des
+ * faits bouge → `syncMonthlyReports` rejoue les bilans matérialisés à la
+ * prochaine visite du Bilan — les bilans comparés du cercle (§4.14) restent
+ * justes sans job manuel.
+ */
+export async function applyCategoryToSeries(
+  seriesName: string,
+  category: BookCategory,
+): Promise<{ ok: true; updated: number } | { ok: false; error: string }> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+
+  if (!isValidCategory(category)) return { ok: false, error: UNKNOWN_CATEGORY_MESSAGE };
+  const trimmedSeriesName = seriesName.trim();
+  if (trimmedSeriesName === "") return { ok: false, error: "La série est introuvable." };
+
+  const { error, count } = await session.supabase
+    .from("books")
+    .update({ category }, { count: "exact" })
+    .eq("user_id", session.user.id)
+    .eq("series_name", trimmedSeriesName)
+    .neq("category", category)
+    .is("deleted_at", null);
+  if (error) {
+    console.error("[library] applyCategoryToSeries:", error.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+
+  // Mêmes surfaces que writeBookFields : la catégorie change les points des
+  // lectures passées de ces tomes (le score est dérivé, jamais stocké — §7).
+  revalidatePath("/bibliotheque");
+  revalidatePath("/journal");
+  revalidatePath("/bilan");
+  return { ok: true, updated: count ?? 0 };
 }
 
 /**
