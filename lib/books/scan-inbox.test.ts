@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sortByCompletionEffort, toScanInboxDraft, type ScanInboxItem } from "./scan-inbox";
+import { formatDismissOutcome, sortByCompletionEffort, toScanInboxDraft, type ScanInboxItem } from "./scan-inbox";
 
 /**
  * La boîte de finition lit du **jsonb non typé** : `resolved_metadata` est un
@@ -130,6 +130,29 @@ describe("sortByCompletionEffort — vider la boîte vite", () => {
     const snapshot = items.map((entry) => entry.id);
     sortByCompletionEffort(items);
     expect(items.map((entry) => entry.id)).toEqual(snapshot);
+  });
+});
+
+describe("formatDismissOutcome — le compte-rendu de l'écart groupé (#258)", () => {
+  it("tout écarté : le compte, au pluriel qui va", () => {
+    expect(formatDismissOutcome(3, 3)).toEqual({ kind: "all", message: "3 scans écartés" });
+    expect(formatDismissOutcome(1, 1)).toEqual({ kind: "all", message: "1 scan écarté" });
+  });
+
+  it("écart partiel : on dit combien, sans inventer lesquels", () => {
+    // L'UPDATE du lot est unique — le serveur connaît le compte, pas les ids
+    // manquants : le message reste au niveau de ce qu'on sait vraiment.
+    expect(formatDismissOutcome(4, 2)).toEqual({
+      kind: "partial",
+      message: "2 sur 4 écartés — les autres étaient déjà traités.",
+    });
+  });
+
+  it("rien d'écarté : un fait annoncé, pas une erreur", () => {
+    expect(formatDismissOutcome(2, 0)).toEqual({
+      kind: "none",
+      message: "Rien à écarter — ces éléments étaient déjà traités.",
+    });
   });
 });
 
