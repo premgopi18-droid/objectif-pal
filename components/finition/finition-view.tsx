@@ -122,9 +122,15 @@ export function FinitionView({ items }: { items: ScanInboxItem[] }) {
 
   if (visible.length === 0) {
     return (
-      <p className="mt-6 text-sm text-ink2">
-        Rien à compléter — tous tes scans sont allés au bout. 🎉
-      </p>
+      <>
+        <p className="mt-6 text-sm text-ink2">
+          Rien à compléter — tous tes scans sont allés au bout. 🎉
+        </p>
+        {/* Le Toast reste monté ici aussi (review #260) : « Écarter la sélection »
+            vide souvent la boîte d'un coup — sans lui, le geste réussissait en
+            silence, exactement ce que la maison interdit. */}
+        <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
+      </>
     );
   }
 
