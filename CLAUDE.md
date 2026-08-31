@@ -86,6 +86,13 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > cache partagé assaini (couvertures d'hôtes connus seuls, `created_by`, bornes 1 000 car.), et
 > **observabilité** : Sentry (erreurs seulement, DSN à poser) + CI GitHub Actions (tests+build par PR,
 > contrat #60 quotidien contre la prod).**
+> **Le 31/08/2026, la vague des gestes groupés (#256/#257/#258, PRs #259/#260/#261, maquette
+> `docs/protos/proto-bulk-actions.html`, 603 → 610 tests)** : **sélection multiple de la PAL** (« Marquer
+> comme lus » à date commune ou en lecture passée 0 point — plan pur `lib/books/bulk-read-plan.ts` —, « Je ne
+> le possède plus » groupé confirmé, « on continue et on rapporte »), **écart groupé de la boîte de finition**
+> (un UPDATE `in(ids)`, compte honnête), et **alignement de catégorie par série** depuis l'édition de fiche
+> (compte serveur, toast au compte réel de l'UPDATE ; mois clos resynchronisés tout seuls — le trigger
+> `books_bump_fact_version` couvre `category`). Specs §4.6, §4.12 et §4.13 à jour.
 
 ## Stack
 
