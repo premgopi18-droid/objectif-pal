@@ -212,18 +212,20 @@ const span = (font, weight, color, sizeCqw, content, extra = "") =>
 function cardHtml(t) {
   const parts = [`<img class="bg" src="templates/${t.file}.jpeg" alt="">`];
 
-  // Pseudo — cache serré sur le « PSEUDO » incrusté.
-  parts.push(zone(t.name.x, t.name.y, t.name.w, t.name.h, t.covers.name,
+  // Pseudo — TRANSPARENT (cartographie : rien du template n'est caché ;
+  // la double exposition avec les valeurs d'exemple disparaîtra avec les
+  // fonds vierges).
+  parts.push(zone(t.name.x, t.name.y, t.name.w, t.name.h, null,
     span(t.name.font, 700, t.name.color, t.name.size, DATA.name, t.name.style ?? "")));
   // Avatar dans le rond du thème.
   const [ax, ay, ar] = t.avatar;
   parts.push(`<img class="avatar" src="${DATA.avatar}" alt="" style="left:${L(ax)};top:${T(ay)};width:${W(ar * 1.84)};aspect-ratio:1">`);
   // La DATE — pilotée : le « AOÛT 2026 » incrusté est recouvert puis redessiné.
-  parts.push(zone(t.month.x, t.month.y, 310, 42, t.covers.score,
+  parts.push(zone(t.month.x, t.month.y, 310, 42, null,
     span(t.month.font, t.month.weight, t.month.color, t.month.size, DATA.month, `letter-spacing:${t.month.ls};`)));
   // Score — corps mesuré ; « +48,5 » plus large que « +21 » se rétrécit (fit).
   // noCover : le halo du texte recouvre, le décor du panneau survit (manga).
-  parts.push(zone(t.score.x, t.score.y, t.score.w ?? 330, t.score.digitH + (t.score.pad ?? 18), t.score.cover ?? t.covers.score,
+  parts.push(zone(t.score.x, t.score.y, t.score.w ?? 330, t.score.digitH + (t.score.pad ?? 18), null,
     span(t.score.font, 700, t.score.color ?? "#000", t.score.size, DATA.score, t.score.style ?? "")));
 
   // Objectifs : valeurs « fait / cible » + remplissage des jauges mesurées.
@@ -231,7 +233,7 @@ function cardHtml(t) {
     const row = i % 3;
     const valRight = i < 3 ? t.obj.valL : t.obj.valR;
     const label = objective === null ? "—" : `${objective.finished} / ${objective.target}`;
-    parts.push(zone(valRight - 50, t.obj.text[row], 112, 36, t.covers.obj,
+    parts.push(zone(valRight - 50, t.obj.text[row], 112, 36, null,
       span(t.obj.font, t.obj.weight, t.obj.valColor, t.obj.valSize, label), "justify-content:flex-end;"));
     if (objective !== null && objective.target > 0 && objective.finished > 0) {
       const [barStart, barEnd] = i < 3 ? t.obj.left : t.obj.right;
