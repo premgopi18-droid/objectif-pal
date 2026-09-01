@@ -917,6 +917,31 @@ inventé.
 Le blocage de compte, l'opt-out de partage, le « meilleur paliste +5 » (P2), le push, et le modèle
 follow asymétrique (écarté : il exigerait un réglage public/privé — plus de spec, pas moins).
 
+### 4.15 La carte de partage — le bilan en image (décisions du 01/09/2026)
+
+Pour l'émission : partager son bilan mensuel en **image** stylée, en plus du texte d'antenne. Les
+décisions tranchées en discussion (août 2026, protos `docs/protos/`) :
+
+- **v1 = la version « live » seulement** : pseudo, photo, score du mois, jauges d'objectif, tableau
+  des catégories — **sans les distinctions** (le suspense des révélations appartient à l'antenne).
+  La version « classique » (distinctions 🏆🎉💀 en couvertures, mois affiché — la carte d'archive
+  qui se suffit à elle-même) est **remise à plus tard** : elle exigera sa propre déclinaison de
+  fonds, avec une zone dédiée.
+- **Des fonds fixes, l'app ne dessine que les données.** Les 10 thèmes (`docs/protos/templates/`,
+  2:3, 1024×1536) partagent la **même grille** : UN fichier de coordonnées les sert tous, un thème
+  de plus = une image de plus, zéro code. Le barème est incrusté dans les fonds → **à revérifier
+  contre `lib/scoring/scale.ts` à chaque fond ajouté** (un barème divergent mentirait à l'antenne).
+- **Rendu côté client, au canvas** : tout est déjà dans le navigateur au moment du Bilan (rapport,
+  avatar) — zéro coût serveur. Partage via `navigator.share({ files })` (feuille native mobile),
+  repli téléchargement sur desktop. L'option **texte** existante reste : deux formats, deux usages
+  (le texte se colle au conducteur, l'image se montre).
+- **Parcours** : depuis « Partager mon bilan » → choix Texte / Image → choix du thème (aperçu),
+  mémorisation du dernier thème utilisé.
+- **Prérequis assets** : les fonds actuels ne sont **pas vierges** (`PSEUDO`, `+21`, `0 / 0`,
+  `AOÛT 2026` incrustés — le mois DOIT être une zone vide, servie par l'app). À régénérer zones
+  vides, ou assumer le recouvrement par flou local (jugé sur le proto). La police des chiffres est
+  par thème, embarquée, `document.fonts.ready` avant de dessiner.
+
 ---
 
 ## 5. Le scan — architecture
