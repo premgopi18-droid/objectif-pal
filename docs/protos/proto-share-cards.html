@@ -70,130 +70,130 @@ const DATA = {
 const THEMES = [
   { file: "theme_0", label: "0 — Néon / gaming",
     covers: { name: "#0c032f", score: "#0b042d", obj: "#0c062c" },
-    name: { x: 525, y: 140, w: 340, h: 78, size: 7.5, color: "#ffffff",
+    name: { x: 525, y: 140, w: 340, h: 78, size: 7.9, color: "#ffffff",
             font: "'Exo 2'", style: "font-style:italic;font-weight:800;letter-spacing:.04em;" },
     month: { x: 705, y: 308, size: 3.2, ls: ".42em", color: "#a99cf0", font: "'Exo 2'", weight: 600 },
-    score: { x: 690, y: 412, digitH: 115, size: 15.6, font: "'Exo 2'",
-             style: "font-style:italic;font-weight:800;background:linear-gradient(100deg,#ff4fa8 8%,#6a63f5 48%,#2ee6a8 92%);-webkit-background-clip:text;background-clip:text;color:transparent;" },
+    score: { x: 700, y: 414, digitH: 115, size: 15.6, w: 370, font: "'Exo 2'",
+             style: "font-style:italic;font-weight:800;background:linear-gradient(105deg,#ff45c8 5%,#7a58f2 45%,#2bd8d8 90%);-webkit-background-clip:text;background-clip:text;color:transparent;" },
     avatar: [268, 402, 118],
     obj: { text: [667, 744, 821], bar: [702, 776, 853], left: [112, 476], right: [545, 915],
-           barH: 16, valL: 477, valR: 913, valSize: 3.2, valColor: "#a99cf0", font: "'Exo 2'", weight: 600 },
+           barH: 16, valL: 477, valR: 913, valSize: 3.4, valColor: "#a99cf0", font: "'Exo 2'", weight: 600 },
     gaugeFill: "linear-gradient(90deg,#ff4fa8,#2ee6a8)", gaugeRadius: 99,
-    table: { start: 1043, step: 60, color: "#eae6f8", size: 3.3, font: "'Exo 2'", weight: 600 } },
+    table: { rows: [1043, 1103, 1163, 1223, 1283, 1341, 1401], x: 565, color: "#eae6f8", size: 3.3, font: "'Exo 2'", weight: 600 } },
 
   { file: "theme_1", label: "1 — Dossier confidentiel",
     covers: { name: "#d7c3a7", score: "#cbb695", obj: "#d2bea0" },
-    name: { x: 527, y: 205, w: 475, h: 102, size: 11.1, color: "#4a4124",
+    name: { x: 527, y: 205, w: 475, h: 102, size: 11.6, color: "#4a4124",
             font: "'Stardos Stencil'", style: "font-weight:700;letter-spacing:.08em;" },
     month: { x: 735, y: 335, size: 4.2, ls: ".3em", color: "#4d412d", font: "'Special Elite'", weight: 400 },
-    score: { x: 730, y: 445, digitH: 130, size: 17.4, font: "'Alfa Slab One'", color: "#2a2419" },
+    score: { x: 727, y: 442, digitH: 140, size: 19, w: 350, font: "'Alfa Slab One'", color: "#2a2419" },
     avatar: [307, 450, 148],
     obj: { text: [760, 845, 928], bar: [800, 884, 966], left: [162, 484], right: [556, 893],
-           barH: 26, valL: 480, valR: 890, valSize: 4.1, valColor: "#4a4236", font: "'Special Elite'", weight: 400 },
+           barH: 26, valL: 480, valR: 890, valSize: 4.3, valColor: "#4a4236", font: "'Special Elite'", weight: 400 },
     gaugeFill: "#3f3524d9", gaugeRadius: 3,
-    table: { start: 1130, step: 45.5, color: "#3a332a", size: 3.7, font: "'Special Elite'", weight: 400 } },
+    table: { rows: [1130, 1178, 1222, 1268, 1312, 1358, 1404], x: 595, color: "#3a332a", size: 3.7, font: "'Special Elite'", weight: 400 } },
 
   { file: "theme_2", label: "2 — Manga N&B",
     covers: { name: "#efece7", score: "#e5e2dd", obj: "#f2efea" },
-    name: { x: 520, y: 145, w: 510, h: 96, size: 10.2, color: "#131110",
+    name: { x: 525, y: 145, w: 510, h: 96, size: 11, color: "#131110",
             font: "'Knewave'", style: "transform:skewX(-6deg);display:inline-block;letter-spacing:.02em;" },
     month: { x: 718, y: 295, size: 3.7, ls: ".4em", color: "#0e0c0a", font: "'Oswald'", weight: 600 },
-    score: { x: 715, y: 422, digitH: 145, size: 19.7, w: 320, pad: 8, cover: "radial-gradient(ellipse at 50% 50%, #f6f4ef 35%, #e6e3dc 100%)", font: "'Archivo Black'", color: "#131110",
+    score: { x: 720, y: 422, digitH: 150, size: 20.5, w: 390, font: "'Archivo Black'", color: "#131110",
              style: "transform:skewX(-8deg);display:inline-block;text-shadow:0 0 4px #fff,0 0 8px #fff,0 0 14px #fff,4px 4px 6px #fff,-4px 4px 6px #fff,4px -4px 6px #fff,-4px -4px 6px #fff,0 6px 8px #fff,0 -6px 8px #fff;" },
     avatar: [300, 428, 115],
     obj: { text: [700, 777, 855], bar: [735, 810, 888], left: [112, 478], right: [540, 912],
-           barH: 18, valL: 477, valR: 910, valSize: 3.6, valColor: "#0d0b09", font: "'Oswald'", weight: 600 },
+           barH: 18, valL: 477, valR: 910, valSize: 3.8, valColor: "#0d0b09", font: "'Oswald'", weight: 600 },
     gaugeFill: "#131110e0", gaugeRadius: 99,
-    table: { start: 1065, step: 53.5, color: "#0b0907", size: 3.5, font: "'Oswald'", weight: 600 } },
+    table: { rows: [1068, 1123, 1178, 1235, 1290, 1346, 1402], x: 567, color: "#0b0907", size: 3.5, font: "'Oswald'", weight: 600 } },
 
   { file: "theme_3", label: "3 — Grimoire médiéval",
     covers: { name: "#453320", score: "#2d2416", obj: "#1c150e" },
-    name: { x: 510, y: 170, w: 390, h: 86, size: 9.8, color: "#d5b26f",
-            font: "'Grenze Gotisch'", style: "font-weight:700;letter-spacing:.1em;text-shadow:0 2px 4px rgba(0,0,0,.65);" },
-    month: { x: 720, y: 320, size: 3.6, ls: ".38em", color: "#cfc0a0", font: "'Cinzel'", weight: 400 },
-    score: { x: 720, y: 445, digitH: 140, size: 20.1, font: "'Cormorant Garamond'", color: "#cfa54f",
+    name: { x: 510, y: 170, w: 390, h: 86, size: 10.4, color: "#d5b26f",
+            font: "'Grenze Gotisch'", style: "font-weight:700;letter-spacing:.12em;text-shadow:0 2px 4px rgba(0,0,0,.65);" },
+    month: { x: 720, y: 320, size: 3.6, ls: ".42em", color: "#cfc0a0", font: "'Cinzel'", weight: 400 },
+    score: { x: 730, y: 445, digitH: 145, size: 20.8, w: 355, font: "'Cormorant Garamond'", color: "#cfa54f",
              style: "font-weight:700;text-shadow:0 2px 5px rgba(0,0,0,.6);" },
     avatar: [302, 435, 108],
     obj: { text: [706, 779, 852], bar: [739, 812, 884], left: [128, 470], right: [548, 888],
-           barH: 10, valL: 472, valR: 890, valSize: 3.8, valColor: "#c9a25c", font: "'EB Garamond'", weight: 600 },
+           barH: 10, valL: 472, valR: 890, valSize: 4, valColor: "#c9a25c", font: "'EB Garamond'", weight: 600 },
     gaugeFill: "#cfa54fd9", gaugeRadius: 5,
-    table: { start: 1070, step: 52.5, color: "#d8c9a4", size: 3.6, font: "'EB Garamond'", weight: 600 } },
+    table: { rows: [1068, 1120, 1171, 1223, 1275, 1326, 1377], x: 575, color: "#d8c9a4", size: 3.6, font: "'EB Garamond'", weight: 600 } },
 
   { file: "theme_4", label: "4 — Carnet maudit",
     covers: { name: "#baa384", score: "#ac987b", obj: "#af9a7e" },
-    name: { x: 520, y: 145, w: 370, h: 92, size: 9.5, color: "#221b10",
-            font: "'Anton'", style: "letter-spacing:.08em;" },
+    name: { x: 520, y: 145, w: 370, h: 92, size: 10, color: "#221b10",
+            font: "'Anton'", style: "letter-spacing:.1em;" },
     month: { x: 705, y: 310, size: 3.9, ls: ".3em", color: "#3a2f1e", font: "'Special Elite'", weight: 400 },
-    score: { x: 700, y: 420, digitH: 120, size: 16.3, font: "'Anton'", color: "#211c14" },
+    score: { x: 705, y: 415, digitH: 150, size: 19.8, w: 365, font: "'Anton'", color: "#332a1c" },
     avatar: [288, 395, 122],
     obj: { text: [696, 774, 851], bar: [730, 808, 885], left: [115, 470], right: [535, 888],
-           barH: 20, valL: 470, valR: 885, valSize: 4.1, valColor: "#453827", font: "'Special Elite'", weight: 400 },
+           barH: 20, valL: 470, valR: 885, valSize: 4.3, valColor: "#453827", font: "'Special Elite'", weight: 400 },
     gaugeFill: "#3a2d1ad9", gaugeRadius: 3,
-    table: { start: 1065, step: 53.5, color: "#362a17", size: 3.7, font: "'Special Elite'", weight: 400 } },
+    table: { rows: [1067, 1120, 1173, 1227, 1281, 1335, 1390], x: 560, color: "#362a17", size: 3.7, font: "'Special Elite'", weight: 400 } },
 
   { file: "theme_5", label: "5 — Film noir",
     covers: { name: "#15120f", score: "#16130f", obj: "#11100c" },
-    name: { x: 515, y: 142, w: 335, h: 96, size: 8.7, color: "#efe8d8",
+    name: { x: 515, y: 142, w: 335, h: 96, size: 9.3, color: "#efe8d8",
             font: "'Oswald'", style: "font-weight:600;letter-spacing:.16em;" },
     month: { x: 710, y: 290, size: 3.6, ls: ".32em", color: "#8a8478", font: "'Special Elite'", weight: 400 },
-    score: { x: 725, y: 400, digitH: 140, size: 19, w: 340, pad: 34, font: "'Anton'", color: "#b02c22",
+    score: { x: 745, y: 398, digitH: 145, size: 19.5, w: 385, pad: 34, font: "'Anton'", color: "#b02c22",
              style: "transform:skewX(-10deg);display:inline-block;" },
     avatar: [312, 392, 122],
     obj: { text: [694, 779, 867], bar: [731, 816, 905], left: [120, 485], right: [535, 905],
-           barH: 20, valL: 476, valR: 888, valSize: 3.5, valColor: "#d6d0c0", font: "'Oswald'", weight: 500 },
+           barH: 20, valL: 476, valR: 888, valSize: 3.7, valColor: "#d6d0c0", font: "'Oswald'", weight: 500 },
     gaugeFill: "#d8d2c2cc", gaugeRadius: 2,
-    table: { start: 1080, step: 51, color: "#d6d0c0", size: 3.4, font: "'Oswald'", weight: 500 } },
+    table: { rows: [1084, 1134, 1183, 1232, 1281, 1331, 1380], x: 565, color: "#d6d0c0", size: 3.4, font: "'Oswald'", weight: 500 } },
 
   { file: "theme_6", label: "6 — Romance",
     covers: { name: "#f4ede3", score: "#f4eee3", obj: "#f4ede3" },
-    name: { x: 535, y: 142, w: 380, h: 78, size: 7.7, color: "#5a2928",
+    name: { x: 535, y: 142, w: 380, h: 78, size: 8, color: "#5a2928",
             font: "'Playfair Display'", style: "font-weight:600;letter-spacing:.2em;" },
     month: { x: 730, y: 293, size: 3.6, ls: ".4em", color: "#9a9288", font: "'Cormorant Garamond'", weight: 500 },
-    score: { x: 730, y: 408, digitH: 125, size: 17.4, font: "'Playfair Display'", color: "#5c1f1f",
+    score: { x: 738, y: 412, digitH: 135, size: 18.8, w: 375, font: "'Playfair Display'", color: "#5c1f1f",
              style: "font-weight:700;" },
     avatar: [312, 418, 112],
     obj: { text: [703, 782, 860], bar: [737, 817, 895], left: [140, 488], right: [558, 905],
-           barH: 22, valL: 490, valR: 900, valSize: 3.9, valColor: "#918a7e", font: "'EB Garamond'", weight: 500 },
+           barH: 22, valL: 490, valR: 900, valSize: 4.1, valColor: "#918a7e", font: "'EB Garamond'", weight: 500 },
     gaugeFill: "#5c1f1fb3", gaugeRadius: 99,
-    table: { start: 1075, step: 51.5, color: "#5f4a44", size: 3.6, font: "'EB Garamond'", weight: 500 } },
+    table: { rows: [1073, 1127, 1180, 1234, 1288, 1342, 1396], x: 567, color: "#5f4a44", size: 3.6, font: "'EB Garamond'", weight: 500 } },
 
   { file: "theme_7", label: "7 — Sci-fi industriel",
     covers: { name: "#23313b", score: "#1f4058", obj: "#1e2d37" },
-    name: { x: 525, y: 150, w: 325, h: 74, size: 7, color: "#9fdcff",
+    name: { x: 525, y: 150, w: 325, h: 74, size: 7.3, color: "#9fdcff",
             font: "'Orbitron'", style: "font-weight:800;letter-spacing:.1em;text-shadow:0 0 14px rgba(90,200,255,.9),0 0 30px rgba(60,170,255,.5);" },
-    month: { x: 710, y: 285, size: 3.2, ls: ".4em", color: "#7fc9e8", font: "'Rajdhani'", weight: 600 },
-    score: { x: 690, y: 390, digitH: 100, size: 13.6, font: "'Exo 2'", color: "#8fd8ff",
-             style: "font-style:italic;font-weight:800;text-shadow:0 0 16px rgba(90,200,255,.95),0 0 36px rgba(60,170,255,.6);" },
+    month: { x: 710, y: 285, size: 3.3, ls: ".44em", color: "#7fc9e8", font: "'Rajdhani'", weight: 600 },
+    score: { x: 690, y: 390, digitH: 108, size: 14.6, w: 335, font: "'Exo 2'", color: "#eaf7ff",
+             style: "font-style:italic;font-weight:800;text-shadow:0 0 10px rgba(140,220,255,1),0 0 24px rgba(80,190,255,.9),0 0 48px rgba(50,160,255,.6);" },
     avatar: [312, 390, 128],
     obj: { text: [660, 732, 804], bar: [691, 763, 835], left: [162, 478], right: [545, 855],
-           barH: 16, valL: 476, valR: 858, valSize: 3.4, valColor: "#8ecfec", font: "'Rajdhani'", weight: 700 },
+           barH: 16, valL: 476, valR: 858, valSize: 3.6, valColor: "#8ecfec", font: "'Rajdhani'", weight: 700 },
     gaugeFill: "#7fd4ff99", gaugeRadius: 2,
-    table: { start: 995, step: 43, color: "#8ecfec", size: 3.3, font: "'Rajdhani'", weight: 700 } },
+    table: { rows: [995, 1036, 1077, 1118, 1159, 1200, 1241], x: 570, color: "#8ecfec", size: 3.3, font: "'Rajdhani'", weight: 700 } },
 
   { file: "theme_8", label: "8 — Comics rétro pop",
     covers: { name: "#2343a4", score: "#e5ae12", obj: "#f0dab8" },
-    name: { x: 520, y: 178, w: 520, h: 120, size: 9.8, color: "#f2e5c8",
+    name: { x: 520, y: 178, w: 520, h: 120, size: 10.2, color: "#f2e5c8",
             font: "'Bangers'", style: "letter-spacing:.05em;-webkit-text-stroke:.035em #15100c;text-shadow:.05em .05em 0 #c62a1e,.08em .08em 0 #15100c;" },
-    month: { x: 740, y: 320, size: 4.1, ls: ".22em", color: "#191512", font: "'Archivo Black'", weight: 400 },
-    score: { x: 725, y: 450, digitH: 150, size: 15.4, w: 360, pad: 40, font: "'Bangers'", color: "#d0281c",
-             style: "-webkit-text-stroke:.03em #15100c;text-shadow:.06em .06em 0 #15100c;" },
+    month: { x: 740, y: 320, size: 4.2, ls: ".3em", color: "#191512", font: "'Archivo Black'", weight: 400 },
+    score: { x: 735, y: 455, digitH: 160, size: 16.6, w: 395, pad: 40, font: "'Bangers'", color: "#d0281c",
+             style: "-webkit-text-stroke:.03em #15100c;text-shadow:.05em .05em 0 #15100c,.1em .08em 0 #58c33a;" },
     avatar: [282, 435, 126],
     obj: { text: [700, 774, 852], bar: [733, 806, 885], left: [105, 478], right: [540, 918],
-           barH: 20, valL: 465, valR: 915, valSize: 3.4, valColor: "#16120e", font: "'Archivo Black'", weight: 400 },
+           barH: 20, valL: 465, valR: 915, valSize: 3.6, valColor: "#16120e", font: "'Archivo Black'", weight: 400 },
     gaugeFill: "#d0281ccc", gaugeRadius: 3,
-    table: { start: 1035, step: 54, color: "#16120e", size: 3.3, font: "'Archivo Black'", weight: 400 } },
+    table: { rows: [1043, 1096, 1149, 1201, 1254, 1306, 1360], x: 572, color: "#16120e", size: 3.3, font: "'Archivo Black'", weight: 400 } },
 
   { file: "theme_9", label: "9 — Avis de recherche western",
     covers: { name: "#bfa06a", score: "#a98457", obj: "#c19e6d" },
-    name: { x: 520, y: 180, w: 580, h: 112, size: 12, color: "#3a2812",
-            font: "'Alfa Slab One'", style: "letter-spacing:.04em;" },
-    month: { x: 705, y: 338, size: 4.2, ls: ".26em", color: "#46301a", font: "'Graduate'", weight: 400 },
-    score: { x: 710, y: 460, digitH: 140, size: 19, font: "'Rye'", color: "#7a3a10" },
+    name: { x: 520, y: 180, w: 580, h: 112, size: 13, color: "#3a2812",
+            font: "'Alfa Slab One'", style: "letter-spacing:.06em;" },
+    month: { x: 705, y: 338, size: 4.4, ls: ".3em", color: "#46301a", font: "'Graduate'", weight: 400 },
+    score: { x: 755, y: 448, digitH: 158, size: 21.6, w: 355, font: "'Rye'", color: "#7a3a10" },
     avatar: [320, 440, 112],
     obj: { text: [728, 802, 880], bar: [762, 836, 913], left: [145, 482], right: [525, 890],
-           barH: 22, valL: 475, valR: 888, valSize: 3.9, valColor: "#46301a", font: "'Graduate'", weight: 400 },
+           barH: 22, valL: 490, valR: 900, valSize: 4.1, valColor: "#46301a", font: "'Graduate'", weight: 400 },
     gaugeFill: "#5c422acc", gaugeRadius: 3,
-    table: { start: 1075, step: 51.5, color: "#46301a", size: 3.7, font: "'Graduate'", weight: 400 } },
+    table: { rows: [1075, 1123, 1170, 1219, 1267, 1315, 1364], x: 590, color: "#46301a", size: 3.7, font: "'Graduate'", weight: 400 } },
 ];
 
 const L = (x) => (x / 1024) * 100 + "%";
@@ -219,7 +219,7 @@ function cardHtml(t) {
     span(t.name.font, 700, t.name.color, t.name.size, DATA.name, t.name.style ?? "")));
   // Avatar dans le rond du thème.
   const [ax, ay, ar] = t.avatar;
-  parts.push(`<img class="avatar" src="${DATA.avatar}" alt="" style="left:${L(ax)};top:${T(ay)};width:${W(ar * 1.84)};aspect-ratio:1">`);
+  if (DATA.avatar) parts.push(`<img class="avatar" src="${DATA.avatar}" alt="" style="left:${L(ax)};top:${T(ay)};width:${W(ar * 1.84)};aspect-ratio:1">`);
   // La DATE — pilotée : le « AOÛT 2026 » incrusté est recouvert puis redessiné.
   parts.push(zone(t.month.x, t.month.y, 310, 42, null,
     span(t.month.font, t.month.weight, t.month.color, t.month.size, DATA.month, `letter-spacing:${t.month.ls};`)));
@@ -232,7 +232,7 @@ function cardHtml(t) {
   DATA.objectives.forEach((objective, i) => {
     const row = i % 3;
     const valRight = i < 3 ? t.obj.valL : t.obj.valR;
-    const label = objective === null ? "—" : `${objective.finished} / ${objective.target}`;
+    const label = objective === null ? "—" : `${objective.finished} / ${objective.target}`; // iso : 0/0 affiché tel quel
     parts.push(zone(valRight - 50, t.obj.text[row], 112, 36, null,
       span(t.obj.font, t.obj.weight, t.obj.valColor, t.obj.valSize, label), "justify-content:flex-end;"));
     if (objective !== null && objective.target > 0 && objective.finished > 0) {
@@ -244,15 +244,25 @@ function cardHtml(t) {
   });
 
   // Tableau : compteurs dans la colonne du milieu (vide dans le fond).
-  DATA.counts.forEach((count, i) => {
-    parts.push(zone(565, t.table.start + t.table.step * i, 130, 40, null,
+  // En mode iso, la colonne reste vide comme sur le fond.
+  if (!ISO) DATA.counts.forEach((count, i) => {
+    parts.push(zone(t.table.x, t.table.rows[i], 130, 40, null,
       span(t.table.font, t.table.weight, t.table.color, t.table.size, count)));
   });
 
   return `<figure><div class="card">${parts.join("")}</div><figcaption>${t.label}</figcaption></figure>`;
 }
 
-const onlyTheme = new URLSearchParams(location.search).get("theme");
+const params = new URLSearchParams(location.search);
+const ISO = params.get("iso") === "1";
+if (ISO) {
+  DATA.name = "PSEUDO";
+  DATA.month = "AOÛT 2026";
+  DATA.score = "+21";
+  DATA.objectives = Array(6).fill({ finished: 0, target: 0 });
+  DATA.avatar = "";
+}
+const onlyTheme = params.get("theme");
 if (onlyTheme !== null) document.body.classList.add("single");
 document.getElementById("grid").innerHTML = THEMES
   .filter((_, index) => onlyTheme === null || String(index) === onlyTheme)
