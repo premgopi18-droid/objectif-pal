@@ -30,3 +30,22 @@ Le barème incrusté (PTS) correspond à `lib/scoring/scale.ts` : issue +0,5,
 manga +1, BD +2, comics +3, omnibus +5, roman +5, titre acheté non lu −1,
 bonus objectif +3. **À revérifier à chaque nouveau thème généré** — un barème
 qui divergerait mentirait à l'antenne.
+
+## Fonds vierges (`theme_N_virgin`) — état du 01/09/2026
+
+Première passe de vierges livrée : pseudo, date, score, compteurs et jauges
+vidés sur les 10 — la cartographie du proto (calée sur les originaux)
+transfère telle quelle. **Reste à nettoyer à la prochaine passe** :
+
+1. Les six valeurs d'objectif « 0 / 0 » (à droite de Issue/Manga/BD/Comics/
+   Omnibus/Roman) — sur les 10 thèmes. Libellés et jauges vides restent.
+2. `theme_9` : résidu du « +21 » dans le cartouche score.
+
+⚠️ Régénérer en RETOUCHANT les vierges actuelles (mêmes fonds, 1024×1536,
+cadrage identique) — jamais from scratch : le calage au pixel en dépend.
+
+**Correctifs de calage notés (à appliquer avec les nouveaux fonds)** :
+score t1 rapproché du trait rouge, t3 recentré plus haut, t5 décalé à
+gauche, t6 posé sur la ligne ornée au-dessus de « SCORE DU MOIS », t9 sans
+jamais sortir du cadre — et test « +102,5 » (3 chiffres) sur les 10, avec
+rétrécissement automatique pour ne déborder nulle part.
