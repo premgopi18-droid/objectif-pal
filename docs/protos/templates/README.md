@@ -44,6 +44,15 @@ transfère telle quelle. **Reste à nettoyer à la prochaine passe** :
 ⚠️ Régénérer en RETOUCHANT les vierges actuelles (mêmes fonds, 1024×1536,
 cadrage identique) — jamais from scratch : le calage au pixel en dépend.
 
+**Correctif appliqué au proto le 01/09/2026** : la date était décentrée dans son
+cartouche sur plusieurs thèmes (jusqu'à ~23 px à gauche sur t8). Deux causes :
+le letter-spacing traînant (l'espace après le dernier glyphe compte dans la
+largeur CSS → décalage de ls/2 sur TOUS les thèmes, désormais compensé par
+`margin-right:-ls`) et des `month.x` mal calés. Les `month.x` sont recalibrés
+sur les centres de cartouche **mesurés au pixel** dans les fonds vierges
+(t0 700, t2 715, t4 711, t5 711, t6 727, t7 700, t8 756, t9 709) — validité
+maintenue tant que les retouches gardent le cadrage identique.
+
 **Correctifs de calage notés (à appliquer avec les nouveaux fonds)** :
 score t1 rapproché du trait rouge, t3 recentré plus haut, t5 décalé à
 gauche, t6 posé sur la ligne ornée au-dessus de « SCORE DU MOIS », t9 sans
