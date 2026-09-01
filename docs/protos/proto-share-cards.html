@@ -6,7 +6,7 @@
 <title>Proto — les 10 thèmes remplis (Premou, août 2026)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bangers&family=Cinzel:wght@700&family=Orbitron:wght@700&family=Playfair+Display:wght@700&family=Special+Elite&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bangers&family=Cinzel+Decorative:wght@700&family=Cinzel:wght@700&family=Cormorant+Garamond:wght@600&family=Exo+2:ital,wght@0,600;1,800&family=Orbitron:wght@700&family=Oswald:wght@600&family=Permanent+Marker&family=Playfair+Display:wght@700&family=Rajdhani:wght@700&family=Rye&family=Special+Elite&family=Stardos+Stencil:wght@700&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #14121a; color: #e8e4da; font-family: system-ui, sans-serif; padding: 24px; }
@@ -24,8 +24,7 @@
   /* Le recouvrement : flou du fond pour effacer la valeur d'exemple incrustée,
      teinte locale pour retrouver la matière du panneau. */
   .patch { backdrop-filter: blur(9px) saturate(1.05); border-radius: 1cqw; }
-  .avatar { position: absolute; transform: translate(-50%, -50%); border-radius: 50%;
-            object-fit: cover; }
+  .avatar { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; object-fit: cover; }
   .gauge { position: absolute; transform: translateY(-50%); border-radius: 99px; }
 </style>
 </head>
@@ -35,11 +34,10 @@
   <h1>Les 10 thèmes, remplis avec le vrai mois d'août de Premou</h1>
   <p>
     <strong>+48,5</strong> — 37 issues, 7 comics, 2 romans, 1 titre acheté non lu. Objectifs : 37/50 issues,
-    7/6 comics (dépassé), 2/1 romans. Tout ce qui est dessiné par-dessus les fonds (pseudo, avatar, score,
-    valeurs et jauges d'objectif, compteurs du tableau) est posé par la page — les valeurs d'exemple
-    incrustées (« PSEUDO », « +21 », « 0 / 0 ») sont recouvertes d'un flou local, la stratégie de
-    recouvrement à juger ici même. Le calage est approximatif (±2 %) : le vrai rendu aura un fichier de
-    coordonnées calé au pixel par thème.
+    7/6 comics (dépassé), 2/1 romans. Jauges calées sur les positions <em>mesurées</em> de chaque fond,
+    polices au plus proche de celles incrustées dans les templates (Google Fonts — celles qu'on embarquera).
+    Les valeurs d'exemple incrustées (« PSEUDO », « +21 », « 0 / 0 ») sont recouvertes d'un flou local —
+    la stratégie de recouvrement à juger ici même.
   </p>
 </header>
 
@@ -59,39 +57,72 @@ const DATA = {
   counts: [37, 0, 0, 7, 0, 2, 1], // Issue, Manga, BD, Comics, Omnibus, Roman, acheté non lu
 };
 
-/* ---- Les coordonnées par thème (espace 1024×1536, estimées à l'œil) ---- */
-const SHARED = { leftVal: 470, rightVal: 900, leftBar: [118, 470], rightBar: [542, 900], midX: 565, barGap: 27 };
+/* ---- Coordonnées par thème (espace 1024×1536, jauges MESURÉES sur les fonds) ----
+   objText : y des 3 lignes de valeurs ; objBar : y du CENTRE des 3 jauges ;
+   leftBar/rightBar : x [début, fin] des boîtes de jauge ; barH : hauteur ;
+   valL/valR : bord droit des valeurs « fait / cible » par colonne. */
 const THEMES = [
-  { file: "theme_0", label: "0 — Néon / gaming", font: "'Orbitron', sans-serif", ink: "#e6e0ff", score: "#b9f0e8",
-    nameColor: "#f4f2ff", tint: "rgba(24,18,48,.55)", nameTint: "rgba(24,18,48,.55)",
-    name: 150, avatar: [272, 395, 122], scoreAt: [700, 405], objRows: [667, 743, 820], table: [1043, 60] },
-  { file: "theme_1", label: "1 — Dossier confidentiel", font: "'Special Elite', serif", ink: "#3a332a", score: "#211c15",
-    nameColor: "#4a4a30", tint: "rgba(210,192,158,.5)", nameTint: "rgba(210,192,158,.5)",
-    name: 215, avatar: [300, 455, 138], scoreAt: [735, 450], objRows: [760, 845, 930], table: [1130, 45.5] },
-  { file: "theme_2", label: "2 — Manga N&B", font: "'Archivo Black', sans-serif", ink: "#141414", score: "#141414",
+  { file: "theme_0", label: "0 — Néon / gaming",
+    nameFont: "'Exo 2'", nameStyle: "font-style:italic;font-weight:800;", font: "'Exo 2'",
+    scoreFont: "'Exo 2'", scoreStyle: "font-style:italic;font-weight:800;",
+    ink: "#e6e0ff", score: "#b9f0e8", nameColor: "#f4f2ff", tint: "rgba(24,18,48,.55)",
+    name: 150, avatar: [272, 395, 122], scoreAt: [700, 405],
+    objText: [667, 744, 821], objBar: [702, 776, 853], leftBar: [112, 476], rightBar: [545, 915], barH: 16, valL: 477, valR: 913,
+    table: [1043, 60] },
+  { file: "theme_1", label: "1 — Dossier confidentiel",
+    nameFont: "'Stardos Stencil'", font: "'Special Elite'", ink: "#3a332a", score: "#211c15",
+    nameColor: "#4a4a30", tint: "rgba(210,192,158,.5)",
+    name: 215, avatar: [300, 455, 138], scoreAt: [735, 450],
+    objText: [760, 845, 928], objBar: [800, 884, 966], leftBar: [162, 484], rightBar: [556, 893], barH: 26, valL: 480, valR: 890,
+    table: [1130, 45.5] },
+  { file: "theme_2", label: "2 — Manga N&B",
+    nameFont: "'Permanent Marker'", font: "'Archivo Black'", ink: "#141414", score: "#141414",
     nameColor: "#101010", tint: "rgba(244,242,236,.55)", nameTint: "rgba(244,242,236,.6)",
-    name: 150, avatar: [300, 420, 124], scoreAt: [710, 425], objRows: [700, 775, 855], table: [1065, 53.5] },
-  { file: "theme_3", label: "3 — Grimoire médiéval", font: "'Cinzel', serif", ink: "#e3c368", score: "#e3c368",
-    nameColor: "#e8cf82", tint: "rgba(40,30,18,.5)", nameTint: "rgba(40,30,18,.5)",
-    name: 180, avatar: [300, 440, 116], scoreAt: [720, 440], objRows: [705, 780, 855], table: [1070, 52.5] },
-  { file: "theme_4", label: "4 — Carnet maudit", font: "'Special Elite', serif", ink: "#241c12", score: "#241c12",
-    nameColor: "#1c150d", tint: "rgba(196,178,148,.5)", nameTint: "rgba(196,178,148,.5)",
-    name: 165, avatar: [310, 400, 126], scoreAt: [720, 395], objRows: [695, 770, 850], table: [1065, 53.5] },
-  { file: "theme_5", label: "5 — Film noir", font: "system-ui, sans-serif", ink: "#e6e0d0", score: "#c8342a",
-    nameColor: "#efe9d8", tint: "rgba(22,20,18,.55)", nameTint: "rgba(22,20,18,.55)",
-    name: 145, avatar: [295, 390, 106], scoreAt: [700, 390], objRows: [690, 775, 860], table: [1080, 51] },
-  { file: "theme_6", label: "6 — Romance", font: "'Playfair Display', serif", ink: "#7a2233", score: "#7a2233",
-    nameColor: "#8d2136", tint: "rgba(248,244,238,.55)", nameTint: "rgba(248,244,238,.55)",
-    name: 145, avatar: [295, 390, 112], scoreAt: [720, 410], objRows: [700, 780, 855], table: [1075, 51.5] },
-  { file: "theme_7", label: "7 — Sci-fi industriel", font: "system-ui, sans-serif", ink: "#9fd8ff", score: "#bfe6ff",
-    nameColor: "#cdeaff", tint: "rgba(10,20,34,.5)", nameTint: "rgba(10,20,34,.5)",
-    name: 145, avatar: [310, 385, 120], scoreAt: [700, 395], objRows: [660, 735, 805], table: [995, 43] },
-  { file: "theme_8", label: "8 — Comics rétro pop", font: "'Bangers', cursive", ink: "#14265c", score: "#d21f27",
+    name: 150, avatar: [300, 420, 124], scoreAt: [710, 425],
+    objText: [700, 777, 855], objBar: [735, 810, 888], leftBar: [112, 478], rightBar: [540, 912], barH: 18, valL: 477, valR: 910,
+    table: [1065, 53.5] },
+  { file: "theme_3", label: "3 — Grimoire médiéval",
+    nameFont: "'Cinzel Decorative'", font: "'Cinzel'", ink: "#e3c368", score: "#e3c368",
+    nameColor: "#e8cf82", tint: "rgba(40,30,18,.5)",
+    name: 180, avatar: [300, 440, 116], scoreAt: [720, 440],
+    objText: [706, 779, 852], objBar: [739, 812, 884], leftBar: [128, 470], rightBar: [548, 888], barH: 10, valL: 472, valR: 890,
+    table: [1070, 52.5] },
+  { file: "theme_4", label: "4 — Carnet maudit",
+    nameFont: "'Archivo Black'", font: "'Special Elite'", ink: "#241c12", score: "#241c12",
+    nameColor: "#1c150d", tint: "rgba(196,178,148,.5)",
+    name: 165, avatar: [310, 400, 126], scoreAt: [720, 395],
+    objText: [696, 774, 851], objBar: [730, 808, 885], leftBar: [115, 470], rightBar: [535, 888], barH: 20, valL: 470, valR: 885,
+    table: [1065, 53.5] },
+  { file: "theme_5", label: "5 — Film noir",
+    nameFont: "'Oswald'", font: "'Oswald'", scoreFont: "'Archivo Black'", scoreStyle: "transform:skewX(-8deg);display:inline-block;",
+    ink: "#e6e0d0", score: "#c8342a", nameColor: "#efe9d8", tint: "rgba(22,20,18,.55)",
+    name: 145, avatar: [295, 390, 106], scoreAt: [700, 390],
+    objText: [694, 779, 867], objBar: [731, 816, 905], leftBar: [120, 485], rightBar: [535, 905], barH: 20, valL: 465, valR: 878,
+    table: [1080, 51] },
+  { file: "theme_6", label: "6 — Romance",
+    nameFont: "'Cormorant Garamond'", font: "'Cormorant Garamond'", scoreFont: "'Playfair Display'",
+    ink: "#7a2233", score: "#7a2233", nameColor: "#8d2136", tint: "rgba(248,244,238,.55)",
+    name: 145, avatar: [295, 390, 112], scoreAt: [720, 410],
+    objText: [703, 782, 860], objBar: [737, 817, 895], leftBar: [140, 488], rightBar: [558, 905], barH: 22, valL: 490, valR: 900,
+    table: [1075, 51.5] },
+  { file: "theme_7", label: "7 — Sci-fi industriel",
+    nameFont: "'Orbitron'", font: "'Rajdhani'", scoreFont: "'Orbitron'",
+    ink: "#9fd8ff", score: "#bfe6ff", nameColor: "#cdeaff", tint: "rgba(10,20,34,.5)",
+    name: 145, avatar: [310, 385, 120], scoreAt: [700, 395],
+    objText: [660, 732, 804], objBar: [691, 763, 835], leftBar: [162, 478], rightBar: [545, 855], barH: 16, valL: 465, valR: 850,
+    table: [995, 43] },
+  { file: "theme_8", label: "8 — Comics rétro pop",
+    nameFont: "'Bangers'", font: "'Bangers'", ink: "#14265c", score: "#d21f27",
     nameColor: "#ffd23f", tint: "rgba(240,230,210,.5)", nameTint: "rgba(28,58,150,.55)", scoreTint: "rgba(245,205,60,.5)",
-    name: 175, avatar: [285, 445, 126], scoreAt: [740, 450], objRows: [700, 775, 850], table: [1035, 54] },
-  { file: "theme_9", label: "9 — Avis de recherche western", font: "'Special Elite', serif", ink: "#3a2a18", score: "#7a3018",
-    nameColor: "#332414", tint: "rgba(205,182,142,.5)", nameTint: "rgba(205,182,142,.5)",
-    name: 190, avatar: [320, 480, 130], scoreAt: [715, 470], objRows: [730, 805, 880], table: [1075, 51.5] },
+    name: 175, avatar: [285, 445, 126], scoreAt: [740, 450],
+    objText: [700, 774, 852], objBar: [733, 806, 885], leftBar: [105, 478], rightBar: [540, 918], barH: 20, valL: 465, valR: 915,
+    table: [1035, 54] },
+  { file: "theme_9", label: "9 — Avis de recherche western",
+    nameFont: "'Rye'", font: "'Special Elite'", ink: "#3a2a18", score: "#7a3018",
+    nameColor: "#332414", tint: "rgba(205,182,142,.5)",
+    name: 190, avatar: [320, 480, 130], scoreAt: [715, 470],
+    objText: [728, 802, 880], objBar: [762, 836, 913], leftBar: [145, 482], rightBar: [525, 890], barH: 22, valL: 475, valR: 888,
+    table: [1075, 51.5] },
 ];
 
 const L = (x) => (x / 1024) * 100 + "%";
@@ -106,39 +137,40 @@ function zone(x, y, w, h, tint, inner, extra = "") {
 
 function cardHtml(t) {
   const parts = [`<img class="bg" src="templates/${t.file}.jpeg" alt="">`];
-  const text = (color, sizeCqw, weight = 700) =>
-    `font-family:${t.font};color:${color};font-weight:${weight};font-size:${sizeCqw}cqw;`;
+  const text = (font, color, sizeCqw, extra = "") =>
+    `font-family:${font}, sans-serif;color:${color};font-weight:700;font-size:${sizeCqw}cqw;${extra}`;
 
   // Pseudo — recouvre le « PSEUDO » incrusté.
-  parts.push(zone(512, t.name, 560, 86, t.nameTint,
-    `<span style="${text(t.nameColor, 6.2)}letter-spacing:.08em">${DATA.name}</span>`));
+  parts.push(zone(512, t.name, 560, 86, t.nameTint ?? t.tint,
+    `<span style="${text(t.nameFont, t.nameColor, 6.2, "letter-spacing:.06em;" + (t.nameStyle ?? ""))}">${DATA.name}</span>`));
   // Avatar dans le rond du thème.
   const [ax, ay, ar] = t.avatar;
   parts.push(`<img class="avatar" src="${DATA.avatar}" alt="" style="left:${L(ax)};top:${T(ay)};width:${W(ar * 1.84)};aspect-ratio:1">`);
   // Score — recouvre le « +21 » (le « AOÛT 2026 » incrusté est déjà le bon mois, on le garde).
   const [sx, sy] = t.scoreAt;
   parts.push(zone(sx, sy, 340, 118, t.scoreTint ?? t.tint,
-    `<span style="${text(t.score, 8.4)}">${DATA.score}</span>`));
+    `<span style="${text(t.scoreFont ?? t.font, t.score, 8.4, t.scoreStyle ?? "")}">${DATA.score}</span>`));
 
-  // Objectifs : valeurs « fait / cible » + remplissage des jauges.
+  // Objectifs : valeurs « fait / cible » (bord droit mesuré) + remplissage des jauges DANS la boîte mesurée.
   DATA.objectives.forEach((objective, i) => {
-    const rowY = t.objRows[i % 3];
-    const valRight = i < 3 ? SHARED.leftVal : SHARED.rightVal;
+    const row = i % 3;
+    const valRight = i < 3 ? t.valL : t.valR;
     const label = objective === null ? "—" : `${objective.finished} / ${objective.target}`;
-    parts.push(zone(valRight - 62, rowY, 138, 36, t.tint,
-      `<span style="${text(t.ink, 2.5)}">${label}</span>`, "justify-content:flex-end;padding-right:.6cqw;"));
+    parts.push(zone(valRight - 66, t.objText[row], 140, 38, t.tint,
+      `<span style="${text(t.font, t.ink, 2.5)}">${label}</span>`, "justify-content:flex-end;padding-right:.6cqw;"));
     if (objective !== null && objective.target > 0 && objective.finished > 0) {
-      const [barStart, barEnd] = i < 3 ? SHARED.leftBar : SHARED.rightBar;
-      const width = (barEnd - barStart - 10) * Math.min(1, objective.finished / objective.target);
-      parts.push(`<div class="gauge" style="left:${L(barStart + 5)};top:${T(rowY + SHARED.barGap)};width:${W(width)};height:${H(15)};background:color-mix(in srgb, ${t.ink} 45%, transparent)"></div>`);
+      const [barStart, barEnd] = i < 3 ? t.leftBar : t.rightBar;
+      const inset = 6;
+      const width = (barEnd - barStart - inset * 2) * Math.min(1, objective.finished / objective.target);
+      parts.push(`<div class="gauge" style="left:${L(barStart + inset)};top:${T(t.objBar[row])};width:${W(width)};height:${H(Math.max(6, t.barH - 6))};background:color-mix(in srgb, ${t.ink} 50%, transparent)"></div>`);
     }
   });
 
   // Tableau : les compteurs dans la colonne du milieu (vide dans le fond — rien à recouvrir).
   const [tableStart, tableStep] = t.table;
   DATA.counts.forEach((count, i) => {
-    parts.push(zone(SHARED.midX, tableStart + tableStep * i, 130, 40, null,
-      `<span style="${text(t.ink, 2.7)}">${count}</span>`));
+    parts.push(zone(565, tableStart + tableStep * i, 130, 40, null,
+      `<span style="${text(t.font, t.ink, 2.7)}">${count}</span>`));
   });
 
   return `<figure><div class="card">${parts.join("")}</div><figcaption>${t.label}</figcaption></figure>`;
