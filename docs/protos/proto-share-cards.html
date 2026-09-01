@@ -57,70 +57,72 @@ const DATA = {
   counts: [37, 0, 0, 7, 0, 2, 1], // Issue, Manga, BD, Comics, Omnibus, Roman, acheté non lu
 };
 
-/* ---- Coordonnées par thème (espace 1024×1536, jauges MESURÉES sur les fonds) ----
-   objText : y des 3 lignes de valeurs ; objBar : y du CENTRE des 3 jauges ;
-   leftBar/rightBar : x [début, fin] des boîtes de jauge ; barH : hauteur ;
-   valL/valR : bord droit des valeurs « fait / cible » par colonne. */
+/* ---- Coordonnées par thème (espace 1024×1536, TOUT est mesuré sur les fonds) ----
+   name : [xCentre, yCentre, largeur du cache, taille de police en cqw] ;
+   scoreBox : [xCentre, yCentre, taille de police en cqw, hauteur des chiffres px] ;
+   avatar : [cx, cy, rayon] ; objText : y des 3 lignes de valeurs ;
+   objBar : y du CENTRE des 3 jauges ; leftBar/rightBar : x [début, fin] ;
+   barH : hauteur ; valL/valR : bord droit des valeurs par colonne. */
 const THEMES = [
   { file: "theme_0", label: "0 — Néon / gaming",
     nameFont: "'Exo 2'", nameStyle: "font-style:italic;font-weight:800;", font: "'Exo 2'",
     scoreFont: "'Exo 2'", scoreStyle: "font-style:italic;font-weight:800;",
     ink: "#e6e0ff", score: "#b9f0e8", nameColor: "#f4f2ff", tint: "rgba(24,18,48,.55)",
-    name: 150, avatar: [272, 395, 122], scoreAt: [700, 405],
+    name: [525, 140, 400, 7.5], scoreBox: [690, 412, 15.6, 115], avatar: [268, 402, 118],
     objText: [667, 744, 821], objBar: [702, 776, 853], leftBar: [112, 476], rightBar: [545, 915], barH: 16, valL: 477, valR: 913,
     table: [1043, 60] },
   { file: "theme_1", label: "1 — Dossier confidentiel",
     nameFont: "'Stardos Stencil'", font: "'Special Elite'", ink: "#3a332a", score: "#211c15",
     nameColor: "#4a4a30", tint: "rgba(210,192,158,.5)",
-    name: 215, avatar: [300, 455, 138], scoreAt: [735, 450],
+    name: [527, 205, 440, 10.8], scoreBox: [730, 445, 17.6, 130], avatar: [307, 450, 148],
     objText: [760, 845, 928], objBar: [800, 884, 966], leftBar: [162, 484], rightBar: [556, 893], barH: 26, valL: 480, valR: 890,
     table: [1130, 45.5] },
   { file: "theme_2", label: "2 — Manga N&B",
     nameFont: "'Permanent Marker'", font: "'Archivo Black'", ink: "#141414", score: "#141414",
     nameColor: "#101010", tint: "rgba(244,242,236,.55)", nameTint: "rgba(244,242,236,.6)",
-    name: 150, avatar: [300, 420, 124], scoreAt: [710, 425],
+    name: [520, 145, 540, 9.8], scoreBox: [715, 422, 19.6, 145], avatar: [300, 430, 124],
     objText: [700, 777, 855], objBar: [735, 810, 888], leftBar: [112, 478], rightBar: [540, 912], barH: 18, valL: 477, valR: 910,
     table: [1065, 53.5] },
   { file: "theme_3", label: "3 — Grimoire médiéval",
     nameFont: "'Cinzel Decorative'", font: "'Cinzel'", ink: "#e3c368", score: "#e3c368",
     nameColor: "#e8cf82", tint: "rgba(40,30,18,.5)",
-    name: 180, avatar: [300, 440, 116], scoreAt: [720, 440],
+    name: [510, 170, 440, 9.8], scoreBox: [720, 445, 19.5, 140], avatar: [302, 435, 108],
     objText: [706, 779, 852], objBar: [739, 812, 884], leftBar: [128, 470], rightBar: [548, 888], barH: 10, valL: 472, valR: 890,
     table: [1070, 52.5] },
   { file: "theme_4", label: "4 — Carnet maudit",
     nameFont: "'Archivo Black'", font: "'Special Elite'", ink: "#241c12", score: "#241c12",
     nameColor: "#1c150d", tint: "rgba(196,178,148,.5)",
-    name: 165, avatar: [310, 400, 126], scoreAt: [720, 395],
+    name: [520, 145, 400, 9.5], scoreBox: [700, 420, 16.3, 120], avatar: [288, 395, 122],
     objText: [696, 774, 851], objBar: [730, 808, 885], leftBar: [115, 470], rightBar: [535, 888], barH: 20, valL: 470, valR: 885,
     table: [1065, 53.5] },
   { file: "theme_5", label: "5 — Film noir",
     nameFont: "'Oswald'", font: "'Oswald'", scoreFont: "'Archivo Black'", scoreStyle: "transform:skewX(-8deg);display:inline-block;",
     ink: "#e6e0d0", score: "#c8342a", nameColor: "#efe9d8", tint: "rgba(22,20,18,.55)",
-    name: 145, avatar: [295, 390, 106], scoreAt: [700, 390],
+    name: [515, 142, 360, 8.8], scoreBox: [725, 400, 19, 140], avatar: [312, 392, 122],
     objText: [694, 779, 867], objBar: [731, 816, 905], leftBar: [120, 485], rightBar: [535, 905], barH: 20, valL: 465, valR: 878,
     table: [1080, 51] },
   { file: "theme_6", label: "6 — Romance",
     nameFont: "'Cormorant Garamond'", font: "'Cormorant Garamond'", scoreFont: "'Playfair Display'",
     ink: "#7a2233", score: "#7a2233", nameColor: "#8d2136", tint: "rgba(248,244,238,.55)",
-    name: 145, avatar: [295, 390, 112], scoreAt: [720, 410],
+    name: [535, 142, 420, 7.7], scoreBox: [730, 408, 17.4, 125], avatar: [312, 418, 112],
     objText: [703, 782, 860], objBar: [737, 817, 895], leftBar: [140, 488], rightBar: [558, 905], barH: 22, valL: 490, valR: 900,
     table: [1075, 51.5] },
   { file: "theme_7", label: "7 — Sci-fi industriel",
     nameFont: "'Orbitron'", font: "'Rajdhani'", scoreFont: "'Orbitron'",
     ink: "#9fd8ff", score: "#bfe6ff", nameColor: "#cdeaff", tint: "rgba(10,20,34,.5)",
-    name: 145, avatar: [310, 385, 120], scoreAt: [700, 395],
+    name: [525, 150, 350, 6.8], scoreBox: [690, 390, 13.6, 100], avatar: [312, 390, 128],
     objText: [660, 732, 804], objBar: [691, 763, 835], leftBar: [162, 478], rightBar: [545, 855], barH: 16, valL: 465, valR: 850,
     table: [995, 43] },
   { file: "theme_8", label: "8 — Comics rétro pop",
     nameFont: "'Bangers'", font: "'Bangers'", ink: "#14265c", score: "#d21f27",
     nameColor: "#ffd23f", tint: "rgba(240,230,210,.5)", nameTint: "rgba(28,58,150,.55)", scoreTint: "rgba(245,205,60,.5)",
-    name: 175, avatar: [285, 445, 126], scoreAt: [740, 450],
+    name: [520, 178, 550, 10.3], scoreBox: [725, 450, 16.3, 150], avatar: [282, 435, 126],
     objText: [700, 774, 852], objBar: [733, 806, 885], leftBar: [105, 478], rightBar: [540, 918], barH: 20, valL: 465, valR: 915,
     table: [1035, 54] },
   { file: "theme_9", label: "9 — Avis de recherche western",
     nameFont: "'Rye'", font: "'Special Elite'", ink: "#3a2a18", score: "#7a3018",
     nameColor: "#332414", tint: "rgba(205,182,142,.5)",
-    name: 190, avatar: [320, 480, 130], scoreAt: [715, 470],
+    name: [520, 180, 600, 11.7], scoreBox: [710, 460, 19, 140], avatar: [320, 440, 118],
     objText: [728, 802, 880], objBar: [762, 836, 913], leftBar: [145, 482], rightBar: [525, 890], barH: 22, valL: 475, valR: 888,
     table: [1075, 51.5] },
 ];
@@ -140,16 +142,19 @@ function cardHtml(t) {
   const text = (font, color, sizeCqw, extra = "") =>
     `font-family:${font}, sans-serif;color:${color};font-weight:700;font-size:${sizeCqw}cqw;${extra}`;
 
-  // Pseudo — recouvre le « PSEUDO » incrusté.
-  parts.push(zone(512, t.name, 560, 86, t.nameTint ?? t.tint,
-    `<span style="${text(t.nameFont, t.nameColor, 6.2, "letter-spacing:.06em;" + (t.nameStyle ?? ""))}">${DATA.name}</span>`));
+  // Pseudo — recouvre le « PSEUDO » incrusté (position, cache et corps mesurés).
+  const [nx, ny, nw, nSize] = t.name;
+  parts.push(zone(nx, ny, nw, nSize * 10.24 * 1.15 + 20, t.nameTint ?? t.tint,
+    `<span class="fit" style="${text(t.nameFont, t.nameColor, nSize, "letter-spacing:.06em;" + (t.nameStyle ?? ""))}">${DATA.name}</span>`));
   // Avatar dans le rond du thème.
   const [ax, ay, ar] = t.avatar;
   parts.push(`<img class="avatar" src="${DATA.avatar}" alt="" style="left:${L(ax)};top:${T(ay)};width:${W(ar * 1.84)};aspect-ratio:1">`);
-  // Score — recouvre le « +21 » (le « AOÛT 2026 » incrusté est déjà le bon mois, on le garde).
-  const [sx, sy] = t.scoreAt;
-  parts.push(zone(sx, sy, 340, 118, t.scoreTint ?? t.tint,
-    `<span style="${text(t.scoreFont ?? t.font, t.score, 8.4, t.scoreStyle ?? "")}">${DATA.score}</span>`));
+  // Score — corps MESURÉ sur le « +21 » incrusté (le « AOÛT 2026 » est déjà le
+  // bon mois, on le garde). « +48,5 » étant plus large que « +21 », le span
+  // .fit se rétrécit pour tenir dans le cartouche sans dépasser.
+  const [sx, sy, sSize, sDigitH] = t.scoreBox;
+  parts.push(zone(sx, sy, 380, sDigitH + 44, t.scoreTint ?? t.tint,
+    `<span class="fit" style="${text(t.scoreFont ?? t.font, t.score, sSize, t.scoreStyle ?? "")}">${DATA.score}</span>`));
 
   // Objectifs : valeurs « fait / cible » (bord droit mesuré) + remplissage des jauges DANS la boîte mesurée.
   DATA.objectives.forEach((objective, i) => {
@@ -177,6 +182,26 @@ function cardHtml(t) {
 }
 
 document.getElementById("grid").innerHTML = THEMES.map(cardHtml).join("");
+
+// Ajustement de largeur : un texte plus large que sa zone (« +48,5 » vs
+// « +21 » incrusté, pseudo long) se rétrécit — jamais de débordement. Le vrai
+// moteur canvas fera exactement pareil (mesure puis échelle).
+function fitAll() {
+  for (const span of document.querySelectorAll(".zone .fit")) {
+    // Le transform d'origine (ex. le penché du score film noir) est préservé.
+    if (span.dataset.baseTransform === undefined) span.dataset.baseTransform = span.style.transform ?? "";
+    const available = span.parentElement.clientWidth * 0.92;
+    span.style.transform = span.dataset.baseTransform;
+    const width = span.getBoundingClientRect().width;
+    if (width > available) {
+      span.style.display = "inline-block";
+      span.style.transform = `${span.dataset.baseTransform} scale(${available / width})`.trim();
+    }
+  }
+}
+if (document.fonts?.ready) document.fonts.ready.then(fitAll);
+window.addEventListener("resize", fitAll);
+fitAll();
 </script>
 </body>
 </html>
