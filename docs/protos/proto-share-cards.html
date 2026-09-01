@@ -6,7 +6,7 @@
 <title>Proto — les 10 thèmes remplis (Premou, août 2026)</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Bangers&family=Cinzel+Decorative:wght@700&family=Cinzel:wght@700&family=Cormorant+Garamond:wght@600&family=Exo+2:ital,wght@0,600;1,800&family=Orbitron:wght@700&family=Oswald:wght@600&family=Permanent+Marker&family=Playfair+Display:wght@700&family=Rajdhani:wght@700&family=Rye&family=Special+Elite&family=Stardos+Stencil:wght@700&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Alfa+Slab+One&family=Anton&family=Archivo+Black&family=Bangers&family=Cinzel:wght@400;700&family=Cormorant+Garamond:wght@500;700&family=EB+Garamond:wght@500;600&family=Exo+2:ital,wght@0,600;1,800&family=Graduate&family=Grenze+Gotisch:wght@600;800&family=Knewave&family=Orbitron:wght@700;800&family=Oswald:wght@500;600;700&family=Playfair+Display:wght@600;700&family=Rajdhani:wght@600;700&family=Rye&family=Special+Elite&family=Stardos+Stencil:wght@700&display=swap" rel="stylesheet">
 <style>
   * { box-sizing: border-box; margin: 0; padding: 0; }
   body { background: #14121a; color: #e8e4da; font-family: system-ui, sans-serif; padding: 24px; }
@@ -21,11 +21,16 @@
   .card img.bg { position: absolute; inset: 0; width: 100%; height: 100%; }
   .zone { position: absolute; display: flex; align-items: center; justify-content: center;
           transform: translate(-50%, -50%); white-space: nowrap; line-height: 1; }
-  /* Le recouvrement : flou du fond pour effacer la valeur d'exemple incrustée,
-     teinte locale pour retrouver la matière du panneau. */
-  .patch { backdrop-filter: blur(9px) saturate(1.05); border-radius: 1cqw; }
+  /* Recouvrement : cache PLEIN à la couleur du panneau, SERRÉ sur les glyphes
+     incrustés — les déco du template autour restent intactes. */
   .avatar { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; object-fit: cover; }
-  .gauge { position: absolute; transform: translateY(-50%); border-radius: 99px; }
+  .gauge { position: absolute; transform: translateY(-50%); }
+
+  /* Mode capture : ?theme=N — une seule carte plein cadre, sans chrome. */
+  body.single { padding: 0; background: #000; }
+  body.single header, body.single figcaption { display: none; }
+  body.single .grid { display: block; max-width: none; }
+  body.single .card { border-radius: 0; box-shadow: none; width: 100vw; }
 </style>
 </head>
 <body>
@@ -33,11 +38,11 @@
 <header>
   <h1>Les 10 thèmes, remplis avec le vrai mois d'août de Premou</h1>
   <p>
-    <strong>+48,5</strong> — 37 issues, 7 comics, 2 romans, 1 titre acheté non lu. Objectifs : 37/50 issues,
-    7/6 comics (dépassé), 2/1 romans. Jauges calées sur les positions <em>mesurées</em> de chaque fond,
-    polices au plus proche de celles incrustées dans les templates (Google Fonts — celles qu'on embarquera).
-    Les valeurs d'exemple incrustées (« PSEUDO », « +21 », « 0 / 0 ») sont recouvertes d'un flou local —
-    la stratégie de recouvrement à juger ici même.
+    <strong>+48,5</strong> — 37 issues, 7 comics, 2 romans, 1 titre acheté non lu. Objectifs : 37/50, 7/6
+    (dépassé, jauge plafonnée), 2/1. Tout est calé sur mesures : positions, corps et couleurs d'encre
+    relevés zone par zone sur chaque fond, polices identifiées sur planches-spécimens zoomées. La
+    <strong>date est pilotée</strong> : « AOÛT 2026 » incrusté est recouvert et redessiné par la page —
+    changer le mois est un simple changement de texte.
   </p>
 </header>
 
@@ -47,6 +52,7 @@
 /* ---- Le bilan d'août 2026 de Premou (lu en prod le 01/09/2026) ---- */
 const DATA = {
   name: "PREMOU",
+  month: "AOÛT 2026",
   avatar: "https://reqtckmawllprisvrzlb.supabase.co/storage/v1/object/public/avatars/b5de09f1-c496-4200-9306-9c8b4cefe97b/avatar.webp?v=1786830606331",
   score: "+48,5",
   // Ordre des jauges du fond : gauche Issue/Manga/BD, droite Comics/Omnibus/Roman.
@@ -57,74 +63,137 @@ const DATA = {
   counts: [37, 0, 0, 7, 0, 2, 1], // Issue, Manga, BD, Comics, Omnibus, Roman, acheté non lu
 };
 
-/* ---- Coordonnées par thème (espace 1024×1536, TOUT est mesuré sur les fonds) ----
-   name : [xCentre, yCentre, largeur du cache, taille de police en cqw] ;
-   scoreBox : [xCentre, yCentre, taille de police en cqw, hauteur des chiffres px] ;
-   avatar : [cx, cy, rayon] ; objText : y des 3 lignes de valeurs ;
-   objBar : y du CENTRE des 3 jauges ; leftBar/rightBar : x [début, fin] ;
-   barH : hauteur ; valL/valR : bord droit des valeurs par colonne. */
+/* ---- Par thème, TOUT est mesuré sur le fond (espace 1024×1536) ----
+   polices identifiées sur planches-spécimens zoomées, encres échantillonnées
+   zone par zone. name/month/score : position + corps + couleur + cache serré.
+   month : la DATE pilotée — « AOÛT 2026 » incrusté recouvert puis redessiné. */
 const THEMES = [
   { file: "theme_0", label: "0 — Néon / gaming",
-    nameFont: "'Exo 2'", nameStyle: "font-style:italic;font-weight:800;", font: "'Exo 2'",
-    scoreFont: "'Exo 2'", scoreStyle: "font-style:italic;font-weight:800;",
-    ink: "#e6e0ff", score: "#b9f0e8", nameColor: "#f4f2ff", tint: "rgba(24,18,48,.55)",
-    name: [525, 140, 400, 7.5], scoreBox: [690, 412, 15.6, 115], avatar: [268, 402, 118],
-    objText: [667, 744, 821], objBar: [702, 776, 853], leftBar: [112, 476], rightBar: [545, 915], barH: 16, valL: 477, valR: 913,
-    table: [1043, 60] },
+    covers: { name: "#0c032f", score: "#0b042d", obj: "#0c062c" },
+    name: { x: 525, y: 140, w: 340, h: 78, size: 7.5, color: "#ffffff",
+            font: "'Exo 2'", style: "font-style:italic;font-weight:800;letter-spacing:.04em;" },
+    month: { x: 705, y: 308, size: 3.2, ls: ".42em", color: "#a99cf0", font: "'Exo 2'", weight: 600 },
+    score: { x: 690, y: 412, digitH: 115, size: 15.6, font: "'Exo 2'",
+             style: "font-style:italic;font-weight:800;background:linear-gradient(100deg,#ff4fa8 8%,#6a63f5 48%,#2ee6a8 92%);-webkit-background-clip:text;background-clip:text;color:transparent;" },
+    avatar: [268, 402, 118],
+    obj: { text: [667, 744, 821], bar: [702, 776, 853], left: [112, 476], right: [545, 915],
+           barH: 16, valL: 477, valR: 913, valSize: 3.2, valColor: "#a99cf0", font: "'Exo 2'", weight: 600 },
+    gaugeFill: "linear-gradient(90deg,#ff4fa8,#2ee6a8)", gaugeRadius: 99,
+    table: { start: 1043, step: 60, color: "#eae6f8", size: 3.3, font: "'Exo 2'", weight: 600 } },
+
   { file: "theme_1", label: "1 — Dossier confidentiel",
-    nameFont: "'Stardos Stencil'", font: "'Special Elite'", ink: "#3a332a", score: "#211c15",
-    nameColor: "#4a4a30", tint: "rgba(210,192,158,.5)",
-    name: [527, 205, 440, 10.8], scoreBox: [730, 445, 17.6, 130], avatar: [307, 450, 148],
-    objText: [760, 845, 928], objBar: [800, 884, 966], leftBar: [162, 484], rightBar: [556, 893], barH: 26, valL: 480, valR: 890,
-    table: [1130, 45.5] },
+    covers: { name: "#d7c3a7", score: "#cbb695", obj: "#d2bea0" },
+    name: { x: 527, y: 205, w: 475, h: 102, size: 11.1, color: "#4a4124",
+            font: "'Stardos Stencil'", style: "font-weight:700;letter-spacing:.08em;" },
+    month: { x: 735, y: 335, size: 4.2, ls: ".3em", color: "#4d412d", font: "'Special Elite'", weight: 400 },
+    score: { x: 730, y: 445, digitH: 130, size: 17.4, font: "'Alfa Slab One'", color: "#2a2419" },
+    avatar: [307, 450, 148],
+    obj: { text: [760, 845, 928], bar: [800, 884, 966], left: [162, 484], right: [556, 893],
+           barH: 26, valL: 480, valR: 890, valSize: 4.1, valColor: "#4a4236", font: "'Special Elite'", weight: 400 },
+    gaugeFill: "#3f3524d9", gaugeRadius: 3,
+    table: { start: 1130, step: 45.5, color: "#3a332a", size: 3.7, font: "'Special Elite'", weight: 400 } },
+
   { file: "theme_2", label: "2 — Manga N&B",
-    nameFont: "'Permanent Marker'", font: "'Archivo Black'", ink: "#141414", score: "#141414",
-    nameColor: "#101010", tint: "rgba(244,242,236,.55)", nameTint: "rgba(244,242,236,.6)",
-    name: [520, 145, 540, 9.8], scoreBox: [715, 422, 19.6, 145], avatar: [300, 430, 124],
-    objText: [700, 777, 855], objBar: [735, 810, 888], leftBar: [112, 478], rightBar: [540, 912], barH: 18, valL: 477, valR: 910,
-    table: [1065, 53.5] },
+    covers: { name: "#efece7", score: "#e5e2dd", obj: "#f2efea" },
+    name: { x: 520, y: 145, w: 510, h: 96, size: 10.2, color: "#131110",
+            font: "'Knewave'", style: "transform:skewX(-6deg);display:inline-block;letter-spacing:.02em;" },
+    month: { x: 718, y: 295, size: 3.7, ls: ".4em", color: "#0e0c0a", font: "'Oswald'", weight: 600 },
+    score: { x: 715, y: 422, digitH: 145, size: 19.7, w: 320, pad: 8, cover: "radial-gradient(ellipse at 50% 50%, #f6f4ef 35%, #e6e3dc 100%)", font: "'Archivo Black'", color: "#131110",
+             style: "transform:skewX(-8deg);display:inline-block;text-shadow:0 0 4px #fff,0 0 8px #fff,0 0 14px #fff,4px 4px 6px #fff,-4px 4px 6px #fff,4px -4px 6px #fff,-4px -4px 6px #fff,0 6px 8px #fff,0 -6px 8px #fff;" },
+    avatar: [300, 428, 115],
+    obj: { text: [700, 777, 855], bar: [735, 810, 888], left: [112, 478], right: [540, 912],
+           barH: 18, valL: 477, valR: 910, valSize: 3.6, valColor: "#0d0b09", font: "'Oswald'", weight: 600 },
+    gaugeFill: "#131110e0", gaugeRadius: 99,
+    table: { start: 1065, step: 53.5, color: "#0b0907", size: 3.5, font: "'Oswald'", weight: 600 } },
+
   { file: "theme_3", label: "3 — Grimoire médiéval",
-    nameFont: "'Cinzel Decorative'", font: "'Cinzel'", ink: "#e3c368", score: "#e3c368",
-    nameColor: "#e8cf82", tint: "rgba(40,30,18,.5)",
-    name: [510, 170, 440, 9.8], scoreBox: [720, 445, 19.5, 140], avatar: [302, 435, 108],
-    objText: [706, 779, 852], objBar: [739, 812, 884], leftBar: [128, 470], rightBar: [548, 888], barH: 10, valL: 472, valR: 890,
-    table: [1070, 52.5] },
+    covers: { name: "#453320", score: "#2d2416", obj: "#1c150e" },
+    name: { x: 510, y: 170, w: 390, h: 86, size: 9.8, color: "#d5b26f",
+            font: "'Grenze Gotisch'", style: "font-weight:700;letter-spacing:.1em;text-shadow:0 2px 4px rgba(0,0,0,.65);" },
+    month: { x: 720, y: 320, size: 3.6, ls: ".38em", color: "#cfc0a0", font: "'Cinzel'", weight: 400 },
+    score: { x: 720, y: 445, digitH: 140, size: 20.1, font: "'Cormorant Garamond'", color: "#cfa54f",
+             style: "font-weight:700;text-shadow:0 2px 5px rgba(0,0,0,.6);" },
+    avatar: [302, 435, 108],
+    obj: { text: [706, 779, 852], bar: [739, 812, 884], left: [128, 470], right: [548, 888],
+           barH: 10, valL: 472, valR: 890, valSize: 3.8, valColor: "#c9a25c", font: "'EB Garamond'", weight: 600 },
+    gaugeFill: "#cfa54fd9", gaugeRadius: 5,
+    table: { start: 1070, step: 52.5, color: "#d8c9a4", size: 3.6, font: "'EB Garamond'", weight: 600 } },
+
   { file: "theme_4", label: "4 — Carnet maudit",
-    nameFont: "'Archivo Black'", font: "'Special Elite'", ink: "#241c12", score: "#241c12",
-    nameColor: "#1c150d", tint: "rgba(196,178,148,.5)",
-    name: [520, 145, 400, 9.5], scoreBox: [700, 420, 16.3, 120], avatar: [288, 395, 122],
-    objText: [696, 774, 851], objBar: [730, 808, 885], leftBar: [115, 470], rightBar: [535, 888], barH: 20, valL: 470, valR: 885,
-    table: [1065, 53.5] },
+    covers: { name: "#baa384", score: "#ac987b", obj: "#af9a7e" },
+    name: { x: 520, y: 145, w: 370, h: 92, size: 9.5, color: "#221b10",
+            font: "'Anton'", style: "letter-spacing:.08em;" },
+    month: { x: 705, y: 310, size: 3.9, ls: ".3em", color: "#3a2f1e", font: "'Special Elite'", weight: 400 },
+    score: { x: 700, y: 420, digitH: 120, size: 16.3, font: "'Anton'", color: "#211c14" },
+    avatar: [288, 395, 122],
+    obj: { text: [696, 774, 851], bar: [730, 808, 885], left: [115, 470], right: [535, 888],
+           barH: 20, valL: 470, valR: 885, valSize: 4.1, valColor: "#453827", font: "'Special Elite'", weight: 400 },
+    gaugeFill: "#3a2d1ad9", gaugeRadius: 3,
+    table: { start: 1065, step: 53.5, color: "#362a17", size: 3.7, font: "'Special Elite'", weight: 400 } },
+
   { file: "theme_5", label: "5 — Film noir",
-    nameFont: "'Oswald'", font: "'Oswald'", scoreFont: "'Archivo Black'", scoreStyle: "transform:skewX(-8deg);display:inline-block;",
-    ink: "#e6e0d0", score: "#c8342a", nameColor: "#efe9d8", tint: "rgba(22,20,18,.55)",
-    name: [515, 142, 360, 8.8], scoreBox: [725, 400, 19, 140], avatar: [312, 392, 122],
-    objText: [694, 779, 867], objBar: [731, 816, 905], leftBar: [120, 485], rightBar: [535, 905], barH: 20, valL: 465, valR: 878,
-    table: [1080, 51] },
+    covers: { name: "#15120f", score: "#16130f", obj: "#11100c" },
+    name: { x: 515, y: 142, w: 335, h: 96, size: 8.7, color: "#efe8d8",
+            font: "'Oswald'", style: "font-weight:600;letter-spacing:.16em;" },
+    month: { x: 710, y: 290, size: 3.6, ls: ".32em", color: "#8a8478", font: "'Special Elite'", weight: 400 },
+    score: { x: 725, y: 400, digitH: 140, size: 19, w: 340, pad: 34, font: "'Anton'", color: "#b02c22",
+             style: "transform:skewX(-10deg);display:inline-block;" },
+    avatar: [312, 392, 122],
+    obj: { text: [694, 779, 867], bar: [731, 816, 905], left: [120, 485], right: [535, 905],
+           barH: 20, valL: 476, valR: 888, valSize: 3.5, valColor: "#d6d0c0", font: "'Oswald'", weight: 500 },
+    gaugeFill: "#d8d2c2cc", gaugeRadius: 2,
+    table: { start: 1080, step: 51, color: "#d6d0c0", size: 3.4, font: "'Oswald'", weight: 500 } },
+
   { file: "theme_6", label: "6 — Romance",
-    nameFont: "'Cormorant Garamond'", font: "'Cormorant Garamond'", scoreFont: "'Playfair Display'",
-    ink: "#7a2233", score: "#7a2233", nameColor: "#8d2136", tint: "rgba(248,244,238,.55)",
-    name: [535, 142, 420, 7.7], scoreBox: [730, 408, 17.4, 125], avatar: [312, 418, 112],
-    objText: [703, 782, 860], objBar: [737, 817, 895], leftBar: [140, 488], rightBar: [558, 905], barH: 22, valL: 490, valR: 900,
-    table: [1075, 51.5] },
+    covers: { name: "#f4ede3", score: "#f4eee3", obj: "#f4ede3" },
+    name: { x: 535, y: 142, w: 380, h: 78, size: 7.7, color: "#5a2928",
+            font: "'Playfair Display'", style: "font-weight:600;letter-spacing:.2em;" },
+    month: { x: 730, y: 293, size: 3.6, ls: ".4em", color: "#9a9288", font: "'Cormorant Garamond'", weight: 500 },
+    score: { x: 730, y: 408, digitH: 125, size: 17.4, font: "'Playfair Display'", color: "#5c1f1f",
+             style: "font-weight:700;" },
+    avatar: [312, 418, 112],
+    obj: { text: [703, 782, 860], bar: [737, 817, 895], left: [140, 488], right: [558, 905],
+           barH: 22, valL: 490, valR: 900, valSize: 3.9, valColor: "#918a7e", font: "'EB Garamond'", weight: 500 },
+    gaugeFill: "#5c1f1fb3", gaugeRadius: 99,
+    table: { start: 1075, step: 51.5, color: "#5f4a44", size: 3.6, font: "'EB Garamond'", weight: 500 } },
+
   { file: "theme_7", label: "7 — Sci-fi industriel",
-    nameFont: "'Orbitron'", font: "'Rajdhani'", scoreFont: "'Orbitron'",
-    ink: "#9fd8ff", score: "#bfe6ff", nameColor: "#cdeaff", tint: "rgba(10,20,34,.5)",
-    name: [525, 150, 350, 6.8], scoreBox: [690, 390, 13.6, 100], avatar: [312, 390, 128],
-    objText: [660, 732, 804], objBar: [691, 763, 835], leftBar: [162, 478], rightBar: [545, 855], barH: 16, valL: 465, valR: 850,
-    table: [995, 43] },
+    covers: { name: "#23313b", score: "#1f4058", obj: "#1e2d37" },
+    name: { x: 525, y: 150, w: 325, h: 74, size: 7, color: "#9fdcff",
+            font: "'Orbitron'", style: "font-weight:800;letter-spacing:.1em;text-shadow:0 0 14px rgba(90,200,255,.9),0 0 30px rgba(60,170,255,.5);" },
+    month: { x: 710, y: 285, size: 3.2, ls: ".4em", color: "#7fc9e8", font: "'Rajdhani'", weight: 600 },
+    score: { x: 690, y: 390, digitH: 100, size: 13.6, font: "'Exo 2'", color: "#8fd8ff",
+             style: "font-style:italic;font-weight:800;text-shadow:0 0 16px rgba(90,200,255,.95),0 0 36px rgba(60,170,255,.6);" },
+    avatar: [312, 390, 128],
+    obj: { text: [660, 732, 804], bar: [691, 763, 835], left: [162, 478], right: [545, 855],
+           barH: 16, valL: 476, valR: 858, valSize: 3.4, valColor: "#8ecfec", font: "'Rajdhani'", weight: 700 },
+    gaugeFill: "#7fd4ff99", gaugeRadius: 2,
+    table: { start: 995, step: 43, color: "#8ecfec", size: 3.3, font: "'Rajdhani'", weight: 700 } },
+
   { file: "theme_8", label: "8 — Comics rétro pop",
-    nameFont: "'Bangers'", font: "'Bangers'", ink: "#14265c", score: "#d21f27",
-    nameColor: "#ffd23f", tint: "rgba(240,230,210,.5)", nameTint: "rgba(28,58,150,.55)", scoreTint: "rgba(245,205,60,.5)",
-    name: [520, 178, 550, 10.3], scoreBox: [725, 450, 16.3, 150], avatar: [282, 435, 126],
-    objText: [700, 774, 852], objBar: [733, 806, 885], leftBar: [105, 478], rightBar: [540, 918], barH: 20, valL: 465, valR: 915,
-    table: [1035, 54] },
+    covers: { name: "#2343a4", score: "#e5ae12", obj: "#f0dab8" },
+    name: { x: 520, y: 178, w: 520, h: 120, size: 9.8, color: "#f2e5c8",
+            font: "'Bangers'", style: "letter-spacing:.05em;-webkit-text-stroke:.035em #15100c;text-shadow:.05em .05em 0 #c62a1e,.08em .08em 0 #15100c;" },
+    month: { x: 740, y: 320, size: 4.1, ls: ".22em", color: "#191512", font: "'Archivo Black'", weight: 400 },
+    score: { x: 725, y: 450, digitH: 150, size: 15.4, w: 360, pad: 40, font: "'Bangers'", color: "#d0281c",
+             style: "-webkit-text-stroke:.03em #15100c;text-shadow:.06em .06em 0 #15100c;" },
+    avatar: [282, 435, 126],
+    obj: { text: [700, 774, 852], bar: [733, 806, 885], left: [105, 478], right: [540, 918],
+           barH: 20, valL: 465, valR: 915, valSize: 3.4, valColor: "#16120e", font: "'Archivo Black'", weight: 400 },
+    gaugeFill: "#d0281ccc", gaugeRadius: 3,
+    table: { start: 1035, step: 54, color: "#16120e", size: 3.3, font: "'Archivo Black'", weight: 400 } },
+
   { file: "theme_9", label: "9 — Avis de recherche western",
-    nameFont: "'Rye'", font: "'Special Elite'", ink: "#3a2a18", score: "#7a3018",
-    nameColor: "#332414", tint: "rgba(205,182,142,.5)",
-    name: [520, 180, 600, 11.7], scoreBox: [710, 460, 19, 140], avatar: [320, 440, 118],
-    objText: [728, 802, 880], objBar: [762, 836, 913], leftBar: [145, 482], rightBar: [525, 890], barH: 22, valL: 475, valR: 888,
-    table: [1075, 51.5] },
+    covers: { name: "#bfa06a", score: "#a98457", obj: "#c19e6d" },
+    name: { x: 520, y: 180, w: 580, h: 112, size: 12, color: "#3a2812",
+            font: "'Alfa Slab One'", style: "letter-spacing:.04em;" },
+    month: { x: 705, y: 338, size: 4.2, ls: ".26em", color: "#46301a", font: "'Graduate'", weight: 400 },
+    score: { x: 710, y: 460, digitH: 140, size: 19, font: "'Rye'", color: "#7a3a10" },
+    avatar: [320, 440, 112],
+    obj: { text: [728, 802, 880], bar: [762, 836, 913], left: [145, 482], right: [525, 890],
+           barH: 22, valL: 475, valR: 888, valSize: 3.9, valColor: "#46301a", font: "'Graduate'", weight: 400 },
+    gaugeFill: "#5c422acc", gaugeRadius: 3,
+    table: { start: 1075, step: 51.5, color: "#46301a", size: 3.7, font: "'Graduate'", weight: 400 } },
 ];
 
 const L = (x) => (x / 1024) * 100 + "%";
@@ -132,70 +201,73 @@ const T = (y) => (y / 1536) * 100 + "%";
 const W = (w) => (w / 1024) * 100 + "%";
 const H = (h) => (h / 1536) * 100 + "%";
 
-function zone(x, y, w, h, tint, inner, extra = "") {
-  const patch = tint ? `class="zone patch" style="background:${tint};` : `class="zone" style="`;
-  return `<div ${patch}left:${L(x)};top:${T(y)};width:${W(w)};height:${H(h)};${extra}">${inner}</div>`;
+function zone(x, y, w, h, fill, inner, extra = "") {
+  const bg = fill ? `background:${fill};` : "";
+  return `<div class="zone" style="${bg}left:${L(x)};top:${T(y)};width:${W(w)};height:${H(h)};${extra}">${inner}</div>`;
 }
+
+const span = (font, weight, color, sizeCqw, content, extra = "") =>
+  `<span class="fit" style="font-family:${font}, sans-serif;font-weight:${weight};color:${color};font-size:${sizeCqw}cqw;${extra}">${content}</span>`;
 
 function cardHtml(t) {
   const parts = [`<img class="bg" src="templates/${t.file}.jpeg" alt="">`];
-  const text = (font, color, sizeCqw, extra = "") =>
-    `font-family:${font}, sans-serif;color:${color};font-weight:700;font-size:${sizeCqw}cqw;${extra}`;
 
-  // Pseudo — recouvre le « PSEUDO » incrusté (position, cache et corps mesurés).
-  const [nx, ny, nw, nSize] = t.name;
-  parts.push(zone(nx, ny, nw, nSize * 10.24 * 1.15 + 20, t.nameTint ?? t.tint,
-    `<span class="fit" style="${text(t.nameFont, t.nameColor, nSize, "letter-spacing:.06em;" + (t.nameStyle ?? ""))}">${DATA.name}</span>`));
+  // Pseudo — cache serré sur le « PSEUDO » incrusté.
+  parts.push(zone(t.name.x, t.name.y, t.name.w, t.name.h, t.covers.name,
+    span(t.name.font, 700, t.name.color, t.name.size, DATA.name, t.name.style ?? "")));
   // Avatar dans le rond du thème.
   const [ax, ay, ar] = t.avatar;
   parts.push(`<img class="avatar" src="${DATA.avatar}" alt="" style="left:${L(ax)};top:${T(ay)};width:${W(ar * 1.84)};aspect-ratio:1">`);
-  // Score — corps MESURÉ sur le « +21 » incrusté (le « AOÛT 2026 » est déjà le
-  // bon mois, on le garde). « +48,5 » étant plus large que « +21 », le span
-  // .fit se rétrécit pour tenir dans le cartouche sans dépasser.
-  const [sx, sy, sSize, sDigitH] = t.scoreBox;
-  parts.push(zone(sx, sy, 380, sDigitH + 44, t.scoreTint ?? t.tint,
-    `<span class="fit" style="${text(t.scoreFont ?? t.font, t.score, sSize, t.scoreStyle ?? "")}">${DATA.score}</span>`));
+  // La DATE — pilotée : le « AOÛT 2026 » incrusté est recouvert puis redessiné.
+  parts.push(zone(t.month.x, t.month.y, 310, 42, t.covers.score,
+    span(t.month.font, t.month.weight, t.month.color, t.month.size, DATA.month, `letter-spacing:${t.month.ls};`)));
+  // Score — corps mesuré ; « +48,5 » plus large que « +21 » se rétrécit (fit).
+  // noCover : le halo du texte recouvre, le décor du panneau survit (manga).
+  parts.push(zone(t.score.x, t.score.y, t.score.w ?? 330, t.score.digitH + (t.score.pad ?? 18), t.score.cover ?? t.covers.score,
+    span(t.score.font, 700, t.score.color ?? "#000", t.score.size, DATA.score, t.score.style ?? "")));
 
-  // Objectifs : valeurs « fait / cible » (bord droit mesuré) + remplissage des jauges DANS la boîte mesurée.
+  // Objectifs : valeurs « fait / cible » + remplissage des jauges mesurées.
   DATA.objectives.forEach((objective, i) => {
     const row = i % 3;
-    const valRight = i < 3 ? t.valL : t.valR;
+    const valRight = i < 3 ? t.obj.valL : t.obj.valR;
     const label = objective === null ? "—" : `${objective.finished} / ${objective.target}`;
-    parts.push(zone(valRight - 66, t.objText[row], 140, 38, t.tint,
-      `<span style="${text(t.font, t.ink, 2.5)}">${label}</span>`, "justify-content:flex-end;padding-right:.6cqw;"));
+    parts.push(zone(valRight - 50, t.obj.text[row], 112, 36, t.covers.obj,
+      span(t.obj.font, t.obj.weight, t.obj.valColor, t.obj.valSize, label), "justify-content:flex-end;"));
     if (objective !== null && objective.target > 0 && objective.finished > 0) {
-      const [barStart, barEnd] = i < 3 ? t.leftBar : t.rightBar;
+      const [barStart, barEnd] = i < 3 ? t.obj.left : t.obj.right;
       const inset = 6;
       const width = (barEnd - barStart - inset * 2) * Math.min(1, objective.finished / objective.target);
-      parts.push(`<div class="gauge" style="left:${L(barStart + inset)};top:${T(t.objBar[row])};width:${W(width)};height:${H(Math.max(6, t.barH - 6))};background:color-mix(in srgb, ${t.ink} 50%, transparent)"></div>`);
+      parts.push(`<div class="gauge" style="left:${L(barStart + inset)};top:${T(t.obj.bar[row])};width:${W(width)};height:${H(Math.max(6, t.obj.barH - 6))};background:${t.gaugeFill};border-radius:${t.gaugeRadius}px"></div>`);
     }
   });
 
-  // Tableau : les compteurs dans la colonne du milieu (vide dans le fond — rien à recouvrir).
-  const [tableStart, tableStep] = t.table;
+  // Tableau : compteurs dans la colonne du milieu (vide dans le fond).
   DATA.counts.forEach((count, i) => {
-    parts.push(zone(565, tableStart + tableStep * i, 130, 40, null,
-      `<span style="${text(t.font, t.ink, 2.7)}">${count}</span>`));
+    parts.push(zone(565, t.table.start + t.table.step * i, 130, 40, null,
+      span(t.table.font, t.table.weight, t.table.color, t.table.size, count)));
   });
 
   return `<figure><div class="card">${parts.join("")}</div><figcaption>${t.label}</figcaption></figure>`;
 }
 
-document.getElementById("grid").innerHTML = THEMES.map(cardHtml).join("");
+const onlyTheme = new URLSearchParams(location.search).get("theme");
+if (onlyTheme !== null) document.body.classList.add("single");
+document.getElementById("grid").innerHTML = THEMES
+  .filter((_, index) => onlyTheme === null || String(index) === onlyTheme)
+  .map(cardHtml)
+  .join("");
 
-// Ajustement de largeur : un texte plus large que sa zone (« +48,5 » vs
-// « +21 » incrusté, pseudo long) se rétrécit — jamais de débordement. Le vrai
-// moteur canvas fera exactement pareil (mesure puis échelle).
+// Ajustement de largeur : un texte plus large que sa zone se rétrécit — jamais
+// de débordement. Le vrai moteur canvas fera pareil (mesure puis échelle).
 function fitAll() {
-  for (const span of document.querySelectorAll(".zone .fit")) {
-    // Le transform d'origine (ex. le penché du score film noir) est préservé.
-    if (span.dataset.baseTransform === undefined) span.dataset.baseTransform = span.style.transform ?? "";
-    const available = span.parentElement.clientWidth * 0.92;
-    span.style.transform = span.dataset.baseTransform;
-    const width = span.getBoundingClientRect().width;
+  for (const el of document.querySelectorAll(".zone .fit")) {
+    if (el.dataset.baseTransform === undefined) el.dataset.baseTransform = el.style.transform ?? "";
+    const available = el.parentElement.clientWidth * 0.94;
+    el.style.transform = el.dataset.baseTransform;
+    const width = el.getBoundingClientRect().width;
     if (width > available) {
-      span.style.display = "inline-block";
-      span.style.transform = `${span.dataset.baseTransform} scale(${available / width})`.trim();
+      el.style.display = "inline-block";
+      el.style.transform = `${el.dataset.baseTransform} scale(${available / width})`.trim();
     }
   }
 }
