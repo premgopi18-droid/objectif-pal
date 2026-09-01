@@ -210,7 +210,7 @@ const span = (font, weight, color, sizeCqw, content, extra = "") =>
   `<span class="fit" style="font-family:${font}, sans-serif;font-weight:${weight};color:${color};font-size:${sizeCqw}cqw;${extra}">${content}</span>`;
 
 function cardHtml(t) {
-  const parts = [`<img class="bg" src="templates/${t.file}.jpeg" alt="">`];
+  const parts = [`<img class="bg" src="templates/${t.file}${VIRGIN ? "_virgin" : ""}.jpeg" alt="">`];
 
   // Pseudo — TRANSPARENT (cartographie : rien du template n'est caché ;
   // la double exposition avec les valeurs d'exemple disparaîtra avec les
@@ -255,6 +255,7 @@ function cardHtml(t) {
 
 const params = new URLSearchParams(location.search);
 const ISO = params.get("iso") === "1";
+const VIRGIN = params.get("virgin") === "1";
 if (ISO) {
   DATA.name = "PSEUDO";
   DATA.month = "AOÛT 2026";
