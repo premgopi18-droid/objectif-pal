@@ -104,14 +104,27 @@ function lineBoxBaseline(ctx: Ctx, y: number): number {
   return y + (metrics.fontBoundingBoxAscent - metrics.fontBoundingBoxDescent) / 2;
 }
 
-/** Largeur utile du texte : l'interlettrage traînant du dernier glyphe est retranché. */
+/**
+ * Firefox n'implémente pas `letterSpacing` sur le canvas : l'affectation y est
+ * inerte et le texte se dessine resserré — dégradation ASSUMÉE (mesure et
+ * rendu partagent le même état, tout reste centré). Le prototype fait foi :
+ * une affectation ratée laisserait une propriété propre trompeuse (review #264).
+ */
+const letterSpacingSupported = (): boolean =>
+  typeof CanvasRenderingContext2D !== "undefined" && "letterSpacing" in CanvasRenderingContext2D.prototype;
+
+/**
+ * Largeur utile du texte : l'interlettrage traînant du dernier glyphe est
+ * retranché — seulement s'il s'applique réellement (sinon le centre glisserait
+ * de ls/2 sur les navigateurs sans letterSpacing).
+ */
 function usefulWidth(ctx: Ctx, text: string, style: ShareTextStyle): number {
-  const trailing = (style.letterSpacing ?? 0) * style.size;
+  const trailing = letterSpacingSupported() ? (style.letterSpacing ?? 0) * style.size : 0;
   return Math.max(1, ctx.measureText(text).width - trailing);
 }
 
 function applyLetterSpacing(ctx: Ctx, style: ShareTextStyle): void {
-  // letterSpacing canvas : supporté partout où l'app tourne (précisé en px).
+  if (!letterSpacingSupported()) return;
   ctx.letterSpacing = `${(style.letterSpacing ?? 0) * style.size}px`;
 }
 

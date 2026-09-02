@@ -73,6 +73,17 @@ export function ShareSheet({ report, displayName, avatarUrl, onShareText, onClos
     };
   }, [theme, report, displayName, avatarUrl]);
 
+  // Échap ferme la feuille d'où que vienne le focus — le comportement attendu
+  // d'un dialogue (review #264 : un onKeyDown sur un div non focusable ne se
+  // déclenchait qu'après un tap à l'intérieur).
+  useEffect(() => {
+    const onKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   const chooseTheme = useCallback((next: ShareTheme) => {
     setTheme(next);
     try {
@@ -122,9 +133,6 @@ export function ShareSheet({ report, displayName, avatarUrl, onShareText, onClos
       aria-modal="true"
       aria-label="Partager mon bilan"
       onClick={onClose}
-      onKeyDown={(event) => {
-        if (event.key === "Escape") onClose();
-      }}
     >
       <div
         className="max-h-[92dvh] w-full max-w-lg overflow-y-auto rounded-t-2xl border-t border-line bg-card p-4 pb-6"
