@@ -23,7 +23,11 @@
           transform: translate(-50%, -50%); white-space: nowrap; line-height: 1; }
   /* Recouvrement : cache PLEIN à la couleur du panneau, SERRÉ sur les glyphes
      incrustés — les déco du template autour restent intactes. */
-  .avatar { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; object-fit: cover; }
+  /* Le masque photo : épouse la forme INTÉRIEURE du cadre de chaque thème
+     (cercle ou ovale, mesuré au bord intérieur — les bordures restent
+     visibles), la photo le remplit en cover et ne déborde jamais. */
+  .avatar-mask { position: absolute; transform: translate(-50%, -50%); border-radius: 50%; overflow: hidden; }
+  .avatar-mask img { width: 100%; height: 100%; object-fit: cover; display: block; }
   .gauge { position: absolute; transform: translateY(-50%); }
 
   /* Mode capture : ?theme=N — une seule carte plein cadre, sans chrome. */
@@ -75,7 +79,7 @@ const THEMES = [
     month: { x: 700, y: 308, size: 3.2, ls: ".42em", color: "#a99cf0", font: "'Exo 2'", weight: 600 },
     score: { x: 700, y: 414, digitH: 115, size: 15.6, w: 370, font: "'Exo 2'",
              style: "font-style:italic;font-weight:800;background:linear-gradient(105deg,#ff45c8 5%,#7a58f2 45%,#2bd8d8 90%);-webkit-background-clip:text;background-clip:text;color:transparent;" },
-    avatar: [272, 398, 128],
+    avatar: [272, 400, 120],
     obj: { text: [667, 744, 821], bar: [702, 776, 853], left: [112, 476], right: [545, 915],
            barH: 16, valL: 477, valR: 913, valSize: 3, valColor: "#a99cf0", font: "'Exo 2'", weight: 600 },
     gaugeFill: "linear-gradient(90deg,#ff4fa8,#2ee6a8)", gaugeRadius: 99,
@@ -87,7 +91,7 @@ const THEMES = [
             font: "'Stardos Stencil'", style: "font-weight:700;letter-spacing:.08em;" },
     month: { x: 735, y: 335, size: 4.2, ls: ".3em", color: "#4d412d", font: "'Special Elite'", weight: 400 },
     score: { x: 730, y: 460, digitH: 140, size: 19, w: 350, font: "'Alfa Slab One'", color: "#2a2419" },
-    avatar: [306, 452, 165],
+    avatar: [306, 452, 154],
     obj: { text: [760, 845, 928], bar: [800, 884, 966], left: [162, 484], right: [556, 893],
            barH: 26, valL: 480, valR: 890, valSize: 3.4, valColor: "#4a4236", font: "'Special Elite'", weight: 400 },
     gaugeFill: "#3f3524d9", gaugeRadius: 3,
@@ -100,7 +104,7 @@ const THEMES = [
     month: { x: 715, y: 295, size: 3.7, ls: ".4em", color: "#0e0c0a", font: "'Oswald'", weight: 600 },
     score: { x: 720, y: 422, digitH: 150, size: 20.5, w: 390, font: "'Archivo Black'", color: "#131110",
              style: "transform:skewX(-8deg);display:inline-block;text-shadow:0 0 4px #fff,0 0 8px #fff,0 0 14px #fff,4px 4px 6px #fff,-4px 4px 6px #fff,4px -4px 6px #fff,-4px -4px 6px #fff,0 6px 8px #fff,0 -6px 8px #fff;" },
-    avatar: [303, 431, 136],
+    avatar: [301, 429, 132, 130],
     obj: { text: [700, 777, 855], bar: [735, 810, 888], left: [112, 478], right: [540, 912],
            barH: 18, valL: 477, valR: 910, valSize: 3.2, valColor: "#0d0b09", font: "'Oswald'", weight: 600 },
     gaugeFill: "#131110e0", gaugeRadius: 99,
@@ -113,7 +117,7 @@ const THEMES = [
     month: { x: 720, y: 320, size: 3.6, ls: ".42em", color: "#cfc0a0", font: "'Cinzel'", weight: 400 },
     score: { x: 720, y: 432, digitH: 145, size: 20.8, w: 355, font: "'Cormorant Garamond'", color: "#cfa54f",
              style: "font-weight:700;text-shadow:0 2px 5px rgba(0,0,0,.6);" },
-    avatar: [302, 428, 119],
+    avatar: [300, 426, 111],
     obj: { text: [706, 779, 852], bar: [739, 812, 884], left: [128, 470], right: [548, 888],
            barH: 10, valL: 472, valR: 890, valSize: 3.5, valColor: "#c9a25c", font: "'EB Garamond'", weight: 600 },
     gaugeFill: "#cfa54fd9", gaugeRadius: 5,
@@ -125,7 +129,7 @@ const THEMES = [
             font: "'Anton'", style: "letter-spacing:.1em;" },
     month: { x: 711, y: 310, size: 3.9, ls: ".3em", color: "#3a2f1e", font: "'Special Elite'", weight: 400 },
     score: { x: 705, y: 415, digitH: 150, size: 19.8, w: 365, font: "'Anton'", color: "#332a1c" },
-    avatar: [299, 405, 134],
+    avatar: [299, 405, 126],
     obj: { text: [696, 774, 851], bar: [730, 808, 885], left: [115, 470], right: [535, 888],
            barH: 20, valL: 470, valR: 885, valSize: 3.2, valColor: "#453827", font: "'Special Elite'", weight: 400 },
     gaugeFill: "#3a2d1ad9", gaugeRadius: 3,
@@ -138,7 +142,7 @@ const THEMES = [
     month: { x: 711, y: 290, size: 3.6, ls: ".32em", color: "#8a8478", font: "'Special Elite'", weight: 400 },
     score: { x: 708, y: 400, digitH: 145, size: 19.5, w: 400, pad: 34, font: "'Anton'", color: "#b02c22",
              style: "transform:skewX(-10deg);display:inline-block;" },
-    avatar: [302, 396, 135],
+    avatar: [300, 396, 124],
     obj: { text: [694, 779, 867], bar: [731, 816, 905], left: [120, 485], right: [535, 905],
            barH: 20, valL: 476, valR: 888, valSize: 3.3, valColor: "#d6d0c0", font: "'Oswald'", weight: 500 },
     gaugeFill: "#d8d2c2cc", gaugeRadius: 2,
@@ -151,7 +155,7 @@ const THEMES = [
     month: { x: 727, y: 293, size: 3.6, ls: ".4em", color: "#9a9288", font: "'Cormorant Garamond'", weight: 500 },
     score: { x: 727, y: 401, digitH: 122, size: 17, w: 375, font: "'Playfair Display'", color: "#5c1f1f",
              style: "font-weight:700;" },
-    avatar: [305, 420, 130],
+    avatar: [307, 421, 121, 131],
     obj: { text: [703, 782, 860], bar: [737, 817, 895], left: [140, 488], right: [558, 905],
            barH: 22, valL: 490, valR: 900, valSize: 3.6, valColor: "#918a7e", font: "'EB Garamond'", weight: 500 },
     gaugeFill: "#5c1f1fb3", gaugeRadius: 99,
@@ -164,7 +168,7 @@ const THEMES = [
     month: { x: 700, y: 285, size: 3.3, ls: ".44em", color: "#7fc9e8", font: "'Rajdhani'", weight: 600 },
     score: { x: 690, y: 390, digitH: 108, size: 14.6, w: 335, font: "'Exo 2'", color: "#eaf7ff",
              style: "font-style:italic;font-weight:800;text-shadow:0 0 10px rgba(140,220,255,1),0 0 24px rgba(80,190,255,.9),0 0 48px rgba(50,160,255,.6);" },
-    avatar: [301, 383, 152],
+    avatar: [311, 393, 128, 131],
     obj: { text: [660, 732, 804], bar: [691, 763, 835], left: [162, 478], right: [545, 855],
            barH: 16, valL: 476, valR: 858, valSize: 3.2, valColor: "#8ecfec", font: "'Rajdhani'", weight: 700 },
     gaugeFill: "#7fd4ff99", gaugeRadius: 2,
@@ -177,7 +181,7 @@ const THEMES = [
     month: { x: 756, y: 320, size: 4.2, ls: ".3em", color: "#191512", font: "'Archivo Black'", weight: 400 },
     score: { x: 735, y: 455, digitH: 160, size: 16.6, w: 395, pad: 40, font: "'Bangers'", color: "#d0281c",
              style: "-webkit-text-stroke:.03em #15100c;text-shadow:.05em .05em 0 #15100c,.1em .08em 0 #58c33a;" },
-    avatar: [290, 438, 136],
+    avatar: [288, 436, 130],
     obj: { text: [700, 774, 852], bar: [733, 806, 885], left: [105, 478], right: [540, 918],
            barH: 20, valL: 465, valR: 915, valSize: 3.2, valColor: "#16120e", font: "'Archivo Black'", weight: 400 },
     gaugeFill: "#d0281ccc", gaugeRadius: 3,
@@ -189,7 +193,7 @@ const THEMES = [
             font: "'Alfa Slab One'", style: "letter-spacing:.06em;" },
     month: { x: 709, y: 338, size: 4.4, ls: ".3em", color: "#46301a", font: "'Graduate'", weight: 400 },
     score: { x: 712, y: 452, digitH: 155, size: 21, w: 360, font: "'Rye'", color: "#7a3a10" },
-    avatar: [327, 450, 130],
+    avatar: [324, 447, 124],
     obj: { text: [728, 802, 880], bar: [762, 836, 913], left: [145, 482], right: [525, 890],
            barH: 22, valL: 490, valR: 900, valSize: 3.2, valColor: "#46301a", font: "'Graduate'", weight: 400 },
     gaugeFill: "#5c422acc", gaugeRadius: 3,
@@ -217,9 +221,10 @@ function cardHtml(t) {
   // fonds vierges).
   parts.push(zone(t.name.x, t.name.y, t.name.w, t.name.h, null,
     span(t.name.font, 700, t.name.color, t.name.size, DATA.name, t.name.style ?? "")));
-  // Avatar dans le rond du thème.
-  const [ax, ay, ar] = t.avatar;
-  if (DATA.avatar) parts.push(`<img class="avatar" src="${DATA.avatar}" alt="" style="left:${L(ax)};top:${T(ay)};width:${W(ar * 1.84)};aspect-ratio:1">`);
+  // Avatar : masque à la forme intérieure du cadre ([cx, cy, rx, ry] — ovale
+  // possible), photo en cover dedans — remplit tout, ne déborde jamais.
+  const [ax, ay, arx, ary] = t.avatar;
+  if (DATA.avatar) parts.push(`<div class="avatar-mask" style="left:${L(ax)};top:${T(ay)};width:${W(arx * 2)};height:${H((ary ?? arx) * 2)}"><img src="${DATA.avatar}" alt=""></div>`);
   // La DATE — pilotée : le « AOÛT 2026 » incrusté est recouvert puis redessiné.
   // margin-right:-ls : le letter-spacing traînant (après le dernier glyphe) compte
   // dans la largeur CSS — sans compensation, les glyphes tirent à gauche de ls/2.
