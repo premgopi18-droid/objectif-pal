@@ -207,7 +207,9 @@ export default async function BilanPage({
     // Le reveal au cercle (#243) : mes reveals manuels + suis-je entré au
     // cercle (sans cercle, la section reveal n'a rien à raconter).
     supabase.from("monthly_reveals").select("month"),
-    userId ? supabase.from("profiles").select("circle_joined_at").eq("id", userId).single() : Promise.resolve({ data: null, error: null }),
+    userId
+      ? supabase.from("profiles").select("circle_joined_at, display_name, avatar_url").eq("id", userId).single()
+      : Promise.resolve({ data: null, error: null }),
   ]);
 
   if (objectivesResult.error || picksResult.error) {
@@ -217,6 +219,10 @@ export default async function BilanPage({
   // prochain chargement) — le livrable d'antenne passe d'abord.
   const revealedMonths = (revealsResult.data ?? []).map((row) => row.month.slice(0, 7));
   const inCircle = profileResult.data?.circle_joined_at != null;
+  // La carte de partage (§4.15) dessine le pseudo et la photo — les mêmes que
+  // le Profil et le cercle affichent.
+  const displayName = profileResult.data?.display_name ?? "Paliste";
+  const avatarUrl = profileResult.data?.avatar_url ?? null;
 
   // L'embed `book` est inféré objet (FK many-to-one) : plus de tableau à déplier.
   const readings: BilanReading[] = (readingsRows ?? []).map((row) => ({
@@ -283,6 +289,8 @@ export default async function BilanPage({
         picks={picks}
         revealedMonths={revealedMonths}
         inCircle={inCircle}
+        displayName={displayName}
+        avatarUrl={avatarUrl}
       />
     </section>
   );

@@ -922,11 +922,12 @@ follow asymétrique (écarté : il exigerait un réglage public/privé — plus 
 Pour l'émission : partager son bilan mensuel en **image** stylée, en plus du texte d'antenne. Les
 décisions tranchées en discussion (août 2026, protos `docs/protos/`) :
 
-- **v1 = la version « live » seulement** : pseudo, photo, score du mois, jauges d'objectif, tableau
-  des catégories — **sans les distinctions** (le suspense des révélations appartient à l'antenne).
-  La version « classique » (distinctions 🏆🎉💀 en couvertures, mois affiché — la carte d'archive
-  qui se suffit à elle-même) est **remise à plus tard** : elle exigera sa propre déclinaison de
-  fonds, avec une zone dédiée.
+- **v1 = la version « live » seulement** : pseudo, photo, **date** (« AOÛT 2026 » — zone pilotée
+  par le moteur, vidée sur les fonds exprès ; décision du 02/09/2026, revenant sur le « live sans
+  mois » initial : les templates ont leur cartouche de date), score du mois, jauges d'objectif,
+  tableau des catégories — **sans les distinctions** (le suspense des révélations appartient à
+  l'antenne). La version « classique » (distinctions 🏆🎉💀 en couvertures — la carte d'archive)
+  est **remise à plus tard** : elle exigera sa propre déclinaison de fonds, avec une zone dédiée.
 - **Des fonds fixes, l'app ne dessine que les données.** Les 10 thèmes (`docs/protos/templates/`,
   2:3, 1024×1536) partagent la **même grille** : UN fichier de coordonnées les sert tous, un thème
   de plus = une image de plus, zéro code. Le barème est incrusté dans les fonds → **à revérifier

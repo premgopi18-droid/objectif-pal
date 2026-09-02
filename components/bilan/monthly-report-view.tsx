@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ObjectiveSection } from "@/components/bilan/objective-section";
 import { PicksSection } from "@/components/bilan/picks-section";
 import { RevealSection } from "@/components/bilan/reveal-section";
+import { ShareSheet } from "@/components/bilan/share-sheet";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Toast } from "@/components/ui/toast";
@@ -51,6 +52,9 @@ type MonthlyReportViewProps = {
   revealedMonths: string[];
   /** Entré au cercle ? Sans cercle, la section reveal n'a rien à raconter. */
   inCircle: boolean;
+  /** Le pseudo et la photo — la carte de partage en image (§4.15) les dessine. */
+  displayName: string;
+  avatarUrl: string | null;
 };
 
 /** « × 3 pts », « × 0,5 pt », « × −1 pt » — le barème par unité, virgule française. */
@@ -94,9 +98,19 @@ function DetailRow({
   );
 }
 
-export function MonthlyReportView({ readings, purchases, objectivesByMonth, picks, revealedMonths, inCircle }: MonthlyReportViewProps) {
+export function MonthlyReportView({
+  readings,
+  purchases,
+  objectivesByMonth,
+  picks,
+  revealedMonths,
+  inCircle,
+  displayName,
+  avatarUrl,
+}: MonthlyReportViewProps) {
   const currentMonth = localCurrentMonth();
   const [month, setMonth] = useState(currentMonth);
+  const [isShareSheetOpen, setIsShareSheetOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [copyFallbackText, setCopyFallbackText] = useState<string | null>(null);
 
@@ -244,11 +258,24 @@ export function MonthlyReportView({ readings, purchases, objectivesByMonth, pick
 
       <PicksSection key={`picks-${month}`} month={month} finishedReadings={finishedReadingsOfMonth} picks={monthPicks} />
 
-      {/* Le geste-livrable (design-specs §5) : CTA dégradé pleine largeur + toast. */}
-      <Button variant="grad" block onClick={shareReport} className="mt-1">
+      {/* Le geste-livrable (design-specs §5) : CTA dégradé pleine largeur.
+          Depuis §4.15 il ouvre la feuille Texte / Image — le texte d'antenne
+          reste à deux taps, la carte en image arrive à côté. */}
+      <Button variant="grad" block onClick={() => setIsShareSheetOpen(true)} className="mt-1">
         <Share2 aria-hidden className="size-5" />
         Partager mon bilan
       </Button>
+
+      {isShareSheetOpen && (
+        <ShareSheet
+          report={report}
+          displayName={displayName}
+          avatarUrl={avatarUrl}
+          onShareText={shareReport}
+          onClose={() => setIsShareSheetOpen(false)}
+          onToast={setToastMessage}
+        />
+      )}
 
       {copyFallbackText && (
         <div className="flex flex-col gap-1.5">
