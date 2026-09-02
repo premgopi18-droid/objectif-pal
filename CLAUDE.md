@@ -93,6 +93,17 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > (un UPDATE `in(ids)`, compte honnête), et **alignement de catégorie par série** depuis l'édition de fiche
 > (compte serveur, toast au compte réel de l'UPDATE ; mois clos resynchronisés tout seuls — le trigger
 > `books_bump_fact_version` couvre `category`). Specs §4.6, §4.12 et §4.13 à jour.
+> **Les 1-2/09/2026, la carte de partage en image (§4.15, #263, PR #264, 610 → 622 tests)** — le bilan
+> mensuel en **carte 1024×1536** stylée pour l'antenne : « Partager mon bilan » ouvre une feuille
+> **Texte / Image**, 10 thèmes (fonds générés par Prem, calibrés **au pixel** dans le labo
+> `docs/protos/proto-share-cards.html` : mode iso + différence d'images, planches-spécimens pour les
+> polices, masques photo en ellipse au bord intérieur des cadres, galerie validée avec Léna).
+> `lib/share/` : coordonnées typées + dérivation pure testée + **moteur canvas client** (parité CSS
+> explicite, rendu sur l'appareil, rien ne part sur un serveur), partage natif de fichier + repli
+> téléchargement, 23 woff2 **auto-hébergés** (RGPD) et fonds WebP sous `public/share/`. Le petit
+> spectateur du Profil est aussi de cette vague (#252, PR #253) : « 👀 Voir mon profil comme mon
+> cercle » — les RPC servent « amis ou soi-même », parité prouvée en CI. La version « classique »
+> de la carte (distinctions en couvertures) reste remisée (§4.15).
 
 ## Stack
 
