@@ -75,6 +75,7 @@ export function ReadingRoulette({ entries, disabled = false }: { entries: PalEnt
   const reelRef = useRef<HTMLDivElement>(null);
   const launchRef = useRef<HTMLButtonElement>(null);
   const closeRef = useRef<HTMLButtonElement>(null);
+  const startCtaRef = useRef<HTMLButtonElement>(null);
 
   const counts = useMemo(() => categoryCounts(entries), [entries]);
   // Les chips dans l'ordre du barème, effectifs non nuls seulement.
@@ -186,6 +187,24 @@ export function ReadingRoulette({ entries, disabled = false }: { entries: PalEnt
     if (!isOpen) return;
     (launchRef.current ?? closeRef.current)?.focus();
   }, [isOpen]);
+  // Le fond ne défile pas sous l'overlay (review #268) : sans verrou, un drag
+  // vertical faisait défiler la Pile derrière — invisible, découvert à la
+  // fermeture. Restauré tel quel au démontage.
+  useEffect(() => {
+    if (!isOpen) return;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = previousOverflow;
+    };
+  }, [isOpen]);
+  // À la révélation, le focus a été perdu (« Lancer » s'est désactivé pendant
+  // le défilement) : on le pose sur « Je commence » (review #268) — le même
+  // geste que BulkReadSheet à l'ouverture.
+  useEffect(() => {
+    if (phase.kind !== "revealed") return;
+    startCtaRef.current?.focus();
+  }, [phase]);
   useEffect(() => {
     if (!isOpen) return;
     const onKeyDown = (event: KeyboardEvent) => {
@@ -357,6 +376,7 @@ export function ReadingRoulette({ entries, disabled = false }: { entries: PalEnt
                   {/* Le geste RÉEL, partagé (§4.6) — au succès l'overlay se ferme,
                       la lecture est visible dans la pile derrière. */}
                   <StartReadingButton
+                    ref={startCtaRef}
                     bookId={phase.winner.bookId}
                     block
                     isPending={isPending}

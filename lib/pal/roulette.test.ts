@@ -95,6 +95,24 @@ describe("buildReelSequence", () => {
     expect(sequence.every((item) => pool.includes(item))).toBe(true);
   });
 
+  it("l'élue n'apparaît jamais en double au point d'arrêt (dès que le vivier le permet)", () => {
+    // Un petit LCG : assez de mélanges différents pour coincer le cas où le
+    // hasard pose l'élue en voisine — l'invariant doit tenir à chaque fois.
+    let seed = 7;
+    const lcg = () => {
+      seed = (seed * 1103515245 + 12345) % 2147483648;
+      return seed / 2147483648;
+    };
+    const pool = [entry("A", "bd"), entry("B", "manga")];
+    const winner = pool[0];
+    for (let attempt = 0; attempt < 50; attempt++) {
+      const sequence = buildReelSequence(pool, winner, lcg);
+      expect(sequence[REEL_WINNER_INDEX]).toBe(winner);
+      expect(sequence[REEL_WINNER_INDEX - 1]).not.toBe(winner);
+      expect(sequence[REEL_WINNER_INDEX + 1]).not.toBe(winner);
+    }
+  });
+
   it("tient même avec un vivier d'un seul livre", () => {
     const pool = [entry("Seul", "roman")];
     const sequence = buildReelSequence(pool, pool[0], fixedRng(0.2));

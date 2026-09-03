@@ -966,7 +966,10 @@ décélération ~4 s, arrêt sur l'élue.
 
 - **Point d'entrée** : bouton « 🎲 Tirage » dans la barre d'outils du segment Pile (à côté de la
   recherche et du tri), liseré magenta — jamais le dégradé plein, réservé aux CTA (design §2).
-  Il ouvre un écran plein cadre « Prochaine lecture ».
+  Il ouvre un écran plein cadre « Prochaine lecture ». La barre d'outils (et donc le bouton)
+  n'apparaît qu'à partir de **2 livres en pile** — un tirage à un candidat n'a pas d'objet ; le
+  cas « tout est déjà en cours de lecture » est, lui, géré dans l'écran (message + tirage
+  désactivé).
 - **Filtres** : chips de catégories **multi-sélection**, seules les catégories réellement tirables
   sont proposées, avec leurs effectifs ; « Toutes » par défaut.
 - **Périmètre** : la pile au sens §4.6 (possédés non lus), **en-cours exclus** — on ne tire pas au

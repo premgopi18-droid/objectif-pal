@@ -83,5 +83,17 @@ export function buildReelSequence(
   }
   sequence.length = REEL_LENGTH;
   sequence[REEL_WINNER_INDEX] = winner;
+  // L'élue ne doit pas se voir en double AU point d'arrêt (review #268) : si le
+  // mélange l'a aussi posée juste à côté, la voisine est échangée avec un autre
+  // livre pris loin de l'arrêt. Un vivier monotone (un seul livre) n'a pas de
+  // remplaçant — le doublon y est inévitable et assumé.
+  for (const neighborIndex of [REEL_WINNER_INDEX - 1, REEL_WINNER_INDEX + 1]) {
+    if (sequence[neighborIndex] !== winner) continue;
+    const replacementIndex = sequence.findIndex(
+      (item, index) => item !== winner && Math.abs(index - REEL_WINNER_INDEX) > 1,
+    );
+    if (replacementIndex === -1) break;
+    [sequence[neighborIndex], sequence[replacementIndex]] = [sequence[replacementIndex], sequence[neighborIndex]];
+  }
   return sequence;
 }
