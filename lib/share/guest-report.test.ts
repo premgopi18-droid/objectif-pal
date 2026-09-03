@@ -75,6 +75,17 @@ describe("buildGuestReport", () => {
     expect(report.purchasePenalty).toBe(0);
   });
 
+  it("les cibles aussi sont assainies : décimale et négative → non visées, démesurée → plafonnée", () => {
+    const report = buildGuestReport({
+      ...baseInput,
+      objective: { issue: 1.5, manga: -2, bd: 1_000_000, roman: 1 },
+    });
+    expect(report.objective?.progress).toEqual([
+      { category: "bd", target: 999, finished: 1 },
+      { category: "roman", target: 1, finished: 1 },
+    ]);
+  });
+
   it("la chaîne complète : le bilan d'invité se dérive en carte comme un vrai", () => {
     const card = deriveShareCardData(buildGuestReport({ ...baseInput, objective: { issue: 5 } }), "Léna");
     expect(card.name).toBe("LÉNA");

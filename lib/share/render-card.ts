@@ -71,6 +71,11 @@ const imageCache = new Map<string, Promise<HTMLImageElement>>();
  * Charge une image dessinable au canvas. `crossOrigin` : l'avatar vient du
  * Storage Supabase — sans lui, le canvas serait « tainted » et `toBlob`
  * refuserait d'exporter.
+ *
+ * Les `blob:` (photos d'invités, uniques par choix puis révoquées) ne sont
+ * JAMAIS mises en cache : le Map module-level ne se vide pas, et retenir
+ * chaque photo décodée ferait gonfler la mémoire à chaque invité du live
+ * (review #267). Les URLs stables (fonds, avatar) restent cachées.
  */
 export function loadCardImage(src: string): Promise<HTMLImageElement> {
   const cached = imageCache.get(src);
@@ -85,7 +90,7 @@ export function loadCardImage(src: string): Promise<HTMLImageElement> {
     };
     image.src = src;
   });
-  imageCache.set(src, promise);
+  if (!src.startsWith("blob:")) imageCache.set(src, promise);
   return promise;
 }
 

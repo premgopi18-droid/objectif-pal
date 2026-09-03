@@ -23,14 +23,19 @@ import { buildGuestReport, type GuestCounts } from "@/lib/share/guest-report";
  * rien n'est enregistré nulle part — fermer la page ne laisse aucune trace.
  */
 
-const MONTH_PATTERN = /^\d{4}-\d{2}$/;
+// Le numéro de mois est borné 01-12 : sur les navigateurs qui replient
+// `<input type="month">` en texte libre, « 2026-99 » passerait sinon jusqu'à
+// la carte en « UNDEFINED 2026 » (review #267).
+const MONTH_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
 
 const SECTION_LABEL = "text-xs font-extrabold uppercase tracking-[0.1em] text-ink3";
 const NUMBER_INPUT =
   "w-16 rounded-xl border border-line bg-card2 p-2 text-center text-sm text-ink tabular-nums " +
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan";
+// Sans largeur : chaque usage la pose (empiler `w-full` puis `w-auto` laisserait
+// l'ordre du CSS généré décider du gagnant — review #267).
 const TEXT_INPUT =
-  "w-full rounded-xl border border-line bg-card2 p-3 text-sm text-ink " +
+  "rounded-xl border border-line bg-card2 p-3 text-sm text-ink " +
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan";
 
 /** Une saisie par catégorie, en chaînes (vide = 0) — même patron que l'éditeur d'objectifs. */
@@ -105,7 +110,7 @@ export function GuestCardForm() {
             onChange={(event) => setName(event.target.value)}
             placeholder="Léna"
             maxLength={40}
-            className={TEXT_INPUT}
+            className={`${TEXT_INPUT} w-full`}
           />
         </label>
         <div className="flex items-center gap-3">
@@ -147,7 +152,7 @@ export function GuestCardForm() {
             type="month"
             value={month}
             onChange={(event) => setMonth(event.target.value)}
-            className={`${TEXT_INPUT} w-auto`}
+            className={TEXT_INPUT}
           />
         </label>
       </section>

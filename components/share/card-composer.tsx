@@ -152,11 +152,18 @@ export function CardComposer({ data, avatarUrl, fileName, onToast, onShared }: C
           className="w-full rounded-xl border border-line bg-card2"
           style={{ aspectRatio: "2 / 3" }}
         />
-        {isRendering && (
-          <div className="absolute inset-0 grid place-items-center rounded-xl bg-black/40 text-sm font-bold text-ink">
-            Préparation…
-          </div>
-        )}
+        {/* L'overlay reste monté et ne devient visible qu'après 150 ms de
+            rendu : chaque frappe du formulaire d'invité redessine la carte,
+            et les rendus rapides ne doivent pas faire clignoter le voile
+            (review #267). Le délai ne joue qu'à l'apparition. */}
+        <div
+          aria-hidden={!isRendering}
+          className={`absolute inset-0 grid place-items-center rounded-xl bg-black/40 text-sm font-bold text-ink transition-opacity duration-150 ${
+            isRendering ? "opacity-100 delay-150" : "pointer-events-none opacity-0 delay-0"
+          }`}
+        >
+          Préparation…
+        </div>
       </div>
       {renderError && (
         <p role="alert" className="mt-2 text-sm text-red">

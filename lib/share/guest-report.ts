@@ -62,5 +62,18 @@ export function buildGuestReport(input: GuestCardInput): MonthlyReport {
     (_, index): PurchaseFact => ({ bookId: `guest-purchase-${index}`, purchasedAt: dayInMonth }),
   );
 
-  return computeMonthlyReport(input.month, { readings, purchases, objective: input.objective });
+  // Les cibles aussi sont des saisies : assainies comme les compteurs (une
+  // cible « 1.5 » ou démesurée ne doit pas s'imprimer sur la carte — review
+  // #267). Une cible assainie à 0 = non visée, le moteur le gère déjà.
+  const objective: MonthlyObjective | null =
+    input.objective === null
+      ? null
+      : Object.fromEntries(
+          ALL_CATEGORIES.flatMap((category) => {
+            const target = sanitizeCount(input.objective?.[category] ?? 0);
+            return target > 0 ? [[category, target]] : [];
+          }),
+        );
+
+  return computeMonthlyReport(input.month, { readings, purchases, objective });
 }
