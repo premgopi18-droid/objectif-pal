@@ -136,7 +136,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
       style: { font: "exo-2-600", size: 33, color: "#a99cf0", letterSpacing: 0.42 },
     },
     score: {
-      x: 700, y: 414, maxWidth: 370,
+      x: 700, y: 414, maxWidth: 350,
       style: {
         font: "exo-2-800-italic", size: 160,
         gradient: { angleDeg: 105, stops: [{ at: 0.05, color: "#ff45c8" }, { at: 0.45, color: "#7a58f2" }, { at: 0.9, color: "#2bd8d8" }] },
@@ -169,7 +169,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
       style: { font: "special-elite", size: 43, color: "#4d412d", letterSpacing: 0.3 },
     },
     score: {
-      x: 730, y: 460, maxWidth: 350,
+      x: 742, y: 458, maxWidth: 330,
       style: { font: "alfa-slab-one", size: 195, color: "#2a2419" },
     },
     avatar: { cx: 306, cy: 452, rx: 154 },
@@ -199,7 +199,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
       style: { font: "oswald-600", size: 38, color: "#0e0c0a", letterSpacing: 0.4 },
     },
     score: {
-      x: 720, y: 422, maxWidth: 390,
+      x: 720, y: 422, maxWidth: 368,
       style: {
         font: "archivo-black", size: 210, color: "#131110", skewDeg: -8,
         shadows: [
@@ -211,7 +211,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
         ],
       },
     },
-    avatar: { cx: 301, cy: 430, rx: 129, ry: 128 },
+    avatar: { cx: 297, cy: 417, rx: 132, ry: 135 },
     objectives: {
       textRows: [700, 777, 855], barRows: [735, 810, 888],
       leftBar: [112, 478], rightBar: [540, 912], barHeight: 18,
@@ -241,13 +241,13 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
       style: { font: "cinzel", size: 37, color: "#cfc0a0", letterSpacing: 0.42 },
     },
     score: {
-      x: 720, y: 432, maxWidth: 355,
+      x: 720, y: 432, maxWidth: 335,
       style: {
         font: "cormorant-700", size: 213, color: "#cfa54f",
         shadows: [{ dx: 0, dy: 2, blur: 5, color: "rgba(0,0,0,.6)" }],
       },
     },
-    avatar: { cx: 300, cy: 426, rx: 111 },
+    avatar: { cx: 305, cy: 420, rx: 125, ry: 126 },
     objectives: {
       textRows: [706, 779, 852], barRows: [739, 812, 884],
       leftBar: [128, 470], rightBar: [548, 888], barHeight: 10,
@@ -274,10 +274,10 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
       style: { font: "special-elite", size: 40, color: "#3a2f1e", letterSpacing: 0.3 },
     },
     score: {
-      x: 705, y: 415, maxWidth: 365,
-      style: { font: "anton", size: 203, color: "#332a1c" },
+      x: 718, y: 408, maxWidth: 330,
+      style: { font: "anton", size: 190, color: "#332a1c" },
     },
-    avatar: { cx: 299, cy: 405, rx: 126 },
+    avatar: { cx: 298, cy: 400, rx: 129, ry: 134 },
     objectives: {
       textRows: [696, 774, 851], barRows: [730, 808, 885],
       leftBar: [115, 470], rightBar: [535, 888], barHeight: 20,
@@ -304,7 +304,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
       style: { font: "special-elite", size: 37, color: "#8a8478", letterSpacing: 0.32 },
     },
     score: {
-      x: 708, y: 400, maxWidth: 400,
+      x: 708, y: 400, maxWidth: 360,
       style: { font: "anton", size: 200, color: "#b02c22", skewDeg: -10 },
     },
     avatar: { cx: 300, cy: 396, rx: 124 },
@@ -336,10 +336,10 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     score: {
       // Posé sur la fioriture (ancrage revu au calage : la virgule effleure
       // l'ornement sans le couvrir — centre recalculé en conséquence).
-      x: 727, y: 401, maxWidth: 375,
+      x: 727, y: 401, maxWidth: 355,
       style: { font: "playfair-700", size: 174, color: "#5c1f1f" },
     },
-    avatar: { cx: 307, cy: 421, rx: 121, ry: 131 },
+    avatar: { cx: 308, cy: 411, rx: 123, ry: 128 },
     objectives: {
       textRows: [703, 782, 860], barRows: [737, 817, 895],
       leftBar: [140, 488], rightBar: [558, 905], barHeight: 22,
@@ -372,7 +372,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
       style: { font: "rajdhani-600", size: 34, color: "#7fc9e8", letterSpacing: 0.44 },
     },
     score: {
-      x: 690, y: 390, maxWidth: 335,
+      x: 690, y: 390, maxWidth: 318,
       style: {
         font: "exo-2-800-italic", size: 150, color: "#eaf7ff",
         shadows: [
@@ -417,7 +417,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
       style: { font: "archivo-black", size: 43, color: "#191512", letterSpacing: 0.3 },
     },
     score: {
-      x: 735, y: 455, maxWidth: 395,
+      x: 735, y: 455, maxWidth: 375,
       style: {
         font: "bangers", size: 170, color: "#d0281c",
         stroke: { width: 5.1, color: "#15100c" },
@@ -454,10 +454,10 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
       style: { font: "graduate", size: 45, color: "#46301a", letterSpacing: 0.3 },
     },
     score: {
-      x: 712, y: 452, maxWidth: 360,
+      x: 712, y: 452, maxWidth: 342,
       style: { font: "rye", size: 215, color: "#7a3a10" },
     },
-    avatar: { cx: 324, cy: 447, rx: 124 },
+    avatar: { cx: 323, cy: 437, rx: 128, ry: 132 },
     objectives: {
       textRows: [728, 802, 880], barRows: [762, 836, 913],
       leftBar: [145, 482], rightBar: [525, 890], barHeight: 22,
