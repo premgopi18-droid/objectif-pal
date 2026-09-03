@@ -65,6 +65,21 @@ export default function ReglagesPage() {
           entièrement une fois l'app installée. */}
       <InstallSection labelClassName={SECTION_LABEL} />
 
+      {/* L'outil d'antenne (§4.15) : la carte de bilan d'un invité du live,
+          sans compte — le formulaire calcule au même barème et dessine la
+          même carte. Rangé ici : c'est un outil de production, pas un réglage
+          du compte, mais c'est bien le « moi privé » qui s'en sert. */}
+      <section className="flex flex-col gap-3">
+        <h2 className={SECTION_LABEL}>Antenne</h2>
+        <p className="text-sm text-ink2">
+          Générer la carte de bilan d&apos;un invité du live qui n&apos;utilise pas l&apos;app — même barème,
+          mêmes thèmes, rien n&apos;est enregistré.
+        </p>
+        <Link href="/profil/carte-invite" className={`${GHOST_LINK} w-full`}>
+          Carte d&apos;invité
+        </Link>
+      </section>
+
       <section className="flex flex-col gap-3">
         <h2 className={SECTION_LABEL}>Session</h2>
         <LogoutButton />

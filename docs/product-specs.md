@@ -943,6 +943,20 @@ décisions tranchées en discussion (août 2026, protos `docs/protos/`) :
   vides, ou assumer le recouvrement par flou local (jugé sur le proto). La police des chiffres est
   par thème, embarquée, `document.fonts.ready` avant de dessiner.
 
+**La carte d'invité (décision du 03/09/2026)** — le live reçoit des invités qui n'utilisent pas
+l'app ; ils méritent la même carte. Un **outil d'antenne** sous `/profil/carte-invite` (lien dans
+les Réglages, section « Antenne ») : un formulaire — nom, photo, mois, lectures terminées par
+catégorie, achats non lus, objectifs **facultatifs** — et la même carte au bout.
+
+- **Zéro barème recopié, zéro rendu dupliqué** : les compteurs deviennent des **faits synthétiques**
+  passés au vrai moteur (`buildGuestReport` → `computeMonthlyReport`), et la carte sort du même
+  composeur (thèmes, aperçu canvas, partage natif/téléchargement) que la ShareSheet du Bilan.
+  Malus, bonus +3 all-or-nothing et demi-points suivent le barème pour toujours.
+- **Rien n'est enregistré** : l'invité n'existe pas en base, la photo reste un object URL local à
+  l'appareil (comme le reste de la carte, rien ne part sur un serveur), fermer la page ne laisse
+  aucune trace. Les saisies sont assainies (entiers [0, 999]) — une faute de frappe ne fabrique
+  pas un million de faits.
+
 ---
 
 ## 5. Le scan — architecture
