@@ -24,8 +24,12 @@ const MAX_ROTATION_DEG = 540;
 const EASING = "cubic-bezier(.2,.7,.3,1)";
 const Z_INDEX = 60; // au-dessus du toast (z-50), sous rien d'autre
 
-/** Vrai si l'utilisateur demande le minimum de mouvement (ou hors navigateur). */
-function prefersReducedMotion(): boolean {
+/**
+ * Vrai si l'utilisateur demande le minimum de mouvement (ou hors navigateur).
+ * Exporté (#262) : la roulette saute sa mise en scène sous la même garde —
+ * un seul point de vérité JS, à côté du kill-switch CSS de globals.css.
+ */
+export function prefersReducedMotion(): boolean {
   if (typeof window === "undefined" || typeof window.matchMedia !== "function") return true;
   return window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 }

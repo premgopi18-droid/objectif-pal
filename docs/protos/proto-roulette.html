@@ -1,0 +1,659 @@
+<title>Protos roulette de la PAL</title>
+<style>
+  /* ── Tokens « nuit du plateau » (globals.css, design-specs §2) ─────────── */
+  :root {
+    --bg0: #120826; --bg1: #1b0f38; --card: #221345; --card2: #2b1a55;
+    --line: rgba(255,255,255,.08);
+    --ink: #f4effc; --ink2: #b3a5d6; --ink3: #9083bc;
+    --magenta: #f32fb6; --violet: #8c5cf6; --cyan: #2bd7f0;
+    --green: #3be596; --amber: #ffb63b; --red: #ff5470;
+    --grad: linear-gradient(100deg, #f32fb6, #8c5cf6 45%, #2bd7f0 75%, #3be596);
+    --page: #0a0614; /* le sol du proto, plus profond que l'app, pour détacher les cadrans */
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+  body {
+    background: var(--page); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 32px 20px 64px; min-height: 100vh;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+
+  /* ── Chrome du proto (autour des téléphones) ──────────────────────────── */
+  .intro { max-width: 900px; margin: 0 auto 40px; }
+  .intro h1 { font-size: 1.35rem; font-weight: 800; letter-spacing: -.01em; }
+  .intro p { margin-top: 10px; font-size: .92rem; line-height: 1.55; color: var(--ink2); max-width: 62ch; }
+  .intro p b { color: var(--ink); font-weight: 700; }
+  .intro .hint { color: var(--ink3); font-size: .84rem; margin-top: 6px; }
+
+  .protos { display: flex; flex-wrap: wrap; gap: 40px 32px; justify-content: center; max-width: 1400px; margin: 0 auto; }
+  .proto { width: 390px; max-width: 100%; }
+  .proto > .tag {
+    display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--cyan);
+    border: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent);
+    background: color-mix(in srgb, var(--cyan) 10%, transparent);
+    padding: 3px 10px; border-radius: 999px; margin-bottom: 8px;
+  }
+  .proto > .tag.reco { color: var(--green); border-color: color-mix(in srgb, var(--green) 35%, transparent); background: color-mix(in srgb, var(--green) 10%, transparent); }
+  .proto > h2 { font-size: 1.02rem; font-weight: 700; margin-bottom: 6px; text-wrap: balance; }
+  .proto > .note { font-size: .84rem; line-height: 1.5; color: var(--ink3); margin-bottom: 8px; min-height: 5.2em; }
+  .proto > .note b { color: var(--ink2); font-weight: 600; }
+  .replay {
+    font-size: .8rem; color: var(--ink3); text-decoration: underline; text-underline-offset: 2px;
+    margin-bottom: 12px; display: inline-block; cursor: pointer;
+  }
+  .replay:hover { color: var(--ink2); }
+
+  /* ── Le cadran ────────────────────────────────────────────────────────── */
+  .phone {
+    position: relative; height: 730px; border-radius: 28px; overflow: hidden;
+    background: linear-gradient(175deg, var(--bg1), var(--bg0) 38%);
+    border: 1px solid rgba(255,255,255,.12);
+    box-shadow: 0 18px 48px rgba(0,0,0,.55);
+  }
+  .screen { position: absolute; inset: 0; overflow-y: auto; padding: 18px 16px 90px; scrollbar-width: none; }
+  .screen::-webkit-scrollbar { display: none; }
+
+  .apptitle { font-size: 1.28rem; font-weight: 800; letter-spacing: -.01em; }
+  .seg { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px; margin-top: 14px; }
+  .seg span { flex: 1; text-align: center; padding: 7px 0; border-radius: 999px; font-size: .82rem; font-weight: 700; color: var(--ink3); }
+  .seg span.on { background: var(--grad); color: var(--bg0); }
+
+  .toolbar { display: flex; gap: 8px; margin-top: 14px; }
+  .search {
+    flex: 1; min-width: 0; background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 9px 12px; font-size: 16px; color: var(--ink3); font-weight: 600;
+    display: flex; align-items: center;
+  }
+  /* L'icône d'entrée : le dé — pill à côté de la recherche, liseré dégradé pour signaler le jeu */
+  .dicebtn {
+    flex: none; display: inline-flex; align-items: center; gap: 7px;
+    border-radius: 12px; padding: 9px 13px; font-weight: 800; font-size: .85rem;
+    background: var(--card2); border: 1px solid color-mix(in srgb, var(--magenta) 45%, transparent);
+    color: var(--ink); transition: transform .1s;
+  }
+  .dicebtn:active { transform: scale(.96); }
+  .dicebtn .d6 { font-size: 1.05rem; }
+
+  .rows { display: flex; flex-direction: column; gap: 10px; margin-top: 14px; list-style: none; }
+  .row {
+    display: flex; align-items: center; gap: 11px; background: var(--card);
+    border: 1px solid var(--line); border-radius: 20px; padding: 11px;
+  }
+  .row .mid { min-width: 0; flex: 1; }
+  .row .title { font-size: 14.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .row .meta { font-size: 12px; color: var(--ink2); margin-top: 2px; }
+
+  /* Couverture factice : le placeholder maison (dégradé par hash + initiale) */
+  .cov {
+    flex: none; border-radius: 7px; color: var(--bg0);
+    display: flex; align-items: center; justify-content: center;
+    font-weight: 900; overflow: hidden; position: relative;
+  }
+  .cov.s { width: 42px; height: 60px; font-size: 1.1rem; }
+
+  /* ── L'overlay tirage (plein écran dans le cadran) ────────────────────── */
+  .overlay {
+    position: absolute; inset: 0; z-index: 6; display: none; flex-direction: column;
+    background: linear-gradient(175deg, var(--bg1), var(--bg0) 42%);
+    padding: 18px 16px;
+  }
+  .overlay.open { display: flex; }
+  .ovhead { display: flex; align-items: baseline; justify-content: space-between; }
+  .ovhead h3 {
+    font-size: 1.3rem; font-weight: 900; font-style: italic; text-transform: uppercase;
+    letter-spacing: -.01em;
+  }
+  .ovhead h3 .g { background: var(--grad); -webkit-background-clip: text; background-clip: text; color: transparent; }
+  .ovclose { font-size: 1.3rem; color: var(--ink3); padding: 2px 8px; }
+  .ovsub { font-size: .8rem; color: var(--ink3); margin-top: 3px; }
+
+  .chips { display: flex; flex-wrap: wrap; gap: 7px; margin-top: 13px; }
+  .chip {
+    font-size: .78rem; font-weight: 700; padding: 6px 12px; border-radius: 999px;
+    background: var(--card); border: 1px solid var(--line); color: var(--ink2);
+  }
+  .chip.on { background: var(--grad); border-color: transparent; color: var(--bg0); }
+  .chip[disabled] { opacity: .35; pointer-events: none; }
+  .chip .n { font-weight: 600; opacity: .75; margin-left: 3px; font-variant-numeric: tabular-nums; }
+
+  .stage { flex: 1; position: relative; display: flex; flex-direction: column; justify-content: center; min-height: 0; }
+
+  .ovfoot { flex: none; padding-top: 10px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    border-radius: 12px; font-weight: 700; font-size: .95rem; padding: 13px 16px;
+    transition: transform .1s; width: 100%;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn.grad { background: var(--grad); color: var(--bg0); box-shadow: 0 4px 16px color-mix(in srgb, var(--violet) 40%, transparent); }
+  .btn.ghost { background: var(--card2); color: var(--ink); border: 1px solid var(--line); }
+  .btn[disabled] { opacity: .45; pointer-events: none; }
+
+  /* Résultat du tirage */
+  .result { display: none; flex-direction: column; align-items: center; text-align: center; gap: 4px; padding-top: 14px; }
+  .result.show { display: flex; }
+  .result .rt { font-size: 1.05rem; font-weight: 800; text-wrap: balance; }
+  .result .ra { font-size: .82rem; color: var(--ink2); }
+  .result .badge {
+    display: inline-block; font-size: 10.5px; font-weight: 700; padding: 3px 10px; border-radius: 999px;
+    background: color-mix(in srgb, var(--magenta) 15%, transparent);
+    color: color-mix(in srgb, var(--magenta) 55%, white); margin-top: 3px;
+  }
+  .result .ctas { display: flex; flex-direction: column; gap: 8px; width: 100%; margin-top: 12px; }
+
+  /* ── Variante A : la bande ────────────────────────────────────────────── */
+  .reelwrap { position: relative; overflow: hidden; margin: 0 -16px; padding: 16px 0; }
+  .reelwrap::before, .reelwrap::after {
+    content: ""; position: absolute; top: 0; bottom: 0; width: 56px; z-index: 2; pointer-events: none;
+  }
+  .reelwrap::before { left: 0; background: linear-gradient(90deg, var(--bg0), transparent); }
+  .reelwrap::after { right: 0; background: linear-gradient(-90deg, var(--bg0), transparent); }
+  .reel { display: flex; gap: 10px; will-change: transform; }
+  .reel .cov { width: 92px; height: 132px; border-radius: 10px; font-size: 2rem; transition: box-shadow .3s, transform .3s; }
+  .reel .cov.win { transform: scale(1.08); box-shadow: 0 0 0 3px var(--cyan), 0 0 24px color-mix(in srgb, var(--cyan) 60%, transparent); }
+  .marker {
+    position: absolute; left: 50%; top: 6px; bottom: 6px; width: 3px; z-index: 3;
+    transform: translateX(-50%); background: var(--grad); border-radius: 2px;
+    box-shadow: 0 0 14px color-mix(in srgb, var(--violet) 80%, transparent); pointer-events: none;
+  }
+  .marker::before {
+    content: ""; position: absolute; top: -7px; left: 50%; transform: translateX(-50%);
+    border: 7px solid transparent; border-top-color: var(--magenta);
+  }
+
+  /* ── Variante B : la roue ─────────────────────────────────────────────── */
+  .wheelbox { position: relative; height: 350px; display: flex; align-items: center; justify-content: center; overflow: hidden; }
+  .wheel { position: relative; width: 300px; height: 300px; will-change: transform; }
+  .wheel .cov {
+    position: absolute; left: 50%; top: 50%; width: 58px; height: 84px; margin: -42px 0 0 -29px;
+    font-size: 1.4rem; border-radius: 8px;
+    transform: rotate(var(--a)) translateY(-116px);
+    transition: box-shadow .3s;
+  }
+  .wheel .cov.win { box-shadow: 0 0 0 3px var(--cyan), 0 0 24px color-mix(in srgb, var(--cyan) 60%, transparent); z-index: 2; }
+  .hub {
+    position: absolute; left: 50%; top: 50%; width: 66px; height: 66px; margin: -33px 0 0 -33px;
+    border-radius: 50%; background: var(--grad); color: var(--bg0);
+    display: flex; align-items: center; justify-content: center; font-size: 1.5rem;
+    box-shadow: 0 4px 18px color-mix(in srgb, var(--violet) 50%, transparent); z-index: 3;
+  }
+  .wpointer {
+    position: absolute; top: 6px; left: 50%; transform: translateX(-50%); z-index: 4;
+    border: 11px solid transparent; border-top: 16px solid var(--magenta);
+    filter: drop-shadow(0 0 8px color-mix(in srgb, var(--magenta) 70%, transparent));
+  }
+
+  /* ── Variante C : les cartes ──────────────────────────────────────────── */
+  .deckbox { position: relative; height: 330px; }
+  .deckbox .cov {
+    position: absolute; left: 50%; top: 50%; width: 104px; height: 150px; margin: -75px 0 0 -52px;
+    font-size: 2.1rem; border-radius: 10px;
+    transform: translate(var(--x, 0), var(--y, 0)) rotate(var(--r, 0));
+    transition: transform .45s cubic-bezier(.3, .9, .3, 1.1), opacity .45s, box-shadow .3s;
+    box-shadow: 0 6px 18px rgba(0, 0, 0, .4);
+  }
+  .deckbox .cov.dim { opacity: .18; }
+  .deckbox .cov.win {
+    transform: translate(0, -8px) rotate(0deg) scale(1.35);
+    box-shadow: 0 0 0 3px var(--cyan), 0 12px 40px rgba(0, 0, 0, .6); z-index: 5;
+  }
+
+  /* Confettis (micro-pluie, coupée sous prefers-reduced-motion) */
+  .cf { position: absolute; top: -12px; width: 7px; height: 11px; border-radius: 2px; z-index: 8; pointer-events: none; animation: cffall 1.5s ease-in forwards; }
+  @keyframes cffall {
+    to { transform: translateY(460px) rotate(540deg); opacity: 0; }
+  }
+
+  /* Toast */
+  .toast {
+    position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(70px);
+    background: var(--card2); border: 1px solid var(--line); color: var(--ink);
+    font-size: .82rem; font-weight: 600; padding: 10px 18px; border-radius: 999px;
+    box-shadow: 0 8px 24px rgba(140, 92, 246, .3); z-index: 9;
+    transition: transform .25s; white-space: nowrap; max-width: 92%; overflow: hidden; text-overflow: ellipsis;
+  }
+  .toast.show { transform: translateX(-50%) translateY(0); }
+
+  @media (prefers-reduced-motion: reduce) {
+    .reel, .wheel, .deckbox .cov { transition: none !important; }
+    .cf { display: none; }
+  }
+</style>
+
+<div class="intro">
+  <h1>🎲 La roulette de la PAL — trois façons de tirer sa prochaine lecture</h1>
+  <p>
+    Le principe est le même partout : depuis le segment <b>Pile</b> de la Biblio, un bouton
+    <b>🎲 Tirage</b> (à côté de la recherche) ouvre un écran plein cadre. On coche <b>une ou plusieurs
+    catégories</b> (les chips ne montrent que ce qui est réellement dans la pile, avec les comptes),
+    on lance, et le hasard désigne le livre — couverture en vedette, façon plateau télé. Le résultat
+    propose direct <b>« Je commence »</b> : le jeu débouche sur le geste qui compte.
+  </p>
+  <p>
+    Trois mises en scène du même tirage. Ma recommandation : <b>la bande (A)</b> — c'est celle qui met
+    le plus les couvertures en valeur, qui tient sur mobile sans se battre avec la géométrie, et dont le
+    suspense (décélération progressive) est le plus lisible. La roue (B) est la plus « roulette » mais
+    plafonne vite en nombre de livres visibles ; les cartes (C) sont les plus calmes.
+  </p>
+  <p class="hint">
+    Les couvertures sont les placeholders maison (dégradé + initiale) — l'implémentation affiche les
+    vraies. Les confettis et animations respectent <code>prefers-reduced-motion</code> (tirage
+    instantané). Relancer redistribue à chaque fois.
+  </p>
+</div>
+
+<div class="protos">
+
+  <!-- ═══════════════ A · LA BANDE ═══════════════ -->
+  <div class="proto">
+    <span class="tag reco">A · Recommandé</span>
+    <h2>La bande — défilement et décélération</h2>
+    <p class="note">
+      Les couvertures défilent en bande sous un <b>curseur dégradé</b>, vite puis de moins en moins,
+      jusqu'à l'arrêt sur l'élue. Le suspense est dans la décélération — on <i>voit</i> passer sa pile.
+      Marche aussi bien avec 5 livres qu'avec 80.
+    </p>
+    <span class="replay" data-replay="a">Réinitialiser la démo</span>
+    <div class="phone" id="phone-a"></div>
+  </div>
+
+  <!-- ═══════════════ B · LA ROUE ═══════════════ -->
+  <div class="proto">
+    <span class="tag">B · La roue</span>
+    <h2>La roue — la roulette littérale</h2>
+    <p class="note">
+      Les couvertures en cercle autour d'un moyeu dégradé, la roue tourne, la flèche magenta désigne.
+      La plus « Qui va gagner ? » des trois — mais au-delà de <b>12 livres</b>, on tire un échantillon
+      pour que la roue reste lisible (affiché honnêtement sous le titre).
+    </p>
+    <span class="replay" data-replay="b">Réinitialiser la démo</span>
+    <div class="phone" id="phone-b"></div>
+  </div>
+
+  <!-- ═══════════════ C · LES CARTES ═══════════════ -->
+  <div class="proto">
+    <span class="tag">C · Les cartes</span>
+    <h2>Les cartes — le paquet mêlé</h2>
+    <p class="note">
+      La pile comme un paquet de cartes : on mêle (les couvertures s'agitent), une carte sort du lot et
+      <b>s'avance en grand</b>, les autres s'effacent. La plus sobre et la plus rapide — moins de
+      spectacle, plus de mystère.
+    </p>
+    <span class="replay" data-replay="c">Réinitialiser la démo</span>
+    <div class="phone" id="phone-c"></div>
+  </div>
+
+</div>
+
+<script>
+  /* ── Données factices (le proto ment sur les données, design-specs §6) ── */
+  const PAL = [
+    { t: "Le Sommet des dieux T.1", a: "Jirô Taniguchi", c: "manga" },
+    { t: "One Piece T.42", a: "Eiichirō Oda", c: "manga" },
+    { t: "Berserk T.12", a: "Kentarō Miura", c: "manga" },
+    { t: "Frieren T.3", a: "Kanehito Yamada", c: "manga" },
+    { t: "Saga T.9", a: "Vaughan & Staples", c: "comics" },
+    { t: "Watchmen", a: "Moore & Gibbons", c: "comics" },
+    { t: "Daredevil : Born Again", a: "Miller & Mazzucchelli", c: "comics" },
+    { t: "Blacksad T.3", a: "Díaz Canales & Guarnido", c: "bd" },
+    { t: "Lastman T.5", a: "Balak, Vivès, Sanlaville", c: "bd" },
+    { t: "Le Château des étoiles T.2", a: "Alex Alice", c: "bd" },
+    { t: "Universal War One T.1", a: "Denis Bajram", c: "bd" },
+    { t: "Dune", a: "Frank Herbert", c: "roman" },
+    { t: "La Horde du Contrevent", a: "Alain Damasio", c: "roman" },
+    { t: "Sandman Omnibus vol. 1", a: "Neil Gaiman", c: "omnibus" },
+  ];
+  const CAT_LABELS = { issue: "Issue", manga: "Manga", bd: "BD", comics: "Comics", omnibus: "Omnibus", roman: "Roman" };
+  const CAT_ORDER = ["issue", "manga", "bd", "comics", "omnibus", "roman"];
+
+  /* Placeholders maison : 6 dégradés dérivés de la palette, choisis par hash du titre */
+  const GRADS = [
+    "linear-gradient(135deg,#f32fb6,#8c5cf6)", "linear-gradient(135deg,#8c5cf6,#2bd7f0)",
+    "linear-gradient(135deg,#2bd7f0,#3be596)", "linear-gradient(135deg,#f32fb6,#2bd7f0)",
+    "linear-gradient(135deg,#ffb63b,#f32fb6)", "linear-gradient(135deg,#3be596,#8c5cf6)",
+  ];
+  const CF_COLORS = ["#f32fb6", "#8c5cf6", "#2bd7f0", "#3be596", "#ffb63b"];
+  const hash = (s) => [...s].reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) >>> 0, 7);
+  const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+  function coverEl(book, cls) {
+    const el = document.createElement("div");
+    el.className = "cov" + (cls ? " " + cls : "");
+    el.style.background = GRADS[hash(book.t) % GRADS.length];
+    el.textContent = book.t[0];
+    return el;
+  }
+  const shuffle = (arr) => arr.map((v) => [Math.random(), v]).sort((a, b) => a[0] - b[0]).map((p) => p[1]);
+  const pick = (arr) => arr[Math.floor(Math.random() * arr.length)];
+
+  /* ── Squelette commun d'un cadran : Pile en fond + overlay tirage ─────── */
+  function buildPhone(root, stageHTML, launchLabel) {
+    root.innerHTML = `
+      <div class="screen">
+        <div class="apptitle">Biblio</div>
+        <div class="seg"><span class="on">Pile (14)</span><span>Tous</span></div>
+        <div class="toolbar">
+          <div class="search">Rechercher…</div>
+          <button class="dicebtn" data-open><span class="d6">🎲</span>Tirage</button>
+        </div>
+        <ul class="rows" data-rows></ul>
+      </div>
+      <div class="overlay" data-overlay>
+        <div class="ovhead">
+          <h3>Prochaine <span class="g">lecture</span></h3>
+          <button class="ovclose" data-close aria-label="Fermer">✕</button>
+        </div>
+        <div class="ovsub" data-sub></div>
+        <div class="chips" data-chips></div>
+        <div class="stage" data-stage>${stageHTML}</div>
+        <div class="result" data-result>
+          <div class="rt" data-rt></div>
+          <div class="ra" data-ra></div>
+          <span class="badge" data-rb></span>
+          <div class="ctas">
+            <button class="btn grad" data-start>Je commence 📖</button>
+            <button class="btn ghost" data-again>Relancer 🎲</button>
+          </div>
+        </div>
+        <div class="ovfoot"><button class="btn grad" data-launch>${launchLabel}</button></div>
+      </div>
+      <div class="toast" data-toast></div>`;
+
+    const $ = (sel) => root.querySelector(sel);
+    const rows = $("[data-rows]");
+    for (const b of PAL.slice(0, 4)) {
+      const li = document.createElement("li");
+      li.className = "row";
+      li.appendChild(coverEl(b, "s"));
+      li.insertAdjacentHTML("beforeend",
+        `<div class="mid"><div class="title">${b.t}</div><div class="meta">${b.a} · ${CAT_LABELS[b.c]}</div></div>`);
+      rows.appendChild(li);
+    }
+
+    const state = { cats: new Set(), spinning: false };
+    const filtered = () => PAL.filter((b) => state.cats.size === 0 || state.cats.has(b.c));
+
+    function renderChips(onChange) {
+      const box = $("[data-chips]");
+      box.innerHTML = "";
+      const all = document.createElement("button");
+      all.className = "chip" + (state.cats.size === 0 ? " on" : "");
+      all.innerHTML = `Toutes<span class="n">${PAL.length}</span>`;
+      all.onclick = () => { state.cats.clear(); renderChips(onChange); onChange(); };
+      box.appendChild(all);
+      for (const c of CAT_ORDER) {
+        const n = PAL.filter((b) => b.c === c).length;
+        if (n === 0) continue; // on ne propose que ce qui est dans la pile
+        const chip = document.createElement("button");
+        chip.className = "chip" + (state.cats.has(c) ? " on" : "");
+        chip.innerHTML = `${CAT_LABELS[c]}<span class="n">${n}</span>`;
+        chip.onclick = () => {
+          state.cats.has(c) ? state.cats.delete(c) : state.cats.add(c);
+          renderChips(onChange); onChange();
+        };
+        box.appendChild(chip);
+      }
+    }
+
+    function toast(msg) {
+      const t = $("[data-toast]");
+      t.textContent = msg;
+      t.classList.add("show");
+      setTimeout(() => t.classList.remove("show"), 2400);
+    }
+
+    function confetti() {
+      if (reduced) return;
+      const stage = $("[data-stage]");
+      for (let i = 0; i < 26; i++) {
+        const p = document.createElement("span");
+        p.className = "cf";
+        p.style.left = 8 + Math.random() * 84 + "%";
+        p.style.background = pick(CF_COLORS);
+        p.style.animationDelay = Math.random() * 0.35 + "s";
+        stage.appendChild(p);
+        setTimeout(() => p.remove(), 2200);
+      }
+    }
+
+    function showResult(book) {
+      $("[data-rt]").textContent = book.t;
+      $("[data-ra]").textContent = book.a;
+      $("[data-rb]").textContent = CAT_LABELS[book.c];
+      $("[data-result]").classList.add("show");
+      $("[data-launch]").hidden = true;
+      confetti();
+    }
+    function hideResult() {
+      $("[data-result]").classList.remove("show");
+      $("[data-launch]").hidden = false;
+    }
+
+    $("[data-open]").onclick = () => $("[data-overlay]").classList.add("open");
+    $("[data-close]").onclick = () => { $("[data-overlay]").classList.remove("open"); hideResult(); };
+    $("[data-start]").onclick = () => {
+      const title = $("[data-rt]").textContent;
+      $("[data-overlay]").classList.remove("open");
+      hideResult();
+      toast(`« ${title} » passe en lecture 📖`);
+    };
+
+    return { $, state, filtered, renderChips, toast, showResult, hideResult };
+  }
+
+  /* ══════════════ A · LA BANDE ══════════════ */
+  function initReel(root) {
+    const ph = buildPhone(root,
+      `<div class="reelwrap"><div class="marker"></div><div class="reel" data-reel></div></div>`,
+      "Lancer le tirage 🎲");
+    const { $, state, filtered } = ph;
+    const STEP = 102; // 92px de couverture + 10px de gap
+
+    function buildIdle() {
+      const reel = $("[data-reel]");
+      reel.style.transition = "none";
+      reel.style.transform = "translateX(0)";
+      reel.innerHTML = "";
+      for (const b of shuffle(filtered()).slice(0, 8)) reel.appendChild(coverEl(b));
+      $("[data-sub]").textContent = `${filtered().length} livres dans le tirage`;
+    }
+
+    ph.renderChips(buildIdle);
+    buildIdle();
+
+    $("[data-launch]").onclick = () => {
+      if (state.spinning) return;
+      const pool = filtered();
+      if (pool.length === 0) return;
+      state.spinning = true;
+      $("[data-launch]").disabled = true;
+
+      const reel = $("[data-reel]");
+      const winner = pick(pool);
+      const seq = [];
+      while (seq.length < 34) seq.push(...shuffle(pool));
+      const winnerPos = 28;
+      seq[winnerPos] = winner;
+
+      reel.style.transition = "none";
+      reel.style.transform = "translateX(0)";
+      reel.innerHTML = "";
+      seq.slice(0, winnerPos + 5).forEach((b) => reel.appendChild(coverEl(b)));
+      const wrap = reel.parentElement;
+      const target = winnerPos * STEP + 46 - wrap.clientWidth / 2 + (Math.random() * 24 - 12);
+
+      const finish = () => {
+        reel.children[winnerPos].classList.add("win");
+        setTimeout(() => {
+          ph.showResult(winner);
+          state.spinning = false;
+          $("[data-launch]").disabled = false;
+        }, 500);
+      };
+
+      if (reduced) {
+        reel.style.transform = `translateX(${-target}px)`;
+        finish();
+        return;
+      }
+      void reel.offsetWidth; // reflow avant d'armer la transition
+      reel.style.transition = "transform 3.8s cubic-bezier(.15,.65,.05,1)";
+      reel.style.transform = `translateX(${-target}px)`;
+      reel.addEventListener("transitionend", finish, { once: true });
+    };
+
+    $("[data-again]").onclick = () => { ph.hideResult(); buildIdle(); $("[data-launch]").click(); };
+    return () => { ph.hideResult(); $("[data-overlay]").classList.remove("open"); state.cats.clear(); ph.renderChips(buildIdle); buildIdle(); };
+  }
+
+  /* ══════════════ B · LA ROUE ══════════════ */
+  function initWheel(root) {
+    const ph = buildPhone(root,
+      `<div class="wheelbox"><div class="wpointer"></div><div class="wheel" data-wheel></div><div class="hub">🎲</div></div>`,
+      "Faire tourner la roue 🎡");
+    const { $, state, filtered } = ph;
+    const MAX = 12;
+    let rotation = 0;
+    let onWheel = []; // les livres réellement posés sur la roue
+
+    function buildIdle() {
+      const wheel = $("[data-wheel]");
+      wheel.style.transition = "none";
+      rotation = 0;
+      wheel.style.transform = "rotate(0deg)";
+      wheel.innerHTML = "";
+      const pool = filtered();
+      onWheel = pool.length > MAX ? shuffle(pool).slice(0, MAX) : shuffle(pool);
+      onWheel.forEach((b, i) => {
+        const c = coverEl(b);
+        c.style.setProperty("--a", (i * 360) / onWheel.length + "deg");
+        wheel.appendChild(c);
+      });
+      $("[data-sub]").textContent = pool.length > MAX
+        ? `${MAX} livres tirés au sort parmi ${pool.length}`
+        : `${pool.length} livres sur la roue`;
+    }
+
+    ph.renderChips(buildIdle);
+    buildIdle();
+
+    $("[data-launch]").onclick = () => {
+      if (state.spinning || onWheel.length === 0) return;
+      state.spinning = true;
+      $("[data-launch]").disabled = true;
+
+      const wheel = $("[data-wheel]");
+      const idx = Math.floor(Math.random() * onWheel.length);
+      const winner = onWheel[idx];
+      const winnerAngle = (idx * 360) / onWheel.length;
+      // amener l'élue sous la flèche : rotation ≡ -winnerAngle (mod 360), + 3 tours de suspense
+      const delta = 3 * 360 + ((360 - winnerAngle - (rotation % 360)) % 360 + 360) % 360;
+      rotation += delta;
+
+      const finish = () => {
+        wheel.children[idx].classList.add("win");
+        setTimeout(() => {
+          ph.showResult(winner);
+          state.spinning = false;
+          $("[data-launch]").disabled = false;
+        }, 500);
+      };
+
+      if (reduced) {
+        wheel.style.transition = "none";
+        wheel.style.transform = `rotate(${rotation}deg)`;
+        finish();
+        return;
+      }
+      wheel.style.transition = "transform 4.2s cubic-bezier(.15,.65,.05,1)";
+      wheel.style.transform = `rotate(${rotation}deg)`;
+      wheel.addEventListener("transitionend", finish, { once: true });
+    };
+
+    $("[data-again]").onclick = () => {
+      ph.hideResult();
+      $("[data-wheel]").querySelectorAll(".win").forEach((c) => c.classList.remove("win"));
+      $("[data-launch]").click();
+    };
+    return () => { ph.hideResult(); $("[data-overlay]").classList.remove("open"); state.cats.clear(); ph.renderChips(buildIdle); buildIdle(); };
+  }
+
+  /* ══════════════ C · LES CARTES ══════════════ */
+  function initDeck(root) {
+    const ph = buildPhone(root,
+      `<div class="deckbox" data-deck></div>`,
+      "Mêler et tirer 🃏");
+    const { $, state, filtered } = ph;
+    let cards = [];
+    let deck = [];
+
+    function buildIdle() {
+      const box = $("[data-deck]");
+      box.innerHTML = "";
+      deck = shuffle(filtered()).slice(0, 14);
+      cards = deck.map((b, i) => {
+        const c = coverEl(b);
+        c.style.setProperty("--r", (i - deck.length / 2) * 2.4 + "deg");
+        c.style.setProperty("--x", (i - deck.length / 2) * 3 + "px");
+        c.style.zIndex = i;
+        box.appendChild(c);
+        return c;
+      });
+      const n = filtered().length;
+      $("[data-sub]").textContent = `${n} livre${n > 1 ? "s" : ""} dans le paquet`;
+    }
+
+    ph.renderChips(buildIdle);
+    buildIdle();
+
+    function reveal(idx) {
+      cards.forEach((c, i) => {
+        if (i === idx) { c.classList.add("win"); c.classList.remove("dim"); }
+        else {
+          c.classList.add("dim");
+          c.style.setProperty("--r", (i % 2 ? 4 : -4) + "deg");
+          c.style.setProperty("--x", (i % 2 ? 26 : -26) + "px");
+          c.style.setProperty("--y", "18px");
+        }
+      });
+      setTimeout(() => {
+        ph.showResult(deck[idx]);
+        state.spinning = false;
+        $("[data-launch]").disabled = false;
+      }, 600);
+    }
+
+    $("[data-launch]").onclick = () => {
+      if (state.spinning || deck.length === 0) return;
+      state.spinning = true;
+      $("[data-launch]").disabled = true;
+      const idx = Math.floor(Math.random() * deck.length);
+
+      if (reduced) { reveal(idx); return; }
+      let steps = 0;
+      const jitter = setInterval(() => {
+        for (const c of cards) {
+          c.style.setProperty("--r", (Math.random() * 30 - 15) + "deg");
+          c.style.setProperty("--x", (Math.random() * 64 - 32) + "px");
+          c.style.setProperty("--y", (Math.random() * 28 - 14) + "px");
+        }
+        if (++steps >= 5) { clearInterval(jitter); reveal(idx); }
+      }, 160);
+    };
+
+    $("[data-again]").onclick = () => { ph.hideResult(); buildIdle(); $("[data-launch]").click(); };
+    return () => { ph.hideResult(); $("[data-overlay]").classList.remove("open"); state.cats.clear(); ph.renderChips(buildIdle); buildIdle(); };
+  }
+
+  /* ── Montage + liens « Réinitialiser » ────────────────────────────────── */
+  const resets = {
+    a: initReel(document.getElementById("phone-a")),
+    b: initWheel(document.getElementById("phone-b")),
+    c: initDeck(document.getElementById("phone-c")),
+  };
+  document.querySelectorAll("[data-replay]").forEach((el) => {
+    el.onclick = () => resets[el.dataset.replay]();
+  });
+</script>

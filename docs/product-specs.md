@@ -957,6 +957,33 @@ catégorie, achats non lus, objectifs **facultatifs** — et la même carte au b
   aucune trace. Les saisies sont assainies (entiers [0, 999]) — une faute de frappe ne fabrique
   pas un million de faits.
 
+### 4.16 La roulette de la PAL — tirer sa prochaine lecture au sort (#262, décisions du 01-03/09/2026)
+
+Idée de Prem & Léna : laisser le hasard désigner la prochaine lecture, avec les couvertures en
+vedette, dans l'esprit plateau de la DA. Maquette `docs/protos/proto-roulette.html` (3 variantes) —
+la **variante A « la bande »** est validée : défilement horizontal sous un curseur dégradé,
+décélération ~4 s, arrêt sur l'élue.
+
+- **Point d'entrée** : bouton « 🎲 Tirage » dans la barre d'outils du segment Pile (à côté de la
+  recherche et du tri), liseré magenta — jamais le dégradé plein, réservé aux CTA (design §2).
+  Il ouvre un écran plein cadre « Prochaine lecture ». La barre d'outils (et donc le bouton)
+  n'apparaît qu'à partir de **2 livres en pile** — un tirage à un candidat n'a pas d'objet ; le
+  cas « tout est déjà en cours de lecture » est, lui, géré dans l'écran (message + tirage
+  désactivé).
+- **Filtres** : chips de catégories **multi-sélection**, seules les catégories réellement tirables
+  sont proposées, avec leurs effectifs ; « Toutes » par défaut.
+- **Périmètre** : la pile au sens §4.6 (possédés non lus), **en-cours exclus** — on ne tire pas au
+  sort un livre déjà commencé. Un livre sans couverture concourt avec le placeholder maison.
+- **Résultat** : l'élue en avant (halo cyan) + micro-confettis, deux gestes — **« Je commence »**
+  (le vrai geste partagé §4.6, la lecture démarre) et **« Relancer »** à volonté (c'est un jeu, pas
+  une punition). Fermer sans rien engager est toujours possible.
+- **Le tirage n'écrit rien** : aucune trace en base tant que « Je commence » n'est pas tapé.
+  Client pur (les `PalEntry` déjà dérivées) → zéro requête, zéro quota.
+- **`prefers-reduced-motion`** : résultat instantané, sans défilement ni confettis (même garde JS
+  que les confettis du Journal).
+- Technique : hasard et filtrage dans `lib/pal/roulette.ts` (module pur, rng injectable, testé) ;
+  mise en scène dans `components/pal/reading-roulette.tsx`.
+
 ---
 
 ## 5. Le scan — architecture

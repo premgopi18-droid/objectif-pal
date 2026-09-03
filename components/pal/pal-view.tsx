@@ -8,6 +8,7 @@ import { StatTile } from "@/components/ui/stat-tile";
 import { Toast } from "@/components/ui/toast";
 import { burstConfetti } from "@/components/ui/confetti";
 import { ErrorAlert } from "@/components/error-alert";
+import { ReadingRoulette } from "@/components/pal/reading-roulette";
 import { FinishReadingButton, RemoveButton, StartReadingButton, useBookGestures } from "@/components/library/book-gestures";
 import { endOwnership, endOwnershipsForBooks, markBooksAsRead, softDeletePurchase } from "@/lib/books/actions";
 import { formatBulkFailures, type BulkActionResult } from "@/lib/books/bulk-read-plan";
@@ -281,6 +282,9 @@ export function PalView({
                 className="min-w-[12rem] flex-1 rounded-xl border border-line bg-card px-3 py-2.5 text-sm text-ink placeholder:text-ink3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
               />
               <SortSelect value={sortOption} options={PAL_SORT_OPTIONS} onChange={setSortOption} className="min-w-[9rem] flex-1" />
+              {/* La roulette (#262) : le tirage au sort de la prochaine lecture —
+                  autonome (overlay, gestes, toast), la vue ne fait que la poser là. */}
+              <ReadingRoulette entries={entries} disabled={isSelecting || isBulkPending} />
               <Button
                 type="button"
                 variant="ghost"

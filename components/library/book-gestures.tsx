@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useState, useTransition } from "react";
+import { useCallback, useState, useTransition, type Ref } from "react";
 import { Button } from "@/components/ui/button";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { finishReadingForBook, startReadingForBook, type JournalActionResult } from "@/lib/books/journal-actions";
@@ -96,15 +96,19 @@ export function StartReadingButton({
   isPending,
   label = "Je commence",
   block = false,
+  ref,
 }: {
   bookId: string;
   run: RunGesture;
   isPending: boolean;
   label?: string;
   block?: boolean;
+  /** Pour poser le focus dessus (la roulette #262 le fait à la révélation). */
+  ref?: Ref<HTMLButtonElement>;
 }) {
   return (
     <Button
+      ref={ref}
       type="button"
       variant="grad"
       block={block}
