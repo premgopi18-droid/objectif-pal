@@ -1,3 +1,12 @@
+# objectif-pal
+
+> **📖 Code consultable, pas réutilisable.**
+> Ce dépôt fait partie de mon portfolio : le code est public pour être **lu**, pas pour être réemployé.
+> Tous droits réservés — voir [LICENSE](LICENSE).
+> Les contributions externes (issues, pull requests) ne sont pas acceptées.
+
+---
+
 This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
 ## Getting Started
