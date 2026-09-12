@@ -103,7 +103,10 @@ export function createOpenLibraryProvider(fetchImplementation: typeof fetch = fe
       const works = (search.docs ?? []).filter((doc): doc is SearchDoc & { key: string } => typeof doc.key === "string").slice(0, worksLimit);
       if (works.length === 0) return [];
 
-      const perWork = await Promise.all(
+      // `allSettled` (review #282) : une œuvre fusionnée/supprimée (404) ou en
+      // timeout ne fait pas tomber les autres — on rend le partiel, et on ne
+      // jette que si TOUTES ont échoué (la source est alors vraiment en rade).
+      const settled = await Promise.allSettled(
         works.map(async (work) => {
           const editions = await getJson<{ entries?: EditionEntry[] }>(`${OPEN_LIBRARY_API}${work.key}/editions.json?limit=${editionsLimit}`);
           const covers: (EditionCover & { coverId: number })[] = [];
@@ -127,6 +130,13 @@ export function createOpenLibraryProvider(fetchImplementation: typeof fetch = fe
           return covers;
         }),
       );
+
+      const fulfilled = settled.filter((outcome): outcome is PromiseFulfilledResult<(EditionCover & { coverId: number })[]> => outcome.status === "fulfilled");
+      if (fulfilled.length === 0) {
+        const first = settled.find((outcome): outcome is PromiseRejectedResult => outcome.status === "rejected");
+        throw first?.reason instanceof Error ? first.reason : new ProviderUnavailableError("OpenLibrary", "éditions injoignables");
+      }
+      const perWork = fulfilled.map((outcome) => outcome.value);
 
       const seen = new Set<number>();
       const result: EditionCover[] = [];

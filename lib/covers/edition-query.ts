@@ -29,6 +29,11 @@ export function validateEditionQuery(input: { title: string; author: string | nu
 export function authorForSearch(authors: string | null): string | null {
   if (!authors) return null;
   const first = authors.split(/[;,]/)[0]?.trim() ?? "";
-  const cleaned = first.replace(/\(.*?\)/g, "").replace(/\bAuteur du texte\b/gi, "").trim();
+  const cleaned = first
+    .replace(/\(.*?\)/g, "")
+    .replace(/\bAuteur du texte\b/gi, "")
+    .trim()
+    .replace(/[.,;:]+$/, "")
+    .trim();
   return cleaned.length > 0 ? cleaned : null;
 }

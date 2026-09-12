@@ -105,3 +105,20 @@ describe("searchEditionCovers (#277)", () => {
     expect((fetchSpy.mock.calls[0] as unknown[])[1]).toMatchObject({ headers: { "User-Agent": expect.stringContaining("objectif-pal") } });
   });
 });
+
+describe("searchEditionCovers — une œuvre en échec ne fait pas tomber les autres (review #282)", () => {
+  it("partiel rendu quand une œuvre répond 404 ; erreur seulement si toutes échouent", async () => {
+    const partial = createOpenLibraryProvider((async (url: string | URL) => {
+      const path = String(url);
+      if (path.includes("/search.json")) return jsonResponse({ docs: [{ key: "/works/OK", title: "T", cover_i: 5 }, { key: "/works/GONE", title: "T" }] });
+      if (path.includes("/works/OK/")) return jsonResponse({ entries: [{ covers: [7], publishers: ["P"], publish_date: "2020" }] });
+      return jsonResponse({}, 404);
+    }) as unknown as typeof fetch);
+    const editions = await partial.searchEditionCovers({ title: "T", author: null });
+    expect(editions.map((edition) => edition.coverUrl)).toEqual(["https://covers.openlibrary.org/b/id/7-L.jpg", "https://covers.openlibrary.org/b/id/5-L.jpg"]);
+
+    const allGone = createOpenLibraryProvider((async (url: string | URL) =>
+      String(url).includes("/search.json") ? jsonResponse({ docs: [{ key: "/works/GONE", title: "T" }] }) : jsonResponse({}, 503)) as unknown as typeof fetch);
+    await expect(allGone.searchEditionCovers({ title: "T", author: null })).rejects.toBeInstanceOf(ProviderUnavailableError);
+  });
+});

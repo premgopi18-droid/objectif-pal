@@ -22,7 +22,7 @@ describe("authorForSearch", () => {
   it("garde le premier nom, sans dates ni rôle BnF", () => {
     expect(authorForSearch("Fléchais, Amélie (1989-....). Auteur du texte")).toBe("Fléchais");
     expect(authorForSearch("Jason Aaron, Chris Bachalo")).toBe("Jason Aaron");
-    expect(authorForSearch("Marvel comics. Auteur du texte")).toBe("Marvel comics.");
+    expect(authorForSearch("Marvel comics. Auteur du texte")).toBe("Marvel comics");
   });
 
   it("null quand rien d'exploitable", () => {

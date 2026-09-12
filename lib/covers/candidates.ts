@@ -165,7 +165,7 @@ export async function listEditionCandidates(
         (await deps.openLibrary.searchEditionCovers(query)).map((edition) => ({
           url: edition.coverUrl,
           source: "open_library_edition" as const,
-          label: editionLabel(edition),
+          label: editionLabel(edition, query.title),
           preselected: false,
           edition: { publisher: edition.publisher, year: edition.year },
         })),
@@ -175,7 +175,24 @@ export async function listEditionCandidates(
   return { candidates: dedupe(results.flat()), degraded };
 }
 
-const editionLabel = (edition: { publisher: string | null; year: string | null }): string => {
+/** Comparaison de titres sans casse, accents ni ponctuation. */
+const normalizeTitle = (title: string): string =>
+  title
+    .normalize("NFD")
+    .replace(/[̀-ͯ]/g, "")
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
+
+/**
+ * L'étiquette dit la vérité (review #282) : quand l'œuvre trouvée n'a pas le
+ * titre cherché (le cas mesuré : *The Vampire Slayer* 2022 → *Buffy the
+ * Vampire Slayer* 2014), son titre passe devant — l'utilisateur voit que ce
+ * n'est pas son livre, et peut quand même le prendre.
+ */
+const editionLabel = (edition: { workTitle: string | null; publisher: string | null; year: string | null }, searchedTitle: string): string => {
   const detail = [edition.publisher, edition.year].filter((part): part is string => part !== null).join(" ");
-  return detail.length > 0 ? `Autre édition · ${detail}` : "Autre édition · OpenLibrary";
+  const otherWork = edition.workTitle !== null && normalizeTitle(edition.workTitle) !== normalizeTitle(searchedTitle) ? edition.workTitle : null;
+  const head = otherWork ?? "Autre édition";
+  return detail.length > 0 ? `${head} · ${detail}` : `${head} · OpenLibrary`;
 };

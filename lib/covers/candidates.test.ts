@@ -169,3 +169,21 @@ describe("listEditionCandidates (#277)", () => {
     expect(searchEditionCovers).not.toHaveBeenCalled();
   });
 });
+
+describe("listEditionCandidates — l'étiquette dit quand c'est une AUTRE œuvre (review #282)", () => {
+  it("titre différent du titre cherché : le titre de l'œuvre passe devant", async () => {
+    const d = deps({
+      openLibrary: {
+        searchEditionCovers: vi.fn(async () => [
+          { coverUrl: "https://covers.openlibrary.org/b/id/1-L.jpg", workTitle: "Buffy the Vampire Slayer", publisher: "Dark Horse Comics", year: "2014", isbn13: null },
+          { coverUrl: "https://covers.openlibrary.org/b/id/2-L.jpg", workTitle: "The vampire slayer", publisher: "Boom", year: "2022", isbn13: null },
+        ]),
+      },
+    });
+    const result = await listEditionCandidates({ title: "The Vampire Slayer", author: null }, d);
+    expect(result.candidates.map((candidate) => candidate.label)).toEqual([
+      "Buffy the Vampire Slayer · Dark Horse Comics 2014",
+      "Autre édition · Boom 2022",
+    ]);
+  });
+});
