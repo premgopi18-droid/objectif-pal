@@ -25,9 +25,11 @@ type LibraryViewKey = (typeof LIBRARY_VIEWS)[number]["value"];
 export default async function BibliothequePage({
   searchParams,
 }: {
-  searchParams: Promise<{ vue?: string }>;
+  searchParams: Promise<{ vue?: string; livre?: string }>;
 }) {
-  const { vue } = await searchParams;
+  // `livre` (#275) : le Journal renvoie ici pour « Modifier la fiche » — la
+  // vue « tous » ouvre la fiche de ce livre. Un id inconnu est ignoré.
+  const { vue, livre } = await searchParams;
   // Défaut « pile » : le volet le plus fréquent (§3). Toute valeur inconnue y retombe.
   const view: LibraryViewKey = vue === "tous" ? "tous" : "pile";
   const supabase = await createServerSupabaseClient();
@@ -43,7 +45,7 @@ export default async function BibliothequePage({
         // `authors`, `publisher` et `page_count` ne s'affichent pas dans la
         // liste : ils alimentent le formulaire d'édition (#100), qui doit
         // ouvrir déjà rempli sans une requête de plus par livre.
-        `id, title, series_name, issue_number, category, cover_url, created_at,
+        `id, title, series_name, issue_number, category, cover_url, cover_chosen_at, created_at,
          authors, publisher, page_count, barcode_raw,
          readings (status, started_at, finished_at, deleted_at),
          purchases (purchased_at, deleted_at),
@@ -66,7 +68,7 @@ export default async function BibliothequePage({
       <section className="py-6">
         <h1 className="text-2xl font-bold">Bibliothèque</h1>
         <div className="mt-4">{segments}</div>
-        <LibraryView entries={entries} />
+        <LibraryView entries={entries} focusBookId={typeof livre === "string" ? livre : null} />
       </section>
     );
   }

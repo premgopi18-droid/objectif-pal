@@ -1,27 +1,39 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { coverPhotoPath, COVERS_BUCKET, isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
+import { coverPhotoPath, COVERS_BUCKET } from "@/lib/books/cover-photo";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
+import { isActionAllowed } from "@/lib/resolution/lookup-rate-limit";
+import { findReplacementCover } from "@/lib/resolution/resolve";
 import { getSessionOrError } from "@/lib/supabase/server";
 
 /**
- * L'enregistrement d'une photo de couverture (specs §5.4, issues #33 et #47).
- * Le client a déjà uploadé le WebP dans le bucket (client session, RLS par
- * dossier) — ici on vérifie et on pose l'URL. Règle du 19/07/2026, gardée
- * CÔTÉ SERVEUR : la photo est le filet ultime — une couverture de SOURCE
- * n'est jamais écrasée ; seule une photo MAISON peut être reprise (#47).
+ * Les gestes de couverture voulus par l'utilisateur (specs §5.4, #33 → #275).
+ *
+ * Décision du 12/09/2026 : **toute couverture se remplace**, à volonté. La
+ * règle « filet ultime » (#47 — une couverture de source était intouchable)
+ * n'existe plus ; à la place, `books.cover_chosen_at` marque le CHOIX, et les
+ * automatismes (réparation #53, rescan, rapatriement #208, fusion) ne
+ * remplacent jamais une couverture choisie qui s'affiche.
  */
 
-export type CoverActionResult = { ok: true } | { ok: false; error: string };
+export type CoverActionResult = { ok: true; coverUrl: string | null } | { ok: false; error: string };
 
+/** Ce que la feuille relit d'un livre pour se rafraîchir. */
+const COVER_COLUMNS = "cover_url, cover_chosen_at";
+
+/**
+ * L'enregistrement d'une photo. Le client a déjà uploadé le WebP dans le
+ * bucket (client session, RLS par dossier) — ici on vérifie que l'objet existe
+ * et on pose l'URL, versionnée, comme couverture CHOISIE.
+ */
 export async function recordCoverPhoto(bookId: string): Promise<CoverActionResult> {
   const session = await getSessionOrError();
   if (!session) return { ok: false, error: "Authentification requise." };
 
   const { data: book, error: readError } = await session.supabase
     .from("books")
-    .select("cover_url")
+    .select(COVER_COLUMNS)
     .eq("id", bookId)
     .eq("user_id", session.user.id)
     .is("deleted_at", null)
@@ -31,11 +43,6 @@ export async function recordCoverPhoto(bookId: string): Promise<CoverActionResul
     return { ok: false, error: GENERIC_ERROR_MESSAGE };
   }
   if (!book) return { ok: false, error: "Livre introuvable." };
-  // Filet ultime raffiné (#47) : une couverture de SOURCE est intouchable ;
-  // une photo maison (notre bucket) peut être reprise.
-  if (book.cover_url !== null && !isHouseCoverPhotoUrl(book.cover_url)) {
-    return { ok: false, error: "Ce livre a déjà une couverture — la photo est le dernier recours." };
-  }
 
   // L'objet doit exister : on ne pose jamais une URL qui 404erait dans le
   // journal. (Le chemin est déterministe : {user_id}/{book_id}.webp.)
@@ -56,11 +63,10 @@ export async function recordCoverPhoto(bookId: string): Promise<CoverActionResul
   const { data: publicUrl } = session.supabase.storage.from(COVERS_BUCKET).getPublicUrl(path);
   const versionedUrl = `${publicUrl.publicUrl}?v=${Date.now()}`;
   // Anti-course : on n'écrit que si la couverture vaut encore EXACTEMENT ce
-  // qu'on vient de lire (vide, ou la photo maison qu'on remplace) — et le
-  // count dit franchement quand la course est perdue.
+  // qu'on vient de lire — et le count dit franchement quand la course est perdue.
   let update = session.supabase
     .from("books")
-    .update({ cover_url: versionedUrl }, { count: "exact" })
+    .update({ cover_url: versionedUrl, cover_chosen_at: new Date().toISOString() }, { count: "exact" })
     .eq("id", bookId)
     .eq("user_id", session.user.id);
   update = book.cover_url === null ? update.is("cover_url", null) : update.eq("cover_url", book.cover_url);
@@ -75,5 +81,61 @@ export async function recordCoverPhoto(bookId: string): Promise<CoverActionResul
 
   revalidatePath("/journal");
   revalidatePath("/bibliotheque");
-  return { ok: true };
+  return { ok: true, coverUrl: versionedUrl };
+}
+
+/**
+ * « Revenir à l'automatique » (#275) : le verrou saute, la chaîne couverture
+ * est rejouée et son résultat posé — éventuellement rien (placeholder), la
+ * photo restant possible. Métré comme la réparation (#177) : c'est le même
+ * chemin externe, le plus coûteux.
+ */
+export async function resetCoverToAutomatic(bookId: string): Promise<CoverActionResult> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+  const { supabase, user } = session;
+
+  const { data: book, error: readError } = await supabase
+    .from("books")
+    .select(`${COVER_COLUMNS}, isbn, barcode_raw, barcode_type`)
+    .eq("id", bookId)
+    .eq("user_id", user.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (readError) {
+    console.error("[covers] resetCoverToAutomatic:", readError.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+  if (!book) return { ok: false, error: "Livre introuvable." };
+  if (book.cover_chosen_at === null) return { ok: true, coverUrl: book.cover_url };
+
+  if (!(await isActionAllowed(supabase, "cover_repair"))) {
+    return { ok: false, error: "Trop de recherches d'un coup — attends une minute et réessaie." };
+  }
+
+  const barcodeType = book.barcode_type as "isbn" | "upc" | null;
+  let foundCoverUrl: string | null = null;
+  try {
+    foundCoverUrl = barcodeType
+      ? await findReplacementCover({ barcodeType, isbn: book.isbn, barcode: book.barcode_raw })
+      : null;
+  } catch (error) {
+    // Une chaîne en échec ne bloque pas le retour à l'automatique : le livre
+    // repart sans couverture, la réparation #53 et le rescan feront le reste.
+    console.error("[covers] resetCoverToAutomatic:", error instanceof Error ? error.message : String(error));
+  }
+
+  const { error: updateError } = await supabase
+    .from("books")
+    .update({ cover_url: foundCoverUrl, cover_chosen_at: null })
+    .eq("id", bookId)
+    .eq("user_id", user.id);
+  if (updateError) {
+    console.error("[covers] resetCoverToAutomatic:", updateError.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+
+  revalidatePath("/journal");
+  revalidatePath("/bibliotheque");
+  return { ok: true, coverUrl: foundCoverUrl };
 }

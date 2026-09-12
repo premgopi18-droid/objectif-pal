@@ -80,7 +80,7 @@ export async function repairBrokenCover(bookId: string): Promise<CoverRepairResu
 
   const { data: book, error } = await supabase
     .from("books")
-    .select("cover_url, isbn, barcode_raw, barcode_type, cover_repair_attempted_at")
+    .select("cover_url, cover_chosen_at, isbn, barcode_raw, barcode_type, cover_repair_attempted_at")
     .eq("id", bookId)
     .eq("user_id", user.id)
     .maybeSingle();
@@ -115,18 +115,23 @@ export async function repairBrokenCover(bookId: string): Promise<CoverRepairResu
   const foundCoverUrl = barcodeType
     ? await findReplacementCover({ barcodeType, isbn: book.isbn, barcode: book.barcode_raw })
     : null;
-  // La re-vérification de l'URL actuelle ne sert qu'au cas « rien trouvé ».
-  const currentUrlIsAlive = foundCoverUrl ? null : await isUrlAlive(book.cover_url);
-  const decision = decideCoverRepair(book.cover_url, foundCoverUrl, currentUrlIsAlive);
+  // La re-vérification de l'URL actuelle ne sert qu'au cas « rien trouvé » —
+  // et TOUJOURS pour une couverture choisie (#275) : elle ne se remplace que
+  // confirmée morte, quoi que la chaîne ait trouvé.
+  const isChosen = book.cover_chosen_at !== null;
+  const currentUrlIsAlive = foundCoverUrl && !isChosen ? null : await isUrlAlive(book.cover_url);
+  const decision = decideCoverRepair(book.cover_url, foundCoverUrl, currentUrlIsAlive, { isChosen });
 
   if (decision.action === "keep") return { coverUrl: book.cover_url };
 
   const newCoverUrl = decision.action === "replace" ? decision.coverUrl : null;
   // Double filtre user_id : la RLS couvre déjà, mais c'est la discipline du
   // repo partout ailleurs (relevé par l'audit du 14/08/2026).
+  // Une couverture choisie confirmée morte repasse en automatique (#275) : le
+  // verrou protégeait une image, pas une URL cassée.
   const { error: updateError } = await supabase
     .from("books")
-    .update({ cover_url: newCoverUrl })
+    .update({ cover_url: newCoverUrl, cover_chosen_at: null })
     .eq("id", bookId)
     .eq("user_id", user.id);
   if (updateError) {

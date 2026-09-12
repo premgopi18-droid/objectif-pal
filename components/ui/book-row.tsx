@@ -21,19 +21,41 @@ type BookRowProps = {
   action?: ReactNode;
   /** La zone AVANT la vignette (la case du mode sélection #256). */
   leading?: ReactNode;
+  /**
+   * La vignette devient un bouton (#275) : le tap ouvre « Changer la
+   * couverture ». Absent, la vignette reste inerte (Journal, listes de scan).
+   */
+  onCoverPress?: () => void;
 };
 
-export function BookRow({ title, meta, coverUrl = null, bookId = null, placeholderEmoji, action, leading }: BookRowProps) {
+export function BookRow({
+  title,
+  meta,
+  coverUrl = null,
+  bookId = null,
+  placeholderEmoji,
+  action,
+  leading,
+  onCoverPress,
+}: BookRowProps) {
+  const cover = (
+    <BookCover coverUrl={coverUrl} size="small" title={title} bookId={bookId} placeholderEmoji={placeholderEmoji} />
+  );
   return (
     <article className="flex items-center gap-3 rounded-card border border-line bg-card p-3">
       {leading}
-      <BookCover
-        coverUrl={coverUrl}
-        size="small"
-        title={title}
-        bookId={bookId}
-        placeholderEmoji={placeholderEmoji}
-      />
+      {onCoverPress ? (
+        <button
+          type="button"
+          onClick={onCoverPress}
+          aria-label={`Changer la couverture de ${title}`}
+          className="flex-none rounded-md focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+        >
+          {cover}
+        </button>
+      ) : (
+        cover
+      )}
       <div className="min-w-0 flex-1">
         <h3 className="truncate text-[15px] font-semibold text-ink">{title}</h3>
         {meta != null && <div className="mt-0.5 text-[12.5px] text-ink2">{meta}</div>}

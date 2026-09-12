@@ -20,12 +20,11 @@ import { CategoryDrawer } from "@/components/scan/category-drawer";
 import { FilterChips } from "@/components/ui/filter-chips";
 import { Stars } from "@/components/ui/stars";
 import { Toast } from "@/components/ui/toast";
-import { CoverPhotoButton } from "@/components/cover-photo-button";
+import Link from "next/link";
 import { ErrorAlert } from "@/components/error-alert";
 import { RemoveButton, useBookGestures } from "@/components/library/book-gestures";
 import { FUTURE_DATE_MESSAGE } from "@/lib/books/errors";
 import { ALL_CATEGORIES, CATEGORY_LABELS } from "@/lib/books/categories";
-import { isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
 import { formatBookSubtitle } from "@/lib/books/format";
 import { formatDateFrench, formatMonthFrench, localToday } from "@/lib/dates";
 import { formatPointsLabel } from "@/lib/scoring/report-text";
@@ -548,14 +547,14 @@ function EditPanel({
         </label>
       </div>
 
-      {/* La photo, filet ultime (§5.4, #47) : proposée quand la cascade n'a
-          rien trouvé, ou pour REPRENDRE une photo maison ratée — une
-          couverture de source, elle, reste intouchable. */}
-      {entry.book.coverUrl === null ? (
-        <CoverPhotoButton bookId={entry.book.bookId} />
-      ) : (
-        isHouseCoverPhotoUrl(entry.book.coverUrl) && <CoverPhotoButton bookId={entry.book.bookId} mode="retake" />
-      )}
+      {/* La couverture se change depuis la FICHE, dans la Biblio (#275) — un
+          seul lieu pour ce qui décrit le livre ; ici, on parle de la lecture. */}
+      <Link
+        href={`/bibliotheque?vue=tous&livre=${entry.book.bookId}`}
+        className="self-start text-sm text-ink2 underline underline-offset-2"
+      >
+        Modifier la fiche (titre, couverture…)
+      </Link>
 
       <label className="flex flex-col gap-1 text-xs text-ink2">
         Avis — la matière de l&apos;émission

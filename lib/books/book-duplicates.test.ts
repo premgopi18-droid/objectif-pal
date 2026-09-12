@@ -20,6 +20,7 @@ function entry(overrides: Partial<LibraryEntry> = {}): LibraryEntry {
     issueNumber: null,
     category: "bd",
     coverUrl: null,
+    coverChosenAt: null,
     createdAt: "2026-07-01T10:00:00Z",
     status: "in-pile",
     activeReadingCount: 0,

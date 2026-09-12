@@ -37,7 +37,7 @@ const EXPORT_TABLES: Record<
 > = {
   books: {
     columns:
-      "id, title, series_name, issue_number, authors, publisher, page_count, category, barcode_raw, barcode_type, barcode_prefix, isbn, cover_url, metadata_source, metadata_source_id, created_at, deleted_at",
+      "id, title, series_name, issue_number, authors, publisher, page_count, category, barcode_raw, barcode_type, barcode_prefix, isbn, cover_url, cover_chosen_at, metadata_source, metadata_source_id, created_at, deleted_at",
     orderBy: "created_at",
   },
   readings: {

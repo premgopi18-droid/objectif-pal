@@ -26,6 +26,30 @@ describe("la décision de réparation d'une couverture cassée (#53)", () => {
   });
 });
 
+/**
+ * Le verrou du choix (#275) : une couverture CHOISIE ne se remplace jamais
+ * tant qu'elle peut s'afficher — seule une URL confirmée morte est réparée,
+ * et le doute profite au choix.
+ */
+describe("la réparation face à une couverture CHOISIE (#275)", () => {
+  it("URL vivante : on garde, quoi que la chaîne ait trouvé", () => {
+    expect(decideCoverRepair(DEAD_URL, NEW_URL, true, { isChosen: true })).toEqual({ action: "keep" });
+  });
+
+  it("vérification impossible : le doute profite au choix, même avec une remplaçante", () => {
+    expect(decideCoverRepair(DEAD_URL, NEW_URL, null, { isChosen: true })).toEqual({ action: "keep" });
+  });
+
+  it("URL confirmée morte : remplacée si la chaîne a mieux, vidée sinon", () => {
+    expect(decideCoverRepair(DEAD_URL, NEW_URL, false, { isChosen: true })).toEqual({ action: "replace", coverUrl: NEW_URL });
+    expect(decideCoverRepair(DEAD_URL, null, false, { isChosen: true })).toEqual({ action: "clear" });
+  });
+
+  it("sans choix, la règle historique s'applique (remplaçante = remplacement)", () => {
+    expect(decideCoverRepair(DEAD_URL, NEW_URL, true, { isChosen: false })).toEqual({ action: "replace", coverUrl: NEW_URL });
+  });
+});
+
 describe("la garde SSRF de la re-vérification (review #57)", () => {
   it("accepte les hôtes de couverture connus, en https", () => {
     expect(isKnownCoverImageUrl("https://images.epagine.fr/963/x.jpg")).toBe(true);

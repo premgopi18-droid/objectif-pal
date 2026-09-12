@@ -58,7 +58,12 @@ export function decideCoverRepair(
   currentCoverUrl: string,
   foundCoverUrl: string | null,
   currentUrlIsAlive: boolean | null,
+  { isChosen = false }: { isChosen?: boolean } = {},
 ): CoverRepairDecision {
+  // Une couverture CHOISIE (#275) ne se remplace jamais tant qu'elle peut
+  // s'afficher : seule une URL confirmée morte est réparée — une image morte
+  // n'est le choix de personne. Le doute (null) profite au choix.
+  if (isChosen && currentUrlIsAlive !== false) return { action: "keep" };
   if (foundCoverUrl && foundCoverUrl !== currentCoverUrl) return { action: "replace", coverUrl: foundCoverUrl };
   // La chaîne rend la MÊME URL : le provider la considère vivante — l'échec
   // de chargement était côté client (réseau, blocage local). On garde.

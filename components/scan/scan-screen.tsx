@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CoverPhotoButton } from "@/components/cover-photo-button";
+import { CoverChooserSheet, type CoverSheetBook } from "@/components/covers/cover-chooser-sheet";
 import { ErrorAlert } from "@/components/error-alert";
 import {
   startReading,
@@ -47,9 +47,10 @@ type ScanState =
   | { step: "manual"; scannedCode: string | null; suggestedCoverUrl?: string | null }
   // purchaseId n'est porté que par un achat (pas une lecture) : c'est lui qui
   // arme le bouton « Annuler ». error : l'échec d'une annulation, affiché sur
-  // place. photoBookId : le livre vient d'être enregistré SANS couverture —
-  // on propose la photo, le filet ultime (specs §5.4, #33).
-  | { step: "done"; message: string; detail: string | null; purchaseId?: string; error?: string; photoBookId?: string }
+  // place. book : le livre qui vient d'être enregistré — la porte « Changer la
+  // couverture » (#275), que la cascade ait trouvé ou non : le livre est dans
+  // la main, c'est le moment de la photo. coverSheetOpen : la feuille.
+  | { step: "done"; message: string; detail: string | null; purchaseId?: string; error?: string; book?: CoverSheetBook; coverSheetOpen?: boolean }
   // Le scan d'étagère (#101 lot C) : un mode plein écran, sa propre boucle.
   | { step: "burst" };
 
@@ -226,8 +227,10 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: numb
           : null,
       // Seul un achat remonte un purchaseId : lui seul peut s'annuler ici.
       purchaseId: result.purchaseId,
-      // Toute la cascade n'a rien trouvé : la photo est le filet ultime (#33).
-      photoBookId: input.coverUrl === null ? result.bookId : undefined,
+      // La couverture se change ici aussi (#275) — le livre est dans la main.
+      // Un livre déjà connu a pu recevoir un choix avant : la feuille le
+      // relira ; à la création, elle est ce que la cascade a posé.
+      book: { bookId: result.bookId, title: input.title, coverUrl: input.coverUrl, coverChosenAt: null },
     });
   }
 
@@ -403,7 +406,22 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: numb
         <h2 className="text-xl font-black uppercase italic tracking-tight text-ink">{state.message}</h2>
         {state.detail && <p className="text-sm text-ink2">{state.detail}</p>}
         {state.error && <ErrorAlert message={state.error} />}
-        {state.photoBookId && <CoverPhotoButton bookId={state.photoBookId} />}
+        {state.book && (
+          <>
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => setState({ ...state, coverSheetOpen: true })}
+            >
+              {state.book.coverUrl === null ? "📷 Ajouter une couverture" : "Changer la couverture"}
+            </Button>
+            <CoverChooserSheet
+              book={state.coverSheetOpen ? state.book : null}
+              onClose={() => setState({ ...state, coverSheetOpen: false })}
+              onChanged={(_bookId, cover) => setState({ ...state, book: { ...state.book!, ...cover } })}
+            />
+          </>
+        )}
         {state.purchaseId && (
           <button
             type="button"

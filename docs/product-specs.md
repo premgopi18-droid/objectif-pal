@@ -545,7 +545,10 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
   série, numéro, auteurs, éditeur, pages, catégorie. Elle **ne remplace pas le rescan**, elle couvre ce que le
   rescan ne peut pas : un livre **saisi à la main n'a pas de code-barres**, donc rien à rescanner, et sa fiche
   resterait fausse pour toujours. Les champs **code-barres et source restent intouchables** — c'est le pont de
-  re-résolution (§7), une saisie humaine dessus le casserait en silence.
+  re-résolution (§7), une saisie humaine dessus le casserait en silence. **La couverture entre dans la fiche
+  le 12/09/2026 (#275)** : une ligne « Couverture » avec son origine et un bouton « Changer » qui ouvre la même
+  feuille que le tap sur la vignette (§5.4 « Choisir sa couverture ») — un seul lieu, deux portes. Le Journal
+  y renvoie (« Modifier la fiche », `?livre=<id>` ouvre la fiche).
 - **Alignement de catégorie par série** (#257, décisions du 31/08/2026) : quand l'app se trompe de catégorie
   sur un tome, elle s'est presque sûrement trompée sur **toute la série**. Après l'enregistrement d'une fiche
   **dont la catégorie a changé** (une série volontairement mixte ne re-propose rien à chaque édition des
@@ -1134,13 +1137,46 @@ redistribution), **zéro quota**, et c'est **l'exemplaire réel** avec sa vraie 
 > - **Photos strictement PAR UTILISATEUR** (policies d'écriture par dossier). Le **pool partagé** (« le premier
 >   qui photographie, les autres en profitent ») est une piste multi-user volontairement non ouverte : elle
 >   sacrifierait l'argument « aucune redistribution » ci-dessus — à re-peser à l'ouverture multi-utilisateur.
-> - **La photo est le filet ULTIME** : proposée quand `cover_url` est vide (au scan et dans le panneau
->   Modifier du journal). *Raffiné le 19/07/2026 au soir (#47)* : une couverture de **source** reste
->   intouchable, mais une **photo maison** peut être **reprise** (bouton « Reprendre la photo » au journal,
->   URL versionnée `?v=` pour casser les caches) ; et l'**import galerie** est permis (pas d'attribut
->   `capture` — le navigateur propose nativement caméra ou photothèque). Usage privé, l'argument « aucune
->   redistribution » tient.
+> - ~~**La photo est le filet ULTIME**~~ — règle du 19/07/2026 (#33/#47 : proposée seulement quand
+>   `cover_url` est vide, une couverture de **source** intouchable, seule une photo maison reprenable),
+>   **abrogée le 12/09/2026 par #275** — voir « Choisir sa couverture » ci-dessous. Restent de cette époque :
+>   l'URL versionnée `?v=` pour casser les caches, et l'**import galerie** à côté de la caméra (deux inputs
+>   explicites, #50).
 > - **Compression** : 800 px de grand côté, WebP qualité 0,8 (~60-150 Ko) ; un seul objet par livre, écrasé.
+
+> **Choisir sa couverture — décisions du 12/09/2026 (epic #274, lot A livré en #275)**
+>
+> **L'app est non commerciale.** Décision structurante, prise avec Léna : elle lève l'argument « aucune
+> redistribution » qui protégeait un usage commercial, et ouvre Comic Vine (lot C, #279) et le pool partagé
+> (lot D, #278). Si ça change un jour : retirer la clé Comic Vine et fermer le pool.
+>
+> - **Toute couverture se remplace**, à volonté : photo ou import galerie, quelle que soit l'origine de
+>   l'actuelle (source, rapatriée, photo, vide). Le « filet ultime » n'existe plus. *Constat qui a précipité la
+>   décision* : depuis le rapatriement #208, les couvertures de source vivaient dans notre bucket et passaient
+>   pour des photos maison — le verrou #47 était tombé en silence ; on l'a rendu volontaire.
+> - **`books.cover_chosen_at`** : nul = automatique, daté = **choisie**. **Aucun automatisme ne remplace une
+>   couverture choisie qui s'affiche** — réparation #53, rescan (`mergeBookFieldsOnRescan` ne la porte pas),
+>   rapatriement #208 (il la rapatrie, ne la remplace pas), fusion (`merge_books` : la couverture choisie
+>   gagne, quel que soit le côté ; deux choisies → celle du livre conservé). **Seule exception** : une
+>   couverture choisie **confirmée morte** côté serveur est réparée comme les autres et repasse en
+>   automatique — une image morte n'est le choix de personne ; le doute (vérification impossible) profite au
+>   choix.
+> - **« Revenir à l'automatique »** : vide le verrou, rejoue la chaîne (`findReplacementCover`), pose le
+>   résultat — éventuellement rien. Métré comme la réparation (`cover_repair`, 5/min).
+> - **Un seul lieu : la Biblio.** La feuille « Changer la couverture » s'ouvre au tap sur la vignette et depuis
+>   la fiche d'édition (§4.12). Le Journal n'a plus de bouton photo : « Modifier la fiche » renvoie à la Biblio
+>   (`/bibliotheque?vue=tous&livre=<id>`, fiche ouverte). Le scan à l'unité garde une porte sur l'écran de fin
+>   (le livre est dans la main) ; **rien en rafale** — la chaîne ne s'arrête jamais (§4.13).
+> - **Le cercle suit le choix** : un trigger dédié (`books_bump_fact_version_cover`) périme les bilans quand
+>   une couverture **choisie** change, ou cesse de l'être — jamais pour le rapatriement nocturne d'une
+>   automatique (le trigger historique ignore `cover_url` exprès).
+> - **`isHouseCoverPhotoUrl` dit « chez nous », pas « photo »** : photo, photo de rafale et rapatriée sont
+>   traitées pareil (pas d'optimiseur, pas de réparation, jamais dans le cache partagé) ;
+>   `isInternalizedCoverUrl` ne sert qu'à l'étiquette de la feuille.
+> - À venir dans l'epic : **le sélecteur** (lot B, #276 — candidates de toutes les sources, **variantes Metron
+>   présélectionnées par UPC** : le détail `/issue/{id}/` porte `variants[]` avec leur UPC, contrairement à ce
+>   que dit l'encadré Metron plus haut, qui décrit le filtre de liste), **les autres éditions** (lot E, #277),
+>   **le pool partagé** (lot D, #278), **Comic Vine débranchable** (lot C, #279).
 
 > **Décisions du 19/07/2026 (deuxième vague — le trou VF)** — déclencheur : *Batman : La Cour des Hiboux*
 > (Urban Comics 2022, 9791026820963), fiche Google Books **sans image**, inconnu d'OpenLibrary, d'Inventaire
@@ -1303,6 +1339,7 @@ RLS activée **partout**, `user_id` sur **chaque** table utilisateur.
 | `barcode_prefix` | Les 12 premiers chiffres — **indexé** |
 | `isbn` | Si applicable |
 | `cover_url` | Couverture distante (Metron / Google Books) **ou** chemin Supabase Storage si photo |
+| `cover_chosen_at` | **Nul = automatique, daté = choisie** par l'utilisateur (#275) : aucun automatisme ne la remplace tant qu'elle s'affiche (§5.4) |
 | `metadata_source` | `gcd` / `bnf` / `google_books` / `metron` / `manual` |
 | `metadata_source_id` | L'identifiant chez la source (dont le **`gcd_id`**) — permet de re-résoudre plus tard |
 

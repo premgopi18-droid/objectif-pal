@@ -87,4 +87,10 @@ describe("mergeBookFieldsOnRescan", () => {
     const payload = mergeBookFieldsOnRescan(existingFull, input());
     expect(payload.deleted_at).toBeNull();
   });
+
+  it("le rescan ne touche jamais le choix de couverture (#275) : ni cover_chosen_at, ni une cover_url existante", () => {
+    const payload = mergeBookFieldsOnRescan(existingFull, input({ coverUrl: "https://example.test/autre.jpg" }));
+    expect("cover_chosen_at" in payload).toBe(false);
+    expect(payload.cover_url).toBe("https://example.test/existing.jpg");
+  });
 });
