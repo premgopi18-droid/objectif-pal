@@ -52,7 +52,7 @@ function fakeDeps(overrides: {
     },
     bnf: { resolveIsbn: vi.fn(async () => null), ...overrides.bnf },
     googleBooks: { resolveIsbn: vi.fn(async () => null), ...overrides.googleBooks },
-    openLibrary: { findCoverByIsbn: vi.fn(async () => null), ...overrides.openLibrary },
+    openLibrary: { findCoverByIsbn: vi.fn(async () => null), searchEditionCovers: vi.fn(async () => []), ...overrides.openLibrary },
     inventaire: { findCoverByIsbn: vi.fn(async () => null), ...overrides.inventaire },
     bnfCovers: { findCoverByIsbn: vi.fn(async () => null), ...overrides.bnfCovers },
     epagine: { findCoverByIsbn: vi.fn(async () => null), ...overrides.epagine },
@@ -946,5 +946,20 @@ describe("la variante scannée (#276)", () => {
     if (result.kind === "resolved") {
       expect(result.book.coverUrl).toBe("https://static.metron.cloud/media/variants/b.jpg");
     }
+  });
+});
+
+/**
+ * Les autres éditions (#277) sont PROPOSÉES, jamais imposées : ni la cascade
+ * ni la réparation ne cherchent une édition sœur — un roman change souvent de
+ * couverture entre éditions, poser celle d'une autre serait un mensonge muet.
+ */
+describe("les autres éditions ne sont jamais posées toutes seules (#277)", () => {
+  it("la cascade et findReplacementCover n'appellent jamais searchEditionCovers", async () => {
+    const searchEditionCovers = vi.fn(async () => []);
+    const deps = fakeDeps({ openLibrary: { findCoverByIsbn: vi.fn(async () => null), searchEditionCovers } });
+    await resolveScannedCode("9782723488525", deps);
+    await findReplacementCover({ barcodeType: "isbn", isbn: "9782723488525", barcode: "9782723488525" }, deps);
+    expect(searchEditionCovers).not.toHaveBeenCalled();
   });
 });

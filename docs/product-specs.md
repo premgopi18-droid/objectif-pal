@@ -548,7 +548,9 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
   re-résolution (§7), une saisie humaine dessus le casserait en silence. **La couverture entre dans la fiche
   le 12/09/2026 (#275)** : une ligne « Couverture » avec son origine et un bouton « Changer » qui ouvre la même
   feuille que le tap sur la vignette (§5.4 « Choisir sa couverture ») — un seul lieu, deux portes. Le Journal
-  y renvoie (« Modifier la fiche », `?livre=<id>` ouvre la fiche).
+  y renvoie (« Modifier la fiche », `?livre=<id>` ouvre la fiche). Pour un livre **saisi à la main** (sans
+  code-barres), la feuille s'ouvre directement sur « Autres éditions » (#277) : la recherche par titre est sa
+  seule proposition possible, avec la photo.
 - **Alignement de catégorie par série** (#257, décisions du 31/08/2026) : quand l'app se trompe de catégorie
   sur un tome, elle s'est presque sûrement trompée sur **toute la série**. Après l'enregistrement d'une fiche
   **dont la catégorie a changé** (une série volontairement mixte ne re-propose rien à chaque édition des
@@ -1199,8 +1201,26 @@ redistribution), **zéro quota**, et c'est **l'exemplaire réel** avec sa vraie 
 >   utilisateur (seuil en SQL). Hors ligne : « Pas de réseau — la photo reste possible ». Rattrapage prod : les
 >   4 entrées de `barcode_cache` de variantes (cover A stockée sous un code de cover B) purgées après
 >   déploiement.
-> - À venir dans l'epic : **les autres éditions** (lot E, #277), **le pool partagé** (lot D, #278), **Comic Vine
->   débranchable** (lot C, #279).
+> - **Les autres éditions (lot E, #277, livré le 13/09/2026).** Pour BD, manga et roman, une édition = un ISBN :
+>   ce qu'on scanne est l'édition tenue. Le trou réel est le livre que personne n'a en image (réédition VF,
+>   intégrale, collector, tome N quand la source s'arrête à N-1) et le **livre sans code-barres** (saisie
+>   manuelle). OpenLibrary modélise l'œuvre et ses éditions, sans clé : `search.json?title=&author=` puis
+>   `/works/{id}/editions.json` (3 œuvres, 20 éditions chacune, lues en parallèle ; image par
+>   `covers.openlibrary.org/b/id/{id}-L.jpg`, éditeur et année extraits de la date libre). **Proposées, jamais
+>   imposées** : ni la cascade ni la réparation n'y touchent (test) — les romans changent souvent de couverture
+>   entre éditions, poser celle d'une autre serait un mensonge muet. Dans la feuille, section « Autres éditions »
+>   avec **requête modifiable** (titre + auteur pré-remplis ; l'auteur BnF « Fléchais, Amélie (1989-....).
+>   Auteur du texte » est nettoyé en « Fléchais »), chargée **au tap seulement**, étiquettes « Autre édition ·
+>   Gallimard 2015 ». Un livre sans code ouvre directement sur cette section (la « Proposées » se tait). Même
+>   quota que les candidates. **Google Books `intitle:` exclu** (quota global 900/j). **Mesure du 13/09/2026**
+>   sur les 14 livres sans couverture de la prod + 3 témoins VF : **2/14** en prod (un omnibus Marvel VO, *The
+>   Vampire Slayer* — 7 images, mais celles de la série Dark Horse 2014, pas de Boom 2022 : l'étiquette « autre
+>   édition » n'est pas décorative), **0/5** sur les albums jeunesse Marvel VF, 0/1 sur *L'abîme* (BD Fnac),
+>   1 timeout (`search.json` > 4 s) ; **3/3** sur les témoins (*La Horde du Contrevent* 5 images, *One Piece* 41,
+>   *Astérix* 18). Verdict : OpenLibrary est solide sur le fonds classique (roman, manga, BD patrimoniale) et
+>   maigre sur le récent VO grand format et la jeunesse VF. Le cran **Inventaire** (œuvres → éditions) reste à
+>   mesurer sur la BD franco-belge récente avant d'être ajouté — pas dans ce lot.
+> - À venir dans l'epic : **le pool partagé** (lot D, #278), **Comic Vine débranchable** (lot C, #279).
 
 > **Décisions du 19/07/2026 (deuxième vague — le trou VF)** — déclencheur : *Batman : La Cour des Hiboux*
 > (Urban Comics 2022, 9791026820963), fiche Google Books **sans image**, inconnu d'OpenLibrary, d'Inventaire

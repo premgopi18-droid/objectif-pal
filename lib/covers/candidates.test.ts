@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import type { ResolutionDeps } from "@/lib/resolution/resolve";
 import type { MetronIssue } from "@/lib/resolution/providers/metron";
-import { listCoverCandidates } from "./candidates";
+import { listCoverCandidates, listEditionCandidates } from "./candidates";
 
 /**
  * Le sélecteur (#276) : toutes les sources en parallèle, ce qui arrive dans
@@ -134,5 +134,38 @@ describe("listCoverCandidates — sans code", () => {
     expect(result).toEqual({ candidates: [], degraded: false });
     expect(d.metron.findIssueByUpc).not.toHaveBeenCalled();
     expect(d.openLibrary.findCoverByIsbn).not.toHaveBeenCalled();
+  });
+});
+
+describe("listEditionCandidates (#277)", () => {
+  it("étiquette éditeur + année, ou OpenLibrary seul ; dédoublonne", async () => {
+    const d = deps({
+      openLibrary: {
+        searchEditionCovers: vi.fn(async () => [
+          { coverUrl: "https://covers.openlibrary.org/b/id/1-L.jpg", workTitle: "T", publisher: "Gallimard", year: "2015", isbn13: null },
+          { coverUrl: "https://covers.openlibrary.org/b/id/2-L.jpg", workTitle: "T", publisher: null, year: "2007", isbn13: null },
+          { coverUrl: "https://covers.openlibrary.org/b/id/3-L.jpg", workTitle: "T", publisher: null, year: null, isbn13: null },
+          { coverUrl: "https://covers.openlibrary.org/b/id/1-L.jpg", workTitle: "T", publisher: "Folio", year: "2021", isbn13: null },
+        ]),
+      },
+    });
+    const result = await listEditionCandidates({ title: "T", author: null }, d);
+    expect(result.degraded).toBe(false);
+    expect(result.candidates.map((candidate) => candidate.label)).toEqual(["Autre édition · Gallimard 2015", "Autre édition · 2007", "Autre édition · OpenLibrary"]);
+    expect(result.candidates.every((candidate) => candidate.source === "open_library_edition" && !candidate.preselected)).toBe(true);
+    expect(result.candidates[0].edition).toEqual({ publisher: "Gallimard", year: "2015" });
+  });
+
+  it("OpenLibrary en panne : liste vide, degraded", async () => {
+    const d = deps({ openLibrary: { searchEditionCovers: vi.fn(async () => { throw new Error("429"); }) } });
+    expect(await listEditionCandidates({ title: "T", author: null }, d)).toEqual({ candidates: [], degraded: true });
+  });
+
+  it("listCoverCandidates n'appelle JAMAIS la recherche d'éditions (proposée, jamais imposée)", async () => {
+    const searchEditionCovers = vi.fn(async () => []);
+    const d = deps({ openLibrary: { findCoverByIsbn: vi.fn(async () => null), searchEditionCovers } });
+    await listCoverCandidates(ISBN_BOOK, d);
+    await listCoverCandidates(UPC_BOOK, d);
+    expect(searchEditionCovers).not.toHaveBeenCalled();
   });
 });

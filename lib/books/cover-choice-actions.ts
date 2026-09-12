@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { isKnownCoverImageUrl } from "@/lib/books/cover-repair";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
-import { listCoverCandidates, type CoverCandidate } from "@/lib/covers/candidates";
+import { listCoverCandidates, listEditionCandidates, type CoverCandidate } from "@/lib/covers/candidates";
+import { validateEditionQuery } from "@/lib/covers/edition-query";
 import { isActionAllowed, LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
 import { createDefaultDeps } from "@/lib/resolution/resolve";
 import { getSessionOrError } from "@/lib/supabase/server";
@@ -84,4 +85,42 @@ export async function chooseCover(bookId: string, url: string): Promise<CoverAct
   revalidatePath("/journal");
   revalidatePath("/bibliotheque");
   return { ok: true, coverUrl: url };
+}
+
+/**
+ * Les autres éditions (#277) : recherche par titre + auteur chez OpenLibrary,
+ * au tap seulement — jamais à l'ouverture, jamais au scan. Même quota que les
+ * candidates : une recherche est une action. Le livre n'a même pas besoin de
+ * code-barres : c'est la seule proposition possible pour une saisie manuelle.
+ */
+export async function searchEditionCovers(
+  bookId: string,
+  input: { title: string; author: string | null },
+): Promise<CoverCandidatesActionResult> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+  const { supabase, user } = session;
+
+  const validation = validateEditionQuery(input);
+  if (!validation.ok) return { ok: false, error: validation.error };
+
+  const { data: book, error } = await supabase
+    .from("books")
+    .select("cover_url")
+    .eq("id", bookId)
+    .eq("user_id", user.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) {
+    console.error("[covers] searchEditionCovers:", error.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+  if (!book) return { ok: false, error: "Livre introuvable." };
+
+  if (!(await isActionAllowed(supabase, "cover_candidates"))) {
+    return { ok: false, error: LOOKUP_RATE_LIMIT_MESSAGE };
+  }
+
+  const { candidates, degraded } = await listEditionCandidates(validation.query, createDefaultDeps());
+  return { ok: true, candidates: candidates.filter((candidate) => candidate.url !== book.cover_url), degraded };
 }

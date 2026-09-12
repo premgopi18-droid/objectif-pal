@@ -22,7 +22,18 @@ export type CoverActionResult = { ok: true; coverUrl: string | null } | { ok: fa
 /** Ce que la feuille relit d'un livre pour se rafraîchir. */
 const COVER_COLUMNS = "cover_url, cover_chosen_at";
 
-export type CoverState = { ok: true; title: string; coverUrl: string | null; coverChosenAt: string | null } | { ok: false; error: string };
+export type CoverState =
+  | {
+      ok: true;
+      title: string;
+      /** Les auteurs tels que la fiche les porte — pré-remplissent la recherche d'éditions (#277). */
+      authors: string | null;
+      /** Un code exploitable par les sources ? Sinon (saisie manuelle), seules les éditions et la photo restent. */
+      hasCode: boolean;
+      coverUrl: string | null;
+      coverChosenAt: string | null;
+    }
+  | { ok: false; error: string };
 
 /**
  * L'état RÉEL de la couverture d'un livre (review #280) : la feuille le relit
@@ -36,7 +47,7 @@ export async function getCoverState(bookId: string): Promise<CoverState> {
 
   const { data: book, error } = await session.supabase
     .from("books")
-    .select(`title, ${COVER_COLUMNS}`)
+    .select(`title, authors, barcode_type, barcode_raw, isbn, ${COVER_COLUMNS}`)
     .eq("id", bookId)
     .eq("user_id", session.user.id)
     .is("deleted_at", null)
@@ -46,7 +57,8 @@ export async function getCoverState(bookId: string): Promise<CoverState> {
     return { ok: false, error: GENERIC_ERROR_MESSAGE };
   }
   if (!book) return { ok: false, error: "Livre introuvable." };
-  return { ok: true, title: book.title, coverUrl: book.cover_url, coverChosenAt: book.cover_chosen_at };
+  const hasCode = (book.barcode_type === "upc" && book.barcode_raw !== null) || (book.barcode_type === "isbn" && book.isbn !== null);
+  return { ok: true, title: book.title, authors: book.authors, hasCode, coverUrl: book.cover_url, coverChosenAt: book.cover_chosen_at };
 }
 
 /**
