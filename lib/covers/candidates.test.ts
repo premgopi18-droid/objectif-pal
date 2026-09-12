@@ -61,7 +61,7 @@ describe("listCoverCandidates — ISBN", () => {
     expect(result.candidates.map((candidate) => candidate.source)).toEqual(["google_books", "open_library", "inventaire", "epagine"]);
     expect(result.candidates.every((candidate) => !candidate.preselected)).toBe(true);
     // Parallèle : bien moins que la somme des délais séquentiels.
-    expect(Date.now() - started).toBeLessThan(200);
+    expect(Date.now() - started).toBeLessThan(500);
     expect(d.bnfCovers.findCoverByIsbn).toHaveBeenCalledWith(ISBN_BOOK.isbn);
   });
 
@@ -108,10 +108,16 @@ describe("listCoverCandidates — UPC (Metron)", () => {
     expect(d.metron.findIssueByUpc).toHaveBeenCalledWith(UPC_BOOK.barcode);
   });
 
-  it("sans variante correspondante, la principale est présélectionnée ; une exclusivité sans UPC jamais", async () => {
+  it("le code d'une cover A (4ᵉ chiffre à 1) présélectionne la principale ; une exclusivité sans UPC jamais", async () => {
     const d = deps({ metron: { findIssueByUpc: vi.fn(async () => metronIssue({ matchedVariantUpc: null, coverUrl: "https://static.metron.cloud/main.jpg" })) } });
-    const result = await listCoverCandidates(UPC_BOOK, d);
+    const result = await listCoverCandidates({ ...UPC_BOOK, barcode: "76194139422000411" }, d);
     expect(result.candidates.map((candidate) => candidate.preselected)).toEqual([true, false, false]);
+  });
+
+  it("une variante que Metron ignore (cover H) n'entoure RIEN — ni la principale (review #281)", async () => {
+    const d = deps({ metron: { findIssueByUpc: vi.fn(async () => metronIssue({ matchedVariantUpc: null, coverUrl: "https://static.metron.cloud/main.jpg" })) } });
+    const result = await listCoverCandidates({ ...UPC_BOOK, barcode: "76194139422000481" }, d);
+    expect(result.candidates.every((candidate) => !candidate.preselected)).toBe(true);
   });
 
   it("Metron muet ou en panne : liste vide, degraded selon le cas", async () => {

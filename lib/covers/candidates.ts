@@ -1,4 +1,4 @@
-import { RESOLUTION_BUDGET_MILLISECONDS, type ResolutionDeps } from "@/lib/resolution/resolve";
+import { isMainCover, RESOLUTION_BUDGET_MILLISECONDS, type ResolutionDeps } from "@/lib/resolution/resolve";
 
 /**
  * Les candidates de couverture (#276, epic #274) — ce que TOUTES les sources
@@ -128,7 +128,11 @@ async function metronCandidates(deps: ResolutionDeps, barcode: string): Promise<
       url: issue.mainCoverUrl,
       source: "metron",
       label: "Metron · Couverture principale",
-      preselected: issue.matchedVariantUpc === null,
+      // La vérité est dans le code-barres (review #281) : 4ᵉ chiffre du
+      // supplément à 1 = l'exemplaire tenu EST la principale. Une variante
+      // que Metron ignore (cover H mesurée) n'entoure rien — c'est le cas
+      // où l'on choisit à la main, ou l'on photographie.
+      preselected: isMainCover(barcode),
     });
   }
   for (const variant of issue.variants) {

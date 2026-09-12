@@ -553,7 +553,7 @@ const toCacheEntry = (barcode: string, book: ResolvedBook, source: CacheEntry["s
 
 /** Le 4ᵉ chiffre du supplément UPC encode la couverture : 1 = la principale. */
 const UPC_COVER_DIGIT_INDEX = 15;
-const isMainCover = (barcode: string | null) =>
+export const isMainCover = (barcode: string | null) =>
   !barcode || barcode.length <= UPC_COVER_DIGIT_INDEX || barcode[UPC_COVER_DIGIT_INDEX] === "1";
 
 /**

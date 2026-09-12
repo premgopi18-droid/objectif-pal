@@ -41,16 +41,19 @@ export async function getCoverCandidates(bookId: string): Promise<CoverCandidate
   }
   if (!book) return { ok: false, error: "Livre introuvable." };
 
+  // Sans code exploitable (saisie manuelle), aucune source à interroger —
+  // et pas de tick de quota pour rien (review #281).
+  const target = { barcodeType: book.barcode_type as "isbn" | "upc" | null, barcode: book.barcode_raw, isbn: book.isbn };
+  const hasCode = (target.barcodeType === "upc" && target.barcode !== null) || (target.barcodeType === "isbn" && target.isbn !== null);
+  if (!hasCode) return { ok: true, candidates: [], degraded: false };
+
   // Le quota AVANT les sources : une salve d'ouvertures est un emballement,
   // et Google Books partage 900 appels par jour entre tout le monde.
   if (!(await isActionAllowed(supabase, "cover_candidates"))) {
     return { ok: false, error: LOOKUP_RATE_LIMIT_MESSAGE };
   }
 
-  const { candidates, degraded } = await listCoverCandidates(
-    { barcodeType: book.barcode_type as "isbn" | "upc" | null, barcode: book.barcode_raw, isbn: book.isbn },
-    createDefaultDeps(),
-  );
+  const { candidates, degraded } = await listCoverCandidates(target, createDefaultDeps());
   // La couverture actuelle est déjà en tête de la feuille : pas deux fois. Une
   // rapatriée (#208) vit chez nous sous une autre URL — impossible de la
   // reconnaître ici, elle réapparaîtra parmi les candidates ; assumé.

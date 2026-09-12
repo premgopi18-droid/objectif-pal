@@ -304,7 +304,7 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
                         type="button"
                         disabled={busy !== null}
                         onClick={() => handleChoose(candidate)}
-                        aria-pressed={candidate.preselected}
+                        aria-current={candidate.preselected ? "true" : undefined}
                         aria-label={`Choisir : ${candidate.label}`}
                         className={`flex w-full flex-col items-center gap-1 rounded-md p-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan disabled:opacity-50 ${
                           candidate.preselected ? "outline outline-2 outline-cyan" : ""
