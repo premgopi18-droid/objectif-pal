@@ -6,8 +6,9 @@ import { BookCover } from "@/components/book-cover";
 import { ErrorAlert } from "@/components/error-alert";
 import { Button } from "@/components/ui/button";
 import { getCoverState, recordCoverPhoto, resetCoverToAutomatic, type CoverActionResult } from "@/lib/books/cover-actions";
-import { chooseCover, getCoverCandidates } from "@/lib/books/cover-choice-actions";
+import { chooseCover, getCoverCandidates, searchEditionCovers, type CoverCandidatesActionResult } from "@/lib/books/cover-choice-actions";
 import type { CoverCandidate } from "@/lib/covers/candidates";
+import { authorForSearch, EDITION_QUERY_MAX_LENGTH } from "@/lib/covers/edition-query";
 import { coverPhotoPath, COVERS_BUCKET, fileToWebpBlob } from "@/lib/books/cover-photo";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { deriveCoverSheetState } from "@/lib/covers/sheet-state";
@@ -16,8 +17,9 @@ import { deriveCoverSheetState } from "@/lib/covers/sheet-state";
  * La feuille « Changer la couverture » (#275, epic #274) — LE lieu unique du
  * choix : couverture actuelle et son origine, les **candidates** de toutes les
  * sources (#276 — chargées à l'ouverture, en parallèle, sous quota ; variante
- * scannée entourée pour la VO), photo ou import galerie, et « Revenir à
- * l'automatique » quand un choix existe.
+ * scannée entourée pour la VO), les **autres éditions** (#277 — au tap
+ * seulement, requête modifiable, jamais posées toutes seules), photo ou
+ * import galerie, et « Revenir à l'automatique » quand un choix existe.
  *
  * Les candidates sont des `<img>` bruts, hors `next/image` : une dizaine
  * d'images jetables par ouverture brûleraient les transformations Vercel pour
@@ -48,6 +50,10 @@ export type CoverSheetBook = {
   coverUrl: string | null;
   /** Inconnu de l'écran appelant ? Passer `null` : la feuille relit la vérité en base. */
   coverChosenAt: string | null;
+  /** Les auteurs, s'ils sont connus — pré-remplissent la recherche d'éditions (#277). */
+  authors?: string | null;
+  /** Un code exploitable par les sources ? Inconnu (`undefined`) tant que la base n'a pas répondu. */
+  hasCode?: boolean;
 };
 
 type CandidatesState =
@@ -56,12 +62,23 @@ type CandidatesState =
   | { status: "error"; message: string }
   | { status: "ready"; candidates: CoverCandidate[]; degraded: boolean };
 
+/** Les autres éditions : rien tant qu'on n'a pas tapé « Chercher ». */
+type EditionsState = { status: "idle" } | CandidatesState;
+
 type CoverChooserSheetProps = {
   book: CoverSheetBook | null;
   onClose: () => void;
   /** La couverture a changé : le parent met sa liste à jour (la vignette suit tout de suite). */
   onChanged: (bookId: string, cover: { coverUrl: string | null; coverChosenAt: string | null }) => void;
 };
+
+const INPUT_CLASS =
+  "min-w-0 flex-1 rounded-xl border border-line bg-card2 px-3 py-2 text-sm text-ink placeholder:text-ink3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan";
+
+const isOffline = () => typeof navigator !== "undefined" && navigator.onLine === false;
+
+const toCandidatesState = (result: CoverCandidatesActionResult): CandidatesState =>
+  result.ok ? { status: "ready", candidates: result.candidates, degraded: result.degraded } : { status: "error", message: result.error };
 
 export function CoverChooserSheet({ book, onClose, onChanged }: CoverChooserSheetProps) {
   if (!book) return null;
@@ -83,26 +100,26 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
   const [success, setSuccess] = useState<string | null>(null);
   // Hors ligne, on le dit tout de suite au lieu de charger dans le vide — décidé
   // à l'ouverture (la feuille n'est jamais rendue côté serveur : `book` y est nul).
-  const [candidates, setCandidates] = useState<CandidatesState>(() =>
-    typeof navigator !== "undefined" && navigator.onLine === false ? { status: "offline" } : { status: "loading" },
-  );
+  const [candidates, setCandidates] = useState<CandidatesState>(() => (isOffline() ? { status: "offline" } : { status: "loading" }));
+  const [editions, setEditions] = useState<EditionsState>({ status: "idle" });
+  /** La requête d'éditions (#277) : pré-remplie depuis le livre, MODIFIABLE. */
+  const [editionTitle, setEditionTitle] = useState(initial.title);
+  const [editionAuthor, setEditionAuthor] = useState(authorForSearch(initial.authors ?? null) ?? "");
+  /** Vrai dès que l'utilisateur a touché la requête : la relecture en base ne l'écrase plus. */
+  const queryTouched = useRef(false);
 
   // Les candidates (#276) : à la demande, à l'ouverture — jamais au scan. Le
   // résultat arrive en `.then` (asynchrone) : rien n'est posé pendant l'effet.
   const fetchCandidates = useCallback(
     (bookId: string) =>
       getCoverCandidates(bookId)
-        .then((result) =>
-          setCandidates(
-            result.ok ? { status: "ready", candidates: result.candidates, degraded: result.degraded } : { status: "error", message: result.error },
-          ),
-        )
+        .then((result) => setCandidates(toCandidatesState(result)))
         .catch(() => setCandidates({ status: "error", message: NETWORK_ERROR_MESSAGE })),
     [],
   );
 
   useEffect(() => {
-    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+    if (isOffline()) return;
     fetchCandidates(initial.bookId);
   }, [initial.bookId, fetchCandidates]);
 
@@ -112,11 +129,25 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
     fetchCandidates(book.bookId);
   };
 
-  /** Une candidate dont l'image ne charge pas (cadavre epagine/Inventaire) sort de la grille. */
-  const hideCandidate = (url: string) =>
-    setCandidates((previous) =>
-      previous.status === "ready" ? { ...previous, candidates: previous.candidates.filter((candidate) => candidate.url !== url) } : previous,
-    );
+  /** « Chercher d'autres éditions » (#277) : au tap seulement, jamais à l'ouverture. */
+  const searchEditions = () => {
+    if (isOffline()) {
+      setEditions({ status: "offline" });
+      return;
+    }
+    setEditions({ status: "loading" });
+    searchEditionCovers(book.bookId, { title: editionTitle, author: editionAuthor.trim() === "" ? null : editionAuthor })
+      .then((result) => setEditions(toCandidatesState(result)))
+      .catch(() => setEditions({ status: "error", message: NETWORK_ERROR_MESSAGE }));
+  };
+
+  /** Une candidate dont l'image ne charge pas (cadavre epagine/Inventaire), ou qui vient d'être choisie, sort des grilles. */
+  const hideCandidate = (url: string) => {
+    const without = <T extends EditionsState>(previous: T): T =>
+      previous.status === "ready" ? { ...previous, candidates: previous.candidates.filter((candidate) => candidate.url !== url) } : previous;
+    setCandidates(without);
+    setEditions(without);
+  };
 
   async function handleChoose(candidate: CoverCandidate) {
     setBusy("choose");
@@ -141,7 +172,19 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
     getCoverState(initial.bookId)
       .then((state) => {
         if (cancelled || !state.ok) return;
-        setBook({ bookId: initial.bookId, title: state.title, coverUrl: state.coverUrl, coverChosenAt: state.coverChosenAt });
+        setBook({
+          bookId: initial.bookId,
+          title: state.title,
+          coverUrl: state.coverUrl,
+          coverChosenAt: state.coverChosenAt,
+          authors: state.authors,
+          hasCode: state.hasCode,
+        });
+        // La requête d'éditions suit la fiche tant que l'utilisateur n'y a pas touché.
+        if (!queryTouched.current) {
+          setEditionTitle(state.title);
+          setEditionAuthor(authorForSearch(state.authors) ?? "");
+        }
       })
       .catch(() => {
         // Serveur injoignable : on reste sur ce que l'appelant savait.
@@ -235,6 +278,10 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
     if (file) handleFile(file);
   };
 
+  // Un livre sans code (saisie manuelle) n'a rien à demander aux sources : la
+  // section « Proposées » se tait, les autres éditions viennent en premier.
+  const showSources = book.hasCode !== false;
+
   return (
     <div
       role="dialog"
@@ -270,73 +317,71 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
           </div>
         </div>
 
-        <section className="mt-4" aria-busy={candidates.status === "loading"}>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink3">Proposées par les sources</h3>
-          {candidates.status === "loading" && (
-            <div className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-3" aria-hidden>
-              {Array.from({ length: 4 }, (_, index) => (
-                <div key={index} className="h-36 animate-pulse rounded-md bg-card2" />
-              ))}
-            </div>
-          )}
-          {candidates.status === "offline" && (
-            <p className="mt-2 text-sm text-ink2">Pas de réseau — les sources attendront, la photo reste possible.</p>
-          )}
-          {candidates.status === "error" && (
-            <div className="mt-2 flex flex-col gap-2">
-              <ErrorAlert message={candidates.message} />
-              <button type="button" onClick={retryCandidates} className="self-start text-sm text-ink2 underline underline-offset-2">
-                Réessayer
-              </button>
-            </div>
-          )}
-          {candidates.status === "ready" && (
-            <>
-              {candidates.candidates.length === 0 ? (
-                <p className="mt-2 text-sm text-ink2">
-                  {candidates.degraded ? "Aucune image reçue — certaines sources n'ont pas répondu." : "Aucune source n'a d'autre image pour ce livre."}
-                </p>
-              ) : (
-                <ul className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-3">
-                  {candidates.candidates.map((candidate) => (
-                    <li key={candidate.url}>
-                      <button
-                        type="button"
-                        disabled={busy !== null}
-                        onClick={() => handleChoose(candidate)}
-                        aria-current={candidate.preselected ? "true" : undefined}
-                        aria-label={`Choisir : ${candidate.label}`}
-                        className={`flex w-full flex-col items-center gap-1 rounded-md p-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan disabled:opacity-50 ${
-                          candidate.preselected ? "outline outline-2 outline-cyan" : ""
-                        }`}
-                      >
-                        {/* eslint-disable-next-line @next/next/no-img-element -- candidates jetables, hors optimiseur (#276) */}
-                        <img
-                          src={candidate.url}
-                          alt=""
-                          loading="lazy"
-                          referrerPolicy="no-referrer"
-                          onError={() => hideCandidate(candidate.url)}
-                          className="h-36 w-full rounded-md bg-card2 object-cover"
-                        />
-                        <span className="line-clamp-2 w-full text-center text-[11px] leading-tight text-ink3">
-                          {candidate.preselected ? "★ " : ""}
-                          {candidate.label}
-                        </span>
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              )}
-              {candidates.degraded && (
-                <p className="mt-2 text-xs text-ink3">
-                  Certaines sources n&apos;ont pas répondu.{" "}
-                  <button type="button" onClick={retryCandidates} className="underline underline-offset-2">
-                    Réessayer
-                  </button>
-                </p>
-              )}
-            </>
+        {showSources && (
+          <section className="mt-4" aria-busy={candidates.status === "loading"}>
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-ink3">Proposées par les sources</h3>
+            <CandidatesBlock
+              state={candidates}
+              busy={busy !== null}
+              onChoose={handleChoose}
+              onHide={hideCandidate}
+              onRetry={retryCandidates}
+              emptyMessage="Aucune source n'a d'autre image pour ce livre."
+            />
+          </section>
+        )}
+
+        {/* Les autres éditions (#277) : proposées, jamais imposées — au tap, avec
+            une requête modifiable (le titre résolu est parfois faux). */}
+        <section className="mt-4" aria-busy={editions.status === "loading"}>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink3">Autres éditions</h3>
+          <p className="mt-1 text-xs leading-relaxed text-ink3">
+            {showSources
+              ? "Réédition, intégrale, collector : la couverture d'une édition sœur, si aucune image ne te convient. Ce ne sera pas exactement la tienne."
+              : "Ce livre n'a pas de code-barres : cherche-le par son titre pour lui proposer une couverture."}
+          </p>
+          <form
+            className="mt-2 flex flex-wrap gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              searchEditions();
+            }}
+          >
+            <input
+              value={editionTitle}
+              onChange={(event) => {
+                queryTouched.current = true;
+                setEditionTitle(event.target.value);
+              }}
+              maxLength={EDITION_QUERY_MAX_LENGTH}
+              placeholder="Titre"
+              aria-label="Titre à chercher"
+              className={INPUT_CLASS}
+            />
+            <input
+              value={editionAuthor}
+              onChange={(event) => {
+                queryTouched.current = true;
+                setEditionAuthor(event.target.value);
+              }}
+              maxLength={EDITION_QUERY_MAX_LENGTH}
+              placeholder="Auteur (facultatif)"
+              aria-label="Auteur à chercher"
+              className={INPUT_CLASS}
+            />
+            <Button type="submit" variant="ghost" disabled={busy !== null || editions.status === "loading" || editionTitle.trim() === ""}>
+              Chercher
+            </Button>
+          </form>
+          {editions.status !== "idle" && (
+            <CandidatesBlock
+              state={editions}
+              busy={busy !== null}
+              onChoose={handleChoose}
+              onHide={hideCandidate}
+              onRetry={searchEditions}
+              emptyMessage="Rien trouvé sous ce titre — essaie le titre original, ou la photo."
+            />
           )}
         </section>
 
@@ -403,5 +448,95 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * La grille de candidates — partagée par « Proposées par les sources » et
+ * « Autres éditions » : squelette, hors ligne, erreur + Réessayer, vide,
+ * grille avec la présélectionnée marquée, note « certaines sources… ».
+ */
+function CandidatesBlock({
+  state,
+  busy,
+  onChoose,
+  onHide,
+  onRetry,
+  emptyMessage,
+}: {
+  state: CandidatesState;
+  busy: boolean;
+  onChoose: (candidate: CoverCandidate) => void;
+  onHide: (url: string) => void;
+  onRetry: () => void;
+  emptyMessage: string;
+}) {
+  if (state.status === "loading") {
+    return (
+      <div className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-3" aria-hidden>
+        {Array.from({ length: 4 }, (_, index) => (
+          <div key={index} className="h-36 animate-pulse rounded-md bg-card2" />
+        ))}
+      </div>
+    );
+  }
+  if (state.status === "offline") {
+    return <p className="mt-2 text-sm text-ink2">Pas de réseau — les sources attendront, la photo reste possible.</p>;
+  }
+  if (state.status === "error") {
+    return (
+      <div className="mt-2 flex flex-col gap-2">
+        <ErrorAlert message={state.message} />
+        <button type="button" onClick={onRetry} className="self-start text-sm text-ink2 underline underline-offset-2">
+          Réessayer
+        </button>
+      </div>
+    );
+  }
+  return (
+    <>
+      {state.candidates.length === 0 ? (
+        <p className="mt-2 text-sm text-ink2">{state.degraded ? "Aucune image reçue — certaines sources n'ont pas répondu." : emptyMessage}</p>
+      ) : (
+        <ul className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-3">
+          {state.candidates.map((candidate) => (
+            <li key={candidate.url}>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => onChoose(candidate)}
+                aria-current={candidate.preselected ? "true" : undefined}
+                aria-label={`Choisir : ${candidate.label}`}
+                className={`flex w-full flex-col items-center gap-1 rounded-md p-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan disabled:opacity-50 ${
+                  candidate.preselected ? "outline outline-2 outline-cyan" : ""
+                }`}
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element -- candidates jetables, hors optimiseur (#276) */}
+                <img
+                  src={candidate.url}
+                  alt=""
+                  loading="lazy"
+                  referrerPolicy="no-referrer"
+                  onError={() => onHide(candidate.url)}
+                  className="h-36 w-full rounded-md bg-card2 object-cover"
+                />
+                <span className="line-clamp-2 w-full text-center text-[11px] leading-tight text-ink3">
+                  {candidate.preselected ? "★ " : ""}
+                  {candidate.label}
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {state.degraded && (
+        <p className="mt-2 text-xs text-ink3">
+          Certaines sources n&apos;ont pas répondu.{" "}
+          <button type="button" onClick={onRetry} className="underline underline-offset-2">
+            Réessayer
+          </button>
+        </p>
+      )}
+    </>
   );
 }
