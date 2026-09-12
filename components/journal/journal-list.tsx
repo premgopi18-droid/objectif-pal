@@ -21,6 +21,7 @@ import { FilterChips } from "@/components/ui/filter-chips";
 import { Stars } from "@/components/ui/stars";
 import { Toast } from "@/components/ui/toast";
 import Link from "next/link";
+import { CoverChooserSheet, type CoverSheetBook } from "@/components/covers/cover-chooser-sheet";
 import { ErrorAlert } from "@/components/error-alert";
 import { RemoveButton, useBookGestures } from "@/components/library/book-gestures";
 import { FUTURE_DATE_MESSAGE } from "@/lib/books/errors";
@@ -157,6 +158,14 @@ export function JournalList({
    * partagé (celui de la rafale, #101 lot C), recyclé pour toutes les lignes.
    */
   const [editingCategory, setEditingCategory] = useState<{ bookId: string; category: BookCategory } | null>(null);
+  /**
+   * La couverture AU JOURNAL (#275, review #280) — même raison que la
+   * catégorie : les EMPRUNTS lus n'ont pas de fiche en Biblio (l'inventaire),
+   * le Journal est leur seul écran. UNE feuille partagée, recyclée pour toutes
+   * les lignes ; elle relit l'état réel du livre à l'ouverture (la vue
+   * `journal_entries` ne porte pas `cover_chosen_at`).
+   */
+  const [coverSheetBook, setCoverSheetBook] = useState<CoverSheetBook | null>(null);
   const { run, isPending, error, setError } = useBookGestures();
 
   // Filtres et profondeur vivent dans l'URL (#32 lot C) : changer un filtre
@@ -348,6 +357,7 @@ export function JournalList({
                     onError={setError}
                     onCelebrate={setToastMessage}
                     onEditCategory={setEditingCategory}
+                    onEditCover={setCoverSheetBook}
                   />
                 </Fragment>
               );
@@ -382,6 +392,8 @@ export function JournalList({
         onError={setError}
         onChanged={() => setEditingCategory(null)}
       />
+      {/* La feuille se rafraîchit elle-même et revalide /journal : la liste suit. */}
+      <CoverChooserSheet book={coverSheetBook} onClose={() => setCoverSheetBook(null)} onChanged={() => {}} />
       <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
     </div>
   );
@@ -394,6 +406,7 @@ function JournalItem({
   onError,
   onCelebrate,
   onEditCategory,
+  onEditCover,
 }: {
   entry: JournalEntry;
   run: (action: () => Promise<JournalActionResult>, onSuccess?: () => void) => void;
@@ -401,6 +414,8 @@ function JournalItem({
   onError: (message: string) => void;
   onCelebrate: (message: string) => void;
   onEditCategory: (target: { bookId: string; category: BookCategory }) => void;
+  /** Le tap sur la vignette ouvre la feuille « Changer la couverture » (#275). */
+  onEditCover: (book: CoverSheetBook) => void;
 }) {
   const [isEditing, setIsEditing] = useState(false);
   const badge = STATUS_BADGES[entry.status];
@@ -413,6 +428,10 @@ function JournalItem({
         coverUrl={entry.book.coverUrl}
         bookId={entry.book.bookId}
         placeholderEmoji="📖"
+        // `coverChosenAt: null` = « je ne sais pas » : la feuille relit la vérité.
+        onCoverPress={() =>
+          onEditCover({ bookId: entry.book.bookId, title: entry.book.title, coverUrl: entry.book.coverUrl, coverChosenAt: null })
+        }
         meta={
           <>
             {subtitle && <div className="truncate">{subtitle}</div>}
@@ -547,13 +566,14 @@ function EditPanel({
         </label>
       </div>
 
-      {/* La couverture se change depuis la FICHE, dans la Biblio (#275) — un
-          seul lieu pour ce qui décrit le livre ; ici, on parle de la lecture. */}
+      {/* La fiche (titre, série, pages…) se corrige dans la Biblio (#100) ; la
+          couverture, au tap sur la vignette, ici même (#275) — un emprunt lu
+          n'a pas de fiche en Biblio (l'inventaire), le lien ne le trouvera pas. */}
       <Link
         href={`/bibliotheque?vue=tous&livre=${entry.book.bookId}`}
         className="self-start text-sm text-ink2 underline underline-offset-2"
       >
-        Modifier la fiche (titre, couverture…)
+        Modifier la fiche dans la Biblio
       </Link>
 
       <label className="flex flex-col gap-1 text-xs text-ink2">

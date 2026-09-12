@@ -5,7 +5,7 @@ import { useEffect, useRef, useState } from "react";
 import { BookCover } from "@/components/book-cover";
 import { ErrorAlert } from "@/components/error-alert";
 import { Button } from "@/components/ui/button";
-import { recordCoverPhoto, resetCoverToAutomatic, type CoverActionResult } from "@/lib/books/cover-actions";
+import { getCoverState, recordCoverPhoto, resetCoverToAutomatic, type CoverActionResult } from "@/lib/books/cover-actions";
 import { coverPhotoPath, COVERS_BUCKET, fileToWebpBlob } from "@/lib/books/cover-photo";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { deriveCoverSheetState } from "@/lib/covers/sheet-state";
@@ -16,9 +16,17 @@ import { deriveCoverSheetState } from "@/lib/covers/sheet-state";
  * « Revenir à l'automatique » quand un choix existe. Le lot B y ajoutera les
  * candidates des sources.
  *
+ * **Autonome** (review #280) : l'écran qui l'ouvre ne connaît pas toujours
+ * l'état réel du livre — le Journal n'a pas `cover_chosen_at`, l'écran de fin
+ * de scan ne sait pas ce qu'un livre déjà connu avait. La feuille part de ce
+ * qu'on lui passe (affichage immédiat) et **relit l'état en base** à
+ * l'ouverture. C'est aussi ce qui la rend montable au Journal, où vivent les
+ * emprunts lus — qui n'ont pas de fiche en Biblio (l'inventaire, #152).
+ *
  * Un seul exemplaire monté par écran, recyclé pour tous les livres (motif
  * `category-drawer`) ; patron de dialogue maison (fond cliquable, Échap,
- * animations sous `prefers-reduced-motion`, cf. `SeriesAlignSheet`).
+ * focus à l'ouverture, animations sous `prefers-reduced-motion`, cf.
+ * `SeriesAlignSheet`).
  *
  * Deux inputs, deux gestes DÉTERMINISTES sur tous les OS (#50) : un input
  * `capture` pour la caméra, un input nu pour la galerie — les navigateurs
@@ -30,6 +38,7 @@ export type CoverSheetBook = {
   bookId: string;
   title: string;
   coverUrl: string | null;
+  /** Inconnu de l'écran appelant ? Passer `null` : la feuille relit la vérité en base. */
   coverChosenAt: string | null;
 };
 
@@ -47,13 +56,36 @@ export function CoverChooserSheet({ book, onClose, onChanged }: CoverChooserShee
   return <SheetBody key={book.bookId} book={book} onClose={onClose} onChanged={onChanged} />;
 }
 
-function SheetBody({ book, onClose, onChanged }: CoverChooserSheetProps & { book: CoverSheetBook }) {
+function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps & { book: CoverSheetBook }) {
   const router = useRouter();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+  const firstActionRef = useRef<HTMLButtonElement>(null);
+  /** L'état affiché : ce que l'appelant savait, puis la vérité relue en base. */
+  const [book, setBook] = useState<CoverSheetBook>(initial);
   const [busy, setBusy] = useState<"upload" | "reset" | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [success, setSuccess] = useState<string | null>(null);
+
+  // À l'ouverture : le focus entre dans le dialogue (a11y, review #280), et
+  // l'état réel est relu — une réponse en échec laisse l'état initial, le
+  // geste reste possible (le serveur re-vérifie de toute façon).
+  useEffect(() => {
+    firstActionRef.current?.focus();
+    let cancelled = false;
+    getCoverState(initial.bookId)
+      .then((state) => {
+        if (cancelled || !state.ok) return;
+        setBook({ bookId: initial.bookId, title: state.title, coverUrl: state.coverUrl, coverChosenAt: state.coverChosenAt });
+      })
+      .catch(() => {
+        // Serveur injoignable : on reste sur ce que l'appelant savait.
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [initial.bookId]);
 
   // Échap ferme (sauf pendant un envoi : on ne laisse pas un upload orphelin).
   useEffect(() => {
@@ -66,12 +98,15 @@ function SheetBody({ book, onClose, onChanged }: CoverChooserSheetProps & { book
 
   const state = deriveCoverSheetState({ coverUrl: book.coverUrl, coverChosenAt: book.coverChosenAt });
 
-  const applied = (result: CoverActionResult, chosenAt: string | null) => {
+  const applied = (result: CoverActionResult, chosenAt: string | null, message: string) => {
     if (!result.ok) {
       setError(result.error);
       return;
     }
-    onChanged(book.bookId, { coverUrl: result.coverUrl, coverChosenAt: chosenAt });
+    const cover = { coverUrl: result.coverUrl, coverChosenAt: chosenAt };
+    setBook((previous) => ({ ...previous, ...cover }));
+    setSuccess(message);
+    onChanged(book.bookId, cover);
     // Les Server Components (Journal, Bilan) se resynchronisent ; la liste du
     // parent, elle, a déjà bougé via onChanged.
     router.refresh();
@@ -80,6 +115,7 @@ function SheetBody({ book, onClose, onChanged }: CoverChooserSheetProps & { book
   async function handleFile(file: File) {
     setBusy("upload");
     setError(null);
+    setSuccess(null);
     try {
       const blob = await fileToWebpBlob(file);
       // Import DYNAMIQUE (#123) : le client Supabase (63 KB gz) ne sert qu'à
@@ -101,7 +137,11 @@ function SheetBody({ book, onClose, onChanged }: CoverChooserSheetProps & { book
         setError("L'envoi de la photo a échoué — réessaie.");
         return;
       }
-      applied(await recordCoverPhoto(book.bookId), new Date().toISOString());
+      applied(
+        await recordCoverPhoto(book.bookId),
+        new Date().toISOString(),
+        book.coverUrl === null ? "Couverture ajoutée ✓" : "Couverture remplacée ✓",
+      );
     } catch {
       // Conversion impossible ou serveur injoignable : jamais d'échec muet.
       setError(NETWORK_ERROR_MESSAGE);
@@ -113,8 +153,9 @@ function SheetBody({ book, onClose, onChanged }: CoverChooserSheetProps & { book
   async function handleReset() {
     setBusy("reset");
     setError(null);
+    setSuccess(null);
     try {
-      applied(await resetCoverToAutomatic(book.bookId), null);
+      applied(await resetCoverToAutomatic(book.bookId), null, "L'app a repris la main ✓");
       setConfirmReset(false);
     } catch {
       setError(NETWORK_ERROR_MESSAGE);
@@ -157,6 +198,11 @@ function SheetBody({ book, onClose, onChanged }: CoverChooserSheetProps & { book
                   ? "Posée par l'app. Remplace-la par ta photo : elle ne sera plus touchée."
                   : "Elle est à toi : l'app ne la remplacera plus jamais toute seule."}
             </p>
+            {success !== null && (
+              <p role="status" className="mt-2 text-sm font-medium text-green">
+                {success}
+              </p>
+            )}
           </div>
         </div>
 
@@ -174,7 +220,14 @@ function SheetBody({ book, onClose, onChanged }: CoverChooserSheetProps & { book
             <p className="py-2 text-center text-sm text-ink2">Envoi de la photo…</p>
           ) : (
             <div className="flex gap-2">
-              <Button type="button" variant="ghost" className="flex-1" disabled={busy !== null} onClick={() => cameraInputRef.current?.click()}>
+              <Button
+                ref={firstActionRef}
+                type="button"
+                variant="ghost"
+                className="flex-1"
+                disabled={busy !== null}
+                onClick={() => cameraInputRef.current?.click()}
+              >
                 📷 Prendre une photo
               </Button>
               <Button type="button" variant="ghost" className="flex-1" disabled={busy !== null} onClick={() => galleryInputRef.current?.click()}>

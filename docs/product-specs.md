@@ -1163,10 +1163,17 @@ redistribution), **zéro quota**, et c'est **l'exemplaire réel** avec sa vraie 
 >   choix.
 > - **« Revenir à l'automatique »** : vide le verrou, rejoue la chaîne (`findReplacementCover`), pose le
 >   résultat — éventuellement rien. Métré comme la réparation (`cover_repair`, 5/min).
-> - **Un seul lieu : la Biblio.** La feuille « Changer la couverture » s'ouvre au tap sur la vignette et depuis
->   la fiche d'édition (§4.12). Le Journal n'a plus de bouton photo : « Modifier la fiche » renvoie à la Biblio
->   (`/bibliotheque?vue=tous&livre=<id>`, fiche ouverte). Le scan à l'unité garde une porte sur l'écran de fin
->   (le livre est dans la main) ; **rien en rafale** — la chaîne ne s'arrête jamais (§4.13).
+> - **Une seule feuille, autonome.** « Changer la couverture » s'ouvre au tap sur la vignette — en Biblio **et
+>   au Journal** — et depuis la fiche d'édition (§4.12). *Corrigé en review #280* : « un seul lieu, la Biblio »
+>   supposait que tout livre y a une fiche, ce qui est faux pour un **emprunt lu** (hors inventaire, #152) ; le
+>   Journal est son seul écran, comme pour la catégorie. La feuille **relit l'état réel du livre à
+>   l'ouverture** (`getCoverState`) : la vue `journal_entries` ne porte pas `cover_chosen_at`, et l'écran de fin
+>   de scan ne sait pas ce qu'un livre déjà connu avait. Le Journal garde un lien « Modifier la fiche dans la
+>   Biblio » pour le reste de la fiche (`/bibliotheque?vue=tous&livre=<id>`). Le scan à l'unité a sa porte sur
+>   l'écran de fin (le livre est dans la main) ; **rien en rafale** — la chaîne ne s'arrête jamais (§4.13).
+> - **Invariant en base** (review #280) : `check (cover_chosen_at is null or cover_url is not null)` — une
+>   couverture choisie est forcément une couverture ; `merge_books` peut prendre `merged.cover_url` sans
+>   `coalesce`.
 > - **Le cercle suit le choix** : un trigger dédié (`books_bump_fact_version_cover`) périme les bilans quand
 >   une couverture **choisie** change, ou cesse de l'être — jamais pour le rapatriement nocturne d'une
 >   automatique (le trigger historique ignore `cover_url` exprès).

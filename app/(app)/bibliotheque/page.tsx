@@ -68,7 +68,8 @@ export default async function BibliothequePage({
       <section className="py-6">
         <h1 className="text-2xl font-bold">Bibliothèque</h1>
         <div className="mt-4">{segments}</div>
-        <LibraryView entries={entries} focusBookId={typeof livre === "string" ? livre : null} />
+        {/* `key` (review #280) : un autre `?livre=` sans remontage rejoue l'ouverture de fiche. */}
+        <LibraryView key={livre ?? ""} entries={entries} focusBookId={typeof livre === "string" ? livre : null} />
       </section>
     );
   }

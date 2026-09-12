@@ -22,6 +22,33 @@ export type CoverActionResult = { ok: true; coverUrl: string | null } | { ok: fa
 /** Ce que la feuille relit d'un livre pour se rafraîchir. */
 const COVER_COLUMNS = "cover_url, cover_chosen_at";
 
+export type CoverState = { ok: true; title: string; coverUrl: string | null; coverChosenAt: string | null } | { ok: false; error: string };
+
+/**
+ * L'état RÉEL de la couverture d'un livre (review #280) : la feuille le relit
+ * à l'ouverture, quel que soit l'écran qui l'a ouverte — le Journal ne porte
+ * pas `cover_chosen_at` (vue `journal_entries`), et l'écran de fin de scan ne
+ * connaît que ce que la cascade a posé, pas ce qu'un livre déjà connu avait.
+ */
+export async function getCoverState(bookId: string): Promise<CoverState> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+
+  const { data: book, error } = await session.supabase
+    .from("books")
+    .select(`title, ${COVER_COLUMNS}`)
+    .eq("id", bookId)
+    .eq("user_id", session.user.id)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (error) {
+    console.error("[covers] getCoverState:", error.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+  if (!book) return { ok: false, error: "Livre introuvable." };
+  return { ok: true, title: book.title, coverUrl: book.cover_url, coverChosenAt: book.cover_chosen_at };
+}
+
 /**
  * L'enregistrement d'une photo. Le client a déjà uploadé le WebP dans le
  * bucket (client session, RLS par dossier) — ici on vérifie que l'objet existe
