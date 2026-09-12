@@ -1,8 +1,10 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import { BookCover } from "@/components/book-cover";
 import { CategoryPicker } from "@/components/category-picker";
 import { Button } from "@/components/ui/button";
+import { deriveCoverSheetState } from "@/lib/covers/sheet-state";
 import { updateBookDetails } from "@/lib/books/library-actions";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import type { SeriesAlignProposal } from "@/lib/books/series-align";
@@ -28,11 +30,14 @@ export function BookEditForm({
   entry,
   onDone,
   onError,
+  onEditCover,
   onSeriesAlign,
 }: {
   entry: LibraryEntry;
   onDone: () => void;
   onError: (message: string) => void;
+  /** « Changer » la couverture (#275) : le parent ouvre la feuille — la fiche ne la porte pas elle-même. */
+  onEditCover: () => void;
   /**
    * La fiche sauvée appartient à une série dont d'autres tomes divergent
    * (#257) : le parent ouvre la feuille de proposition — le compte vient du
@@ -85,6 +90,19 @@ export function BookEditForm({
           Ce livre n&apos;a pas de code-barres : l&apos;édition est le seul moyen de corriger sa fiche.
         </p>
       )}
+
+      {/* La couverture fait partie de la fiche (#275) — mais le geste vit dans
+          la feuille partagée avec la vignette : UN seul lieu, deux portes. */}
+      <div className="flex items-center gap-3">
+        <BookCover coverUrl={entry.coverUrl} size="small" title={entry.title} bookId={entry.bookId} />
+        <div className="min-w-0 flex-1 text-sm">
+          <span className="font-medium text-ink2">Couverture</span>
+          <p className="text-xs text-ink3">{deriveCoverSheetState(entry).label}</p>
+        </div>
+        <Button type="button" variant="ghost" onClick={onEditCover}>
+          Changer
+        </Button>
+      </div>
 
       <label className="flex flex-col gap-1.5 text-sm">
         <span className="font-medium text-ink2">Titre *</span>

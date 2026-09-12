@@ -30,6 +30,8 @@ export type LibraryBookRow = Pick<
   | "page_count"
   | "barcode_raw"
 > & {
+  /** Le verrou du choix de couverture (#275) — optionnel : les fixtures et les requêtes anciennes n'en ont pas. */
+  cover_chosen_at?: string | null;
   // `finished_at` et `purchased_at` sont nécessaires au réducteur de pile
   // partagé (il raisonne sur des dates, pas sur des comptages).
   readings: Pick<Tables["readings"]["Row"], "status" | "started_at" | "finished_at" | "deleted_at">[] | null;
@@ -55,6 +57,8 @@ export type LibraryEntry = {
   issueNumber: string | null;
   category: BookCategory;
   coverUrl: string | null;
+  /** Daté = couverture CHOISIE par l'utilisateur (#275) ; la feuille s'en sert pour proposer le retour à l'automatique. */
+  coverChosenAt: string | null;
   createdAt: string;
   status: LibraryStatus;
   /** Les traces actives — le geste « retirer » les annonce avant de masquer. */
@@ -147,6 +151,7 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
       issueNumber: row.issue_number,
       category: row.category,
       coverUrl: row.cover_url,
+      coverChosenAt: row.cover_chosen_at ?? null,
       createdAt: row.created_at,
       status,
       activeReadingCount: readings.length,

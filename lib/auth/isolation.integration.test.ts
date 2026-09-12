@@ -257,6 +257,103 @@ describe.runIf(shouldRun)("cloisonnement inter-utilisateurs (RLS)", () => {
   }, INTEGRATION_TIMEOUT_MS);
 });
 
+/**
+ * Le verrou du choix de couverture (#275) côté BASE — ce que les tests
+ * unitaires ne peuvent pas prouver : la fusion `merge_books` transfère la
+ * couverture CHOISIE du doublon absorbé, et le trigger dédié ne périme les
+ * bilans que pour une couverture choisie. Idempotent : le doublon absorbé est
+ * ressuscité en fin de test (UPDATE own), rien ne s'accumule.
+ */
+describe.runIf(shouldRun)("le choix de couverture en base (#275)", () => {
+  const MERGED_TITLE = "Témoin de fusion (absorbé)";
+  const CHOSEN_COVER = "https://covers.openlibrary.org/b/isbn/0000000000000-L.jpg";
+
+  it("merge_books : la couverture choisie du doublon absorbé gagne sur l'automatique du conservé", async () => {
+    const a = await signIn(
+      process.env.ISOLATION_TEST_USER_A_EMAIL as string,
+      process.env.ISOLATION_TEST_USER_A_PASSWORD as string,
+    );
+
+    // Le conservé : le livre-témoin, couverture automatique (aucune).
+    const { data: keep, error: keepError } = await a.client
+      .from("books")
+      .upsert(
+        { user_id: a.userId, title: "Témoin de cloisonnement", category: "roman", barcode_raw: SENTINEL_BARCODE, deleted_at: null, cover_url: null, cover_chosen_at: null },
+        { onConflict: "user_id,barcode_raw" },
+      )
+      .select("id")
+      .single();
+    expect(keepError).toBeNull();
+    if (!keep) throw new Error("livre conservé non créé");
+
+    // L'absorbé : sans code-barres (merge_books refuse deux codes différents),
+    // retrouvé par son titre d'une exécution à l'autre, couverture CHOISIE.
+    const chosenAt = new Date().toISOString();
+    const { data: existing } = await a.client.from("books").select("id").eq("user_id", a.userId).eq("title", MERGED_TITLE).limit(1);
+    let mergedId = existing?.[0]?.id ?? null;
+    if (mergedId === null) {
+      const { data: inserted, error: insertError } = await a.client
+        .from("books")
+        .insert({ user_id: a.userId, title: MERGED_TITLE, category: "roman", cover_url: CHOSEN_COVER, cover_chosen_at: chosenAt })
+        .select("id")
+        .single();
+      expect(insertError).toBeNull();
+      mergedId = inserted?.id ?? null;
+    } else {
+      const { error: reviveError } = await a.client
+        .from("books")
+        .update({ deleted_at: null, barcode_raw: null, barcode_type: null, barcode_prefix: null, cover_url: CHOSEN_COVER, cover_chosen_at: chosenAt })
+        .eq("id", mergedId);
+      expect(reviveError).toBeNull();
+    }
+    if (mergedId === null) throw new Error("doublon absorbé non créé");
+
+    const { error: mergeError } = await a.client.rpc("merge_books", { keep_book_id: keep.id, merge_book_id: mergedId });
+    expect(mergeError).toBeNull();
+
+    const { data: after } = await a.client.from("books").select("cover_url, cover_chosen_at").eq("id", keep.id).single();
+    expect(after?.cover_url).toBe(CHOSEN_COVER);
+    expect(after?.cover_chosen_at).not.toBeNull();
+
+    // Nettoyage : le conservé redevient automatique, l'absorbé ressuscite pour la prochaine fois.
+    await a.client.from("books").update({ cover_url: null, cover_chosen_at: null }).eq("id", keep.id);
+    await a.client.from("books").update({ deleted_at: null }).eq("id", mergedId);
+  }, INTEGRATION_TIMEOUT_MS);
+
+  it("le trigger : changer une couverture automatique ne périme rien, choisir une couverture périme", async () => {
+    const a = await signIn(
+      process.env.ISOLATION_TEST_USER_A_EMAIL as string,
+      process.env.ISOLATION_TEST_USER_A_PASSWORD as string,
+    );
+    const { data: book } = await a.client
+      .from("books")
+      .upsert(
+        { user_id: a.userId, title: "Témoin de cloisonnement", category: "roman", barcode_raw: SENTINEL_BARCODE, deleted_at: null, cover_url: null, cover_chosen_at: null },
+        { onConflict: "user_id,barcode_raw" },
+      )
+      .select("id")
+      .single();
+    if (!book) throw new Error("livre-témoin non créé");
+
+    const readVersion = async () => {
+      const { data } = await a.client.from("user_fact_versions").select("version").eq("user_id", a.userId).maybeSingle();
+      return data?.version ?? 1;
+    };
+
+    const baseline = await readVersion();
+    // Automatique → automatique (ce que fait le job #208 chaque nuit) : rien ne bouge.
+    await a.client.from("books").update({ cover_url: CHOSEN_COVER }).eq("id", book.id);
+    expect(await readVersion()).toBe(baseline);
+    // Un CHOIX : le cercle doit voir la nouvelle couverture (#236).
+    await a.client.from("books").update({ cover_chosen_at: new Date().toISOString() }).eq("id", book.id);
+    const afterChoice = await readVersion();
+    expect(afterChoice).toBeGreaterThan(baseline);
+
+    // Nettoyage (bumpe une fois de plus : old.cover_chosen_at non nul — voulu).
+    await a.client.from("books").update({ cover_url: null, cover_chosen_at: null }).eq("id", book.id);
+  }, INTEGRATION_TIMEOUT_MS);
+});
+
 describe.runIf(!shouldRun)("cloisonnement inter-utilisateurs (RLS)", () => {
   it.skip("désactivé — INTEGRATION_ISOLATION=1 + identifiants de test requis", () => {});
 });

@@ -198,13 +198,16 @@ for (const book of isDryRun ? [] : candidates) {
     // (photo maison posée, réparation #53…) — le perdant laisse juste un
     // fichier que la purge mensuelle (#205) ramassera.
     const internalUrl = `${internalPrefix}${path}`;
-    const { error: updateError } = await admin
+    const { error: updateError, count } = await admin
       .from("books")
-      .update({ cover_url: internalUrl })
+      .update({ cover_url: internalUrl }, { count: "exact" })
       .eq("id", book.id)
       .eq("cover_url", book.cover_url);
     if (updateError) throw new CoverFailure("infra", `update : ${updateError.message}`);
-    internalized++;
+    // Le compteur dit ce qui a VRAIMENT basculé (#275) : la course perdue
+    // (photo posée entre-temps) laisse un fichier à la purge, pas un +1.
+    if (count === 1) internalized++;
+    else skipped++;
   } catch (error) {
     const kind = classifyFailure(error);
     failures[kind][host] = (failures[kind][host] ?? 0) + 1;

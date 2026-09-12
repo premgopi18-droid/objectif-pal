@@ -1,7 +1,7 @@
 /**
- * La photo de couverture — le filet ULTIME des couvertures (specs §5.4,
- * issue #33) : proposée uniquement quand toute la cascade n'a rien trouvé,
- * jamais un remplacement. Conversion WebP côté client (on n'uploade pas les
+ * La photo de couverture (specs §5.4, issue #33) — et depuis #275, un choix
+ * comme un autre : toute couverture se remplace par une photo ou un import
+ * galerie, à volonté. Conversion WebP côté client (on n'uploade pas les
  * plusieurs Mo du capteur), compression décidée le 19/07/2026.
  */
 
@@ -28,15 +28,26 @@ export const coverPhotoPath = (userId: string, bookId: string) => `${userId}/${b
  * dossier reste `{user_id}/` — la RLS d'écriture n'autorise que celui-là (#33).
  *
  * L'URL publique qui en résulte vit dans `scan_inbox.cover_url`, passe au livre
- * à la finalisation, et — vivant dans notre bucket — reste une photo MAISON,
- * donc reprenable ensuite (`isHouseCoverPhotoUrl`, #47).
+ * à la finalisation, et — vivant dans notre bucket — reste une photo MAISON.
  */
 export const inboxCoverPhotoPath = (userId: string, photoId: string) => `${userId}/inbox-${photoId}.webp`;
 
 /**
- * Vrai si la couverture est une PHOTO MAISON (elle vit dans notre bucket) —
- * la seule qu'on a le droit de reprendre (#47) : une couverture de source
- * (Metron, Google, OpenLibrary, Inventaire) reste intouchable.
+ * Le préfixe des couvertures RAPATRIÉES par le job #208 : `{user_id}/cover-{book_id}.webp`.
+ * Un chemin distinct de la photo (`{user_id}/{book_id}.webp`) — les deux
+ * peuvent coexister le temps que la purge (#205) ramasse l'orphelin.
+ */
+const INTERNALIZED_COVER_PREFIX = "cover-";
+
+/**
+ * Vrai si la couverture VIT DANS NOTRE BUCKET — photo maison, photo de rafale
+ * ou couverture rapatriée par le job #208, indistinctement.
+ *
+ * Sémantique clarifiée en #275 : ce test dit « chez nous », pas « photo ». Il
+ * sert à ce qui dépend du lieu — pas d'optimiseur `next/image` (déjà des WebP
+ * à la bonne taille), pas de réparation #53 (un tiers ne peut pas avoir fermé
+ * la porte), jamais dans le cache partagé (#179). Pour distinguer une photo
+ * d'une rapatriée (l'étiquette de la feuille), voir `isInternalizedCoverUrl`.
  */
 export function isHouseCoverPhotoUrl(
   coverUrl: string | null,
@@ -44,6 +55,27 @@ export function isHouseCoverPhotoUrl(
 ): boolean {
   if (coverUrl === null || !supabaseUrl) return false;
   return coverUrl.startsWith(`${supabaseUrl}/storage/v1/object/public/${COVERS_BUCKET}/`);
+}
+
+/**
+ * Vrai si la couverture est une RAPATRIÉE (#208) : elle vit chez nous, mais
+ * c'est l'image d'une source, pas une photo de l'exemplaire. L'étiquette de la
+ * feuille (#275) s'en sert ; aucune garde n'en dépend.
+ */
+export function isInternalizedCoverUrl(
+  coverUrl: string | null,
+  supabaseUrl: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL,
+): boolean {
+  if (!isHouseCoverPhotoUrl(coverUrl, supabaseUrl)) return false;
+  let pathname: string;
+  try {
+    pathname = new URL(coverUrl as string).pathname;
+  } catch {
+    return false;
+  }
+  // `{user_id}/cover-{book_id}.webp` : le dernier segment porte le préfixe.
+  const fileName = pathname.slice(pathname.lastIndexOf("/") + 1);
+  return fileName.startsWith(INTERNALIZED_COVER_PREFIX);
 }
 
 /**

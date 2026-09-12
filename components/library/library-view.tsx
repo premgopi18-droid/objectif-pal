@@ -5,14 +5,13 @@ import { Badge } from "@/components/ui/badge";
 import { BookRow } from "@/components/ui/book-row";
 import { Button } from "@/components/ui/button";
 import { Toast } from "@/components/ui/toast";
-import { CoverPhotoButton } from "@/components/cover-photo-button";
+import { CoverChooserSheet } from "@/components/covers/cover-chooser-sheet";
 import { ErrorAlert } from "@/components/error-alert";
 import { BookEditForm } from "@/components/library/book-edit-form";
 import { BookMergePicker } from "@/components/library/book-merge-picker";
 import { FinishReadingButton, RemoveButton, StartReadingButton, useBookGestures } from "@/components/library/book-gestures";
 import { endOwnership } from "@/lib/books/actions";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
-import { isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { formatBookSubtitle } from "@/lib/books/format";
 import { applyCategoryToSeries, softDeleteBook } from "@/lib/books/library-actions";
@@ -41,11 +40,14 @@ const LIBRARY_SORT_OPTIONS = (["ajout", "ajout-ancien", "activite", "titre", "ti
 /**
  * La vue Bibliothèque (issue #49, #152) — l'INVENTAIRE du possédé, recherche en
  * mémoire (même réserve que les filtres du journal #34 : client tant que pas
- * de pagination #32), et les gestes : commencer une lecture, photo de
- * couverture, éditer/fusionner (#100), et « Retirer de ma bibliothèque »
- * (#114) — LE geste de sortie unique, qui ne touche jamais ni lectures ni
- * points. Gestes « Je commence » / retrait / photo mutualisés (design-specs §3).
+ * de pagination #32), et les gestes : commencer une lecture, changer la
+ * couverture (#275 — au tap sur la vignette, LE lieu unique du choix),
+ * éditer/fusionner (#100), et « Retirer de ma bibliothèque » (#114) — LE
+ * geste de sortie unique, qui ne touche jamais ni lectures ni points.
  */
+
+/** Ce qu'un choix de couverture change sur une entrée — appliqué localement, avant le refresh serveur. */
+type CoverOverride = Pick<LibraryEntry, "coverUrl" | "coverChosenAt">;
 
 /**
  * Le badge d'état — priorités §4.12 : En cours > Lu > Dans la PAL. Trois états
@@ -59,15 +61,41 @@ const STATUS_BADGES: Record<LibraryStatus, { label: string; state: ComponentProp
 
 type LibraryViewProps = {
   entries: LibraryEntry[];
+  /** Le livre à ouvrir en édition à l'arrivée (`?livre=`, depuis le Journal #275). */
+  focusBookId?: string | null;
 };
 
-export function LibraryView({ entries }: LibraryViewProps) {
+export function LibraryView({ entries: serverEntries, focusBookId = null }: LibraryViewProps) {
   const [searchText, setSearchText] = useState("");
   // « Ajout récent » par défaut (#217) : le dernier scan en haut.
   const [sortOrder, setSortOrder] = useState<LibrarySortOrder>("ajout");
   const { run, isPending, error } = useBookGestures();
-  /** La fiche ouverte en édition — une seule à la fois (#100). */
-  const [editingId, setEditingId] = useState<string | null>(null);
+  /** La fiche ouverte en édition — une seule à la fois (#100). Pré-ouverte par `?livre=`. */
+  const [editingId, setEditingId] = useState<string | null>(() =>
+    focusBookId !== null && serverEntries.some((entry) => entry.bookId === focusBookId) ? focusBookId : null,
+  );
+  /** Le livre dont on change la couverture (#275) — UNE feuille montée, recyclée. */
+  const [coverSheetBookId, setCoverSheetBookId] = useState<string | null>(null);
+  /** Les couvertures changées dans cette session, appliquées avant le refresh serveur. */
+  const [coverOverrides, setCoverOverrides] = useState<Record<string, CoverOverride>>({});
+  const entries = useMemo(
+    () => serverEntries.map((entry) => (coverOverrides[entry.bookId] ? { ...entry, ...coverOverrides[entry.bookId] } : entry)),
+    [serverEntries, coverOverrides],
+  );
+  const coverSheetBook = useMemo(
+    () => entries.find((entry) => entry.bookId === coverSheetBookId) ?? null,
+    [entries, coverSheetBookId],
+  );
+  const closeCoverSheet = useCallback(() => setCoverSheetBookId(null), []);
+  const onCoverChanged = useCallback((bookId: string, cover: CoverOverride) => {
+    setCoverOverrides((previous) => ({ ...previous, [bookId]: cover }));
+  }, []);
+
+  // Arrivée depuis le Journal (#275) : la fiche est ouverte, on l'amène à l'écran.
+  useEffect(() => {
+    if (focusBookId === null) return;
+    document.getElementById(`edit-${focusBookId}`)?.scrollIntoView({ block: "center" });
+  }, [focusBookId]);
   const [editError, setEditError] = useState<string | null>(null);
   /** Le livre CONSERVÉ d'une fusion en cours (#100) — un seul à la fois. */
   const [mergingId, setMergingId] = useState<string | null>(null);
@@ -190,8 +218,6 @@ export function LibraryView({ entries }: LibraryViewProps) {
         <ul className="flex flex-col gap-3">
           {visible.map((entry) => {
             const badge = STATUS_BADGES[entry.status];
-            const needsPhoto = entry.coverUrl === null;
-            const canRetakePhoto = isHouseCoverPhotoUrl(entry.coverUrl);
             // Un SEUL appel (review #116) : action et confirmation viennent de
             // la même décision — pas deux calculs qui pourraient diverger.
             const removal = removeFromLibrary(entry);
@@ -203,15 +229,9 @@ export function LibraryView({ entries }: LibraryViewProps) {
                   bookId={entry.bookId}
                   meta={formatBookSubtitle(entry.seriesName, entry.issueNumber, CATEGORY_LABELS[entry.category])}
                   action={<Badge state={badge.state}>{badge.label}</Badge>}
+                  // La vignette est la porte du choix (#275) : un tap, la feuille.
+                  onCoverPress={() => setCoverSheetBookId(entry.bookId)}
                 />
-
-                {/* La photo, filet ultime (§5.4) : proposée quand aucune couverture,
-                    ou pour reprendre une photo maison. Geste déjà mutualisé (#66). */}
-                {needsPhoto ? (
-                  <CoverPhotoButton bookId={entry.bookId} />
-                ) : (
-                  canRetakePhoto && <CoverPhotoButton bookId={entry.bookId} mode="retake" />
-                )}
 
                 {/* L'édition de fiche (#100) — ouverte sur place, une seule à la
                     fois : deux formulaires ouverts inviteraient à en abandonner un. */}
@@ -219,6 +239,7 @@ export function LibraryView({ entries }: LibraryViewProps) {
                   <BookEditForm
                     entry={entry}
                     onDone={() => setEditingId(null)}
+                    onEditCover={() => setCoverSheetBookId(entry.bookId)}
                     onSeriesAlign={setAlignProposal}
                     onError={(message) => {
                       setEditError(message);
@@ -297,6 +318,8 @@ export function LibraryView({ entries }: LibraryViewProps) {
           onConfirm={() => confirmSeriesAlign(alignProposal)}
         />
       )}
+
+      <CoverChooserSheet book={coverSheetBook} onClose={closeCoverSheet} onChanged={onCoverChanged} />
 
       <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
     </div>

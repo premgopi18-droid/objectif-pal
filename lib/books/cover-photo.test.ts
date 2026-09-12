@@ -1,18 +1,31 @@
 import { describe, expect, it } from "vitest";
-import { coverPhotoPath, inboxCoverPhotoPath, isHouseCoverPhotoUrl, isOwnHouseCoverPhotoUrl } from "./cover-photo";
+import {
+  coverPhotoPath,
+  inboxCoverPhotoPath,
+  isHouseCoverPhotoUrl,
+  isInternalizedCoverUrl,
+  isOwnHouseCoverPhotoUrl,
+} from "./cover-photo";
 
 /**
- * La frontière « photo maison vs couverture de source » (#47) : seule une
- * photo maison peut être reprise — le test verrouille la reconnaissance.
+ * La frontière « chez nous vs couverture de source » : ce qui vit dans notre
+ * bucket saute l'optimiseur, la réparation #53 et le cache partagé (#179).
+ * Depuis #275 le test dit « chez nous », pas « photo » : une couverture
+ * rapatriée (#208) y vit aussi — `isInternalizedCoverUrl` la distingue.
  */
 
 const SUPABASE_URL = "https://exemple.supabase.co";
 const HOUSE_URL = `${SUPABASE_URL}/storage/v1/object/public/covers/user-1/book-1.webp`;
+const INTERNALIZED_URL = `${SUPABASE_URL}/storage/v1/object/public/covers/user-1/cover-book-1.webp`;
 
 describe("isHouseCoverPhotoUrl", () => {
   it("reconnaît une photo maison, avec ou sans version de cache", () => {
     expect(isHouseCoverPhotoUrl(HOUSE_URL, SUPABASE_URL)).toBe(true);
     expect(isHouseCoverPhotoUrl(`${HOUSE_URL}?v=1752940000000`, SUPABASE_URL)).toBe(true);
+  });
+
+  it("une couverture rapatriée (#208, cover-{id}.webp) vit aussi chez nous — c'est l'effet de bord que #275 assume", () => {
+    expect(isHouseCoverPhotoUrl(INTERNALIZED_URL, SUPABASE_URL)).toBe(true);
   });
 
   it("une couverture de source n'est JAMAIS une photo maison", () => {
@@ -25,6 +38,29 @@ describe("isHouseCoverPhotoUrl", () => {
   it("pas de couverture ou pas de config : false, sans crash", () => {
     expect(isHouseCoverPhotoUrl(null, SUPABASE_URL)).toBe(false);
     expect(isHouseCoverPhotoUrl(HOUSE_URL, undefined)).toBe(false);
+  });
+});
+
+/**
+ * Photo ou rapatriée ? (#275) — l'étiquette de la feuille en dépend, aucune
+ * garde : les deux vivent chez nous et se traitent pareil ailleurs.
+ */
+describe("isInternalizedCoverUrl", () => {
+  it("reconnaît une couverture rapatriée par le job #208", () => {
+    expect(isInternalizedCoverUrl(INTERNALIZED_URL, SUPABASE_URL)).toBe(true);
+    expect(isInternalizedCoverUrl(`${INTERNALIZED_URL}?v=1`, SUPABASE_URL)).toBe(true);
+  });
+
+  it("une photo de livre ou de rafale n'est PAS une rapatriée", () => {
+    expect(isInternalizedCoverUrl(HOUSE_URL, SUPABASE_URL)).toBe(false);
+    const inboxUrl = `${SUPABASE_URL}/storage/v1/object/public/covers/user-1/inbox-abc.webp`;
+    expect(isInternalizedCoverUrl(inboxUrl, SUPABASE_URL)).toBe(false);
+  });
+
+  it("une couverture de source, ou rien : false, sans crash", () => {
+    expect(isInternalizedCoverUrl("https://static.metron.cloud/media/issue/cover-x.jpg", SUPABASE_URL)).toBe(false);
+    expect(isInternalizedCoverUrl(null, SUPABASE_URL)).toBe(false);
+    expect(isInternalizedCoverUrl(INTERNALIZED_URL, undefined)).toBe(false);
   });
 });
 
