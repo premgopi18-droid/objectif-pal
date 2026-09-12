@@ -197,7 +197,11 @@ for (const book of isDryRun ? [] : candidates) {
     // Optimiste : on ne bascule que si la couverture n'a pas changé entre-temps
     // (photo maison posée, réparation #53…) — le perdant laisse juste un
     // fichier que la purge mensuelle (#205) ramassera.
-    const internalUrl = `${internalPrefix}${path}`;
+    // `?v=` (#276) : le chemin est déterministe et servi avec un cache d'un
+    // an — une couverture CHOISIE à nouveau sur un livre déjà rapatrié serait
+    // invisible sans version d'URL. La purge (#205) retire la query avant de
+    // comparer, `isHouseCoverPhotoUrl` est un startsWith : compatibles.
+    const internalUrl = `${internalPrefix}${path}?v=${Date.now()}`;
     const { error: updateError, count } = await admin
       .from("books")
       .update({ cover_url: internalUrl }, { count: "exact" })

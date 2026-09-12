@@ -8,19 +8,35 @@ import { OUTBOUND_USER_AGENT, PROVIDER_REQUEST_TIMEOUT_MILLISECONDS, ProviderUna
  * CÔTÉ SERVEUR uniquement. Sert aussi d'identification de secours pour les
  * nouveautés VO que le dump GCD n'a pas encore (specs §6).
  *
- * Découverte mesurée (specs §5.4) : Metron ne référence que la couverture
- * PRINCIPALE — d'où la recherche en trois temps : gcd_id, UPC exact, puis UPC
- * normalisé (4ᵉ chiffre du supplément remis à 1).
+ * Les variantes (mesuré le 12/09/2026, #276) : le FILTRE de liste `?upc=` ne
+ * connaît que l'UPC de la couverture principale — d'où la recherche en trois
+ * temps : gcd_id, UPC exact, puis UPC normalisé (4ᵉ chiffre du supplément
+ * remis à 1). Mais le DÉTAIL `/issue/{id}/` porte `variants[]`, chacune avec
+ * son nom, son UPC et son image. Le détail étant déjà chargé, poser la
+ * couverture de la variante scannée ne coûte aucun appel de plus.
  */
 
 const METRON_ENDPOINT = "https://metron.cloud/api";
+
+/** Une couverture alternative de l'issue — sans UPC pour les exclusivités boutique. */
+export type MetronVariant = {
+  name: string;
+  upc: string | null;
+  coverUrl: string;
+};
 
 export type MetronIssue = {
   metronId: number;
   issueName: string | null;
   seriesName: string | null;
   number: string | null;
+  /** La couverture à POSER : celle de la variante scannée si Metron la connaît, sinon la principale. */
   coverUrl: string | null;
+  /** La principale (cover A), telle que Metron l'expose sur l'issue. */
+  mainCoverUrl: string | null;
+  variants: MetronVariant[];
+  /** L'UPC de la variante qui a matché le code scanné, ou null (principale ou inconnue). */
+  matchedVariantUpc: string | null;
   seriesType: string | null;
   publisher: string | null;
   pageCount: number | null;
@@ -34,6 +50,7 @@ type MetronDetail = {
   page?: number | null;
   publisher?: { name?: string };
   series?: { name?: string; series_type?: { name?: string } };
+  variants?: { name?: string; upc?: string | null; image?: string | null }[];
 };
 
 export type MetronProvider = ReturnType<typeof createMetronProvider>;
@@ -76,15 +93,28 @@ export function createMetronProvider(
     return payload.count > 0 && payload.results?.[0] ? payload.results[0] : null;
   }
 
-  async function toIssue(item: MetronListItem): Promise<MetronIssue> {
-    // Le détail porte ce que la liste n'a pas : series_type, éditeur, pages.
+  /** Les variantes exploitables : une image, sinon rien à montrer. */
+  const parseVariants = (detail: MetronDetail): MetronVariant[] =>
+    (detail.variants ?? []).flatMap((variant) =>
+      variant.image ? [{ name: variant.name?.trim() || "Variante", upc: variant.upc || null, coverUrl: variant.image }] : [],
+    );
+
+  async function toIssue(item: MetronListItem, scannedUpc: string | null): Promise<MetronIssue> {
+    // Le détail porte ce que la liste n'a pas : series_type, éditeur, pages —
+    // et les variantes (#276).
     const detail = await requestJson<MetronDetail>(`/issue/${item.id}/`);
+    const variants = parseVariants(detail);
+    const matched = scannedUpc ? (variants.find((variant) => variant.upc === scannedUpc) ?? null) : null;
+    const mainCoverUrl = detail.image ?? item.image ?? null;
     return {
       metronId: item.id,
       issueName: item.issue ?? null,
       seriesName: detail.series?.name ?? null,
       number: detail.number ?? item.number ?? null,
-      coverUrl: detail.image ?? item.image ?? null,
+      coverUrl: matched?.coverUrl ?? mainCoverUrl,
+      mainCoverUrl,
+      variants,
+      matchedVariantUpc: matched?.upc ?? null,
       seriesType: detail.series?.series_type?.name ?? null,
       publisher: detail.publisher?.name ?? null,
       pageCount: detail.page ?? null,
@@ -92,11 +122,14 @@ export function createMetronProvider(
   }
 
   return {
-    /** Le filtre le plus précis : le gcd_id de la couverture principale. */
-    async findIssueByGcdId(gcdId: number): Promise<MetronIssue | null> {
+    /**
+     * Le filtre le plus précis : le gcd_id de la couverture principale. Le code
+     * scanné, s'il est connu, sert à choisir la variante (#276).
+     */
+    async findIssueByGcdId(gcdId: number, scannedUpc: string | null = null): Promise<MetronIssue | null> {
       if (!authorization) return null;
       const item = await firstListItem(`/issue/?gcd_id=${gcdId}`);
-      return item ? toIssue(item) : null;
+      return item ? toIssue(item, scannedUpc) : null;
     },
 
     /** Par UPC : exact d'abord, puis normalisé sur la couverture principale. */
@@ -108,7 +141,7 @@ export function createMetronProvider(
 
       for (const candidate of candidates) {
         const item = await firstListItem(`/issue/?upc=${candidate}`);
-        if (item) return toIssue(item);
+        if (item) return toIssue(item, upc);
       }
       return null;
     },

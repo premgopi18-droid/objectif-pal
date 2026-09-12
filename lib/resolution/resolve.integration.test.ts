@@ -58,13 +58,30 @@ describe.skipIf(!integrationEnabled)("la cascade sur de vrais bouquins", () => {
   }, 30000);
 
   it("une VARIANTE (cover B) résout la même issue, couverture via l'UPC normalisé", async () => {
+    // Nightwing #123 : Metron ne liste aucune variante → la principale, comme avant.
     const result = await resolveScannedCode("76194134174312321");
     expect(result.kind).toBe("resolved");
     if (result.kind === "resolved") {
       expect(result.book.seriesName).toBe("Nightwing");
       expect(result.book.issueNumber).toBe("123");
+      expect(result.book.coverUrl).toBeTruthy();
     }
   }, 30000);
+
+  it("une VARIANTE que Metron connaît (Absolute Green Arrow #4, cover B) pose SA couverture (#276)", async () => {
+    // Mesuré le 12/09/2026 : le détail Metron du #4 porte 4 variantes avec
+    // UPC (B Simmonds, C Anka, D Parel, E Cons). Absent du dump GCD du 01/07 :
+    // le code complet part chez Metron, normalisé en cover A pour retrouver
+    // l'issue, puis la variante scannée est choisie dans le détail.
+    const [main, variant] = await Promise.all([resolveScannedCode("76194139422000411"), resolveScannedCode("76194139422000421")]);
+    expect(variant.kind).toBe("resolved");
+    if (variant.kind === "resolved" && main.kind === "resolved") {
+      expect(variant.book.seriesName).toBe("Absolute Green Arrow");
+      expect(variant.book.issueNumber).toBe("4");
+      expect(variant.book.coverUrl).toContain("static.metron.cloud/media/variants/");
+      expect(variant.book.coverUrl).not.toBe(main.book.coverUrl);
+    }
+  }, 45000);
 
   it("un indé absent de GCD mais chez Metron se résout par code complet (It's In Your Skin #1)", async () => {
     // Code réel scanné le 14/07/2026 : GCD n'a pas la ligne (préfixe partagé

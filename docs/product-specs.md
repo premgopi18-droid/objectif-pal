@@ -1113,13 +1113,17 @@ commercialement.** C'est logique — une couverture est une **œuvre sous copyri
    deviner la catégorie) mais souvent **pas d'`imageLinks`** → les replis OpenLibrary/Inventaire comblent
    (mesuré 3/3 le 19/07/2026 sur manga VF, BD, roman).
 
-> **Découverte mesurée (13/07/2026) : Metron ne référence que la couverture PRINCIPALE d'une issue.**
-> GCD indexe chaque variante (Nightwing #123 = 6 codes-barres), Metron une seule — donc le `gcd_id` **d'une
-> variante** ne matche pas chez Metron, et son `?upc=` (match exact) non plus. Le supplément UPC encode la
-> couverture en **4ᵉ position** (`…123`**`2`**`1` = cover B) : pour retrouver l'issue chez Metron, **normaliser
-> le supplément (4ᵉ chiffre → 1)**, sinon retomber sur série + numéro. La couverture récupérée sera celle de la
-> cover A ; pour la variante exacte, c'est la photo. Vérifié aussi : le filtre `?gcd_id=` **fonctionne** avec le
-> gcd_id de la couverture principale, et compte Metron créé + testé le 13/07/2026.
+> **Découverte mesurée (13/07/2026), CORRIGÉE le 12/09/2026 (#276) : les FILTRES Metron ne voient que la
+> couverture principale — le DÉTAIL porte les variantes.** GCD indexe chaque variante (Nightwing #123 = 6
+> codes-barres) ; chez Metron, le `gcd_id` **d'une variante** ne matche pas, et le filtre `?upc=` (match exact)
+> non plus. Le supplément UPC encode la couverture en **4ᵉ position** (`…123`**`2`**`1` = cover B) : pour
+> retrouver l'issue, **normaliser le supplément (4ᵉ chiffre → 1)**, sinon retomber sur série + numéro. Vérifié
+> aussi : `?gcd_id=` **fonctionne** avec le gcd_id de la couverture principale. **Mais** le détail
+> `/issue/{id}/` — déjà chargé par le provider pour `series_type` — expose `variants[]` avec `name`, `upc` et
+> `image` (mesuré sur *Absolute Green Arrow* 2026 : #1 = 36 variantes dont 8 avec UPC, #4 = 7 dont 4). Depuis
+> #276, **le code scanné choisit la variante** : la couverture posée est celle de l'exemplaire tenu, sans appel
+> de plus. Une variante que Metron n'a pas (cover H du #4, mesuré) ou une exclusivité boutique sans UPC reste à
+> choisir à la main dans le sélecteur, ou à photographier.
 2. **Sinon, l'app propose de photographier la couverture** — la caméra est **déjà ouverte** pour le scan et le
    livre est **déjà dans la main**. Un tap.
 
@@ -1180,10 +1184,23 @@ redistribution), **zéro quota**, et c'est **l'exemplaire réel** avec sa vraie 
 > - **`isHouseCoverPhotoUrl` dit « chez nous », pas « photo »** : photo, photo de rafale et rapatriée sont
 >   traitées pareil (pas d'optimiseur, pas de réparation, jamais dans le cache partagé) ;
 >   `isInternalizedCoverUrl` ne sert qu'à l'étiquette de la feuille.
-> - À venir dans l'epic : **le sélecteur** (lot B, #276 — candidates de toutes les sources, **variantes Metron
->   présélectionnées par UPC** : le détail `/issue/{id}/` porte `variants[]` avec leur UPC, contrairement à ce
->   que dit l'encadré Metron plus haut, qui décrit le filtre de liste), **les autres éditions** (lot E, #277),
->   **le pool partagé** (lot D, #278), **Comic Vine débranchable** (lot C, #279).
+> - **Le sélecteur (lot B, #276, livré le 12/09/2026).** La feuille montre les **candidates** de toutes les
+>   sources, chargées **à la demande** à son ouverture (jamais au scan : zéro coût sur le chemin heureux), **en
+>   parallèle** sous le budget de résolution (7 s) — une source en panne n'empêche pas les autres, la feuille dit
+>   « certaines sources n'ont pas répondu » et propose de réessayer. VO : Metron, principale puis chaque
+>   variante étiquetée par son nom, **la variante scannée entourée** (et posée au scan, voir l'encadré Metron).
+>   ISBN : Google Books, OpenLibrary, Inventaire (variante 400x400, #270), BnF Couvertures, epagine, étiquetées
+>   par source. Un tap = `chooseCover` : garde SSRF `isKnownCoverImageUrl`, écrit `cover_url` +
+>   `cover_chosen_at` sur le **livre, jamais dans `barcode_cache`** ; le job #208 rapatrie la nuit suivante,
+>   avec **`?v=` sur l'URL rapatriée** (chemin déterministe + cache d'un an : sans version, un second choix
+>   serait invisible). Les candidates ne passent **pas par `next/image`** (`<img>` brut, `loading="lazy"`,
+>   `referrerpolicy="no-referrer"`) — seule la couverture choisie, rapatriée, repasse par l'optimiseur ; une
+>   candidate dont l'image ne charge pas disparaît de la grille. Quota **`cover_candidates`, 10/min** par
+>   utilisateur (seuil en SQL). Hors ligne : « Pas de réseau — la photo reste possible ». Rattrapage prod : les
+>   4 entrées de `barcode_cache` de variantes (cover A stockée sous un code de cover B) purgées après
+>   déploiement.
+> - À venir dans l'epic : **les autres éditions** (lot E, #277), **le pool partagé** (lot D, #278), **Comic Vine
+>   débranchable** (lot C, #279).
 
 > **Décisions du 19/07/2026 (deuxième vague — le trou VF)** — déclencheur : *Batman : La Cour des Hiboux*
 > (Urban Comics 2022, 9791026820963), fiche Google Books **sans image**, inconnu d'OpenLibrary, d'Inventaire
