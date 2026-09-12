@@ -144,7 +144,10 @@ for (const book of isDryRun ? [] : candidates) {
       skipped++;
       continue;
     }
-    const response = await fetch(book.cover_url, {
+    // L'URL de téléchargement peut différer de l'URL stockée (variante
+    // Inventaire) : la garde ci-dessus porte sur l'URL stockée, la variante
+    // n'est dérivée que sur l'origine inventaire.io — même frontière.
+    const response = await fetch(downloadUrlFor(book.cover_url), {
       headers: { "User-Agent": OUTBOUND_USER_AGENT },
       signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
     });
