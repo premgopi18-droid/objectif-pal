@@ -87,6 +87,27 @@ const isKnownCoverHost = (coverUrl) => {
   }
 };
 
+/**
+ * Inventaire.io : télécharger la variante redimensionnée, pas l'URL nue.
+ * Mesuré le 12/09/2026 : leur cache pleine taille sert des 200 image/webp de
+ * 0 octet (empoisonnés, immutables un an) — 29 livres bloquaient le run tous
+ * les jours — alors que le redimensionneur régénère depuis la source. 400 px
+ * = notre MAX_DIMENSION : rien à perdre. L'URL en base reste l'URL nue tant
+ * que le rapatriement n'a pas réussi.
+ * ⚠️ En phase avec resizedInventaireVariant (lib/resolution/providers/inventaire.ts).
+ */
+const downloadUrlFor = (coverUrl) => {
+  try {
+    const parsed = new URL(coverUrl);
+    if (parsed.origin !== "https://inventaire.io") return coverUrl;
+    const match = parsed.pathname.match(/^\/img\/entities\/([0-9a-f]+)$/);
+    if (!match) return coverUrl;
+    return `https://inventaire.io/img/entities/${MAX_DIMENSION}x${MAX_DIMENSION}/${match[1]}`;
+  } catch {
+    return coverUrl;
+  }
+};
+
 const internalPrefix = `${url}/storage/v1/object/public/${COVERS_BUCKET}/`;
 
 // Les candidats : couvertures externes de livres vivants, bornés par run.
