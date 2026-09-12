@@ -9,7 +9,16 @@ import { isMainCover, RESOLUTION_BUDGET_MILLISECONDS, type ResolutionDeps } from
  * sans réseau.
  */
 
-export type CoverCandidateSource = "metron" | "google_books" | "open_library" | "inventaire" | "bnf" | "epagine" | "open_library_edition";
+export type CoverCandidateSource =
+  | "metron"
+  | "google_books"
+  | "open_library"
+  | "inventaire"
+  | "bnf"
+  | "epagine"
+  | "open_library_edition"
+  /** Le pool partagé (#278) : la couverture d'un autre utilisateur pour le même code. */
+  | "contribution";
 
 export type CoverCandidate = {
   url: string;
@@ -28,7 +37,7 @@ export type CoverCandidatesResult = {
   degraded: boolean;
 };
 
-const SOURCE_LABELS: Record<Exclude<CoverCandidateSource, "metron" | "open_library_edition">, string> = {
+const SOURCE_LABELS: Record<Exclude<CoverCandidateSource, "metron" | "open_library_edition" | "contribution">, string> = {
   google_books: "Google Books",
   open_library: "OpenLibrary",
   inventaire: "Inventaire",
@@ -99,7 +108,7 @@ export async function listCoverCandidates(
   }
   if (book.barcodeType === "isbn" && book.isbn) {
     const isbn = book.isbn;
-    const single = (source: Exclude<CoverCandidateSource, "metron" | "open_library_edition">, lookup: () => Promise<string | null>) => async () => {
+    const single = (source: Exclude<CoverCandidateSource, "metron" | "open_library_edition" | "contribution">, lookup: () => Promise<string | null>) => async () => {
       const url = await lookup();
       return url ? [{ url, source, label: SOURCE_LABELS[source], preselected: false }] : [];
     };

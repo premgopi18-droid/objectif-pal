@@ -30,6 +30,10 @@ export type CoverState =
       authors: string | null;
       /** Un code exploitable par les sources ? Sinon (saisie manuelle), seules les éditions et la photo restent. */
       hasCode: boolean;
+      /** Le code exact du livre — la clé du pool partagé (#278) ; nul pour une saisie manuelle. */
+      barcodeRaw: string | null;
+      /** La couverture-source de MA contribution vivante pour ce code (#278), ou null. */
+      sharedSourceCoverUrl: string | null;
       coverUrl: string | null;
       coverChosenAt: string | null;
     }
@@ -58,7 +62,29 @@ export async function getCoverState(bookId: string): Promise<CoverState> {
   }
   if (!book) return { ok: false, error: "Livre introuvable." };
   const hasCode = (book.barcode_type === "upc" && book.barcode_raw !== null) || (book.barcode_type === "isbn" && book.isbn !== null);
-  return { ok: true, title: book.title, authors: book.authors, hasCode, coverUrl: book.cover_url, coverChosenAt: book.cover_chosen_at };
+  // Ma contribution vivante pour ce code (#278) — la RLS ne rend que les miennes… et celles des autres :
+  // le filtre user_id est donc explicite.
+  let sharedSourceCoverUrl: string | null = null;
+  if (book.barcode_raw !== null) {
+    const { data: contribution } = await session.supabase
+      .from("cover_contributions")
+      .select("source_cover_url")
+      .eq("user_id", session.user.id)
+      .eq("barcode", book.barcode_raw)
+      .is("deleted_at", null)
+      .maybeSingle();
+    sharedSourceCoverUrl = contribution?.source_cover_url ?? null;
+  }
+  return {
+    ok: true,
+    title: book.title,
+    authors: book.authors,
+    hasCode,
+    barcodeRaw: book.barcode_raw,
+    sharedSourceCoverUrl,
+    coverUrl: book.cover_url,
+    coverChosenAt: book.cover_chosen_at,
+  };
 }
 
 /**

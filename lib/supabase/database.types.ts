@@ -183,6 +183,44 @@ export type Database = {
           },
         ]
       }
+      cover_contributions: {
+        Row: {
+          barcode: string
+          cover_url: string
+          created_at: string
+          deleted_at: string | null
+          id: string
+          source_cover_url: string
+          user_id: string
+        }
+        Insert: {
+          barcode: string
+          cover_url: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          source_cover_url: string
+          user_id: string
+        }
+        Update: {
+          barcode?: string
+          cover_url?: string
+          created_at?: string
+          deleted_at?: string | null
+          id?: string
+          source_cover_url?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "cover_contributions_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       friendships: {
         Row: {
           accepted_at: string | null
@@ -891,6 +929,14 @@ export type Database = {
           avatar_url: string
           display_name: string
           id: string
+        }[]
+      }
+      get_cover_contributions: {
+        Args: { target_barcode: string }
+        Returns: {
+          contributor_label: string
+          cover_url: string
+          created_at: string
         }[]
       }
       is_circle_member: { Args: { member_id: string }; Returns: boolean }

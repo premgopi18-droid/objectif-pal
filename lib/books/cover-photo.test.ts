@@ -1,10 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
   coverPhotoPath,
+  coverStoragePathFromUrl,
   inboxCoverPhotoPath,
   isHouseCoverPhotoUrl,
   isInternalizedCoverUrl,
   isOwnHouseCoverPhotoUrl,
+  isSharedCoverUrl,
+  sharedCoverPath,
 } from "./cover-photo";
 
 /**
@@ -127,5 +130,35 @@ describe("chemins de stockage des couvertures", () => {
   it("l'URL publique d'une photo de rafale est reconnue comme photo maison (reprenable, #47)", () => {
     const url = `${SUPABASE_URL}/storage/v1/object/public/covers/${inboxCoverPhotoPath("user-1", "photo-9")}`;
     expect(isHouseCoverPhotoUrl(url, SUPABASE_URL)).toBe(true);
+  });
+});
+
+/**
+ * Le pool partagé (#278) : la copie vit dans `shared/{barcode}/…`, un dossier
+ * qu'aucun client n'écrit ; la reconnaissance se fait sur l'URL parsée.
+ */
+describe("le pool partagé (#278)", () => {
+  const SHARED_URL = `${SUPABASE_URL}/storage/v1/object/public/covers/shared/9782070342266/abc.webp`;
+
+  it("sharedCoverPath : shared/{barcode}/{id}.webp", () => {
+    expect(sharedCoverPath("9782070342266", "abc")).toBe("shared/9782070342266/abc.webp");
+  });
+
+  it("isSharedCoverUrl reconnaît une copie partagée, pas une photo ni une rapatriée", () => {
+    expect(isSharedCoverUrl(SHARED_URL, SUPABASE_URL)).toBe(true);
+    expect(isSharedCoverUrl(`${SHARED_URL}?v=1`, SUPABASE_URL)).toBe(true);
+    expect(isSharedCoverUrl(HOUSE_URL, SUPABASE_URL)).toBe(false);
+    expect(isSharedCoverUrl(INTERNALIZED_URL, SUPABASE_URL)).toBe(false);
+    // Un dossier utilisateur nommé « shared » par traversal ne passe pas.
+    expect(isSharedCoverUrl(`${SUPABASE_URL}/storage/v1/object/public/covers/user-1/../shared/x.webp`, SUPABASE_URL)).toBe(true);
+    expect(isSharedCoverUrl(null, SUPABASE_URL)).toBe(false);
+  });
+
+  it("coverStoragePathFromUrl : le chemin objet, sans la version, décodé ; null hors bucket", () => {
+    expect(coverStoragePathFromUrl(`${HOUSE_URL}?v=1752940000000`, SUPABASE_URL)).toBe("user-1/book-1.webp");
+    expect(coverStoragePathFromUrl(`${SUPABASE_URL}/storage/v1/object/public/covers/user-1/caf%C3%A9.webp`, SUPABASE_URL)).toBe("user-1/café.webp");
+    expect(coverStoragePathFromUrl("https://static.metron.cloud/x.jpg", SUPABASE_URL)).toBeNull();
+    expect(coverStoragePathFromUrl(`${SUPABASE_URL}/storage/v1/object/public/autre/x.webp`, SUPABASE_URL)).toBeNull();
+    expect(coverStoragePathFromUrl(HOUSE_URL, undefined)).toBeNull();
   });
 });

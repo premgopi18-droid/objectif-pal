@@ -20,7 +20,11 @@ import { getSessionOrError } from "@/lib/supabase/server";
  *
  * Ce qui RESTE, volontairement : les contributions au cache partagé
  * (barcode_cache) — données bibliographiques, pas personnelles ; leur
- * created_by passe à null par la FK (on delete set null, #179).
+ * created_by passe à null par la FK (on delete set null, #179). Et les COPIES
+ * du pool partagé de couvertures (#278, `covers/shared/…`) : la ligne
+ * cover_contributions part par cascade, le fichier — une image de couverture,
+ * pas une donnée personnelle — reste tant qu'un livre d'un autre le référence,
+ * puis la purge mensuelle (#205) le ramasse.
  *
  * L'ordre est pensé pour l'échec : si le Storage ou l'allowlist échouent, le
  * compte n'est PAS supprimé (l'utilisateur peut réessayer) ; si la

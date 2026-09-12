@@ -1,6 +1,9 @@
 import { findBookInLibrary } from "@/lib/books/library-lookup";
+import { withContributionCover } from "@/lib/covers/contributions";
+import { classifyScannedCode } from "@/lib/resolution/barcode-router";
 import { isLookupAllowed, LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
 import { resolveScannedCode } from "@/lib/resolution/resolve";
+import type { ScanLookupResult } from "@/lib/resolution/types";
 import { getSessionOrError } from "@/lib/supabase/server";
 
 /**
@@ -45,5 +48,26 @@ export async function GET(_request: Request, { params }: { params: Promise<{ bar
   }
 
   const result = await resolveScannedCode(barcode);
-  return Response.json(result, { status: result.kind === "invalid" ? 400 : 200 });
+  // Le pool partagé (#278) : une contribution ne devient couverture par défaut
+  // que si la cascade n'a rien — ici, APRÈS elle, sur le résultat rendu ; la
+  // cascade seule écrit le cache, une contribution n'y entre jamais (#179).
+  const withContribution = await applyContributionCover(session.supabase, barcode, result);
+  return Response.json(withContribution, { status: withContribution.kind === "invalid" ? 400 : 200 });
+}
+
+async function applyContributionCover(
+  supabase: NonNullable<Awaited<ReturnType<typeof getSessionOrError>>>["supabase"],
+  raw: string,
+  result: ScanLookupResult,
+): Promise<ScanLookupResult> {
+  const needsCover = (result.kind === "resolved" && result.book.coverUrl === null) || (result.kind === "not-found" && result.coverUrl === null);
+  if (!needsCover) return result;
+  const code = classifyScannedCode(raw);
+  if (code.type === "invalid") return result;
+  const { data, error } = await supabase.rpc("get_cover_contributions", { target_barcode: code.raw });
+  if (error) {
+    console.error("[lookup] get_cover_contributions:", error.message);
+    return result;
+  }
+  return withContributionCover(result, data?.[0]?.cover_url ?? null);
 }
