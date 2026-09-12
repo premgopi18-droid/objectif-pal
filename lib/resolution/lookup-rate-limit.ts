@@ -18,7 +18,7 @@ import type { createServerSupabaseClient } from "@/lib/supabase/server";
  */
 
 /** Les types d'action métrés — en phase avec le CHECK de la table. */
-export type QuotaKind = "lookup" | "cover_repair";
+export type QuotaKind = "lookup" | "cover_repair" | "cover_candidates";
 
 /** Le message du 429 — partagé entre la route et l'écran de scan. */
 export const LOOKUP_RATE_LIMIT_MESSAGE = "Trop de recherches d'un coup — attends une minute et réessaie.";

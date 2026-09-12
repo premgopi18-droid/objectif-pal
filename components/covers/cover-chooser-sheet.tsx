@@ -1,20 +1,28 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { BookCover } from "@/components/book-cover";
 import { ErrorAlert } from "@/components/error-alert";
 import { Button } from "@/components/ui/button";
 import { getCoverState, recordCoverPhoto, resetCoverToAutomatic, type CoverActionResult } from "@/lib/books/cover-actions";
+import { chooseCover, getCoverCandidates } from "@/lib/books/cover-choice-actions";
+import type { CoverCandidate } from "@/lib/covers/candidates";
 import { coverPhotoPath, COVERS_BUCKET, fileToWebpBlob } from "@/lib/books/cover-photo";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { deriveCoverSheetState } from "@/lib/covers/sheet-state";
 
 /**
  * La feuille « Changer la couverture » (#275, epic #274) — LE lieu unique du
- * choix : couverture actuelle et son origine, photo ou import galerie, et
- * « Revenir à l'automatique » quand un choix existe. Le lot B y ajoutera les
- * candidates des sources.
+ * choix : couverture actuelle et son origine, les **candidates** de toutes les
+ * sources (#276 — chargées à l'ouverture, en parallèle, sous quota ; variante
+ * scannée entourée pour la VO), photo ou import galerie, et « Revenir à
+ * l'automatique » quand un choix existe.
+ *
+ * Les candidates sont des `<img>` bruts, hors `next/image` : une dizaine
+ * d'images jetables par ouverture brûleraient les transformations Vercel pour
+ * rien — seule la couverture choisie, rapatriée la nuit suivante, repasse par
+ * l'optimiseur. Une candidate qui ne charge pas disparaît de la grille.
  *
  * **Autonome** (review #280) : l'écran qui l'ouvre ne connaît pas toujours
  * l'état réel du livre — le Journal n'a pas `cover_chosen_at`, l'écran de fin
@@ -42,6 +50,12 @@ export type CoverSheetBook = {
   coverChosenAt: string | null;
 };
 
+type CandidatesState =
+  | { status: "loading" }
+  | { status: "offline" }
+  | { status: "error"; message: string }
+  | { status: "ready"; candidates: CoverCandidate[]; degraded: boolean };
+
 type CoverChooserSheetProps = {
   book: CoverSheetBook | null;
   onClose: () => void;
@@ -63,10 +77,60 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
   const firstActionRef = useRef<HTMLButtonElement>(null);
   /** L'état affiché : ce que l'appelant savait, puis la vérité relue en base. */
   const [book, setBook] = useState<CoverSheetBook>(initial);
-  const [busy, setBusy] = useState<"upload" | "reset" | null>(null);
+  const [busy, setBusy] = useState<"upload" | "reset" | "choose" | null>(null);
   const [confirmReset, setConfirmReset] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
+  // Hors ligne, on le dit tout de suite au lieu de charger dans le vide — décidé
+  // à l'ouverture (la feuille n'est jamais rendue côté serveur : `book` y est nul).
+  const [candidates, setCandidates] = useState<CandidatesState>(() =>
+    typeof navigator !== "undefined" && navigator.onLine === false ? { status: "offline" } : { status: "loading" },
+  );
+
+  // Les candidates (#276) : à la demande, à l'ouverture — jamais au scan. Le
+  // résultat arrive en `.then` (asynchrone) : rien n'est posé pendant l'effet.
+  const fetchCandidates = useCallback(
+    (bookId: string) =>
+      getCoverCandidates(bookId)
+        .then((result) =>
+          setCandidates(
+            result.ok ? { status: "ready", candidates: result.candidates, degraded: result.degraded } : { status: "error", message: result.error },
+          ),
+        )
+        .catch(() => setCandidates({ status: "error", message: NETWORK_ERROR_MESSAGE })),
+    [],
+  );
+
+  useEffect(() => {
+    if (typeof navigator !== "undefined" && navigator.onLine === false) return;
+    fetchCandidates(initial.bookId);
+  }, [initial.bookId, fetchCandidates]);
+
+  /** « Réessayer » : repasse en chargement puis relance — un tap, pas un effet. */
+  const retryCandidates = () => {
+    setCandidates({ status: "loading" });
+    fetchCandidates(book.bookId);
+  };
+
+  /** Une candidate dont l'image ne charge pas (cadavre epagine/Inventaire) sort de la grille. */
+  const hideCandidate = (url: string) =>
+    setCandidates((previous) =>
+      previous.status === "ready" ? { ...previous, candidates: previous.candidates.filter((candidate) => candidate.url !== url) } : previous,
+    );
+
+  async function handleChoose(candidate: CoverCandidate) {
+    setBusy("choose");
+    setError(null);
+    setSuccess(null);
+    try {
+      applied(await chooseCover(book.bookId, candidate.url), new Date().toISOString(), "Couverture choisie ✓");
+      hideCandidate(candidate.url);
+    } catch {
+      setError(NETWORK_ERROR_MESSAGE);
+    } finally {
+      setBusy(null);
+    }
+  }
 
   // À l'ouverture : le focus entre dans le dialogue (a11y, review #280), et
   // l'état réel est relu — une réponse en échec laisse l'état initial, le
@@ -206,6 +270,77 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
           </div>
         </div>
 
+        <section className="mt-4" aria-busy={candidates.status === "loading"}>
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-ink3">Proposées par les sources</h3>
+          {candidates.status === "loading" && (
+            <div className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-3" aria-hidden>
+              {Array.from({ length: 4 }, (_, index) => (
+                <div key={index} className="h-36 animate-pulse rounded-md bg-card2" />
+              ))}
+            </div>
+          )}
+          {candidates.status === "offline" && (
+            <p className="mt-2 text-sm text-ink2">Pas de réseau — les sources attendront, la photo reste possible.</p>
+          )}
+          {candidates.status === "error" && (
+            <div className="mt-2 flex flex-col gap-2">
+              <ErrorAlert message={candidates.message} />
+              <button type="button" onClick={retryCandidates} className="self-start text-sm text-ink2 underline underline-offset-2">
+                Réessayer
+              </button>
+            </div>
+          )}
+          {candidates.status === "ready" && (
+            <>
+              {candidates.candidates.length === 0 ? (
+                <p className="mt-2 text-sm text-ink2">
+                  {candidates.degraded ? "Aucune image reçue — certaines sources n'ont pas répondu." : "Aucune source n'a d'autre image pour ce livre."}
+                </p>
+              ) : (
+                <ul className="mt-2 grid grid-cols-[repeat(auto-fill,minmax(5.5rem,1fr))] gap-3">
+                  {candidates.candidates.map((candidate) => (
+                    <li key={candidate.url}>
+                      <button
+                        type="button"
+                        disabled={busy !== null}
+                        onClick={() => handleChoose(candidate)}
+                        aria-current={candidate.preselected ? "true" : undefined}
+                        aria-label={`Choisir : ${candidate.label}`}
+                        className={`flex w-full flex-col items-center gap-1 rounded-md p-1 text-left focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan disabled:opacity-50 ${
+                          candidate.preselected ? "outline outline-2 outline-cyan" : ""
+                        }`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element -- candidates jetables, hors optimiseur (#276) */}
+                        <img
+                          src={candidate.url}
+                          alt=""
+                          loading="lazy"
+                          referrerPolicy="no-referrer"
+                          onError={() => hideCandidate(candidate.url)}
+                          className="h-36 w-full rounded-md bg-card2 object-cover"
+                        />
+                        <span className="line-clamp-2 w-full text-center text-[11px] leading-tight text-ink3">
+                          {candidate.preselected ? "★ " : ""}
+                          {candidate.label}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {candidates.degraded && (
+                <p className="mt-2 text-xs text-ink3">
+                  Certaines sources n&apos;ont pas répondu.{" "}
+                  <button type="button" onClick={retryCandidates} className="underline underline-offset-2">
+                    Réessayer
+                  </button>
+                </p>
+              )}
+            </>
+          )}
+        </section>
+
+        <h3 className="mt-4 text-xs font-semibold uppercase tracking-wide text-ink3">La mienne</h3>
         <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={onFileChosen} />
         <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={onFileChosen} />
 
@@ -215,7 +350,7 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
           </div>
         )}
 
-        <div className="mt-4 flex flex-col gap-2">
+        <div className="mt-2 flex flex-col gap-2">
           {busy === "upload" ? (
             <p className="py-2 text-center text-sm text-ink2">Envoi de la photo…</p>
           ) : (

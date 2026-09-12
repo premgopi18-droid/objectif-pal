@@ -57,7 +57,7 @@ import {
  * route (20 s, #191) avec la marge du dernier provider entamé (4 s), et 7 s
  * d'attente est déjà la limite du supportable au comptoir d'une librairie.
  */
-const RESOLUTION_BUDGET_MILLISECONDS = 7_000;
+export const RESOLUTION_BUDGET_MILLISECONDS = 7_000;
 
 const isBudgetExhausted = (startedAtMs: number) => Date.now() - startedAtMs >= RESOLUTION_BUDGET_MILLISECONDS;
 
@@ -171,7 +171,9 @@ async function enrichWithMetron(
   if (isBudgetExhausted(startedAtMs)) return book;
   const metronIssue = await attempt(async () => {
     if (book.sourceId && book.source === "gcd") {
-      const byGcdId = await deps.metron.findIssueByGcdId(Number(book.sourceId));
+      // Le code scanné choisit la VARIANTE (#276) : Metron pose la couverture
+      // de l'exemplaire tenu, pas la cover A — sans appel de plus.
+      const byGcdId = await deps.metron.findIssueByGcdId(Number(book.sourceId), upc);
       if (byGcdId) return byGcdId;
     }
     return upc ? deps.metron.findIssueByUpc(upc) : null;
@@ -551,7 +553,7 @@ const toCacheEntry = (barcode: string, book: ResolvedBook, source: CacheEntry["s
 
 /** Le 4ᵉ chiffre du supplément UPC encode la couverture : 1 = la principale. */
 const UPC_COVER_DIGIT_INDEX = 15;
-const isMainCover = (barcode: string | null) =>
+export const isMainCover = (barcode: string | null) =>
   !barcode || barcode.length <= UPC_COVER_DIGIT_INDEX || barcode[UPC_COVER_DIGIT_INDEX] === "1";
 
 /**

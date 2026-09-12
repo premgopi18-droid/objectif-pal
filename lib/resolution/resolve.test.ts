@@ -108,6 +108,9 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
           number: "1",
           coverUrl: "https://static.metron.cloud/cover.jpg",
           seriesType: "Omnibus",
+          mainCoverUrl: null,
+          variants: [],
+          matchedVariantUpc: null,
           publisher: "Marvel",
           pageCount: 1096,
         })),
@@ -409,6 +412,9 @@ describe("la cascade UPC (GCD exact → préfixe → Metron)", () => {
           number: "123",
           coverUrl: "https://static.metron.cloud/nightwing.jpg",
           seriesType: "Single Issue",
+          mainCoverUrl: null,
+          variants: [],
+          matchedVariantUpc: null,
           publisher: "DC",
           pageCount: 32,
         })),
@@ -511,6 +517,9 @@ describe("la cascade UPC (GCD exact → préfixe → Metron)", () => {
           number: "1",
           coverUrl: "https://static.metron.cloud/skin1.jpg",
           seriesType: "Limited Series",
+          mainCoverUrl: null,
+          variants: [],
+          matchedVariantUpc: null,
           publisher: "Mad Cave",
           pageCount: 28,
         })),
@@ -537,6 +546,9 @@ describe("la cascade UPC (GCD exact → préfixe → Metron)", () => {
           number: "1",
           coverUrl: "https://static.metron.cloud/ab1.jpg",
           seriesType: "Single Issue",
+          mainCoverUrl: null,
+          variants: [],
+          matchedVariantUpc: null,
           publisher: "DC",
           pageCount: 48,
         })),
@@ -707,6 +719,9 @@ describe("la re-résolution de couverture pour la réparation des liens cassés 
           number: "123",
           coverUrl: "https://static.metron.cloud/nightwing.jpg",
           seriesType: null,
+          mainCoverUrl: null,
+          variants: [],
+          matchedVariantUpc: null,
           publisher: "DC",
           pageCount: 32,
         })),
@@ -894,5 +909,42 @@ describe("le cache négatif (#176) et la santé de la cascade (#175)", () => {
 
     expect(result).toEqual({ kind: "not-found", coverUrl: null });
     expect(deps.cache.setMiss).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Les variantes (#276) : le code scanné voyage jusqu'à Metron pour que la
+ * couverture posée soit celle de l'exemplaire tenu — sans appel de plus.
+ */
+describe("la variante scannée (#276)", () => {
+  it("une VARIANTE scannée pose la couverture de la variante, pas la principale", async () => {
+    const findIssueByGcdId = vi.fn(async () => ({
+      metronId: 5,
+      issueName: "Nightwing (2016) #123",
+      seriesName: "Nightwing",
+      number: "123",
+      coverUrl: "https://static.metron.cloud/media/variants/b.jpg",
+      mainCoverUrl: "https://static.metron.cloud/media/issue/a.jpg",
+      variants: [{ name: "Cover B", upc: "76194134174312321", coverUrl: "https://static.metron.cloud/media/variants/b.jpg" }],
+      matchedVariantUpc: "76194134174312321",
+      seriesType: "Single Issue",
+      publisher: "DC",
+      pageCount: 32,
+    }));
+    const deps = fakeDeps({
+      gcd: {
+        findIssuesByBarcode: vi.fn(async () => [gcdIssue({ gcdId: 1001, barcode: "76194134174312321" })]),
+        getSeriesByIds: vi.fn(async () => new Map([[42, gcdSeries()]])),
+      },
+      metron: { findIssueByGcdId },
+    });
+    const result = await resolveScannedCode("76194134174312321", deps);
+
+    // Le code scanné est passé à Metron, qui choisit la variante.
+    expect(findIssueByGcdId).toHaveBeenCalledWith(1001, "76194134174312321");
+    expect(result.kind).toBe("resolved");
+    if (result.kind === "resolved") {
+      expect(result.book.coverUrl).toBe("https://static.metron.cloud/media/variants/b.jpg");
+    }
   });
 });
