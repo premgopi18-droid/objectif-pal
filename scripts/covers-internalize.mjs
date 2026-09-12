@@ -34,6 +34,7 @@ import { readFileSync } from "node:fs";
 import { setTimeout as sleep } from "node:timers/promises";
 import { createClient } from "@supabase/supabase-js";
 import sharp from "sharp";
+import { CoverFailure, classifyFailure, shouldFailRun } from "./covers-run-verdict.mjs";
 
 const isDryRun = process.argv.includes("--dry-run");
 
@@ -133,7 +134,9 @@ if (isDryRun) {
 
 let internalized = 0;
 let skipped = 0;
-const failuresByHost = {};
+/** Les échecs par famille puis par hôte (#272) — la sortie du run en dépend. */
+const failures = { corpse: {}, network: {}, infra: {} };
+const countFailures = (byHost) => Object.values(byHost).reduce((sum, count) => sum + count, 0);
 
 for (const book of isDryRun ? [] : candidates) {
   await sleep(POLITENESS_DELAY_MS);
@@ -147,20 +150,40 @@ for (const book of isDryRun ? [] : candidates) {
     // L'URL de téléchargement peut différer de l'URL stockée (variante
     // Inventaire) : la garde ci-dessus porte sur l'URL stockée, la variante
     // n'est dérivée que sur l'origine inventaire.io — même frontière.
-    const response = await fetch(downloadUrlFor(book.cover_url), {
-      headers: { "User-Agent": OUTBOUND_USER_AGENT },
-      signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
-    });
-    if (!response.ok) throw new Error(`HTTP ${response.status}`);
+    // Pas de réponse HTTP (DNS, connexion, timeout) = réseau ; une réponse qui
+    // n'est pas une image exploitable = cadavre (voir covers-run-verdict.mjs).
+    let response;
+    try {
+      response = await fetch(downloadUrlFor(book.cover_url), {
+        headers: { "User-Agent": OUTBOUND_USER_AGENT },
+        signal: AbortSignal.timeout(DOWNLOAD_TIMEOUT_MS),
+      });
+    } catch (error) {
+      throw new CoverFailure("network", error instanceof Error ? error.message : String(error));
+    }
+    if (!response.ok) throw new CoverFailure("corpse", `HTTP ${response.status}`);
     const contentType = response.headers.get("content-type") ?? "";
-    if (!contentType.startsWith("image/")) throw new Error(`content-type ${contentType || "absent"}`);
-    const source = Buffer.from(await response.arrayBuffer());
-    if (source.length === 0 || source.length > MAX_SOURCE_BYTES) throw new Error(`taille ${source.length}`);
+    if (!contentType.startsWith("image/")) throw new CoverFailure("corpse", `content-type ${contentType || "absent"}`);
+    let source;
+    try {
+      source = Buffer.from(await response.arrayBuffer());
+    } catch (error) {
+      // Connexion coupée en plein corps : pas de réponse complète = réseau.
+      throw new CoverFailure("network", error instanceof Error ? error.message : String(error));
+    }
+    if (source.length === 0 || source.length > MAX_SOURCE_BYTES) throw new CoverFailure("corpse", `taille ${source.length}`);
 
-    const webp = await sharp(source)
-      .resize(MAX_DIMENSION, MAX_DIMENSION, { fit: "inside", withoutEnlargement: true })
-      .webp({ quality: WEBP_QUALITY })
-      .toBuffer();
+    let webp;
+    try {
+      webp = await sharp(source)
+        .resize(MAX_DIMENSION, MAX_DIMENSION, { fit: "inside", withoutEnlargement: true })
+        .webp({ quality: WEBP_QUALITY })
+        .toBuffer();
+    } catch (error) {
+      // Un fichier que sharp ne lit pas est un cadavre (placeholder, HTML
+      // déguisé) — pas une panne de notre côté.
+      throw new CoverFailure("corpse", `illisible : ${error instanceof Error ? error.message : error}`);
+    }
 
     const path = `${book.user_id}/cover-${book.id}.webp`;
     // cacheControl 1 an : l'URL d'une couverture rapatriée ne change JAMAIS de
@@ -169,7 +192,7 @@ for (const book of isDryRun ? [] : candidates) {
     const { error: uploadError } = await admin.storage
       .from(COVERS_BUCKET)
       .upload(path, webp, { contentType: "image/webp", upsert: true, cacheControl: "31536000" });
-    if (uploadError) throw new Error(`upload : ${uploadError.message}`);
+    if (uploadError) throw new CoverFailure("infra", `upload : ${uploadError.message}`);
 
     // Optimiste : on ne bascule que si la couverture n'a pas changé entre-temps
     // (photo maison posée, réparation #53…) — le perdant laisse juste un
@@ -180,19 +203,32 @@ for (const book of isDryRun ? [] : candidates) {
       .update({ cover_url: internalUrl })
       .eq("id", book.id)
       .eq("cover_url", book.cover_url);
-    if (updateError) throw new Error(`update : ${updateError.message}`);
+    if (updateError) throw new CoverFailure("infra", `update : ${updateError.message}`);
     internalized++;
   } catch (error) {
-    failuresByHost[host] = (failuresByHost[host] ?? 0) + 1;
-    console.error(` - échec ${host} (livre ${book.id.slice(0, 8)}…) : ${error instanceof Error ? error.message : error}`);
+    const kind = classifyFailure(error);
+    failures[kind][host] = (failures[kind][host] ?? 0) + 1;
+    console.error(` - ${kind} ${host} (livre ${book.id.slice(0, 8)}…) : ${error instanceof Error ? error.message : error}`);
   }
 }
 
-if (!isDryRun) console.log(`${internalized} rapatriées, ${skipped} hôtes inconnus sautés, échecs par hôte : ${JSON.stringify(failuresByHost)}`);
-// Les échecs sont NORMAUX (liens déjà morts — la réparation #53 les traite) :
-// le run n'échoue que si RIEN n'a pu être rapatrié alors qu'il y avait à faire.
-if (internalized === 0 && candidates.length > 0 && Object.keys(failuresByHost).length > 0) {
-  console.error("Aucun rapatriement réussi — panne réseau ou bucket ?");
+const counts = {
+  internalized,
+  corpse: countFailures(failures.corpse),
+  network: countFailures(failures.network),
+  infra: countFailures(failures.infra),
+};
+if (!isDryRun) {
+  console.log(
+    `${internalized} rapatriées, ${skipped} hôtes inconnus sautés — cadavres ${JSON.stringify(failures.corpse)}, ` +
+      `réseau ${JSON.stringify(failures.network)}, infra ${JSON.stringify(failures.infra)}`,
+  );
+}
+// Les cadavres sont NORMAUX (liens morts — la réparation #53 les traite, on
+// retente demain) : le run n'est rouge que sur panne d'infra ou réseau totale
+// (#272, verdict pur et testé dans covers-run-verdict.mjs).
+if (shouldFailRun(counts)) {
+  console.error(counts.infra > 0 ? "Panne d'infra (bucket ou base) — voir les échecs ci-dessus." : "Panne réseau totale : aucune réponse HTTP reçue.");
   process.exit(1);
 }
 console.log("Rapatriement terminé.");
