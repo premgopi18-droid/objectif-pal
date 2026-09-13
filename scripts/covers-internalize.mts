@@ -40,7 +40,7 @@
 import { setTimeout as sleep } from "node:timers/promises";
 import sharp from "sharp";
 import { COVERS_BUCKET, INTERNALIZED_COVER_MAX_DIMENSION } from "@/lib/books/cover-photo";
-import { isInternalizableCoverUrl } from "@/lib/books/cover-repair";
+import { HOTLINK_ONLY_HOSTNAMES, isInternalizableCoverUrl } from "@/lib/books/cover-repair";
 import { resizedInventaireVariant } from "@/lib/resolution/providers/inventaire";
 import { OUTBOUND_USER_AGENT } from "@/lib/resolution/types";
 import { createAdminClientFromEnv, isDryRun } from "./lib/env.mjs";
@@ -72,18 +72,18 @@ const hostOf = (coverUrl: string): string => {
 
 const internalPrefix = `${url}/storage/v1/object/public/${COVERS_BUCKET}/`;
 
-// Les candidats : couvertures externes de livres vivants, bornés par run.
-// Comic Vine (#279) est exclu dès la sélection — jamais rapatrié — pour ne pas
-// le compter en « hôte non rapatriable sauté » chaque nuit.
-const { data: candidates, error: selectError } = await admin
+// Les candidats : couvertures externes de livres vivants, bornés par run. Les
+// hôtes en lien direct (Comic Vine, #279 — jamais rapatriés) sont exclus dès la
+// sélection, DEPUIS LA LISTE de l'app (review #287) : sinon ils reviendraient
+// chaque nuit dans la fenêtre des 250 et finiraient par l'affamer.
+let selection = admin
   .from("books")
   .select("id, user_id, cover_url")
   .not("cover_url", "is", null)
   .not("cover_url", "like", `${internalPrefix}%`)
-  .not("cover_url", "like", "https://comicvine.gamespot.com/%")
-  .is("deleted_at", null)
-  .order("created_at", { ascending: true })
-  .limit(MAX_PER_RUN);
+  .is("deleted_at", null);
+for (const host of HOTLINK_ONLY_HOSTNAMES) selection = selection.not("cover_url", "like", `https://${host}/%`);
+const { data: candidates, error: selectError } = await selection.order("created_at", { ascending: true }).limit(MAX_PER_RUN);
 if (selectError) throw new Error(`books : ${selectError.message}`);
 const books = (candidates ?? []).filter((book): book is typeof book & { cover_url: string } => book.cover_url !== null);
 

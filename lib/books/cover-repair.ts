@@ -48,7 +48,7 @@ export function isKnownCoverImageUrl(url: string): boolean {
  * « ne pas reproduire sur un autre support ») — affichables et re-vérifiables,
  * mais servis en lien direct pour toujours.
  */
-const HOTLINK_ONLY_HOSTNAMES = ["comicvine.gamespot.com"] as const;
+export const HOTLINK_ONLY_HOSTNAMES = ["comicvine.gamespot.com"] as const;
 
 /**
  * Vrai si le job de rapatriement (`scripts/covers-internalize.mts`) a le droit

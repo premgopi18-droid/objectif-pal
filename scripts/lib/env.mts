@@ -7,6 +7,13 @@
  *  - `createAdminClientFromEnv()` : le client SERVICE ROLE typé sur le schéma
  *    de prod. ⚠️ Il bypasse la RLS : chaque requête d'un script filtre
  *    `user_id` explicitement, ou cible un `id` précis (la règle maison).
+ *
+ * Le runner (package.json) est `node --conditions=react-server --import tsx` :
+ * la condition rend `server-only` inerte hors de Next (c'est son `exports`).
+ * Elle fait aussi résoudre React et tout paquet qui l'expose vers leur variante
+ * serveur — sans conséquence tant qu'un script n'importe ni composant ni
+ * `next/*` (review #287). Si un cinquième script en a besoin, c'est ici que
+ * ça se décide.
  */
 
 import { readFileSync } from "node:fs";
