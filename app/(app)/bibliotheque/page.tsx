@@ -1,23 +1,26 @@
 import { LibraryView } from "@/components/library/library-view";
 import { PageLoadError } from "@/components/page-load-error";
 import { PalView } from "@/components/pal/pal-view";
+import { SeriesView } from "@/components/series/series-view";
 import { SegmentNav } from "@/components/ui/segment-nav";
 import { deriveLibrary } from "@/lib/library/derive-library";
 import { derivePal } from "@/lib/pal/derive-pal";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { loadSeriesSegment } from "@/lib/series/queries";
+import { createServerSupabaseClient, getSessionOrError } from "@/lib/supabase/server";
 
 /**
- * La Bibliothèque — deux volets portés par `?vue=` (design-specs §3) :
+ * La Bibliothèque — trois volets portés par `?vue=` (design-specs §3) :
  *   - `pile` (défaut) : la PAL, « ce que je possède et n'ai pas lu » (§4.6) ;
  *   - `tous` : TOUS les livres possédés (issue #49), même sans lecture ni achat
- *     actif — l'angle mort des projections.
- * Les deux vues sont DÉPLACÉES telles quelles depuis `/pal` et l'ancienne
- * Bibliothèque (vague 2, refonte #64) ; leur rhabillage viendra en vague 3. On
- * ne charge que les données du volet demandé — bascule = navigation d'URL.
+ *     actif — l'angle mort des projections ;
+ *   - `series` : le suivi de séries (§4.17, lot B) — lus · dans la pile · total,
+ *     dérivé côté serveur depuis les livres reliés au référentiel partagé.
+ * On ne charge que les données du volet demandé — bascule = navigation d'URL.
  */
 const LIBRARY_VIEWS = [
   { value: "pile", label: "Pile (PAL)" },
   { value: "tous", label: "Tous" },
+  { value: "series", label: "Séries" },
 ] as const;
 
 type LibraryViewKey = (typeof LIBRARY_VIEWS)[number]["value"];
@@ -25,16 +28,35 @@ type LibraryViewKey = (typeof LIBRARY_VIEWS)[number]["value"];
 export default async function BibliothequePage({
   searchParams,
 }: {
-  searchParams: Promise<{ vue?: string; livre?: string }>;
+  searchParams: Promise<{ vue?: string; livre?: string; serie?: string }>;
 }) {
   // `livre` (#275) : le Journal renvoie ici pour « Modifier la fiche » — la
   // vue « tous » ouvre la fiche de ce livre. Un id inconnu est ignoré.
-  const { vue, livre } = await searchParams;
+  // `serie` (lot B) : les Stats renvoient ici — la vue « series » ouvre la fiche.
+  const { vue, livre, serie } = await searchParams;
   // Défaut « pile » : le volet le plus fréquent (§3). Toute valeur inconnue y retombe.
-  const view: LibraryViewKey = vue === "tous" ? "tous" : "pile";
+  const view: LibraryViewKey = vue === "tous" ? "tous" : vue === "series" ? "series" : "pile";
   const supabase = await createServerSupabaseClient();
 
   const segments = <SegmentNav label="Vue de la bibliothèque" options={LIBRARY_VIEWS} value={view} />;
+
+  if (view === "series") {
+    const session = await getSessionOrError();
+    if (!session) return <PageLoadError title="Bibliothèque" message="Session expirée — reconnecte-toi." />;
+    const data = await loadSeriesSegment(session.supabase, session.user.id);
+    if ("error" in data) {
+      console.error("[bibliotheque] séries:", data.error);
+      return <PageLoadError title="Bibliothèque" message="Impossible de charger les séries — réessaie." />;
+    }
+    return (
+      <section className="py-6">
+        <h1 className="text-2xl font-bold">Bibliothèque</h1>
+        <div className="mt-4">{segments}</div>
+        {/* `key` : un autre `?serie=` sans remontage rejoue l'ouverture de fiche (même patron que `?livre=`). */}
+        <SeriesView key={serie ?? ""} data={data} focusSeriesId={typeof serie === "string" ? serie : null} />
+      </section>
+    );
+  }
 
   if (view === "tous") {
     // TOUS les livres. Lu avec le client SESSION : la RLS ne montre que les

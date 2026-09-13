@@ -1,0 +1,121 @@
+import type { SeriesNext, SeriesProgress, SeriesStatus } from "@/lib/series/derive-series";
+
+/**
+ * Les textes du suivi de séries (lot B de l'epic #289, specs §4.17) — la
+ * partie PURE, testée : libellés d'état, ligne de compteurs, carte « à lire
+ * ensuite », auteur du fait. Rien d'autre : le composant pose, ne formule pas.
+ */
+
+export type SeriesStatusBadge = "reading" | "done" | "idle" | "abandoned";
+
+/** Le badge d'état — les cinq états de §4.17-7, dans le vêtement de `Badge`. */
+export const SERIES_STATUS_LABELS: Record<SeriesStatus, { label: string; badge: SeriesStatusBadge }> = {
+  "in-progress": { label: "En cours", badge: "reading" },
+  "up-to-date": { label: "À jour", badge: "done" },
+  complete: { label: "Complète ✓", badge: "done" },
+  "unknown-total": { label: "Total à déclarer", badge: "idle" },
+  approximate: { label: "≈ approximatif", badge: "abandoned" },
+};
+
+/** Les chips du segment — « En cours » regroupe ce qui reste à lire OU à renseigner (proto). */
+export type SeriesFilter = "all" | "in-progress" | "up-to-date" | "complete";
+
+export const SERIES_FILTER_LABELS: Record<SeriesFilter, string> = {
+  all: "Toutes",
+  "in-progress": "En cours",
+  "up-to-date": "À jour",
+  complete: "Complètes",
+};
+
+export const matchesSeriesFilter = (status: SeriesStatus, filter: SeriesFilter): boolean => {
+  if (filter === "all") return true;
+  if (filter === "in-progress") return status === "in-progress" || status === "unknown-total" || status === "approximate";
+  return status === filter;
+};
+
+const plural = (count: number, singular: string, pluralForm = `${singular}s`) =>
+  `${count} ${count > 1 ? pluralForm : singular}`;
+
+/** « 8 lus · 2 dans la pile · sur 12 » / « parution en cours » / « total ? ». */
+export function seriesCountsText(progress: Pick<SeriesProgress, "read" | "pile" | "totalVolumes" | "isOngoing">): string {
+  const parts = [plural(progress.read, "lu")];
+  if (progress.pile > 0) parts.push(`${progress.pile} dans la pile`);
+  if (progress.totalVolumes !== null) parts.push(`sur ${progress.totalVolumes}`);
+  else if (progress.isOngoing) parts.push("parution en cours");
+  else parts.push("total ?");
+  return parts.join(" · ");
+}
+
+/** Le bandeau de synthèse du segment. */
+export function seriesHeadline(seriesCount: number, debt: number): string {
+  const series = plural(seriesCount, "série");
+  if (debt === 0) return `${series} · rien à lire dans la pile`;
+  return `${series} · dette totale : ${plural(debt, "tome")} à lire`;
+}
+
+export type NextCardCopy = { tone: "read" | "buy" | "calm"; icon: string; title: string; body: string };
+
+/** La carte « à lire ensuite » de la fiche, dans ses quatre formes (§4.17-8). */
+export function nextCardCopy(next: SeriesNext, totalVolumes: number | null): NextCardCopy {
+  switch (next.kind) {
+    case "read-next":
+      return { tone: "read", icon: "📖", title: `À lire ensuite : tome ${next.number}`, body: "Il est déjà dans ta pile." };
+    case "missing":
+      return {
+        tone: "buy",
+        icon: "🛒",
+        title: `Il te manque le tome ${next.number}`,
+        body: "Le prochain à lire n'est pas dans ta bibliothèque.",
+      };
+    case "up-to-date":
+      return { tone: "calm", icon: "🌿", title: "À jour de ta pile", body: "Tout ce que tu possèdes est lu — on guette la suite." };
+    case "complete":
+      return {
+        tone: "calm",
+        icon: "🏁",
+        title: "Série complète",
+        body: totalVolumes === null ? "Tous les tomes sont lus. Chapeau." : `Les ${totalVolumes} tomes sont lus. Chapeau.`,
+      };
+  }
+}
+
+/** L'avertissement quand un tome lu n'a pas de numéro : muet plutôt que faux. */
+export function approximateWarning(unnumberedRead: number): string {
+  return `≈ ${plural(unnumberedRead, "tome lu sans numéro", "tomes lus sans numéro")} — la jauge et le tome suivant restent muets plutôt que faux. Un tap sur la case « ? » règle ça.`;
+}
+
+/**
+ * Qui a déclaré le total, et quand — le pseudo n'est servi qu'au cercle
+ * (règle de `get_cover_contributions`) : « toi », un ami par son pseudo, sinon
+ * « un membre ».
+ */
+export function declaredByLabel(
+  progress: Pick<SeriesProgress, "totalVolumes" | "isOngoing" | "factDeclaredBy" | "factDeclaredAt">,
+  declarerLabel: string | null,
+): string | null {
+  if (progress.factDeclaredAt === null) return null;
+  const what = progress.isOngoing ? "parution en cours" : `${progress.totalVolumes} tomes`;
+  const who = declarerLabel ?? "un membre";
+  const when = new Date(progress.factDeclaredAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+  return `${what}, déclaré par ${who} le ${when}`;
+}
+
+/** Le pré-remplissage du stepper : l'indice GCD s'il existe, sinon le plus grand possédé (au moins 10, comme le proto). */
+export function suggestedTotal(progress: Pick<SeriesProgress, "gcdKnownMax" | "gridMax" | "readNumbers" | "pileNumbers">): number {
+  const ownedMax = Math.max(0, ...progress.readNumbers, ...progress.pileNumbers);
+  return Math.max(progress.gcdKnownMax ?? 0, ownedMax, progress.gcdKnownMax === null ? 10 : 1);
+}
+
+/** La mention sous le stepper — l'indice vivant, ou son absence, jamais une vérité. */
+export function gcdHintText(gcdKnownMax: number | null): string {
+  return gcdKnownMax === null ? "GCD ne connaît pas cette série." : `${gcdKnownMax} numéros parus d'après GCD (au moins).`;
+}
+
+/** Les toasts des trois gestes — accordés au fait réel. */
+export const seriesToasts = {
+  totalDeclared: (name: string, total: number) => `✓ ${name} : ${plural(total, "tome")} — jauge à jour`,
+  ongoingDeclared: (name: string) => `✓ ${name} : parution en cours`,
+  volumeNumbered: (number: string) => `✓ Tome ${number} — progression recalculée`,
+  merged: (name: string, read: number) => `✓ Séries fusionnées — ${name} : ${plural(read, "tome lu", "tomes lus")}`,
+  renamed: (name: string) => `✓ Série renommée : ${name}`,
+};

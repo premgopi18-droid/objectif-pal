@@ -554,6 +554,8 @@ invisibles ailleurs (l'angle mort qui a motivé le ticket).
   y renvoie (« Modifier la fiche », `?livre=<id>` ouvre la fiche). Pour un livre **saisi à la main** (sans
   code-barres), la feuille s'ouvre directement sur « Autres éditions » (#277) : la recherche par titre est sa
   seule proposition possible, avec la photo.
+- **Le 3ᵉ segment « Séries »** (§4.17, lot B) s'ajoute à Pile et Tous ; le champ Série de l'édition de fiche
+  propose les séries du référentiel commun.
 - **Alignement de catégorie par série** (#257, décisions du 31/08/2026) : quand l'app se trompe de catégorie
   sur un tome, elle s'est presque sûrement trompée sur **toute la série**. Après l'enregistrement d'une fiche
   **dont la catégorie a changé** (une série volontairement mixte ne re-propose rien à chaque édition des
@@ -1085,10 +1087,18 @@ peut venir que d'une déclaration.
     du premier tome rattaché et n'est jamais révisée : les surfaces (lot B) affichent la catégorie **dérivée des
     livres de l'utilisateur** (majorité), pas la colonne.
 
-**Les surfaces** : la Biblio gagne un **3ᵉ segment « Séries »** (cartes triées par dette décroissante,
-jauge vert = lu / ambre = pile, filtres Toutes / En cours / À jour / Complètes, bannière de fusion) ; la
-**fiche série** (grands compteurs, carte « à lire ensuite » ou « il te manque », grille des tomes, stepper
-du total, source de la numérotation) ; les **Stats** (tuiles En cours / À jour / Complètes / Tomes en
+**Les surfaces** : la Biblio gagne un **3ᵉ segment « Séries »** (`?vue=series`, livré au lot B #292 : cartes
+triées par dette décroissante, jauge vert = lu / ambre = pile, chips Toutes / En cours / À jour / Complètes avec
+effectifs — « En cours » regroupe aussi « Total à déclarer » et « ≈ approximatif » —, bannière de fusion sur la
+première paire de graphies non ignorée) ; la **fiche série** (`?serie=<id>`, plein cadre : grands compteurs,
+carte « à lire ensuite » / « il te manque » / « à jour » / « complète », avertissement « approximatif », grille
+1..gridMax avec le suivant surligné et les cases « ? » des tomes lus sans numéro, légende, total avec son auteur
+— « toi », le pseudo d'un ami, sinon « un membre » —, « GCD en connaît N → Mettre à jour », stepper pré-rempli par
+l'indice GCD sinon max(possédé, 10), « Renommer » inline) ; le **champ Série de l'édition de fiche** en combobox
+(suggestions du référentiel par préfixe normalisé, 8 au plus — choisir pose le nom exact, le rattachement par nom
+normalisé fait le reste) ; « Ce sont deux séries » mémorisé en `localStorage`
+(`objectif-pal.series-merge-ignored`), jamais en base ; numéroter un tome = `setVolumeNumber` (le chemin d'écriture
+de l'édition de fiche, réduit à `issue_number`, numéro canonisé ou refusé) ; les **Stats** (tuiles En cours / À jour / Complètes / Tomes en
 dette, « dette de série » = possédés pas lus, « à lire ensuite ») ; la **roulette** §4.16 gagne un mode
 « on continue une série » qui ne tire que parmi les tomes suivants possédés.
 

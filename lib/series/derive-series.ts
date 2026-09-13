@@ -41,6 +41,8 @@ export type SeriesBookFact = {
   id: string;
   seriesId: string;
   title: string;
+  /** La catégorie du LIVRE — la série affiche celle de la majorité (review #295 : `series.category` n'est jamais révisée). */
+  category: BookCategory;
   issueNumber: string | null;
   coverUrl: string | null;
   purchases: PurchaseFact[];
@@ -124,6 +126,21 @@ const toVolume = (book: SeriesBookFact): SeriesVolume => {
 
 const sortedUnique = (numbers: number[]): number[] => [...new Set(numbers)].sort((left, right) => left - right);
 
+/** La catégorie de la majorité des tomes de l'utilisateur (égalité : la première rencontrée). */
+const majorityCategory = (books: SeriesBookFact[]): BookCategory | null => {
+  const counts = new Map<BookCategory, number>();
+  for (const book of books) counts.set(book.category, (counts.get(book.category) ?? 0) + 1);
+  let best: BookCategory | null = null;
+  let bestCount = 0;
+  for (const [category, count] of counts) {
+    if (count > bestCount) {
+      best = category;
+      bestCount = count;
+    }
+  }
+  return best;
+};
+
 /** La progression d'UNE série à partir de ses tomes chez l'utilisateur. */
 export function deriveSeriesProgress(
   series: SeriesFact,
@@ -155,7 +172,7 @@ export function deriveSeriesProgress(
   return {
     seriesId: series.id,
     name: series.name,
-    category: series.category,
+    category: majorityCategory(books) ?? series.category,
     read: readVolumes.length,
     pile: pileVolumes.length,
     unnumberedRead,
