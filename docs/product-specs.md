@@ -998,6 +998,14 @@ séries sont petites (Prem : 88 séries dont 58 à un seul livre ; Léna : 158 d
 sont du bruit**. Et notre import GCD **n'a ni total, ni `year_ended`, ni `is_current`** : le total ne
 peut venir que d'une déclaration.
 
+**Mesure après les deux rattrapages (14/09/2026, prod, mêmes 4 comptes).** Rattrapage BnF (`series:backfill-bnf`) :
+578 livres BnF sans série relus, **320 comblés**, 257 vrais one-shots ou romans, 1 ISBN que la BnF ne connaît plus,
+0 erreur → les livres BnF avec une série passent de **82 à 399 sur 655 (13 % → 61 %)**, dont 227 chez Léna.
+Rattachement du parc (`series:link-backfill`) : **961 livres reliés à 430 séries** (485 par identifiant GCD, 299 par
+identifiant BnF, 177 par nom seul, 0 GCD ambigu, 0 erreur). État du référentiel : 253 identifiants GCD, 123 BnF,
+19 séries à plusieurs identifiants (les éditions), 3 homonymes normalisés distincts (deux identifiants GCD différents,
+comme prévu), 0 livre nommé sans lien.
+
 **Décisions produit (13/09/2026)** :
 
 1. **Une vraie table de séries, partagée entre tous les comptes** (référentiel commun, comme GCD — pas une
