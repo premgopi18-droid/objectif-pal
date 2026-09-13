@@ -6,6 +6,11 @@ import type { BookCategory } from "@/lib/scoring/types";
  * Module PUR : filtrage, effectifs et hasard injectable, zéro DOM — testable
  * en Vitest sans navigateur. La mise en scène (bande, décélération, confettis)
  * vit dans components/pal/reading-roulette.tsx.
+ *
+ * Depuis le lot C de l'epic séries (#293, §4.16) : un mode « on continue une
+ * série » restreint le vivier aux tomes SUIVANTS déjà dans la pile. La
+ * roulette ne connaît pas les séries : elle reçoit un ensemble d'ids de livres
+ * (dérivé par `nextInPileBookIds`), et reste pure.
  */
 
 /** Une source d'aléa au contrat de Math.random : [0, 1). Injectable pour les tests. */
@@ -21,30 +26,44 @@ export const REEL_WINNER_INDEX = 28;
 export const REEL_LENGTH = REEL_WINNER_INDEX + 5;
 
 /**
- * Les livres qui concourent : la pile MOINS les lectures en cours — on ne
- * tire pas au sort un livre déjà commencé (décision #262). Un ensemble de
- * catégories vide signifie « toutes ». Les livres sans couverture concourent
- * comme les autres (le placeholder maison les habille).
+ * Le vivier de base : la pile MOINS les lectures en cours — on ne tire pas au
+ * sort un livre déjà commencé (décision #262) — et, en mode « on continue une
+ * série », seulement les tomes suivants possédés. `null` = tous les livres.
+ */
+export function baseEntries(entries: readonly PalEntry[], continueSeriesBookIds: ReadonlySet<string> | null): PalEntry[] {
+  return entries.filter(
+    (entry) => !entry.isInProgress && (continueSeriesBookIds === null || continueSeriesBookIds.has(entry.bookId)),
+  );
+}
+
+/**
+ * Les livres qui concourent : le vivier de base filtré par catégories. Un
+ * ensemble de catégories vide signifie « toutes ». Les livres sans couverture
+ * concourent comme les autres (le placeholder maison les habille).
  */
 export function eligibleEntries(
   entries: readonly PalEntry[],
   selectedCategories: ReadonlySet<BookCategory>,
+  continueSeriesBookIds: ReadonlySet<string> | null = null,
 ): PalEntry[] {
-  return entries.filter(
-    (entry) => !entry.isInProgress && (selectedCategories.size === 0 || selectedCategories.has(entry.category)),
+  return baseEntries(entries, continueSeriesBookIds).filter(
+    (entry) => selectedCategories.size === 0 || selectedCategories.has(entry.category),
   );
 }
 
 /**
  * Les effectifs par catégorie parmi les livres tirables (en-cours déjà
- * exclus) — les chips du tirage ne proposent que des catégories à effectif
- * non nul, dans l'ordre du barème (c'est un Map : l'ordre d'insertion suit
- * l'ordre de parcours des entrées, la vue ré-ordonne sur ALL_CATEGORIES).
+ * exclus, mode série appliqué) — les chips du tirage ne proposent que des
+ * catégories à effectif non nul, dans l'ordre du barème (c'est un Map :
+ * l'ordre d'insertion suit l'ordre de parcours des entrées, la vue ré-ordonne
+ * sur ALL_CATEGORIES).
  */
-export function categoryCounts(entries: readonly PalEntry[]): Map<BookCategory, number> {
+export function categoryCounts(
+  entries: readonly PalEntry[],
+  continueSeriesBookIds: ReadonlySet<string> | null = null,
+): Map<BookCategory, number> {
   const counts = new Map<BookCategory, number>();
-  for (const entry of entries) {
-    if (entry.isInProgress) continue;
+  for (const entry of baseEntries(entries, continueSeriesBookIds)) {
     counts.set(entry.category, (counts.get(entry.category) ?? 0) + 1);
   }
   return counts;

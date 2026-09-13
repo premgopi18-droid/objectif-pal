@@ -5,7 +5,7 @@ import { SeriesView } from "@/components/series/series-view";
 import { SegmentNav } from "@/components/ui/segment-nav";
 import { deriveLibrary } from "@/lib/library/derive-library";
 import { derivePal } from "@/lib/pal/derive-pal";
-import { loadSeriesSegment } from "@/lib/series/queries";
+import { loadSeriesNextInPile, loadSeriesSegment } from "@/lib/series/queries";
 import { createServerSupabaseClient, getSessionOrError } from "@/lib/supabase/server";
 
 /**
@@ -98,7 +98,8 @@ export default async function BibliothequePage({
 
   // Volet Pile (l'ancienne PAL). Toute la sémantique de pile (entrées, sorties,
   // rachats de déjà-lus) vit dans la fonction pure `derivePal`, testée.
-  const { data, error } = await supabase
+  const [{ data, error }, seriesNextBookIds] = await Promise.all([
+    supabase
     .from("books")
     .select(
       // La jointure sur `purchases` était `!inner` (issue #32, lot B) : seuls
@@ -120,7 +121,10 @@ export default async function BibliothequePage({
     // la requête — derivePal refiltre de toute façon (défense en profondeur).
     .is("purchases.deleted_at", null)
     .is("readings.deleted_at", null)
-    .is("ownerships.deleted_at", null);
+    .is("ownerships.deleted_at", null),
+    // Le vivier du mode « on continue une série » (§4.16, lot C) — un échec rend vide, jamais bloquant.
+    loadSeriesNextInPile(supabase),
+  ]);
 
   if (error) {
     return <PageLoadError title="Bibliothèque" message="Impossible de charger la pile — réessaie." />;
@@ -138,6 +142,7 @@ export default async function BibliothequePage({
         exitDates={exitDates}
         undatedEntryCount={undatedEntryCount}
         undatedExitCount={undatedExitCount}
+        seriesNextBookIds={seriesNextBookIds}
       />
     </section>
   );

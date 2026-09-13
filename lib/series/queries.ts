@@ -1,7 +1,13 @@
 import "server-only";
 
 import { splitCircleLinks } from "@/lib/circle/friendship";
-import { deriveSeries, type SeriesBookFact, type SeriesFact, type SeriesProgress } from "@/lib/series/derive-series";
+import {
+  deriveSeries,
+  nextInPileBookIds,
+  type SeriesBookFact,
+  type SeriesFact,
+  type SeriesProgress,
+} from "@/lib/series/derive-series";
 import { fetchGcdKnownMaxBySeriesId } from "@/lib/series/gcd-hint";
 import type { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -20,13 +26,19 @@ export type SeriesSegmentData = {
   gcdLinkedSeriesIds: string[];
 };
 
+type LoadFailure = { error: string };
+
 /**
- * Le chargement du segment : les livres reliés de l'utilisateur (avec leurs
- * faits — la règle de pile a besoin des dates), les séries du référentiel
- * qu'ils touchent, l'indice GCD vivant, et les pseudos du cercle. Quatre
- * requêtes bornées, jamais une par série.
+ * La progression de toutes les séries de l'utilisateur : ses livres reliés
+ * (avec leurs faits — la règle de pile a besoin des dates), les séries du
+ * référentiel qu'ils touchent, l'indice GCD vivant si demandé. Requêtes
+ * bornées par les séries de l'utilisateur, jamais une par série. Partagé par
+ * le segment (lot B), les Stats et la roulette (lot C).
  */
-export async function loadSeriesSegment(supabase: SessionSupabaseClient, userId: string): Promise<SeriesSegmentData | { error: string }> {
+export async function loadSeriesProgress(
+  supabase: SessionSupabaseClient,
+  options: { withGcdHint?: boolean } = {},
+): Promise<{ progress: SeriesProgress[]; seriesIds: string[] } | LoadFailure> {
   const { data: rows, error: booksError } = await supabase
     .from("books")
     .select(
@@ -68,17 +80,14 @@ export async function loadSeriesSegment(supabase: SessionSupabaseClient, userId:
         ],
   );
   const seriesIds = [...new Set(books.map((book) => book.seriesId))];
-  if (seriesIds.length === 0) return { progress: [], declarerLabels: {}, gcdLinkedSeriesIds: [] };
+  if (seriesIds.length === 0) return { progress: [], seriesIds: [] };
 
-  const [seriesResult, gcdLinksResult, gcdKnownMax, linksResult, profilesResult] = await Promise.all([
+  const [seriesResult, gcdKnownMax] = await Promise.all([
     supabase
       .from("series")
       .select("id, name, category, total_volumes, is_ongoing, fact_declared_by, fact_declared_at")
       .in("id", seriesIds),
-    supabase.from("series_external_ids").select("series_id").eq("source", "gcd").in("series_id", seriesIds),
-    fetchGcdKnownMaxBySeriesId(supabase, seriesIds),
-    supabase.from("friendships").select("user_low, user_high, requester_id, status"),
-    supabase.rpc("get_circle_profiles"),
+    options.withGcdHint ? fetchGcdKnownMaxBySeriesId(supabase, seriesIds) : Promise.resolve(new Map<string, number>()),
   ]);
   if (seriesResult.error) return { error: seriesResult.error.message };
 
@@ -92,6 +101,21 @@ export async function loadSeriesSegment(supabase: SessionSupabaseClient, userId:
     factDeclaredAt: row.fact_declared_at,
   }));
 
+  return { progress: deriveSeries(seriesList, books, gcdKnownMax), seriesIds };
+}
+
+/** Le segment « Séries » : la progression + les pseudos du cercle + les liens GCD (pour la bannière). */
+export async function loadSeriesSegment(supabase: SessionSupabaseClient, userId: string): Promise<SeriesSegmentData | LoadFailure> {
+  const loaded = await loadSeriesProgress(supabase, { withGcdHint: true });
+  if ("error" in loaded) return loaded;
+  if (loaded.seriesIds.length === 0) return { progress: [], declarerLabels: {}, gcdLinkedSeriesIds: [] };
+
+  const [gcdLinksResult, linksResult, profilesResult] = await Promise.all([
+    supabase.from("series_external_ids").select("series_id").eq("source", "gcd").in("series_id", loaded.seriesIds),
+    supabase.from("friendships").select("user_low, user_high, requester_id, status"),
+    supabase.rpc("get_circle_profiles"),
+  ]);
+
   const declarerLabels: Record<string, string> = { [userId]: "toi" };
   const { friendIds } = splitCircleLinks(linksResult.data ?? [], userId);
   const friendSet = new Set(friendIds);
@@ -100,8 +124,22 @@ export async function loadSeriesSegment(supabase: SessionSupabaseClient, userId:
   }
 
   return {
-    progress: deriveSeries(seriesList, books, gcdKnownMax),
+    progress: loaded.progress,
     declarerLabels,
     gcdLinkedSeriesIds: [...new Set((gcdLinksResult.data ?? []).map((link) => link.series_id))],
   };
+}
+
+/**
+ * Le vivier du mode « on continue une série » de la roulette (§4.16) : les
+ * tomes suivants déjà dans la pile. Un échec rend un vivier vide — la roulette
+ * reste utilisable sans le mode, jamais bloquée.
+ */
+export async function loadSeriesNextInPile(supabase: SessionSupabaseClient): Promise<string[]> {
+  const loaded = await loadSeriesProgress(supabase);
+  if ("error" in loaded) {
+    console.error("[series] loadSeriesNextInPile:", loaded.error);
+    return [];
+  }
+  return [...nextInPileBookIds(loaded.progress)];
 }

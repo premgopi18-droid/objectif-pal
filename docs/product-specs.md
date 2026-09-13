@@ -407,46 +407,16 @@ même patron que le moteur de score) :
   - **Moyenne de lectures par mois** : rapportée à **tous** les mois écoulés depuis la première lecture jusqu'au
     mois de référence, **mois vides compris** (les ignorer gonflerait la moyenne). Meilleur mois : à égalité, le
     plus **ancien**.
-- **Répartition par série** + séries en cours (tomes lus, tome suivant).
+- **Répartition par série** + « Mes séries » (§4.17 : états, dette de série, à lire ensuite).
 
-  > ⚠️ **Retiré par §4.17 (décision 5, 13/09/2026)** : le catalogue GCD et ses trois silences sont remplacés par la
-  > progression dérivée des tomes possédés + total déclaré ; GCD ne reste qu'un pré-remplissage vivant du total.
-
-  **Séries en cours & tome suivant (étape 3/3 de #30, lot B — mesuré le 19/07/2026, pas supposé).** C'est le
-  seul morceau des analyses qui sort du modèle pur : il faut la numérotation de la série, qui vit dans notre
-  import GCD. Ce que les données permettent RÉELLEMENT :
-  - le lien livre → série GCD n'existe que pour les livres résolus par **GCD** (`metadata_source = "gcd"`,
-    `metadata_source_id` = le `gcd_id`). Les livres BnF, Google Books, Metron ou saisis à la main ne portent
-    qu'un `series_name` en **texte** : aucun rattachement fiable, et on ne rapproche pas des noms au jugé ;
-  - `gcd_issues.number` est du **texte libre** — mesure sur 12 000 lignes réparties dans l'import :
-    **82,0 % de numéros purement numériques**, **11,9 % de `[nn]`** (fascicule sans numéro), **6,2 %** d'autres
-    formes (« 41 (842) », « 10/2020 », « 4 Pre-Order Edition ») ;
-  - notre import est **réduit** (559 516 lignes sur 2 585 543 : seulement celles qui ont un code-barres ou un
-    ISBN, §6), donc le catalogue d'une série peut être **troué** — et un trou invisible ferait annoncer un
-    mauvais tome. Mesure sur **356 séries françaises** : **96,1 % ont une numérotation contiguë**, 94,4 %
-    commencent au tome 1, **19,1 % portent des numéros en double** (lignes de variantes du même fascicule).
-
-  **Décisions produit (19/07/2026)** — la règle générale est qu'**un tome suivant faux serait pire que pas de
-  tome suivant** :
-  - **Tomes lus** : le compte déjà calculé par la répartition par série (livres distincts avec au moins une
-    lecture terminée) — jamais recompté ailleurs.
-  - **Tome suivant** = le **plus petit tome du catalogue non encore lu**. S'il reste un trou derrière (tomes 1
-    et 3 lus), c'est bien le **2** qui est proposé : c'est le prochain à lire, pas le prochain à paraître.
-  - **Les trois silences.** On n'annonce rien — et on dit pourquoi, calmement — quand : (1) la série n'a
-    **aucun numéro exploitable** (que des `[nn]`, des dates…) ; (2) la numérotation connue est **trouée**, car
-    on ne sait pas distinguer « le tome n'existe pas » de « le tome nous manque » ; (3) **tous les tomes lus ne
-    sont pas reliés** à un numéro GCD (livre saisi à la main, résolu par la BnF, deux exemplaires d'un même
-    tome) — on ignorerait alors une partie de ce qui a été lu.
-  - Catalogue exploitable et tout lu → **« À jour »**, jamais « série complète » : notre import ne prétend pas
-    connaître tous les tomes parus.
-  - Aucune série reliée → **état vide qui explique** (« le tome suivant s'affiche pour les séries reconnues au
-    scan »), plutôt qu'une section absente ou un chiffre creux.
-
-  **Implémentation** : `lib/stats/series-catalog.ts` (requête GCD isolée + dérivation pure), consommé par
-  `computeStats` → `series.inProgress`. La requête est **bornée** : au plus **5 requêtes** (les tomes lus par
-  `gcd_id`, les noms de séries, puis la numérotation par paquets de 10 séries, plafond de 30 séries), jamais
-  une par tome ni par série ; index couvrant `gcd_issues (series_id, number)` posé par migration — vérifié en
-  *index-only scan*, 0 accès table.
+  **Séries en cours — historique (retiré par §4.17-5, lot C de #289, 14/09/2026).** Du 19/07/2026 au 14/09/2026,
+  cette section croisait les tomes lus avec la numérotation GCD de notre import (mesuré alors : 82,0 % de numéros
+  purement numériques, 11,9 % de `[nn]`, 96,1 % de séries françaises contiguës, 19,1 % avec doublons de variantes)
+  et se taisait dans trois cas (numérotation inexploitable, trouée, tomes non tous reliés). Elle ne marchait que
+  pour les livres GCD — jamais pour la BnF, donc jamais pour Léna. `lib/stats/series-catalog.ts` et sa requête
+  bornée n'existent plus ; l'index `gcd_issues (series_id, number)` sert désormais à l'indice GCD vivant. La
+  section **« Mes séries »** (tuiles En cours / À jour / Complètes / Tomes en dette, dette de série, à lire ensuite)
+  vient de la dérivation §4.17 (`summarizeSeries`, pur, testé), chaque ligne ouvrant la fiche série.
 - **Goûts avancés** : meilleures / pires séries et éditeurs, classement des lectures. (Bruités tant qu'il n'y a
   pas de volume.)
 - Moyenne par mois, meilleur mois.
@@ -991,6 +961,10 @@ décélération ~4 s, arrêt sur l'élue.
   Client pur (les `PalEntry` déjà dérivées) → zéro requête, zéro quota.
 - **`prefers-reduced-motion`** : résultat instantané, sans défilement ni confettis (même garde JS
   que les confettis du Journal).
+- **Mode « On continue une série »** (lot C de #289, §4.17) : un chip au-dessus des catégories, présent seulement
+  s'il existe au moins un tome suivant dans la pile ; le vivier devient les tomes suivants possédés (dérivés par
+  `nextInPileBookIds` — la roulette reste pure et ignore les séries, elle reçoit des ids), croisé ensuite avec les
+  chips de catégories, dont les effectifs suivent. Rien d'autre ne bouge : bande, « Je commence », zéro écriture.
 - Technique : hasard et filtrage dans `lib/pal/roulette.ts` (module pur, rng injectable, testé) ;
   mise en scène dans `components/pal/reading-roulette.tsx`.
 
@@ -1096,7 +1070,7 @@ carte « à lire ensuite » / « il te manque » / « à jour » / « complète 
 — « toi », le pseudo d'un ami, sinon « un membre » —, « GCD en connaît N → Mettre à jour », stepper pré-rempli par
 l'indice GCD sinon max(possédé, 10), « Renommer » inline) ; le **champ Série de l'édition de fiche** en combobox
 (suggestions du référentiel par préfixe normalisé, 8 au plus — choisir pose le nom exact, le rattachement par nom
-normalisé fait le reste) ; « Ce sont deux séries » mémorisé en `localStorage`
+normalisé fait le reste) ; les **Stats** « Mes séries » et le mode roulette livrés au lot C (#293) ; « Ce sont deux séries » mémorisé en `localStorage`
 (`objectif-pal.series-merge-ignored`), jamais en base ; numéroter un tome = `setVolumeNumber` (le chemin d'écriture
 de l'édition de fiche, réduit à `issue_number`, numéro canonisé ou refusé) ; les **Stats** (tuiles En cours / À jour / Complètes / Tomes en
 dette, « dette de série » = possédés pas lus, « à lire ensuite ») ; la **roulette** §4.16 gagne un mode

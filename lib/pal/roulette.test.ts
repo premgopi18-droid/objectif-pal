@@ -121,3 +121,36 @@ describe("buildReelSequence", () => {
     expect(sequence.every((item) => item === pool[0])).toBe(true);
   });
 });
+
+describe("le mode « on continue une série » (§4.16, lot C)", () => {
+  const pile = [entry("Lastman 9", "bd"), entry("Dune", "roman"), entry("One Piece 13", "manga"), entry("Berserk 5", "manga", true)];
+  const nextInPile = new Set(["book-Lastman 9", "book-One Piece 13", "book-Berserk 5"]);
+
+  it("restreint le vivier aux tomes suivants possédés — les en-cours restent exclus", () => {
+    expect(eligibleEntries(pile, new Set(), nextInPile).map((e) => e.title)).toEqual(["Lastman 9", "One Piece 13"]);
+  });
+
+  it("les effectifs par catégorie suivent le mode", () => {
+    expect([...categoryCounts(pile, nextInPile).entries()]).toEqual([
+      ["bd", 1],
+      ["manga", 1],
+    ]);
+  });
+
+  it("le mode se combine aux catégories", () => {
+    expect(eligibleEntries(pile, new Set(["manga"]), nextInPile).map((e) => e.title)).toEqual(["One Piece 13"]);
+  });
+
+  it("sans le mode (null), rien ne change", () => {
+    expect(eligibleEntries(pile, new Set(), null)).toHaveLength(3);
+    expect(categoryCounts(pile, null).get("roman")).toBe(1);
+  });
+});
+
+describe("le mode série sur un vivier vide (review #297)", () => {
+  it("un ensemble vide vide le vivier — c'est la vue qui éteint le mode dans ce cas", () => {
+    const pile = [entry("Dune", "roman")];
+    expect(eligibleEntries(pile, new Set(), new Set())).toEqual([]);
+    expect(categoryCounts(pile, new Set()).size).toBe(0);
+  });
+});
