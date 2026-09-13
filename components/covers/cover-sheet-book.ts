@@ -1,3 +1,5 @@
+import type { CoverState } from "@/lib/books/cover-actions";
+
 /**
  * Ce que la feuille « Changer la couverture » sait d'un livre (#275) — le type
  * partagé par la feuille et ses hooks (audit #274 : sorti de la feuille pour
@@ -19,16 +21,12 @@ export type CoverSheetBook = {
   sharedSourceCoverUrl?: string | null;
 };
 
-/** Les faits relus en base (`getCoverState`) — la vérité qui remplace ce que l'appelant savait. */
-export type CoverSheetFacts = {
-  title: string;
-  coverUrl: string | null;
-  coverChosenAt: string | null;
-  authors: string | null;
-  hasCode: boolean;
-  barcodeRaw: string | null;
-  sharedSourceCoverUrl: string | null;
-};
+/**
+ * Les faits relus en base (`getCoverState`) — la vérité qui remplace ce que
+ * l'appelant savait. DÉRIVÉ du type de l'action (review #288), pas recopié :
+ * un champ renommé côté serveur casse ici en nommant la source.
+ */
+export type CoverSheetFacts = Omit<Extract<CoverState, { ok: true }>, "ok">;
 
 export const coverSheetBookFromFacts = (bookId: string, facts: CoverSheetFacts): CoverSheetBook => ({
   bookId,

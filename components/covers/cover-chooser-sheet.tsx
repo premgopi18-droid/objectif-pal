@@ -79,6 +79,11 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
   // À l'ouverture : le focus entre dans le dialogue (a11y, review #280), et
   // l'état réel est relu — une réponse en échec laisse l'état initial, le
   // geste reste possible (le serveur re-vérifie de toute façon).
+  // CONTRAT (review #288) : les deux callbacks sont stables par construction
+  // (`useCallback` sans dépendance changeante) — l'effet ne rejoue qu'au
+  // changement de livre, jamais après un geste. Une dépendance ajoutée dans
+  // l'un des hooks le ferait rejouer à chaque couverture posée (refocus,
+  // relecture, re-partage) sans que le lint ne dise rien.
   const { syncQueryFromFacts } = sources;
   const { autoShareIfDefault } = sharing;
   useEffect(() => {

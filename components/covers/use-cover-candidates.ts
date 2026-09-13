@@ -88,7 +88,11 @@ export function useCoverCandidates(initial: { bookId: string; title: string; aut
     setEditionAuthor(value);
   };
 
-  /** La fiche relue en base : la requête d'éditions la suit tant que l'utilisateur n'y a pas touché. */
+  /**
+   * La fiche relue en base : la requête d'éditions la suit tant que l'utilisateur
+   * n'y a pas touché. STABLE (deps vides) : l'effet d'ouverture de la feuille en
+   * dépend — une dépendance ici le ferait rejouer après chaque geste.
+   */
   const syncQueryFromFacts = useCallback((title: string, authors: string | null) => {
     if (queryTouched.current) return;
     setEditionTitle(title);

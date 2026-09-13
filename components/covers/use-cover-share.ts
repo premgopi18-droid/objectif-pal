@@ -42,6 +42,10 @@ export function useCoverShare(book: CoverSheetBook, setBook: Dispatch<SetStateAc
    * du 12/09) : rien de personnel dessus. La case apparaît cochée, et décocher
    * retire. Une photo, elle, attend le geste. `isCancelled` : la feuille s'est
    * refermée entre-temps, on ne touche plus à son état.
+   *
+   * STABLE (`setBook` seul, qui l'est) : l'effet d'ouverture de la feuille en
+   * dépend — ajouter `book` ici le ferait rejouer après chaque geste (refocus,
+   * relecture, re-partage). Tout ce dont le partage a besoin vient de `facts`.
    */
   const autoShareIfDefault = useCallback(
     (bookId: string, facts: CoverSheetFacts, isCancelled: () => boolean) => {
