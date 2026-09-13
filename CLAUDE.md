@@ -104,6 +104,16 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > spectateur du Profil est aussi de cette vague (#252, PR #253) : « 👀 Voir mon profil comme mon
 > cercle » — les RPC servent « amis ou soi-même », parité prouvée en CI. La version « classique »
 > de la carte (distinctions en couvertures) reste remisée (§4.15).
+> **Les 12-13/09/2026, « choisir sa couverture » (epic #274, PRs #280→#284, 622 → 731 tests)** — décision
+> structurante : **l'app est non commerciale** (§5.4). Toute couverture se change (photo, galerie, candidates),
+> verrou `books.cover_chosen_at` respecté par la réparation, le rescan, le rapatriement et la fusion ; UNE feuille
+> autonome `components/covers/cover-chooser-sheet.tsx` (Biblio, Journal — les emprunts lus n'ont pas de fiche
+> en Biblio —, fin de scan). **Le sélecteur** interroge toutes les sources en parallèle à la demande
+> (`lib/covers/candidates.ts`, quota `cover_candidates`) ; **Metron a les variantes dans le détail** (le filtre
+> `?upc=` ne voit que la cover A) : le scan pose enfin la bonne variante. **Autres éditions** par titre chez
+> OpenLibrary (proposées, jamais imposées ; Inventaire à mesurer). **Pool partagé** (`cover_contributions`,
+> copie serveur dans `covers/shared/`, pseudo réservé au cercle, isolation prouvée en CI). **Comic Vine**
+> débranchable, jamais rapatrié, livré clé absente (`COMIC_VINE_API_KEY`).
 
 ## Stack
 
