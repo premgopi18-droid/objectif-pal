@@ -3,6 +3,8 @@ import {
   deriveSeries,
   deriveSeriesProgress,
   MIN_BOOKS_TO_SHOW_SERIES,
+  nextInPileBookIds,
+  summarizeSeries,
   type SeriesBookFact,
   type SeriesFact,
 } from "./derive-series";
@@ -193,6 +195,45 @@ describe("deriveSeriesProgress — lus · dans la pile · total", () => {
   it("un numéro non canonique (« Tome 02 ») est lu comme 2", () => {
     const progress = deriveSeriesProgress(series(declared({ totalVolumes: 3 })), [volume("Tome 02", "read")]);
     expect(progress.readNumbers).toEqual([2]);
+  });
+});
+
+describe("summarizeSeries — la moisson pour les Stats (lot C)", () => {
+  const list = [
+    deriveSeriesProgress(series({ id: "lastman", name: "Lastman", ...declared({ totalVolumes: 12 }) }), [
+      ...volumes(range(1, 8), "read").map((book) => ({ ...book, seriesId: "lastman" })),
+      ...volumes([9, 10], "pile").map((book) => ({ ...book, seriesId: "lastman" })),
+    ]),
+    deriveSeriesProgress(series({ id: "saga", name: "Saga", ...declared({ totalVolumes: 10 }) }), volumes([1, 2, 3], "read").map((book) => ({ ...book, seriesId: "saga" }))),
+    deriveSeriesProgress(series({ id: "frieren", name: "Frieren", ...declared({ isOngoing: true }) }), volumes(range(1, 6), "read").map((book) => ({ ...book, seriesId: "frieren" }))),
+    deriveSeriesProgress(series({ id: "blacksad", name: "Blacksad", ...declared({ totalVolumes: 7 }) }), volumes(range(1, 7), "read").map((book) => ({ ...book, seriesId: "blacksad" }))),
+    deriveSeriesProgress(series({ id: "onepiece", name: "One Piece", ...declared({ isOngoing: true }) }), [
+      ...volumes(range(1, 12), "read").map((book) => ({ ...book, seriesId: "onepiece" })),
+      ...volumes(range(13, 16), "pile").map((book) => ({ ...book, seriesId: "onepiece" })),
+    ]),
+  ];
+
+  it("compte les états, la dette, les plus grosses dettes et les suivants — dans la pile d'abord", () => {
+    const summary = summarizeSeries(list);
+    expect(summary).toMatchObject({ inProgress: 3, upToDate: 1, complete: 1, debt: 6 });
+    expect(summary.topDebt.map((entry) => [entry.name, entry.pile])).toEqual([
+      ["One Piece", 4],
+      ["Lastman", 2],
+    ]);
+    expect(summary.nextToRead.map((entry) => [entry.name, entry.next.kind])).toEqual([
+      ["Lastman", "read-next"],
+      ["One Piece", "read-next"],
+      ["Saga", "missing"],
+    ]);
+  });
+
+  it("le vivier « on continue une série » = les tomes suivants déjà dans la pile", () => {
+    // Les ids viennent de la fixture `volume()` (série par défaut « s1 » dans l'id, remappée ensuite).
+    expect(nextInPileBookIds(list)).toEqual(new Set(["b-s1-9-pile", "b-s1-13-pile"]));
+  });
+
+  it("une liste vide donne une moisson vide", () => {
+    expect(summarizeSeries([])).toEqual({ inProgress: 0, upToDate: 0, complete: 0, debt: 0, topDebt: [], nextToRead: [] });
   });
 });
 

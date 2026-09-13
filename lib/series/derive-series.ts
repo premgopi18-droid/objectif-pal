@@ -230,6 +230,53 @@ function resolveNext(input: {
   return null;
 }
 
+/** La moisson pour les Stats (lot C, maquette cadran B) : compteurs, dette, à lire ensuite. */
+export type SeriesSummary = {
+  inProgress: number;
+  upToDate: number;
+  complete: number;
+  /** Les tomes possédés pas lus, toutes séries visibles confondues. */
+  debt: number;
+  /** Les plus grosses dettes, décroissantes. */
+  topDebt: { seriesId: string; name: string; pile: number }[];
+  /** Les tomes suivants connus — dans la pile ou à acheter. */
+  nextToRead: { seriesId: string; name: string; coverUrl: string | null; next: Extract<SeriesNext, { kind: "read-next" | "missing" }>; read: number; totalVolumes: number | null }[];
+};
+
+export const SERIES_SUMMARY_LIST_LIMIT = 5;
+
+/** Agrège une liste déjà filtrée au seuil (`deriveSeries`) — pur, borné. */
+export function summarizeSeries(list: readonly SeriesProgress[]): SeriesSummary {
+  const counted = (status: SeriesStatus) => list.filter((progress) => progress.status === status).length;
+  const nextToRead = list.flatMap((progress) => {
+    const next = progress.next;
+    if (next === null || (next.kind !== "read-next" && next.kind !== "missing")) return [];
+    const cover = progress.volumes.find((volume) => volume.state !== "other")?.coverUrl ?? null;
+    return [{ seriesId: progress.seriesId, name: progress.name, coverUrl: cover, next, read: progress.read, totalVolumes: progress.totalVolumes }];
+  });
+  return {
+    inProgress: counted("in-progress") + counted("unknown-total") + counted("approximate"),
+    upToDate: counted("up-to-date"),
+    complete: counted("complete"),
+    debt: list.reduce((sum, progress) => sum + progress.pile, 0),
+    topDebt: list
+      .filter((progress) => progress.pile > 0)
+      .slice()
+      .sort((left, right) => right.pile - left.pile || left.name.localeCompare(right.name, "fr"))
+      .slice(0, SERIES_SUMMARY_LIST_LIMIT)
+      .map((progress) => ({ seriesId: progress.seriesId, name: progress.name, pile: progress.pile })),
+    // Ceux qui sont dans la pile d'abord (on peut lire ce soir), puis les manquants.
+    nextToRead: nextToRead
+      .sort((left, right) => Number(right.next.kind === "read-next") - Number(left.next.kind === "read-next"))
+      .slice(0, SERIES_SUMMARY_LIST_LIMIT),
+  };
+}
+
+/** Les livres « à lire ensuite » déjà dans la pile — le vivier du mode « on continue une série » de la roulette (§4.16). */
+export function nextInPileBookIds(list: readonly SeriesProgress[]): Set<string> {
+  return new Set(list.flatMap((progress) => (progress.next?.kind === "read-next" ? [progress.next.bookId] : [])));
+}
+
 /** Toutes les séries de l'utilisateur, triées par dette décroissante (la plus grosse dette d'abord — c'est elle qu'on vient regarder). */
 export function deriveSeries(
   seriesList: SeriesFact[],

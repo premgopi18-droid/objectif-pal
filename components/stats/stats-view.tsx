@@ -16,7 +16,8 @@ import {
 } from "@/lib/stats/compute-stats";
 import { fillMonthGaps } from "@/lib/stats/fill-month-gaps";
 import type { ReadingEventFact } from "@/lib/stats/reading-events";
-import type { SeriesCatalog, SeriesProgress } from "@/lib/stats/series-catalog";
+import { SeriesSummarySection } from "@/components/stats/series-summary";
+import type { SeriesSummary } from "@/lib/series/derive-series";
 
 /**
  * La vue Stats — les quatre sections dans l'ordre de lecture antenne (specs
@@ -31,9 +32,6 @@ const TOP_PUBLISHERS_COUNT = 5;
 
 /** Combien de séries affichées dans la répartition par série (lisibilité mobile). */
 const TOP_SERIES_COUNT = 6;
-
-/** Combien de séries en cours affichées avec leur tome suivant (lisibilité mobile). */
-const SERIES_PROGRESS_COUNT = 6;
 
 /** Combien de lignes en tête et en queue des classements de goûts, et de mois affichés. */
 const TASTES_LIST_COUNT = 3;
@@ -114,25 +112,8 @@ function BarLine({ label, count, max, color }: { label: string; count: number; m
   );
 }
 
-/**
- * Ce qu'on annonce d'une série commencée — et ce qu'on refuse d'annoncer. Le
- * moteur ne rend un `nextVolume` que quand la numérotation est exploitable
- * (specs §4.5, décision du 19/07/2026) : partout ailleurs, la vue dit
- * calmement pourquoi elle se tait plutôt que de laisser croire à une série
- * finie — un tome suivant faux serait pire que pas de tome suivant.
- */
-function nextVolumeLabel(series: SeriesProgress): { value: string; hint: string } {
-  if (series.status === "next-known") return { value: `Tome ${series.nextVolume}`, hint: "à lire" };
-  if (series.status === "no-next-known") return { value: "À jour", hint: "aucun tome suivant connu" };
-  if (series.reason === "no-numbering") return { value: "—", hint: "série non numérotée" };
-  if (series.reason === "holey-numbering") return { value: "—", hint: "numérotation incomplète" };
-  return { value: "—", hint: "tomes non tous reconnus" };
-}
-
-/** « 3 tomes lus » — le pluriel français, une seule fois. */
-function formatVolumesRead(count: number): string {
-  return `${count} tome${count > 1 ? "s" : ""} lu${count > 1 ? "s" : ""}`;
-}
+/** La moisson vide — quand la page n'a pas pu la dériver, la section explique. */
+const EMPTY_SERIES_SUMMARY: SeriesSummary = { inProgress: 0, upToDate: 0, complete: 0, debt: 0, topDebt: [], nextToRead: [] };
 
 /** Une liste « nom · moyenne » — les meilleures séries, les éditeurs décevants… */
 function RatedGroupList({ title, groups }: { title: string; groups: RatedGroup[] }) {
@@ -159,16 +140,16 @@ type StatsViewProps = {
   records: StatBookRecord[];
   /** Le journal d'états — abandons & reprises (#30 lot A). Vide si indisponible. */
   readingEvents?: ReadingEventFact[];
-  /** La numérotation GCD des séries commencées (#30 lot B). Absente, pas de tome suivant. */
-  seriesCatalog?: SeriesCatalog;
+  /** La moisson du suivi de séries (§4.17, lot C) — dérivée côté serveur ; absente ou nulle, la section explique. */
+  seriesSummary?: { summary: SeriesSummary; seriesCount: number } | null;
 };
 
-export function StatsView({ records, readingEvents, seriesCatalog }: StatsViewProps) {
+export function StatsView({ records, readingEvents, seriesSummary = null }: StatsViewProps) {
   const currentMonth = localCurrentMonth();
   const today = localToday();
   const report = useMemo(
-    () => computeStats(records, currentMonth, { today, readingEvents, seriesCatalog }),
-    [records, currentMonth, today, readingEvents, seriesCatalog],
+    () => computeStats(records, currentMonth, { today, readingEvents }),
+    [records, currentMonth, today, readingEvents],
   );
   const curvePoints = useMemo(() => fillMonthGaps(report.pal.cumulativeByMonth), [report]);
 
@@ -197,7 +178,6 @@ export function StatsView({ records, readingEvents, seriesCatalog }: StatsViewPr
   ).filter((entry): entry is [BookCategory, number] => entry[1] !== null);
   const topSeries = series.volumesRead.slice(0, TOP_SERIES_COUNT);
   const maxSeriesCount = Math.max(1, ...topSeries.map(({ count }) => count));
-  const seriesInProgress = series.inProgress.slice(0, SERIES_PROGRESS_COUNT);
   const recentEventMonths = rythme.eventsByMonth.slice(-RECENT_EVENT_MONTHS_COUNT);
   // Les deux bouts de la MÊME liste triée — jamais la même série des deux côtés
   // (avec moins de 2 × N groupes classés, on ne montre que les meilleurs).
@@ -425,43 +405,15 @@ export function StatsView({ records, readingEvents, seriesCatalog }: StatsViewPr
         )}
       </section>
 
-      {/* Séries en cours (#30, lot B) : combien de tomes lus, quel est le
-          suivant. Le lien vers la numérotation n'existe que pour les livres
-          reconnus par GCD au scan — d'où l'état vide, qui l'explique. */}
+      {/* Mes séries (§4.17, lot C) : la moisson du suivi de séries — tuiles,
+          dette de série, à lire ensuite. Remplace « Séries en cours » et son
+          catalogue GCD (§4.5, retirés par §4.17-5). */}
       <section>
-        <SectionLabel>Séries en cours</SectionLabel>
-        {seriesInProgress.length === 0 ? (
-          <Card className="text-sm text-ink2">
-            Pas encore de série suivie — le tome suivant s&apos;affiche pour les séries reconnues au scan.
-          </Card>
-        ) : (
-          <Card>
-            <ul
-              className="flex flex-col gap-2.5"
-              aria-label={`Séries en cours, ${seriesInProgress.length} série${
-                seriesInProgress.length > 1 ? "s" : ""
-              }`}
-            >
-              {seriesInProgress.map((seriesProgress) => {
-                const next = nextVolumeLabel(seriesProgress);
-                return (
-                  <li key={seriesProgress.seriesId} className="flex items-baseline justify-between gap-3 text-sm">
-                    <span className="min-w-0">
-                      <span className="block truncate font-bold text-ink">{seriesProgress.seriesName}</span>
-                      <span className="block text-[12px] text-ink3">
-                        {formatVolumesRead(seriesProgress.volumesRead)}
-                      </span>
-                    </span>
-                    <span className="shrink-0 text-right">
-                      <span className="block font-bold tabular-nums text-ink">{next.value}</span>
-                      <span className="block text-[12px] text-ink3">{next.hint}</span>
-                    </span>
-                  </li>
-                );
-              })}
-            </ul>
-          </Card>
-        )}
+        <SectionLabel>Mes séries</SectionLabel>
+        <SeriesSummarySection
+          summary={seriesSummary?.summary ?? EMPTY_SERIES_SUMMARY}
+          seriesCount={seriesSummary?.seriesCount ?? 0}
+        />
       </section>
 
       <section>

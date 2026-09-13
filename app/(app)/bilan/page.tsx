@@ -1,15 +1,13 @@
-import { createHash } from "node:crypto";
-import { unstable_cache } from "next/cache";
 import { MonthlyReportView } from "@/components/bilan/monthly-report-view";
 import type { BilanReading, MonthlyPickRecord } from "@/components/bilan/monthly-report-view";
 import { PageLoadError } from "@/components/page-load-error";
 import { StatsView } from "@/components/stats/stats-view";
 import { SegmentNav } from "@/components/ui/segment-nav";
 import { readFactVersion, syncMonthlyReports } from "@/lib/bilan/report-sync";
-import { createGcdProvider } from "@/lib/resolution/providers/gcd";
 import { fetchReadingEventFacts } from "@/lib/stats/reading-events";
 import { fetchAllRows } from "@/lib/supabase/pagination";
-import { fetchSeriesCatalog, toGcdIssueId, type SeriesCatalog } from "@/lib/stats/series-catalog";
+import { summarizeSeries } from "@/lib/series/derive-series";
+import { loadSeriesProgress } from "@/lib/series/queries";
 import type { StatBookRecord } from "@/lib/stats/compute-stats";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import type { MonthlyObjective, PurchaseFact } from "@/lib/scoring/types";
@@ -54,7 +52,6 @@ export default async function BilanPage({
         .from("books")
         .select(
           `id, title, category, publisher, series_name, page_count, deleted_at,
-         metadata_source, metadata_source_id,
          purchases (purchased_at, deleted_at),
          readings (status, started_at, finished_at, rating, deleted_at),
          ownerships (owned_since, disposed_at, deleted_at)`,
@@ -82,7 +79,6 @@ export default async function BilanPage({
       category: row.category,
       publisher: row.publisher,
       seriesName: row.series_name,
-      gcdIssueId: toGcdIssueId(row.metadata_source, row.metadata_source_id),
       pageCount: row.page_count,
       deletedAt: row.deleted_at,
       purchases: (row.purchases ?? []).map((purchase) => ({
@@ -105,43 +101,21 @@ export default async function BilanPage({
       })),
     }));
 
-    // Le catalogue GCD des séries commencées (#30, lot B) : la numérotation qui
-    // permet d'annoncer le tome suivant. Requêtes BORNÉES (au plus 5, jamais une
-    // par tome ni par série — cf. `fetchSeriesCatalog`) et lecture d'une table
-    // de référence, donc via le client admin. Son échec n'emporte pas la page :
-    // sans catalogue, la section « Séries en cours » se tait, le reste vit.
-    // CACHÉ 24 h (epic #182, Phase 1) : les données GCD sont INDÉPENDANTES de
-    // l'utilisateur et ne bougent qu'au dump bimensuel — le seul cache sans
-    // aucun risque de fraîcheur de l'app. La clé porte les tomes lus : un
-    // nouveau scan change la clé, le catalogue suit immédiatement ; seule la
-    // numérotation GCD peut avoir jusqu'à un jour de retard, sans enjeu.
-    let seriesCatalog: SeriesCatalog | undefined;
-    try {
-      const gcdIssueIds = [
-        ...new Set(
-          records
-            .map((record) => record.gcdIssueId)
-            .filter((gcdIssueId): gcdIssueId is number => gcdIssueId != null),
-        ),
-      ].sort((left, right) => left - right);
-      // Clé hachée (review #204) : le join des ids peut approcher ~4 Ko à
-      // 600 livres — le comportement d'unstable_cache avec des keyParts de
-      // cette taille n'est pas contractuel.
-      const catalogCacheKey = createHash("sha256").update(gcdIssueIds.join(",")).digest("hex");
-      seriesCatalog = await unstable_cache(
-        () => fetchSeriesCatalog(createGcdProvider(), gcdIssueIds),
-        ["series-catalog", catalogCacheKey],
-        { revalidate: 24 * 60 * 60 },
-      )();
-    } catch {
-      seriesCatalog = undefined;
-    }
+    // La moisson du suivi de séries (§4.17, lot C) — dérivée ici, une fois,
+    // par la même dérivation que le segment Séries (sans pseudos ni indice GCD :
+    // les Stats n'en ont pas besoin). Son échec n'emporte pas la page.
+    const loadedSeries = await loadSeriesProgress(supabase);
+    if ("error" in loadedSeries) console.error("[bilan] séries:", loadedSeries.error);
+    const seriesSummary =
+      "error" in loadedSeries
+        ? null
+        : { summary: summarizeSeries(loadedSeries.progress), seriesCount: loadedSeries.progress.length };
 
     return (
       <section className="py-6">
         <h1 className="text-2xl font-bold">Bilan du mois</h1>
         <div className="mt-4">{segments}</div>
-        <StatsView records={records} readingEvents={readingEvents ?? []} seriesCatalog={seriesCatalog} />
+        <StatsView records={records} readingEvents={readingEvents ?? []} seriesSummary={seriesSummary} />
       </section>
     );
   }

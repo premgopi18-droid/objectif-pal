@@ -11,6 +11,7 @@ import { ALL_CATEGORIES, CATEGORY_LABELS } from "@/lib/books/categories";
 import { formatBookSubtitle } from "@/lib/books/format";
 import type { PalEntry } from "@/lib/pal/derive-pal";
 import {
+  baseEntries,
   buildReelSequence,
   categoryCounts,
   drawEntry,
@@ -61,9 +62,24 @@ function chipClassName(active: boolean): string {
   );
 }
 
-export function ReadingRoulette({ entries, disabled = false }: { entries: PalEntry[]; disabled?: boolean }) {
+export function ReadingRoulette({
+  entries,
+  seriesNextBookIds = [],
+  disabled = false,
+}: {
+  entries: PalEntry[];
+  /** Les tomes suivants déjà dans la pile (§4.16, lot C) — le vivier du mode « on continue une série ». */
+  seriesNextBookIds?: string[];
+  disabled?: boolean;
+}) {
   const [isOpen, setIsOpen] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<ReadonlySet<BookCategory>>(NO_FILTER);
+  // Le mode « on continue une série » (lot C) : la roulette ne connaît pas les
+  // séries, elle reçoit un ensemble d'ids et reste pure.
+  const [continueSeries, setContinueSeries] = useState(false);
+  const seriesPool = useMemo(() => new Set(seriesNextBookIds), [seriesNextBookIds]);
+  const seriesFilter = continueSeries ? seriesPool : null;
+  const seriesCandidateCount = useMemo(() => baseEntries(entries, seriesPool).length, [entries, seriesPool]);
   const [phase, setPhase] = useState<RoulettePhase>({ kind: "idle" });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   // La roulette a SA plomberie de geste : son erreur s'affiche dans l'overlay,
@@ -77,14 +93,14 @@ export function ReadingRoulette({ entries, disabled = false }: { entries: PalEnt
   const closeRef = useRef<HTMLButtonElement>(null);
   const startCtaRef = useRef<HTMLButtonElement>(null);
 
-  const counts = useMemo(() => categoryCounts(entries), [entries]);
+  const counts = useMemo(() => categoryCounts(entries, seriesFilter), [entries, seriesFilter]);
   // Les chips dans l'ordre du barème, effectifs non nuls seulement.
   const presentCategories = useMemo(
     () => ALL_CATEGORIES.filter((category) => (counts.get(category) ?? 0) > 0),
     [counts],
   );
-  const pool = useMemo(() => eligibleEntries(entries, selectedCategories), [entries, selectedCategories]);
-  const totalEligible = useMemo(() => eligibleEntries(entries, NO_FILTER).length, [entries]);
+  const pool = useMemo(() => eligibleEntries(entries, selectedCategories, seriesFilter), [entries, selectedCategories, seriesFilter]);
+  const totalEligible = useMemo(() => eligibleEntries(entries, NO_FILTER, seriesFilter).length, [entries, seriesFilter]);
 
   function open() {
     // Une catégorie sélectionnée peut avoir disparu depuis (livre commencé
@@ -112,6 +128,13 @@ export function ReadingRoulette({ entries, disabled = false }: { entries: PalEnt
       else next.add(category);
       return next;
     });
+  }
+
+  function toggleContinueSeries() {
+    setPhase({ kind: "idle" }); // l'élue d'un autre vivier ne vaut plus
+    setError(null);
+    setSelectedCategories(NO_FILTER); // les effectifs changent : on repart de « Toutes »
+    setContinueSeries((previous) => !previous);
   }
 
   function launch() {
@@ -280,6 +303,26 @@ export function ReadingRoulette({ entries, disabled = false }: { entries: PalEnt
                 ? "Aucun livre dans le tirage"
                 : `${pool.length} livre${pool.length > 1 ? "s" : ""} dans le tirage`}
             </p>
+
+            {seriesCandidateCount > 0 && (
+              <div className="mt-3">
+                <button
+                  type="button"
+                  aria-pressed={continueSeries}
+                  disabled={isSpinning}
+                  onClick={toggleContinueSeries}
+                  className={chipClassName(continueSeries)}
+                >
+                  🔗 On continue une série · {seriesCandidateCount}
+                </button>
+                {continueSeries && (
+                  <p className="mt-1.5 text-xs text-ink3">
+                    {seriesCandidateCount} tome{seriesCandidateCount > 1 ? "s" : ""} suivant{seriesCandidateCount > 1 ? "s" : ""} dans ta
+                    pile — le tirage ne pioche que là.
+                  </p>
+                )}
+              </div>
+            )}
 
             {presentCategories.length > 1 && (
               <div role="group" aria-label="Catégories du tirage" className="mt-3 flex flex-wrap gap-2">

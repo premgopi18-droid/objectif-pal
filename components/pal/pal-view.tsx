@@ -82,6 +82,8 @@ type PalViewProps = {
   undatedExitCount?: number;
   /** Les sorties par cession (#142) — stock seul, jamais le flux du mois. */
   disposalExitDates?: IsoDate[];
+  /** Les tomes suivants déjà dans la pile (§4.16, lot C) — le mode « on continue une série » de la roulette. */
+  seriesNextBookIds?: string[];
 };
 
 export function PalView({
@@ -91,6 +93,7 @@ export function PalView({
   undatedEntryCount,
   undatedExitCount,
   disposalExitDates,
+  seriesNextBookIds,
 }: PalViewProps) {
   const { run, isPending, error, setError } = useBookGestures();
 
@@ -284,7 +287,7 @@ export function PalView({
               <SortSelect value={sortOption} options={PAL_SORT_OPTIONS} onChange={setSortOption} className="min-w-[9rem] flex-1" />
               {/* La roulette (#262) : le tirage au sort de la prochaine lecture —
                   autonome (overlay, gestes, toast), la vue ne fait que la poser là. */}
-              <ReadingRoulette entries={entries} disabled={isSelecting || isBulkPending} />
+              <ReadingRoulette entries={entries} seriesNextBookIds={seriesNextBookIds} disabled={isSelecting || isBulkPending} />
               <Button
                 type="button"
                 variant="ghost"
