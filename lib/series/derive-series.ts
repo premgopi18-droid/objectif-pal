@@ -169,7 +169,9 @@ export function deriveSeriesProgress(
     gridMax,
     next,
     status,
-    isVisible: books.length >= MIN_BOOKS_TO_SHOW_SERIES || hasFact,
+    // Ce que la carte affiche (lus + pile) décide de l'apparition — deux tomes
+    // cédés ne font pas une série à suivre (review #295).
+    isVisible: readVolumes.length + pileVolumes.length >= MIN_BOOKS_TO_SHOW_SERIES || hasFact,
     volumes,
   };
 }
@@ -193,7 +195,10 @@ function resolveNext(input: {
 
   const read = new Set(readNumbers);
   const inPile = new Set(pileNumbers);
-  if (series.totalVolumes !== null && readNumbers.filter((number) => number <= series.totalVolumes!).length >= series.totalVolumes) {
+  // « Complète » = les tomes 1..total sont lus. Un tome 0 (prologue, #0 des
+  // comics) ne compte pas dans le total (review #295).
+  const totalVolumes = series.totalVolumes;
+  if (totalVolumes !== null && readNumbers.filter((number) => number >= 1 && number <= totalVolumes).length >= totalVolumes) {
     return { kind: "complete" };
   }
   for (let number = 1; number <= gridMax; number += 1) {

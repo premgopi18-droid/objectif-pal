@@ -1077,6 +1077,13 @@ peut venir que d'une déclaration.
 14. **Export et suppression RGPD** couvrent le lien livre → série et les déclarations de l'utilisateur dès
     la migration ; **cloisonnement prouvé en CI** (le test d'isolation s'étend : les séries sont lisibles
     par tous, les liens et la progression ne fuient pas).
+15. **Risques acceptés (review #295)** : `find_or_create_series` n'est **pas** sous quota — la rafale (80 scans)
+    grillerait `series_write` et perdrait des liens ; un compte peut donc créer des lignes du référentiel sans
+    borne, comme il crée des livres (`created_by` posé, fusion à la main). **Renommer une série ne périme pas
+    les mois clos** : `books_bump_fact_version` ne surveille pas `series_name`, les agrégats du cercle gardent
+    l'ancien nom jusqu'au prochain bump (cosmétique). **La catégorie de la série** (`series.category`) est celle
+    du premier tome rattaché et n'est jamais révisée : les surfaces (lot B) affichent la catégorie **dérivée des
+    livres de l'utilisateur** (majorité), pas la colonne.
 
 **Les surfaces** : la Biblio gagne un **3ᵉ segment « Séries »** (cartes triées par dette décroissante,
 jauge vert = lu / ambre = pile, filtres Toutes / En cours / À jour / Complètes, bannière de fusion) ; la

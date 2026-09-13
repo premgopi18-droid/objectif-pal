@@ -446,7 +446,10 @@ describe.runIf(shouldRun)("le pool partagé de couvertures (#278)", () => {
  * lisible par tous ; ce qui reste cloisonné, c'est le LIEN livre → série et
  * les livres eux-mêmes. Écriture uniquement par RPC : la table refuse tout
  * accès direct, même à l'auteur. Idempotent : le nom-témoin retombe sur la
- * même ligne à chaque run (c'est précisément la propriété testée).
+ * même ligne à chaque run (c'est précisément la propriété testée) ; deux
+ * `series_events` s'ajoutent par run (les deux déclarations), et trois ticks
+ * du quota `series_write` (30/min) sont consommés — rejouer le test plus de
+ * dix fois dans la minute échoue sur « Trop de modifications ». (review #295)
  */
 describe.runIf(shouldRun)("le référentiel partagé de séries (#291)", () => {
   const SERIES_NAME = "Série témoin isolation #291";

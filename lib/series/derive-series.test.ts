@@ -166,6 +166,18 @@ describe("deriveSeriesProgress — lus · dans la pile · total", () => {
     expect(progress.status).toBe("unknown-total");
   });
 
+  it("un tome 0 lu (prologue) ne compte pas pour « complète » (review #295)", () => {
+    const progress = deriveSeriesProgress(series(declared({ totalVolumes: 3 })), volumes([0, 1, 2], "read"));
+    expect(progress).toMatchObject({ status: "in-progress", next: { kind: "missing", number: 3 } });
+  });
+
+  it("deux tomes cédés ne font pas une série à suivre : sous le seuil (review #295)", () => {
+    const progress = deriveSeriesProgress(series(), [volume("1", "disposed"), volume("2", "disposed")]);
+    expect(progress.isVisible).toBe(false);
+    // Avec un tome lu et un dans la pile, si.
+    expect(deriveSeriesProgress(series(), [volume("1", "read"), volume("2", "pile")]).isVisible).toBe(true);
+  });
+
   it("un numéro non canonique (« Tome 02 ») est lu comme 2", () => {
     const progress = deriveSeriesProgress(series(declared({ totalVolumes: 3 })), [volume("Tome 02", "read")]);
     expect(progress.readNumbers).toEqual([2]);
