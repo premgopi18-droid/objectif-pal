@@ -11,6 +11,8 @@ import { Button } from "@/components/ui/button";
  * Patron des feuilles maison : dialog, fond cliquable, Échap, focus au CTA.
  */
 const PAD_MINIMUM = 10;
+/** Le pavé est plafonné comme la grille (review #296) : au-delà, « Autre numéro… ». */
+const PAD_MAXIMUM = 60;
 
 export function VolumeNumpadSheet({
   bookTitle,
@@ -32,7 +34,7 @@ export function VolumeNumpadSheet({
   const [customNumber, setCustomNumber] = useState("");
   const [showCustom, setShowCustom] = useState(false);
   const firstRef = useRef<HTMLButtonElement>(null);
-  const padSize = Math.max(PAD_MINIMUM, gridMax);
+  const padSize = Math.min(PAD_MAXIMUM, Math.max(PAD_MINIMUM, gridMax));
 
   useEffect(() => {
     firstRef.current?.focus();

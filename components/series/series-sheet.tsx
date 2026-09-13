@@ -30,6 +30,13 @@ const NEXT_TONES: Record<NextTone, string> = {
   calm: "border-green/30 bg-green/10",
 };
 
+/**
+ * Le plafond de la grille (review #296) : une série déclarée à 1 000 numéros
+ * ou un « tome 2019 » saisi par erreur ne rendent pas mille cellules. Au-delà,
+ * une ligne dit ce qui reste ; la fiche garde ses compteurs et son suivant.
+ */
+export const MAX_GRID_CELLS = 150;
+
 const CELL_STATES: Record<SeriesVolume["state"] | "missing", string> = {
   read: "bg-green/20 text-green border-green/40",
   pile: "bg-amber/20 text-amber border-amber/40",
@@ -114,7 +121,16 @@ export function SeriesSheet({
               className="flex gap-2"
               onSubmit={(event) => {
                 event.preventDefault();
-                if (nameDraft.trim() && nameDraft.trim() !== progress.name) onRename(nameDraft.trim());
+                const nextName = nameDraft.trim();
+                // Le renommage sort du compte : il change le nom pour TOUS les
+                // membres (référentiel commun, §4.17-9) — on le dit avant (review #296).
+                if (
+                  nextName &&
+                  nextName !== progress.name &&
+                  window.confirm(`Renommer « ${progress.name} » en « ${nextName} » pour tout le monde ?`)
+                ) {
+                  onRename(nextName);
+                }
                 setIsRenaming(false);
               }}
             >
@@ -192,7 +208,7 @@ export function SeriesSheet({
             {unnumbered.length > 0 && <span className="text-xs text-ink3">tap sur ? pour numéroter</span>}
           </div>
           <div className="grid grid-cols-6 gap-1.5">
-            {Array.from({ length: progress.gridMax }, (_, index) => index + 1).map((number) => {
+            {Array.from({ length: Math.min(progress.gridMax, MAX_GRID_CELLS) }, (_, index) => index + 1).map((number) => {
               const volume = volumeByNumber.get(number);
               const state = volume?.state ?? "missing";
               const isNext = nextNumber === number;
@@ -230,6 +246,11 @@ export function SeriesSheet({
               </div>
             )}
           </div>
+          {progress.gridMax > MAX_GRID_CELLS && (
+            <p className="text-xs text-ink3">
+              … et {progress.gridMax - MAX_GRID_CELLS} tomes de plus — les compteurs et le tome suivant les comptent.
+            </p>
+          )}
           <p className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-ink3">
             <span><span aria-hidden className="mr-1 inline-block h-2 w-2 rounded-sm bg-green" />lu</span>
             <span><span aria-hidden className="mr-1 inline-block h-2 w-2 rounded-sm bg-amber" />dans la pile</span>

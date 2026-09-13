@@ -23,15 +23,16 @@ export function gaugeWidths(progress: Pick<SeriesProgress, "read" | "pile" | "to
 export function SeriesGauge({ progress }: { progress: SeriesProgress }) {
   const widths = gaugeWidths(progress);
   return (
-    <div
+    // Un <span> : la jauge vit aussi dans le bouton de la carte (contenu phrasé, review #296).
+    <span
       role="img"
       aria-label={`${progress.read} lus, ${progress.pile} dans la pile${progress.totalVolumes !== null ? ` sur ${progress.totalVolumes}` : ""}`}
       className="flex h-2 w-full overflow-hidden rounded-full bg-card2"
     >
-      <span className="h-full bg-green transition-[width] duration-500 motion-reduce:transition-none" style={{ width: `${widths.read}%` }} />
-      <span className="h-full bg-amber transition-[width] duration-500 motion-reduce:transition-none" style={{ width: `${widths.pile}%` }} />
-      {progress.isOngoing && <span aria-hidden className="h-full flex-1 bg-gradient-to-r from-card2 to-transparent" />}
-    </div>
+      <span className="block h-full bg-green transition-[width] duration-500 motion-reduce:transition-none" style={{ width: `${widths.read}%` }} />
+      <span className="block h-full bg-amber transition-[width] duration-500 motion-reduce:transition-none" style={{ width: `${widths.pile}%` }} />
+      {progress.isOngoing && <span aria-hidden className="block h-full flex-1 bg-gradient-to-r from-card2 to-transparent" />}
+    </span>
   );
 }
 
@@ -47,25 +48,27 @@ export function SeriesCard({ progress, onOpen }: { progress: SeriesProgress; onO
       aria-label={`${progress.name} — ${status.label}, ${seriesCountsText(progress)}`}
       className="flex w-full flex-col gap-2.5 rounded-card border border-line bg-card p-3 text-left transition active:scale-[0.99] focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
     >
-      <div className="flex items-center gap-3">
-        <div aria-hidden className="flex flex-none -space-x-8">
+      <span className="flex items-center gap-3">
+        <span aria-hidden className="flex flex-none -space-x-8">
           {covers.map((volume, index) => (
-            <div key={volume.bookId} className="rounded shadow-float" style={{ zIndex: covers.length - index }}>
+            <span key={volume.bookId} className="block rounded shadow-float" style={{ zIndex: covers.length - index }}>
               <BookCover coverUrl={volume.coverUrl} size="small" title={volume.title} bookId={volume.bookId} />
-            </div>
+            </span>
           ))}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="truncate text-[15px] font-semibold text-ink">{progress.name}</h3>
-          <p className="mt-0.5 text-[12.5px] text-ink2">
+        </span>
+        {/* Des <span> en bloc, pas de <h3>/<p> : un bouton n'accepte que du
+            contenu phrasé (review #296) — l'aria-label porte l'annonce. */}
+        <span className="block min-w-0 flex-1">
+          <span className="block truncate text-[15px] font-semibold text-ink">{progress.name}</span>
+          <span className="mt-0.5 block text-[12.5px] text-ink2">
             {CATEGORY_LABELS[progress.category]} · {tomes} tome{tomes > 1 ? "s" : ""}
-          </p>
-        </div>
+          </span>
+        </span>
         <Badge state={status.badge}>{status.label}</Badge>
         <span aria-hidden className="text-ink3">›</span>
-      </div>
+      </span>
       <SeriesGauge progress={progress} />
-      <p className="text-xs text-ink2">{seriesCountsText(progress)}</p>
+      <span className="block text-xs text-ink2">{seriesCountsText(progress)}</span>
     </button>
   );
 }

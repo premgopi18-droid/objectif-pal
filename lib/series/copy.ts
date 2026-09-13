@@ -1,3 +1,4 @@
+import { formatDateFrench } from "@/lib/dates";
 import type { SeriesNext, SeriesProgress, SeriesStatus } from "@/lib/series/derive-series";
 
 /**
@@ -96,7 +97,9 @@ export function declaredByLabel(
   if (progress.factDeclaredAt === null) return null;
   const what = progress.isOngoing ? "parution en cours" : `${progress.totalVolumes} tomes`;
   const who = declarerLabel ?? "un membre";
-  const when = new Date(progress.factDeclaredAt).toLocaleDateString("fr-FR", { day: "2-digit", month: "2-digit" });
+  // Découpage pur de l'ISO (jour UTC) : le même rendu serveur et client, pas
+  // de décalage d'hydratation autour de minuit (review #296).
+  const when = formatDateFrench(progress.factDeclaredAt.slice(0, 10));
   return `${what}, déclaré par ${who} le ${when}`;
 }
 
@@ -116,6 +119,7 @@ export const seriesToasts = {
   totalDeclared: (name: string, total: number) => `✓ ${name} : ${plural(total, "tome")} — jauge à jour`,
   ongoingDeclared: (name: string) => `✓ ${name} : parution en cours`,
   volumeNumbered: (number: string) => `✓ Tome ${number} — progression recalculée`,
-  merged: (name: string, read: number) => `✓ Séries fusionnées — ${name} : ${plural(read, "tome lu", "tomes lus")}`,
+  /** `tomes` = lus + dans la pile, ce que la carte compte (review #296 : pas « lus »). */
+  merged: (name: string, tomes: number) => `✓ Séries fusionnées — ${name} : ${plural(tomes, "tome")}`,
   renamed: (name: string) => `✓ Série renommée : ${name}`,
 };

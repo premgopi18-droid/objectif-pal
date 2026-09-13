@@ -7,6 +7,7 @@ import {
   nextCardCopy,
   seriesCountsText,
   seriesHeadline,
+  seriesToasts,
   suggestedTotal,
 } from "./copy";
 
@@ -44,8 +45,8 @@ describe("les textes du suivi de séries", () => {
 
   it("l'auteur du fait : toi, un ami par son pseudo, sinon « un membre » — rien sans fait", () => {
     const declared = { totalVolumes: 7, isOngoing: false, factDeclaredBy: "u", factDeclaredAt: "2026-09-14T10:00:00Z" };
-    expect(declaredByLabel(declared, "Léna")).toBe("7 tomes, déclaré par Léna le 14/09");
-    expect(declaredByLabel(declared, null)).toBe("7 tomes, déclaré par un membre le 14/09");
+    expect(declaredByLabel(declared, "Léna")).toBe("7 tomes, déclaré par Léna le 14/09/2026");
+    expect(declaredByLabel(declared, null)).toBe("7 tomes, déclaré par un membre le 14/09/2026");
     expect(declaredByLabel({ ...declared, totalVolumes: null, isOngoing: true }, "toi")).toContain("parution en cours, déclaré par toi");
     expect(declaredByLabel({ totalVolumes: null, isOngoing: false, factDeclaredBy: null, factDeclaredAt: null }, null)).toBeNull();
   });
@@ -56,6 +57,11 @@ describe("les textes du suivi de séries", () => {
     expect(suggestedTotal({ gcdKnownMax: null, gridMax: 14, readNumbers: [1], pileNumbers: [14] })).toBe(14);
     // Un indice GCD plus petit que le possédé ne rabaisse pas la proposition.
     expect(suggestedTotal({ gcdKnownMax: 5, gridMax: 8, readNumbers: [8], pileNumbers: [] })).toBe(8);
+  });
+
+  it("le toast de fusion compte des tomes (lus + pile), pas des « lus » (review #296)", () => {
+    expect(seriesToasts.merged("Berserk", 6)).toBe("✓ Séries fusionnées — Berserk : 6 tomes");
+    expect(seriesToasts.merged("Berserk", 1)).toBe("✓ Séries fusionnées — Berserk : 1 tome");
   });
 
   it("l'indice GCD est dit comme un plancher, jamais comme une vérité", () => {
