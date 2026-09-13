@@ -16,7 +16,8 @@
     "maintenance:purge": "node --conditions=react-server --import tsx scripts/maintenance-purge.mts",
     "reports:materialize": "node --conditions=react-server --import tsx scripts/materialize-monthly-reports.mts",
     "series:backfill-bnf": "node --conditions=react-server --import tsx scripts/series-backfill-bnf.mts",
-    "series:link-backfill": "node --conditions=react-server --import tsx scripts/series-link-backfill.mts"
+    "series:link-backfill": "node --conditions=react-server --import tsx scripts/series-link-backfill.mts",
+    "series:bnf-floor": "node --conditions=react-server --import tsx scripts/series-bnf-floor.mts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.70.0",

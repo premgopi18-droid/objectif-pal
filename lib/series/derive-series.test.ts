@@ -163,9 +163,12 @@ describe("deriveSeriesProgress — lus · dans la pile · total", () => {
     expect(progress).toMatchObject({ read: 2, readNumbers: [1], next: { kind: "missing", number: 2 } });
   });
 
-  it("l'indice GCD est transporté tel quel — jamais une vérité", () => {
-    const progress = deriveSeriesProgress(series(), volumes([1, 2], "read"), 15);
-    expect(progress.gcdKnownMax).toBe(15);
+  it("les planchers sont transportés tels quels, du plus grand au plus petit — jamais une vérité", () => {
+    const progress = deriveSeriesProgress(series(), volumes([1, 2], "read"), [
+      { source: "gcd", value: 15, label: null },
+      { source: "bnf", value: 111, label: "Glénat" },
+    ]);
+    expect(progress.knownMax.map((known) => known.value)).toEqual([111, 15]);
     expect(progress.status).toBe("unknown-total");
   });
 
@@ -273,7 +276,7 @@ describe("deriveSeries — la liste", () => {
   });
 
   it("l'indice GCD se lit par série", () => {
-    const list = deriveSeries([a], volumes([1, 2], "read").map((book) => ({ ...book, seriesId: "a" })), new Map([["a", 108]]));
-    expect(list[0].gcdKnownMax).toBe(108);
+    const list = deriveSeries([a], volumes([1, 2], "read").map((book) => ({ ...book, seriesId: "a" })), new Map([["a", [{ source: "gcd" as const, value: 108, label: null }]]]));
+    expect(list[0].knownMax[0]?.value).toBe(108);
   });
 });

@@ -1,5 +1,5 @@
 import { formatDateFrench } from "@/lib/dates";
-import type { SeriesNext, SeriesProgress, SeriesStatus } from "@/lib/series/derive-series";
+import type { KnownMax, SeriesNext, SeriesProgress, SeriesStatus } from "@/lib/series/derive-series";
 
 /**
  * Les textes du suivi de séries (lot B de l'epic #289, specs §4.17) — la
@@ -103,15 +103,28 @@ export function declaredByLabel(
   return `${what}, déclaré par ${who} le ${when}`;
 }
 
-/** Le pré-remplissage du stepper : l'indice GCD s'il existe, sinon le plus grand possédé (au moins 10, comme le proto). */
-export function suggestedTotal(progress: Pick<SeriesProgress, "gcdKnownMax" | "gridMax" | "readNumbers" | "pileNumbers">): number {
+/** Le pré-remplissage du stepper : le plus grand plancher s'il existe, sinon le plus grand possédé (au moins 10, comme le proto). */
+export function suggestedTotal(progress: Pick<SeriesProgress, "knownMax" | "gridMax" | "readNumbers" | "pileNumbers">): number {
   const ownedMax = Math.max(0, ...progress.readNumbers, ...progress.pileNumbers);
-  return Math.max(progress.gcdKnownMax ?? 0, ownedMax, progress.gcdKnownMax === null ? 10 : 1);
+  const top = progress.knownMax[0]?.value ?? null;
+  return Math.max(top ?? 0, ownedMax, top === null ? 10 : 1);
 }
 
-/** La mention sous le stepper — l'indice vivant, ou son absence, jamais une vérité. */
-export function gcdHintText(gcdKnownMax: number | null): string {
-  return gcdKnownMax === null ? "GCD ne connaît pas cette série." : `${gcdKnownMax} numéros parus d'après GCD (au moins).`;
+/** Une ligne par plancher — GCD (VO) ou une édition déposée à la BnF (VF, #299). */
+export function knownMaxLine(known: KnownMax): string {
+  if (known.source === "gcd") return `${known.value} numéros parus d'après GCD (au moins)`;
+  return `${known.value} tomes déposés à la BnF pour l'édition ${known.label ?? "française"}`;
+}
+
+/** La mention sous le stepper — les planchers vivants, ou leur absence, jamais une vérité. */
+export function knownMaxHint(knownMax: readonly KnownMax[]): string {
+  if (knownMax.length === 0) return "Aucune source ne connaît cette série : à toi de dire.";
+  return `${knownMax.map(knownMaxLine).join(" · ")}.`;
+}
+
+/** Le libellé de la source d'un plancher qui dépasse le total déclaré : « GCD en connaît 15 » / « La BnF en connaît 112 ». */
+export function knownMaxExceedsLabel(known: KnownMax): string {
+  return `${known.source === "gcd" ? "GCD" : "La BnF"} en connaît ${known.value}.`;
 }
 
 /** Les toasts des trois gestes — accordés au fait réel. */

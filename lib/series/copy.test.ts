@@ -2,7 +2,8 @@ import { describe, expect, it } from "vitest";
 import {
   approximateWarning,
   declaredByLabel,
-  gcdHintText,
+  knownMaxExceedsLabel,
+  knownMaxHint,
   matchesSeriesFilter,
   nextCardCopy,
   seriesCountsText,
@@ -51,12 +52,13 @@ describe("les textes du suivi de séries", () => {
     expect(declaredByLabel({ totalVolumes: null, isOngoing: false, factDeclaredBy: null, factDeclaredAt: null }, null)).toBeNull();
   });
 
-  it("le stepper part de l'indice GCD, sinon du plus grand possédé (10 au moins)", () => {
-    expect(suggestedTotal({ gcdKnownMax: 15, gridMax: 3, readNumbers: [1, 2], pileNumbers: [3] })).toBe(15);
-    expect(suggestedTotal({ gcdKnownMax: null, gridMax: 3, readNumbers: [1, 2], pileNumbers: [3] })).toBe(10);
-    expect(suggestedTotal({ gcdKnownMax: null, gridMax: 14, readNumbers: [1], pileNumbers: [14] })).toBe(14);
-    // Un indice GCD plus petit que le possédé ne rabaisse pas la proposition.
-    expect(suggestedTotal({ gcdKnownMax: 5, gridMax: 8, readNumbers: [8], pileNumbers: [] })).toBe(8);
+  it("le stepper part du plus grand plancher, sinon du plus grand possédé (10 au moins)", () => {
+    const gcd = (value: number) => ({ source: "gcd" as const, value, label: null });
+    expect(suggestedTotal({ knownMax: [gcd(15)], gridMax: 3, readNumbers: [1, 2], pileNumbers: [3] })).toBe(15);
+    expect(suggestedTotal({ knownMax: [], gridMax: 3, readNumbers: [1, 2], pileNumbers: [3] })).toBe(10);
+    expect(suggestedTotal({ knownMax: [], gridMax: 14, readNumbers: [1], pileNumbers: [14] })).toBe(14);
+    // Un plancher plus petit que le possédé ne rabaisse pas la proposition.
+    expect(suggestedTotal({ knownMax: [gcd(5)], gridMax: 8, readNumbers: [8], pileNumbers: [] })).toBe(8);
   });
 
   it("le toast de fusion compte des tomes (lus + pile), pas des « lus » (review #296)", () => {
@@ -64,8 +66,14 @@ describe("les textes du suivi de séries", () => {
     expect(seriesToasts.merged("Berserk", 1)).toBe("✓ Séries fusionnées — Berserk : 1 tome");
   });
 
-  it("l'indice GCD est dit comme un plancher, jamais comme une vérité", () => {
-    expect(gcdHintText(108)).toBe("108 numéros parus d'après GCD (au moins).");
-    expect(gcdHintText(null)).toBe("GCD ne connaît pas cette série.");
+  it("les planchers sont dits comme des planchers, par source et par édition (#299)", () => {
+    expect(knownMaxHint([{ source: "gcd", value: 108, label: null }])).toBe("108 numéros parus d'après GCD (au moins).");
+    expect(knownMaxHint([{ source: "bnf", value: 111, label: "Glénat" }, { source: "gcd", value: 40, label: null }])).toBe(
+      "111 tomes déposés à la BnF pour l'édition Glénat · 40 numéros parus d'après GCD (au moins).",
+    );
+    expect(knownMaxHint([{ source: "bnf", value: 7, label: null }])).toBe("7 tomes déposés à la BnF pour l'édition française.");
+    expect(knownMaxHint([])).toBe("Aucune source ne connaît cette série : à toi de dire.");
+    expect(knownMaxExceedsLabel({ source: "bnf", value: 112, label: "Glénat" })).toBe("La BnF en connaît 112.");
+    expect(knownMaxExceedsLabel({ source: "gcd", value: 15, label: null })).toBe("GCD en connaît 15.");
   });
 });

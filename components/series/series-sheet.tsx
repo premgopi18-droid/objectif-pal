@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatTile } from "@/components/ui/stat-tile";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
-import { SERIES_STATUS_LABELS, approximateWarning, declaredByLabel, nextCardCopy } from "@/lib/series/copy";
+import { SERIES_STATUS_LABELS, approximateWarning, declaredByLabel, knownMaxExceedsLabel, nextCardCopy } from "@/lib/series/copy";
 import type { SeriesProgress, SeriesVolume } from "@/lib/series/derive-series";
 
 /**
@@ -94,6 +94,8 @@ export function SeriesSheet({
   }
 
   const status = SERIES_STATUS_LABELS[progress.status];
+  // Le plus grand plancher (GCD ou édition BnF) — celui qui peut dépasser un total déclaré.
+  const topKnown = progress.knownMax[0] ?? null;
   const next = progress.next !== null && progress.unnumberedRead === 0 ? nextCardCopy(progress.next, progress.totalVolumes) : null;
   const declared = declaredByLabel(progress, declarerLabel);
   const volumeByNumber = new Map(progress.volumes.filter((volume) => volume.number !== null).map((volume) => [volume.number as number, volume]));
@@ -167,7 +169,7 @@ export function SeriesSheet({
           )}
           <p className="text-sm text-ink2">
             {CATEGORY_LABELS[progress.category]} · {tomes} tome{tomes > 1 ? "s" : ""}
-            {progress.gcdKnownMax !== null && " · numérotation : GCD"}
+            {progress.knownMax.some((known) => known.source === "gcd") && " · numérotation : GCD"}
           </p>
           <div>
             <Badge state={status.badge}>{status.label}</Badge>
@@ -272,10 +274,10 @@ export function SeriesSheet({
             </button>
           </div>
         )}
-        {progress.gcdKnownMax !== null && progress.totalVolumes !== null && progress.gcdKnownMax > progress.totalVolumes && !isDeclaring && (
+        {topKnown !== null && progress.totalVolumes !== null && topKnown.value > progress.totalVolumes && !isDeclaring && (
           <div className="flex items-center justify-between gap-3 rounded-card border border-cyan/30 bg-cyan/10 p-3 text-sm text-ink">
-            <span>GCD en connaît {progress.gcdKnownMax}.</span>
-            <Button type="button" variant="ghost" disabled={isPending} onClick={() => onDeclareTotal(progress.gcdKnownMax as number)}>
+            <span>{knownMaxExceedsLabel(topKnown)}</span>
+            <Button type="button" variant="ghost" disabled={isPending} onClick={() => onDeclareTotal(topKnown.value)}>
               Mettre à jour
             </Button>
           </div>

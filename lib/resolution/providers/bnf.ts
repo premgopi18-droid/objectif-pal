@@ -165,6 +165,59 @@ export function parseBnfResponse(xml: string): BnfRecord | null {
   };
 }
 
+/** Une notice de tome dans une page de recherche, rattachée à sa notice de série (461 $0). */
+export type BnfSearchVolume = { seriesId: string; volumeNumber: string | null; publisher: string | null };
+
+export type BnfSearchPage = { numberOfRecords: number; volumes: BnfSearchVolume[] };
+
+/** Le plancher d'une édition : le plus grand tome déposé, l'éditeur de sa notice, le nombre de notices vues. */
+export type BnfSeriesFloor = { knownMax: number; label: string | null; noticeCount: number };
+
+/** La taille de page maximale du SRU BnF. */
+export const BNF_SEARCH_PAGE_SIZE = 100;
+
+/**
+ * Parse UNE page de recherche (plusieurs notices) : ne garde que les tomes qui
+ * pointent une notice de série. Exporté pour être testé sur une page réelle.
+ */
+export function parseBnfSearchPage(xml: string): BnfSearchPage {
+  const numberOfRecords = Number(xml.match(/<srw:numberOfRecords>(\d+)</)?.[1] ?? 0);
+  const volumes: BnfSearchVolume[] = [];
+  for (const record of xml.split(/<(?:mxc:)?record\b/).slice(1)) {
+    const fields = readDataFields(record);
+    const seriesField = fields.get("461")?.[0];
+    const seriesId = subfield(seriesField, "0");
+    if (!seriesId) continue;
+    volumes.push({
+      seriesId,
+      volumeNumber: parseVolumeNumber(subfield(seriesField, "v")) ?? parseVolumeNumber(subfield(fields.get("200")?.[0], "h")),
+      publisher: subfield(fields.get("214")?.[0], "c") ?? subfield(fields.get("210")?.[0], "c"),
+    });
+  }
+  return { numberOfRecords, volumes };
+}
+
+/** Le plancher par édition à partir des tomes collectés — pur : le plus grand numéro, pas le compte (bruité par les rééditions). */
+export function floorsBySeriesId(volumes: readonly BnfSearchVolume[], seriesIds: readonly string[]): Map<string, BnfSeriesFloor> {
+  const wanted = new Set(seriesIds);
+  const floors = new Map<string, BnfSeriesFloor>();
+  for (const volume of volumes) {
+    if (!wanted.has(volume.seriesId)) continue;
+    const current = floors.get(volume.seriesId) ?? { knownMax: 0, label: null, noticeCount: 0 };
+    const number = volume.volumeNumber === null ? 0 : Number(volume.volumeNumber);
+    floors.set(volume.seriesId, {
+      knownMax: Math.max(current.knownMax, number),
+      label: current.label ?? volume.publisher,
+      noticeCount: current.noticeCount + 1,
+    });
+  }
+  for (const [seriesId, floor] of floors) if (floor.knownMax < 1) floors.delete(seriesId);
+  return floors;
+}
+
+/** Les guillemets casseraient la requête CQL ; les autres caractères sont sûrs entre guillemets. */
+const cqlTerm = (text: string): string => text.replace(/"/g, " ").replace(/\s+/g, " ").trim();
+
 export type BnfProvider = ReturnType<typeof createBnfProvider>;
 
 export function createBnfProvider(fetchImplementation: typeof fetch = fetch) {
@@ -179,6 +232,39 @@ export function createBnfProvider(fetchImplementation: typeof fetch = fetch) {
       });
       if (!response.ok) throw new Error(`BnF SRU : HTTP ${response.status}`);
       return parseBnfResponse(await response.text());
+    },
+
+    /**
+     * Le plancher VF par édition (#299) : une recherche titre (+ auteur),
+     * paginée, regroupée par notice de série — seules les éditions demandées
+     * (`seriesIds`) comptent. Lent (One Piece : 3 pages, ~20 s) : réservé au
+     * job de nuit, jamais au scan ni à la fiche. `maxPages` borne la collecte,
+     * `timeoutMs` chaque page.
+     */
+    async searchSeriesFloors(params: {
+      title: string;
+      author: string | null;
+      seriesIds: readonly string[];
+      maxPages: number;
+      timeoutMs: number;
+    }): Promise<Map<string, BnfSeriesFloor>> {
+      const clauses = [`bib.title all "${cqlTerm(params.title)}"`];
+      if (params.author) clauses.push(`bib.author all "${cqlTerm(params.author)}"`);
+      const query = encodeURIComponent(clauses.join(" and "));
+      const volumes: BnfSearchVolume[] = [];
+      for (let page = 0; page < params.maxPages; page += 1) {
+        const startRecord = page * BNF_SEARCH_PAGE_SIZE + 1;
+        const url = `${BNF_SRU_ENDPOINT}?version=1.2&operation=searchRetrieve&query=${query}&recordSchema=unimarcXchange&maximumRecords=${BNF_SEARCH_PAGE_SIZE}&startRecord=${startRecord}`;
+        const response = await fetchImplementation(url, {
+          headers: { "User-Agent": OUTBOUND_USER_AGENT },
+          signal: AbortSignal.timeout(params.timeoutMs),
+        });
+        if (!response.ok) throw new Error(`BnF SRU (recherche) : HTTP ${response.status}`);
+        const parsed = parseBnfSearchPage(await response.text());
+        volumes.push(...parsed.volumes);
+        if (startRecord + BNF_SEARCH_PAGE_SIZE > parsed.numberOfRecords) break;
+      }
+      return floorsBySeriesId(volumes, params.seriesIds);
     },
   };
 }

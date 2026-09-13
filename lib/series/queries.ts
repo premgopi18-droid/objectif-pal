@@ -4,11 +4,12 @@ import { splitCircleLinks } from "@/lib/circle/friendship";
 import {
   deriveSeries,
   nextInPileBookIds,
+  type KnownMax,
   type SeriesBookFact,
   type SeriesFact,
   type SeriesProgress,
 } from "@/lib/series/derive-series";
-import { fetchGcdKnownMaxBySeriesId } from "@/lib/series/gcd-hint";
+import { fetchKnownMaxBySeriesId } from "@/lib/series/known-max";
 import type { createServerSupabaseClient } from "@/lib/supabase/server";
 
 type SessionSupabaseClient = Awaited<ReturnType<typeof createServerSupabaseClient>>;
@@ -31,13 +32,13 @@ type LoadFailure = { error: string };
 /**
  * La progression de toutes les séries de l'utilisateur : ses livres reliés
  * (avec leurs faits — la règle de pile a besoin des dates), les séries du
- * référentiel qu'ils touchent, l'indice GCD vivant si demandé. Requêtes
+ * référentiel qu'ils touchent, les planchers vivants (GCD, éditions BnF) si demandés. Requêtes
  * bornées par les séries de l'utilisateur, jamais une par série. Partagé par
  * le segment (lot B), les Stats et la roulette (lot C).
  */
 export async function loadSeriesProgress(
   supabase: SessionSupabaseClient,
-  options: { withGcdHint?: boolean } = {},
+  options: { withKnownMax?: boolean } = {},
 ): Promise<{ progress: SeriesProgress[]; seriesIds: string[] } | LoadFailure> {
   const { data: rows, error: booksError } = await supabase
     .from("books")
@@ -82,12 +83,12 @@ export async function loadSeriesProgress(
   const seriesIds = [...new Set(books.map((book) => book.seriesId))];
   if (seriesIds.length === 0) return { progress: [], seriesIds: [] };
 
-  const [seriesResult, gcdKnownMax] = await Promise.all([
+  const [seriesResult, knownMax] = await Promise.all([
     supabase
       .from("series")
       .select("id, name, category, total_volumes, is_ongoing, fact_declared_by, fact_declared_at")
       .in("id", seriesIds),
-    options.withGcdHint ? fetchGcdKnownMaxBySeriesId(supabase, seriesIds) : Promise.resolve(new Map<string, number>()),
+    options.withKnownMax ? fetchKnownMaxBySeriesId(supabase, seriesIds) : Promise.resolve(new Map<string, KnownMax[]>()),
   ]);
   if (seriesResult.error) return { error: seriesResult.error.message };
 
@@ -101,12 +102,12 @@ export async function loadSeriesProgress(
     factDeclaredAt: row.fact_declared_at,
   }));
 
-  return { progress: deriveSeries(seriesList, books, gcdKnownMax), seriesIds };
+  return { progress: deriveSeries(seriesList, books, knownMax), seriesIds };
 }
 
 /** Le segment « Séries » : la progression + les pseudos du cercle + les liens GCD (pour la bannière). */
 export async function loadSeriesSegment(supabase: SessionSupabaseClient, userId: string): Promise<SeriesSegmentData | LoadFailure> {
-  const loaded = await loadSeriesProgress(supabase, { withGcdHint: true });
+  const loaded = await loadSeriesProgress(supabase, { withKnownMax: true });
   if ("error" in loaded) return loaded;
   if (loaded.seriesIds.length === 0) return { progress: [], declarerLabels: {}, gcdLinkedSeriesIds: [] };
 

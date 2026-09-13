@@ -970,18 +970,27 @@ export type Database = {
         Row: {
           created_at: string
           external_id: string
+          known_max: number | null
+          known_max_checked_at: string | null
+          known_max_label: string | null
           series_id: string
           source: string
         }
         Insert: {
           created_at?: string
           external_id: string
+          known_max?: number | null
+          known_max_checked_at?: string | null
+          known_max_label?: string | null
           series_id: string
           source: string
         }
         Update: {
           created_at?: string
           external_id?: string
+          known_max?: number | null
+          known_max_checked_at?: string | null
+          known_max_label?: string | null
           series_id?: string
           source?: string
         }

@@ -52,6 +52,13 @@ export type SeriesBookFact = {
 
 export type SeriesVolumeState = "read" | "pile" | "other";
 
+/**
+ * Un plancher vivant (§4.17-4, #299) : le plus grand numéro connu chez une
+ * source — notre import GCD, ou une édition déposée à la BnF (`label` =
+ * l'éditeur). Jamais une vérité : il pré-remplit et signale, c'est tout.
+ */
+export type KnownMax = { source: "gcd" | "bnf"; value: number; label: string | null };
+
 export type SeriesVolume = {
   bookId: string;
   title: string;
@@ -87,8 +94,8 @@ export type SeriesProgress = {
   isOngoing: boolean;
   factDeclaredBy: string | null;
   factDeclaredAt: string | null;
-  /** Le plus grand numéro connu par notre import GCD (indice vivant, §4.17-4), ou `null`. */
-  gcdKnownMax: number | null;
+  /** Les planchers vivants (§4.17-4, #299) : GCD et éditions BnF, du plus grand au plus petit. */
+  knownMax: KnownMax[];
   /** La grille des tomes va de 1 à là. */
   gridMax: number;
   next: SeriesNext | null;
@@ -145,7 +152,7 @@ const majorityCategory = (books: SeriesBookFact[]): BookCategory | null => {
 export function deriveSeriesProgress(
   series: SeriesFact,
   books: SeriesBookFact[],
-  gcdKnownMax: number | null = null,
+  knownMax: readonly KnownMax[] = [],
 ): SeriesProgress {
   const volumes = books
     .map(toVolume)
@@ -182,7 +189,7 @@ export function deriveSeriesProgress(
     isOngoing: series.isOngoing,
     factDeclaredBy: series.factDeclaredBy,
     factDeclaredAt: series.factDeclaredAt,
-    gcdKnownMax,
+    knownMax: [...knownMax].sort((left, right) => right.value - left.value),
     gridMax,
     next,
     status,
@@ -281,14 +288,14 @@ export function nextInPileBookIds(list: readonly SeriesProgress[]): Set<string> 
 export function deriveSeries(
   seriesList: SeriesFact[],
   books: SeriesBookFact[],
-  gcdKnownMaxBySeriesId: ReadonlyMap<string, number> = new Map(),
+  knownMaxBySeriesId: ReadonlyMap<string, readonly KnownMax[]> = new Map(),
 ): SeriesProgress[] {
   const booksBySeries = new Map<string, SeriesBookFact[]>();
   for (const book of books) booksBySeries.set(book.seriesId, [...(booksBySeries.get(book.seriesId) ?? []), book]);
 
   return seriesList
     .map((series) =>
-      deriveSeriesProgress(series, booksBySeries.get(series.id) ?? [], gcdKnownMaxBySeriesId.get(series.id) ?? null),
+      deriveSeriesProgress(series, booksBySeries.get(series.id) ?? [], knownMaxBySeriesId.get(series.id) ?? []),
     )
     .filter((progress) => progress.isVisible)
     .sort((left, right) => right.pile - left.pile || right.read - left.read || left.name.localeCompare(right.name, "fr"));

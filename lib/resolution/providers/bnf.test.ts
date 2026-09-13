@@ -1,6 +1,6 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it, vi } from "vitest";
-import { createBnfProvider, parseBnfResponse } from "./bnf";
+import { createBnfProvider, floorsBySeriesId, parseBnfResponse, parseBnfSearchPage } from "./bnf";
 
 /**
  * Des notices RÉELLES (capturées le 13/09/2026 en `unimarcXchange`), jamais
@@ -160,5 +160,55 @@ describe("le provider BnF", () => {
   it("une réponse HTTP en erreur jette (panne ≠ absence)", async () => {
     const provider = createBnfProvider((async () => new Response("", { status: 503 })) as unknown as typeof fetch);
     await expect(provider.resolveIsbn("9782723494748")).rejects.toThrow("HTTP 503");
+  });
+});
+
+describe("le plancher VF par édition (#299) — une page de recherche réelle (Death Note / Ohba, élaguée)", () => {
+  const page = () => readFileSync(new URL("./fixtures/bnf/search-death-note.xml", import.meta.url), "utf8");
+
+  it("ne garde que les notices rattachées à une notice de série, avec leur tome et leur éditeur", () => {
+    const parsed = parseBnfSearchPage(page());
+    expect(parsed.numberOfRecords).toBe(36);
+    // 36 notices dont 20 rattachées à une série (les autres : guides, artbooks, romans).
+    expect(parsed.volumes).toHaveLength(20);
+    expect(parsed.volumes.filter((volume) => volume.seriesId === "41000718").map((volume) => volume.publisher)).toContain("Kana");
+  });
+
+  it("le plancher est le PLUS GRAND tome déposé — pas le compte, bruité par les rééditions", () => {
+    const floors = floorsBySeriesId(parseBnfSearchPage(page()).volumes, ["41000718", "42249221", "42152423"]);
+    expect(floors.get("41000718")).toEqual({ knownMax: 13, label: "Kana", noticeCount: 13 });
+    expect(floors.get("42249221")).toEqual({ knownMax: 3, label: "Kana", noticeCount: 3 });
+    // France loisirs : deux notices sans numéro exploitable → pas de plancher.
+    expect(floors.has("42152423")).toBe(false);
+  });
+
+  it("une édition non demandée n'entre pas (une édition non possédée n'est pas une série de l'utilisateur)", () => {
+    const floors = floorsBySeriesId(parseBnfSearchPage(page()).volumes, ["41000718"]);
+    expect([...floors.keys()]).toEqual(["41000718"]);
+  });
+
+  it("le provider pagine jusqu'à la dernière page et s'arrête au plafond", async () => {
+    // Une page réelle rejouée avec un total gonflé : 250 notices → 3 pages ; plafond à 2.
+    const inflated = page().replace("<srw:numberOfRecords>36<", "<srw:numberOfRecords>250<");
+    const fetchImplementation = vi.fn(async () => new Response(inflated, { status: 200 }));
+    const provider = createBnfProvider(fetchImplementation as unknown as typeof fetch);
+
+    const floors = await provider.searchSeriesFloors({ title: "Death note", author: "Ohba", seriesIds: ["41000718"], maxPages: 2, timeoutMs: 1000 });
+
+    expect(fetchImplementation).toHaveBeenCalledTimes(2);
+    const urls = fetchImplementation.mock.calls.map((call) => String((call as unknown[])[0]));
+    expect(urls[0]).toContain("startRecord=1");
+    expect(urls[1]).toContain("startRecord=101");
+    expect(urls[0]).toContain(encodeURIComponent('bib.title all "Death note" and bib.author all "Ohba"'));
+    expect(floors.get("41000718")?.knownMax).toBe(13);
+  });
+
+  it("sans auteur, la requête n'a que le titre ; les guillemets d'un titre sont neutralisés", async () => {
+    const fetchImplementation = vi.fn(async () => new Response(page(), { status: 200 }));
+    const provider = createBnfProvider(fetchImplementation as unknown as typeof fetch);
+    await provider.searchSeriesFloors({ title: 'Death "note"', author: null, seriesIds: [], maxPages: 1, timeoutMs: 1000 });
+    const url = String((fetchImplementation.mock.calls[0] as unknown[])[0]);
+    expect(url).toContain(encodeURIComponent('bib.title all "Death note"'));
+    expect(url).not.toContain("bib.author");
   });
 });
