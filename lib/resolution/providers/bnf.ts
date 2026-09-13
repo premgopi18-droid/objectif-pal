@@ -96,6 +96,16 @@ const splitTitleAndVolume = (title: string): { seriesName: string; issueNumber: 
   return { seriesName, issueNumber: String(Number(match[2])) };
 };
 
+/**
+ * Une anthologie peut porter des dizaines de 701 : au-delà, la liste dépasse
+ * le plafond de `validateBook` (1 000 caractères) et le scan refuserait un
+ * livre parfaitement identifié (review #294). Six noms suffisent à l'affichage.
+ */
+export const MAX_LISTED_AUTHORS = 6;
+
+const formatAuthorList = (names: string[]): string =>
+  names.length > MAX_LISTED_AUTHORS ? `${names.slice(0, MAX_LISTED_AUTHORS).join(", ")} et al.` : names.join(", ");
+
 /** « Nom, Prénom » chez la BnF → « Prénom Nom » pour l'affichage. */
 const personName = (field: DataField): string | null => {
   const lastName = subfield(field, "a");
@@ -117,26 +127,29 @@ export function parseBnfResponse(xml: string): BnfRecord | null {
   const seriesField = fields.get("461")?.[0];
 
   const mainTitle = subfield(titleField, "a");
+  // Une notice comptée mais sans titre propre n'identifie rien : on descend
+  // d'un cran (Google Books) plutôt que de rendre un livre au titre vide
+  // (review #294).
+  if (!mainTitle) return null;
   const subtitle = subfield(titleField, "e");
   const partNumber = subfield(titleField, "h");
   const partTitle = subfield(titleField, "i");
-  const titleParts = [mainTitle, subtitle].filter((part): part is string => part !== null);
-  const baseTitle = titleParts.length > 0 ? titleParts.join(" : ") : null;
-  const title = baseTitle && partTitle ? `${baseTitle}. ${partTitle}` : baseTitle;
+  const baseTitle = subtitle ? `${mainTitle} : ${subtitle}` : mainTitle;
+  const title = partTitle ? `${baseTitle}. ${partTitle}` : baseTitle;
 
   // La série, du plus sûr au moins sûr : 461 → 200 $h (la série est alors le
   // titre propre) → le titre qui porte lui-même son tome.
   let seriesName = cleanSeriesName(subfield(seriesField, "t"));
   let issueNumber = parseVolumeNumber(subfield(seriesField, "v")) ?? parseVolumeNumber(partNumber);
   if (!seriesName && partNumber && issueNumber) seriesName = cleanSeriesName(mainTitle);
-  if (!seriesName && mainTitle) {
+  if (!seriesName) {
     const split = splitTitleAndVolume(mainTitle);
     if (split) ({ seriesName, issueNumber } = split);
   }
 
   const authorFields = [...(fields.get("700") ?? []), ...(fields.get("701") ?? [])];
   const authorNames = authorFields.map(personName).filter((name): name is string => name !== null);
-  const authors = authorNames.length > 0 ? authorNames.join(", ") : subfield(titleField, "f");
+  const authors = authorNames.length > 0 ? formatAuthorList(authorNames) : subfield(titleField, "f");
 
   const publisher = subfield(fields.get("214")?.[0], "c") ?? subfield(fields.get("210")?.[0], "c");
   const pageMatch = subfield(fields.get("215")?.[0], "a")?.match(/(\d+)\]?\s*p\./) ?? null;

@@ -1034,7 +1034,8 @@ peut venir que d'une déclaration.
    faux à la première graphie différente.
 2. **Rattachement au scan et à l'édition** : par identifiant externe d'abord, par **nom normalisé**
    ensuite (minuscules, sans accents, espaces réduits, `$t` coupé au « / »), création sinon. Jamais de
-   rapprochement au jugé.
+   rapprochement au jugé. Au scan, la série BnF se lit dans la **461**, puis le **200 `$h`**, puis le titre qui
+   porte son tome ; **le 225 est ignoré en v1** — son `$v` est un numéro de collection pour les romans.
 3. **Le fait de série** (total déclaré **ou** parution en cours) vit **sur la ligne partagée**, avec
    **qui** l'a déclaré et **quand**, visible sur la fiche (« 7 tomes, déclaré par Léna le 14/09 »). Un
    **historique en ajout seul** (une ligne par déclaration, jamais écrasée) permet de voir la valeur

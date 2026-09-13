@@ -15,7 +15,12 @@
 /** Les mots qui annoncent un numéro — acceptés avant OU après le nombre. */
 const VOLUME_WORD = String.raw`(?:tome|t\.?|vol\.?|volume|livre|chapitre|partie|n°|no\.?|#)`;
 
-const ROMAN_NUMERAL_VALUES: Record<string, number> = { i: 1, v: 5, x: 10, l: 50 };
+/**
+ * Les romains en forme CANONIQUE seulement, de I à XXXIX : « il », « vv » ou
+ * « iiii » ne sont pas des numéros (review #294 — rien plutôt que faux).
+ */
+const ROMAN_NUMERAL_PATTERN = /^(x{0,3})(ix|iv|v?i{0,3})$/;
+const ROMAN_NUMERAL_VALUES: Record<string, number> = { i: 1, v: 5, x: 10 };
 
 /** Les nombres en lettres (cardinaux et ordinaux) rencontrés dans les notices françaises. */
 const FRENCH_NUMBER_WORDS: Record<string, number> = {
@@ -42,7 +47,7 @@ const FRENCH_NUMBER_WORDS: Record<string, number> = {
 };
 
 const parseRomanNumeral = (text: string): number | null => {
-  if (!/^[ivxl]+$/.test(text)) return null;
+  if (!ROMAN_NUMERAL_PATTERN.test(text)) return null;
   let total = 0;
   for (let index = 0; index < text.length; index += 1) {
     const value = ROMAN_NUMERAL_VALUES[text[index]];
@@ -82,8 +87,14 @@ export function parseVolumeNumber(raw: string | null | undefined): string | null
     .replace(/\.$/, "");
   if (!text) return null;
 
-  const match = LEADING_WORD_PATTERN.exec(text) ?? TRAILING_WORD_PATTERN.exec(text) ?? BARE_PATTERN.exec(text);
-  if (!match) return null;
-  const value = parseBareNumber(match[1]);
-  return value === null ? null : String(value);
+  // Chaque motif est tenté et la première VALEUR gagne — pas le premier match :
+  // « trois » matche le préfixe « t » + « rois » (rien) avant d'être un nombre
+  // nu (review #294).
+  for (const pattern of [LEADING_WORD_PATTERN, TRAILING_WORD_PATTERN, BARE_PATTERN]) {
+    const match = pattern.exec(text);
+    if (!match) continue;
+    const value = parseBareNumber(match[1]);
+    if (value !== null) return String(value);
+  }
+  return null;
 }

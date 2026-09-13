@@ -117,6 +117,23 @@ describe("le parsing des notices BnF (SRU UNIMARC)", () => {
     expect(parseBnfResponse(EMPTY_RESPONSE)).toBeNull();
   });
 
+  it("une notice comptée mais sans titre propre (200 $a) vaut null — jamais un livre au titre vide", () => {
+    const xml = fixture("9782253183969").replace('<mxc:subfield code="a">Joyland</mxc:subfield>', "");
+    expect(parseBnfResponse(xml)).toBeNull();
+  });
+
+  it("une anthologie à cinquante auteurs est bornée à six noms + « et al. » (plafond de validateBook)", () => {
+    const extraAuthors = Array.from(
+      { length: 49 },
+      (_, index) =>
+        `<mxc:datafield tag="701" ind1=" " ind2="1"><mxc:subfield code="a">Nom${index}</mxc:subfield><mxc:subfield code="b">Prénom${index}</mxc:subfield></mxc:datafield>`,
+    ).join("");
+    const xml = fixture("9782253183969").replace("</mxc:record>", `${extraAuthors}</mxc:record>`);
+    const record = parseBnfResponse(xml);
+    expect(record?.authors).toBe("Stephen King, Prénom0 Nom0, Prénom1 Nom1, Prénom2 Nom2, Prénom3 Nom3, Prénom4 Nom4 et al.");
+    expect(record?.authors?.length).toBeLessThan(200);
+  });
+
   it("« Fahrenheit 451 » n'est pas le tome 451 de « Fahrenheit »", () => {
     const xml = fixture("9782253183969").replace(
       '<mxc:subfield code="a">Joyland</mxc:subfield>',

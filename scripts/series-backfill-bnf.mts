@@ -94,8 +94,13 @@ for (const [isbn, rows] of booksByIsbn) {
 
     // `series_name is null` répété à l'écriture : si le propriétaire a édité
     // la fiche entre la lecture et l'écriture, sa saisie gagne.
+    // Un échec d'écriture ne fait pas tomber le run (review #294) : compté,
+    // loggé, et le code de sortie le dira — les ISBN relus ne sont pas repayés.
     const { error } = await admin.from("books").update(plan.update).eq("id", book.id).is("series_name", null);
-    if (error) throw new Error(`books ${book.id} : ${error.message}`);
+    if (error) {
+      outcomes.error += 1;
+      console.error(`  books ${book.id} : ${error.message}`);
+    }
   }
 
   // Le cache partagé, colonne par colonne — et seulement s'il a lui aussi la
@@ -111,7 +116,10 @@ for (const [isbn, rows] of booksByIsbn) {
       })
       .eq("barcode", isbn)
       .is("series_name", null);
-    if (error) throw new Error(`barcode_cache ${isbn} : ${error.message}`);
+    if (error) {
+      outcomes.error += 1;
+      console.error(`  barcode_cache ${isbn} : ${error.message}`);
+    }
   }
 
   await sleep(POLITENESS_DELAY_MS);
@@ -121,7 +129,10 @@ console.log("\nBilan :");
 console.log(`  comblés : ${outcomes.fill}`);
 console.log(`  notice sans série (one-shot, roman) : ${outcomes["no-series"]}`);
 console.log(`  ISBN inconnu de la BnF : ${outcomes["no-record"]}`);
-console.log(`  erreurs réseau : ${outcomes.error}`);
+console.log(`  erreurs (réseau ou écriture) : ${outcomes.error}`);
 console.log("  par compte (user_id abrégé) :");
 for (const [userId, count] of filledByUser) console.log(`    ${userId.slice(0, 8)}… : ${count}`);
 console.log(apply ? "\nÉcrit." : "\nDry-run : rien n'a été écrit. Relancer avec --apply pour écrire.");
+// Un run avec des erreurs n'est pas un run réussi — relancer (idempotent :
+// seuls les champs encore vides sont comblés).
+if (outcomes.error > 0) process.exit(1);

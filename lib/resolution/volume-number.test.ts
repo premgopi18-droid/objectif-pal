@@ -22,6 +22,11 @@ describe("parseVolumeNumber — le numéro de tome canonique ou rien", () => {
     ["chapitre premier", "1"],
     ["Livre 2", "2"],
     ["dix-sept", "17"],
+    // Les mots en « t » ne sont pas un préfixe « t. » + rien (review #294).
+    ["trois", "3"],
+    ["treize", "13"],
+    ["troisième", "3"],
+    ["t. trois", "3"],
     ["n° 3", "3"],
     ["#4", "4"],
     ["[3]", "3"],
@@ -43,6 +48,11 @@ describe("parseVolumeNumber — le numéro de tome canonique ou rien", () => {
     "tome",
     "vingt-et-un",
     "MMXX",
+    // Des suites de lettres romaines qui ne sont pas des romains (review #294).
+    "il",
+    "vv",
+    "iiii",
+    "XL",
     "",
     "   ",
   ])("rejette « %s »", (raw) => {
