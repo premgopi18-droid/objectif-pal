@@ -1,6 +1,8 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { escapeIlikePattern } from "@/lib/search/entry-search";
+import { normalizeSeriesName } from "@/lib/series/normalize";
 import { getSessionOrError } from "@/lib/supabase/server";
 import { userFacingSqlError } from "@/lib/supabase/user-facing-sql-error";
 
@@ -66,6 +68,35 @@ export async function mergeSeries(keepSeriesId: string, mergeSeriesId: string): 
   return callSeriesRpc("mergeSeries", (supabase) =>
     supabase.rpc("merge_series", { keep_series_id: keepSeriesId, merge_series_id: mergeSeriesId }),
   );
+}
+
+export type SeriesSuggestion = { id: string; name: string };
+
+/** Le plafond des suggestions du champ Série (lot B) — une liste courte, pas un annuaire. */
+const SERIES_SUGGESTION_LIMIT = 8;
+
+/**
+ * Les suggestions du champ Série de l'édition de fiche (lot B) : préfixe
+ * normalisé sur le référentiel commun, jokers LIKE échappés, liste bornée.
+ * Une lecture du référentiel, pas un appel externe : pas de quota.
+ */
+export async function searchSeries(prefix: string): Promise<SeriesSuggestion[]> {
+  const session = await getSessionOrError();
+  if (!session) return [];
+  const needle = normalizeSeriesName(prefix);
+  if (needle.length < 2) return [];
+
+  const { data, error } = await session.supabase
+    .from("series")
+    .select("id, name")
+    .like("name_normalized", `${escapeIlikePattern(needle)}%`)
+    .order("name")
+    .limit(SERIES_SUGGESTION_LIMIT);
+  if (error) {
+    console.error("[series] searchSeries:", error.message);
+    return [];
+  }
+  return data ?? [];
 }
 
 /** Relier (ou détacher, `null`) UN de ses livres à une série du référentiel. */

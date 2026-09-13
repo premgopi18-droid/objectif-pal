@@ -37,6 +37,7 @@ const volume = (number: string | null, state: State, seriesId = "s1"): SeriesBoo
   id: `b-${seriesId}-${number ?? "x"}-${state}`,
   seriesId,
   title: `Tome ${number ?? "?"}`,
+  category: "bd",
   issueNumber: number,
   coverUrl: null,
   purchases: [],
@@ -176,6 +177,17 @@ describe("deriveSeriesProgress — lus · dans la pile · total", () => {
     expect(progress.isVisible).toBe(false);
     // Avec un tome lu et un dans la pile, si.
     expect(deriveSeriesProgress(series(), [volume("1", "read"), volume("2", "pile")]).isVisible).toBe(true);
+  });
+
+  it("la catégorie affichée est celle de la majorité des tomes, pas la colonne de la série (review #295)", () => {
+    const progress = deriveSeriesProgress(series({ category: "comics" }), [
+      { ...volume("1", "read"), category: "manga" },
+      { ...volume("2", "read"), category: "manga" },
+      { ...volume("3", "pile"), category: "bd" },
+    ]);
+    expect(progress.category).toBe("manga");
+    // Sans livre, la colonne sert de repli.
+    expect(deriveSeriesProgress(series({ category: "comics" }), []).category).toBe("comics");
   });
 
   it("un numéro non canonique (« Tome 02 ») est lu comme 2", () => {

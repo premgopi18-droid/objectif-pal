@@ -14,6 +14,7 @@ import {
 } from "@/lib/books/book-edit";
 import type { SeriesAlignProposal } from "@/lib/books/series-align";
 import { userFacingSqlError } from "@/lib/supabase/user-facing-sql-error";
+import { parseVolumeNumber } from "@/lib/resolution/volume-number";
 import { findOrCreateSeriesId } from "@/lib/series/link";
 
 /**
@@ -165,6 +166,27 @@ async function findSeriesAlignProposal(
   if (!count) return null;
 
   return { seriesId, seriesName: payload.series_name, category: payload.category, divergentCount: count };
+}
+
+/**
+ * Numéroter un tome depuis la fiche série (lot B, §4.17 « geste 2 ») : le
+ * même chemin d'écriture que l'édition de fiche, réduit à `issue_number`. Le
+ * numéro est canonisé (« Tome 02 » → « 2 ») ; un texte qui n'en est pas un
+ * est refusé plutôt qu'écrit — la progression ne doit jamais lire du faux.
+ */
+export async function setVolumeNumber(
+  bookId: string,
+  rawNumber: string,
+): Promise<{ ok: true; issueNumber: string } | { ok: false; error: string }> {
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+
+  const issueNumber = parseVolumeNumber(rawNumber);
+  if (issueNumber === null) return { ok: false, error: "Ce n'est pas un numéro de tome." };
+
+  const written = await writeBookFields(session, bookId, { issue_number: issueNumber }, "setVolumeNumber");
+  if (!written.ok) return written;
+  return { ok: true, issueNumber };
 }
 
 /**

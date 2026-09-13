@@ -3,6 +3,7 @@
 import { useState, useTransition } from "react";
 import { BookCover } from "@/components/book-cover";
 import { CategoryPicker } from "@/components/category-picker";
+import { SeriesNameCombobox } from "@/components/library/series-name-combobox";
 import { Button } from "@/components/ui/button";
 import { deriveCoverSheetState } from "@/lib/covers/sheet-state";
 import { updateBookDetails } from "@/lib/books/library-actions";
@@ -115,7 +116,9 @@ export function BookEditForm({
       <div className="flex gap-3">
         <label className="flex flex-1 flex-col gap-1.5 text-sm">
           <span className="font-medium text-ink2">Série</span>
-          <input value={seriesName} onChange={(event) => setSeriesName(event.target.value)} className={INPUT_CLASS} />
+          {/* Les séries du référentiel en suggestions (lot B, §4.17) : choisir
+              en pose le nom exact, taper un nouveau nom la crée à l'enregistrement. */}
+          <SeriesNameCombobox value={seriesName} onChange={setSeriesName} className={INPUT_CLASS} />
         </label>
         <label className="flex w-24 flex-col gap-1.5 text-sm">
           <span className="font-medium text-ink2">N°</span>
