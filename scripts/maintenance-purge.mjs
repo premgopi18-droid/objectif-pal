@@ -59,8 +59,14 @@ const PAGE = 100;
 const publicUrlToPath = (coverUrl) => {
   const prefix = `${url}/storage/v1/object/public/${COVERS_BUCKET}/`;
   if (!coverUrl || !coverUrl.startsWith(prefix)) return null;
-  // La version de cache (?v=…) ne fait pas partie du chemin objet.
-  return decodeURIComponent(coverUrl.slice(prefix.length).split("?")[0]);
+  // La version de cache (?v=…) ne fait pas partie du chemin objet. Une URL
+  // malformée (`%E0` orphelin, posable par un client) ne doit pas faire
+  // tomber le job mensuel (audit #274) : elle n'est juste pas une référence.
+  try {
+    return decodeURIComponent(coverUrl.slice(prefix.length).split("?")[0]);
+  } catch {
+    return null;
+  }
 };
 
 // ── 1. Les chemins RÉFÉRENCÉS — books (soft-supprimés compris) et inbox en attente.

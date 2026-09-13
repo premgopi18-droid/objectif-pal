@@ -82,10 +82,13 @@ export function LibraryView({ entries: serverEntries, focusBookId = null }: Libr
     () => serverEntries.map((entry) => (coverOverrides[entry.bookId] ? { ...entry, ...coverOverrides[entry.bookId] } : entry)),
     [serverEntries, coverOverrides],
   );
-  const coverSheetBook = useMemo(
-    () => entries.find((entry) => entry.bookId === coverSheetBookId) ?? null,
-    [entries, coverSheetBookId],
-  );
+  // `hasCode` dès l'ouverture (audit #274) : la Biblio sait qu'un livre est
+  // saisi à la main — la feuille n'affiche pas un squelette « Proposées »
+  // pour le faire disparaître une seconde plus tard.
+  const coverSheetBook = useMemo(() => {
+    const entry = entries.find((candidate) => candidate.bookId === coverSheetBookId);
+    return entry ? { ...entry, hasCode: entry.hasBarcode } : null;
+  }, [entries, coverSheetBookId]);
   const closeCoverSheet = useCallback(() => setCoverSheetBookId(null), []);
   const onCoverChanged = useCallback((bookId: string, cover: CoverOverride) => {
     setCoverOverrides((previous) => ({ ...previous, [bookId]: cover }));

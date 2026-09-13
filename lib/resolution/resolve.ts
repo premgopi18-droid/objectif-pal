@@ -217,7 +217,8 @@ async function enrichCoverWithGoogleBooks(
  * sans clé, chacun croque dans le reliquat du précédent. epagine ferme la
  * marche : le mieux fourni en VF récente, mais le seul sans engagement
  * d'ouverture — on ne le sollicite que quand tout le reste a échoué.
- * La photo (#33) reste le filet ultime.
+ * Et la photo reste toujours possible (#275 : elle n'est plus un « filet »
+ * mais un choix comme un autre).
  */
 async function findFallbackCoverByIsbn(
   deps: ResolutionDeps,

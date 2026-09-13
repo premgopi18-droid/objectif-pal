@@ -22,6 +22,10 @@ import { OUTBOUND_USER_AGENT, PROVIDER_REQUEST_TIMEOUT_MILLISECONDS, ProviderUna
  */
 
 const COMIC_VINE_API = "https://comicvine.gamespot.com/api";
+/** Ce qu'un numéro d'issue peut contenir chez eux : chiffres, lettres, `.`, `-`, `/` (« 1.5 », « 12A », « 1/2 »). */
+const ISSUE_NUMBER_PATTERN = /^[A-Za-z0-9.\-/]{1,12}$/;
+/** Les bornes de recherche — volumes candidats, issues par volume. */
+const COMIC_VINE_SEARCH_LIMITS = { volumes: 10, issues: 1 } as const;
 
 export type ComicVineCover = {
   url: string;
@@ -43,6 +47,8 @@ type Envelope<T> = { status_code?: number; error?: string; results?: T };
 const normalizeName = (name: string): string =>
   name
     .normalize("NFD")
+    // La plage des diacritiques en ÉCHAPPEMENTS (leçon review #63) : les
+    // caractères combinants bruts sont invisibles et cassables à la normalisation.
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")
@@ -95,11 +101,15 @@ export function createComicVineProvider(
       const seriesName = query.seriesName.trim();
       const issueNumber = query.issueNumber.trim();
       if (seriesName.length === 0 || issueNumber.length === 0) return [];
+      // Le numéro entre dans leur `filter=volume:…,issue_number:…` (audit
+      // #274) : une virgule ou un `|` réécrirait le filtre. Hors de leur
+      // alphabet, on ne cherche pas.
+      if (!ISSUE_NUMBER_PATTERN.test(issueNumber)) return [];
 
       const volumes = await requestJson<VolumeResult[]>("/search/", {
         resources: "volume",
         query: seriesName,
-        limit: "10",
+        limit: String(COMIC_VINE_SEARCH_LIMITS.volumes),
         field_list: "id,name,start_year",
       });
       const volume = pickVolume(volumes, seriesName, query.startYear);
@@ -108,7 +118,7 @@ export function createComicVineProvider(
       const issues = await requestJson<IssueResult[]>("/issues/", {
         filter: `volume:${volume.id},issue_number:${issueNumber}`,
         field_list: "id,image,associated_images,site_detail_url",
-        limit: "1",
+        limit: String(COMIC_VINE_SEARCH_LIMITS.issues),
       });
       const issue = issues[0];
       if (!issue) return [];

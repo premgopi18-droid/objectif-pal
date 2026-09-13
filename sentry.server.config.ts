@@ -1,4 +1,5 @@
 import * as Sentry from "@sentry/nextjs";
+import { stripBreadcrumbQuery } from "./sentry.breadcrumbs";
 
 /**
  * L'init Sentry du runtime NODEJS (issue #181) — chargé dynamiquement par
@@ -9,4 +10,6 @@ Sentry.init({
   dsn: process.env.SENTRY_DSN ?? process.env.NEXT_PUBLIC_SENTRY_DSN,
   tracesSampleRate: 0,
   sendDefaultPii: false,
+  // Jamais une clé d'API (query des fetch sortants) dans un événement (audit #274).
+  beforeBreadcrumb: stripBreadcrumbQuery,
 });

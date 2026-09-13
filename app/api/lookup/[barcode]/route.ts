@@ -1,3 +1,4 @@
+import { isSharedCoverUrl } from "@/lib/books/cover-photo";
 import { findBookInLibrary } from "@/lib/books/library-lookup";
 import { withContributionCover } from "@/lib/covers/contributions";
 import { classifyScannedCode } from "@/lib/resolution/barcode-router";
@@ -69,5 +70,8 @@ async function applyContributionCover(
     console.error("[lookup] get_cover_contributions:", error.message);
     return result;
   }
-  return withContributionCover(result, data?.[0]?.cover_url ?? null);
+  // Défense en profondeur (audit #274) : seule une URL du dossier commun peut
+  // devenir la couverture par défaut de quelqu'un, quoi que la table contienne.
+  const contribution = (data ?? []).find((row) => isSharedCoverUrl(row.cover_url));
+  return withContributionCover(result, contribution?.cover_url ?? null);
 }

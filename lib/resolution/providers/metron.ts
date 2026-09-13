@@ -108,7 +108,8 @@ export function createMetronProvider(
     const mainCoverUrl = detail.image ?? item.image ?? null;
     return {
       metronId: item.id,
-      issueName: item.issue ?? null,
+      // Par identifiant direct la liste n'a pas été lue : le nom vient du détail.
+      issueName: item.issue ?? (detail.series?.name && detail.number ? `${detail.series.name} #${detail.number}` : null),
       seriesName: detail.series?.name ?? null,
       number: detail.number ?? item.number ?? null,
       coverUrl: matched?.coverUrl ?? mainCoverUrl,
@@ -135,15 +136,34 @@ export function createMetronProvider(
     /** Par UPC : exact d'abord, puis normalisé sur la couverture principale. */
     async findIssueByUpc(upc: string): Promise<MetronIssue | null> {
       if (!authorization) return null;
-      const candidates = [upc];
+      const upcsToTry = [upc];
       const normalized = normalizeUpcForMetron(upc);
-      if (normalized && normalized !== upc) candidates.push(normalized);
+      if (normalized && normalized !== upc) upcsToTry.push(normalized);
 
-      for (const candidate of candidates) {
-        const item = await firstListItem(`/issue/?upc=${candidate}`);
+      for (const candidate of upcsToTry) {
+        // Encodé (audit #274) : le code vient de la base, jamais brut dans une
+        // requête authentifiée du compte de service.
+        const item = await firstListItem(`/issue/?upc=${encodeURIComponent(candidate)}`);
         if (item) return toIssue(item, upc);
       }
       return null;
+    },
+
+    /**
+     * Par identifiant Metron connu (`books.metadata_source_id` d'un livre résolu
+     * chez eux) : le DÉTAIL directement — UN tick au lieu de deux ou trois
+     * (audit #274 : le quota Metron est le plus rare de l'app et il est partagé
+     * avec le scan). Le code scanné choisit la variante comme ailleurs.
+     */
+    async findIssueById(metronId: number, scannedUpc: string | null = null): Promise<MetronIssue | null> {
+      if (!authorization || !Number.isInteger(metronId) || metronId <= 0) return null;
+      try {
+        return await toIssue({ id: metronId }, scannedUpc);
+      } catch (error) {
+        // Un 404 (issue supprimée chez eux) est une absence, pas une panne.
+        if (error instanceof Error && !(error instanceof ProviderUnavailableError) && /HTTP 404/.test(error.message)) return null;
+        throw error;
+      }
     },
   };
 }

@@ -47,34 +47,43 @@ export async function getCoverCandidates(bookId: string): Promise<CoverCandidate
 
   // Sans code exploitable (saisie manuelle), aucune source à interroger —
   // et pas de tick de quota pour rien (review #281).
-  const target = {
-    barcodeType: book.barcode_type as "isbn" | "upc" | null,
-    barcode: book.barcode_raw,
-    isbn: book.isbn,
-    // Comic Vine (#279) n'a pas de code-barres : série + numéro, et l'année de
-    // début de la série si GCD la connaît (départage Nightwing 1996 / 2016).
-    seriesName: book.series_name,
-    issueNumber: book.issue_number,
-    // …et seulement si Comic Vine est branché (review #284) : deux lectures
-    // admin pour rien sinon — le même signal que `isEnabled()`.
-    startYear:
-      book.barcode_type === "upc" && Boolean(process.env.COMIC_VINE_API_KEY)
-        ? await gcdSeriesStartYear(book.metadata_source, book.metadata_source_id)
-        : null,
-  };
-  const hasCode = (target.barcodeType === "upc" && target.barcode !== null) || (target.barcodeType === "isbn" && target.isbn !== null);
+  const barcodeType = book.barcode_type;
+  const hasCode = (barcodeType === "upc" && book.barcode_raw !== null) || (barcodeType === "isbn" && book.isbn !== null);
   if (!hasCode) return { ok: true, candidates: [], degraded: false };
 
-  // Le quota AVANT les sources : une salve d'ouvertures est un emballement,
-  // et Google Books partage 900 appels par jour entre tout le monde.
+  // Le quota AVANT les sources — et avant toute lecture de plus (audit #274) :
+  // une salve d'ouvertures est un emballement, et Google Books partage 900
+  // appels par jour entre tout le monde.
   if (!(await isActionAllowed(supabase, "cover_candidates"))) {
     return { ok: false, error: LOOKUP_RATE_LIMIT_MESSAGE };
   }
 
+  const deps = createDefaultDeps();
+  const target = {
+    barcodeType,
+    barcode: book.barcode_raw,
+    isbn: book.isbn,
+    // L'origine de la fiche (audit #274) : un livre résolu chez Metron ou GCD
+    // lit son détail en un ou deux ticks, sans repasser par les listes.
+    metadataSource: book.metadata_source,
+    metadataSourceId: book.metadata_source_id,
+    // Comic Vine (#279) n'a pas de code-barres : série + numéro, et l'année de
+    // début de la série si GCD la connaît (départage Nightwing 1996 / 2016) —
+    // lue seulement si Comic Vine est branché (review #284).
+    seriesName: book.series_name,
+    issueNumber: book.issue_number,
+    startYear:
+      barcodeType === "upc" && deps.comicVine.isEnabled()
+        ? await gcdSeriesStartYear(book.metadata_source, book.metadata_source_id)
+        : null,
+  };
+
   // Les contributions des autres (#278) partent en parallèle des sources : une
-  // fonction `security definer` qui ne rend que le pseudo des membres du cercle.
+  // fonction `security definer` qui ne rend le pseudo qu'entre amis acceptés.
+  // Défense en profondeur (audit #274) : seule une URL du dossier commun est
+  // proposée, quoi que la table contienne.
   const [{ candidates, degraded }, contributions] = await Promise.all([
-    listCoverCandidates(target, createDefaultDeps()),
+    listCoverCandidates(target, deps),
     target.barcode === null
       ? Promise.resolve([] as CoverCandidate[])
       : supabase
@@ -84,12 +93,15 @@ export async function getCoverCandidates(bookId: string): Promise<CoverCandidate
               console.error("[covers] get_cover_contributions:", rpcError.message);
               return [] as CoverCandidate[];
             }
-            return (data ?? []).map((row) => ({
-              url: row.cover_url,
-              source: "contribution" as const,
-              label: contributionLabel(row.contributor_label),
-              preselected: false,
-            }));
+            return (data ?? [])
+              .filter((row) => isSharedCoverUrl(row.cover_url))
+              .map((row) => ({
+                url: row.cover_url,
+                source: "contribution" as const,
+                // Le type généré dit `string`, le SQL rend null hors amitié acceptée.
+                label: contributionLabel(row.contributor_label),
+                preselected: false,
+              }));
           }),
   ]);
   // La couverture actuelle est déjà en tête de la feuille : pas deux fois. Une
@@ -173,7 +185,11 @@ async function gcdSeriesStartYear(metadataSource: string, metadataSourceId: stri
   if (metadataSource !== "gcd" || metadataSourceId === null || !/^\d+$/.test(metadataSourceId)) return null;
   try {
     const admin = createAdminClient();
-    const { data: issue } = await admin.from("gcd_issues").select("series_id").eq("gcd_id", Number(metadataSourceId)).maybeSingle();
+    // `gcd_id` n'est PAS unique (une ligne par code-barres d'une issue, §7) :
+    // `maybeSingle()` jetait sur les issues à variantes — celles où l'année
+    // compte (audit #274). La première ligne suffit, la série est la même.
+    const { data: issues } = await admin.from("gcd_issues").select("series_id").eq("gcd_id", Number(metadataSourceId)).limit(1);
+    const issue = issues?.[0];
     if (!issue?.series_id) return null;
     const { data: series } = await admin.from("gcd_series").select("year_began").eq("id", issue.series_id).maybeSingle();
     return series?.year_began ?? null;

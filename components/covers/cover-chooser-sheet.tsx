@@ -1,6 +1,5 @@
 "use client";
 
-import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { BookCover } from "@/components/book-cover";
 import { ErrorAlert } from "@/components/error-alert";
@@ -94,7 +93,6 @@ export function CoverChooserSheet({ book, onClose, onChanged }: CoverChooserShee
 }
 
 function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps & { book: CoverSheetBook }) {
-  const router = useRouter();
   const cameraInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const firstActionRef = useRef<HTMLButtonElement>(null);
@@ -160,7 +158,7 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
     setError(null);
     setSuccess(null);
     try {
-      applied(await chooseCover(book.bookId, candidate.url), new Date().toISOString(), "Couverture choisie ✓");
+      applyCoverResult(await chooseCover(book.bookId, candidate.url), new Date().toISOString(), "Couverture choisie ✓");
       hideCandidate(candidate.url);
     } catch {
       setError(NETWORK_ERROR_MESSAGE);
@@ -198,7 +196,7 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
         // cochée, et décocher retire. Une photo, elle, attend le geste.
         const shareState = deriveShareState({ coverUrl: state.coverUrl, barcodeRaw: state.barcodeRaw, sharedSourceCoverUrl: state.sharedSourceCoverUrl });
         if (shareState.shareable && shareState.defaultChecked && !shareState.shared && !shareState.stale) {
-          shareCover(initial.bookId)
+          shareCover(initial.bookId, { silent: true })
             .then((result) => {
               if (!cancelled && result.ok && result.shared) setBook((previous) => ({ ...previous, sharedSourceCoverUrl: previous.coverUrl }));
             })
@@ -251,7 +249,8 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
     }
   }
 
-  const applied = (result: CoverActionResult, chosenAt: string | null, message: string) => {
+  // Déclaration hoistée : les handlers plus haut l'appellent avant sa ligne.
+  function applyCoverResult(result: CoverActionResult, chosenAt: string | null, message: string) {
     if (!result.ok) {
       setError(result.error);
       return;
@@ -260,10 +259,10 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
     setBook((previous) => ({ ...previous, ...cover }));
     setSuccess(message);
     onChanged(book.bookId, cover);
-    // Les Server Components (Journal, Bilan) se resynchronisent ; la liste du
-    // parent, elle, a déjà bougé via onChanged.
-    router.refresh();
-  };
+    // Pas de router.refresh() (audit #274) : les actions font déjà
+    // revalidatePath, et la réponse d'une Server Action porte le re-rendu de
+    // la route courante — un refresh de plus, c'est la Biblio relue deux fois.
+  }
 
   async function handleFile(file: File) {
     setBusy("upload");
@@ -290,7 +289,7 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
         setError("L'envoi de la photo a échoué — réessaie.");
         return;
       }
-      applied(
+      applyCoverResult(
         await recordCoverPhoto(book.bookId),
         new Date().toISOString(),
         book.coverUrl === null ? "Couverture ajoutée ✓" : "Couverture remplacée ✓",
@@ -308,7 +307,7 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
     setError(null);
     setSuccess(null);
     try {
-      applied(await resetCoverToAutomatic(book.bookId), null, "L'app a repris la main ✓");
+      applyCoverResult(await resetCoverToAutomatic(book.bookId), null, "L'app a repris la main ✓");
       setConfirmReset(false);
     } catch {
       setError(NETWORK_ERROR_MESSAGE);

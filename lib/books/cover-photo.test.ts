@@ -169,3 +169,15 @@ describe("le pool partagé (#278)", () => {
     expect(coverStoragePathFromUrl(HOUSE_URL, undefined)).toBeNull();
   });
 });
+
+describe("durcissement après audit (#274)", () => {
+  it("un ISBN avec son supplément prix (18 chiffres) est admissible dans le pool", () => {
+    expect(isSharedPoolBarcode("978207034226690000")).toBe(true);
+    expect(isSharedPoolBarcode("9782070342266900001")).toBe(false);
+  });
+
+  it("une URL malformée (%E0 orphelin) n'est pas un chemin — pas une exception", () => {
+    expect(coverStoragePathFromUrl(`${SUPABASE_URL}/storage/v1/object/public/covers/user-1/%E0`, SUPABASE_URL)).toBeNull();
+    expect(isSharedCoverUrl(`${SUPABASE_URL}/storage/v1/object/public/covers/shared/%E0`, SUPABASE_URL)).toBe(false);
+  });
+});
