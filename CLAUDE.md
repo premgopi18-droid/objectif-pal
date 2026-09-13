@@ -114,6 +114,18 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 > OpenLibrary (proposées, jamais imposées ; Inventaire à mesurer). **Pool partagé** (`cover_contributions`,
 > copie serveur dans `covers/shared/`, pseudo réservé au cercle, isolation prouvée en CI). **Comic Vine**
 > débranchable, jamais rapatrié, livré clé absente (`COMIC_VINE_API_KEY`).
+> **Les 13-14/09/2026, le suivi de séries (epic #289, PRs #294→#297, 731 → 833 tests, specs §4.17)** — décision
+> structurante : **le partage entre membres est un objectif**, donc un **référentiel de séries PARTAGÉ** entre
+> comptes (`series`, `series_external_ids` — plusieurs identifiants par série, la BnF en donne un par ÉDITION —,
+> `series_events` en ajout seul, `books.series_id`), écrit par RPC `security definer` seulement, cloisonnement
+> prouvé en CI. **Lot 0** : le provider BnF lit l'UNIMARC (zone 461 : série, tome, identifiant — 7 → 40 séries
+> captées sur 80 ISBN mesurés), parseur de tomes `lib/resolution/volume-number.ts`, rattrapage
+> `series:backfill-bnf`. **Lot A** : le modèle + `lib/series/derive-series.ts` (lus · dans la pile · total
+> déclaré par un humain, tome suivant, cinq états, seuil 2 livres), `series:link-backfill`. **Lot B** : segment
+> « Séries » de la Biblio, fiche, déclarer / numéroter / fusionner, combobox de série. **Lot C** : « Mes séries »
+> dans les Stats (le catalogue GCD de #30 lot B est RETIRÉ, §4.5 en historique) et le mode « on continue une
+> série » de la roulette. GCD n'est plus qu'un indice vivant (max numéro, jamais stocké). ⚠️ Les deux runs
+> `--apply` (rattrapage BnF puis rattachement du parc) se lancent à la main, dans cet ordre.
 
 ## Stack
 
