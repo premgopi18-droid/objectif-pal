@@ -159,6 +159,18 @@ export default async function ProfilPage() {
             catalogue général de la BnF
           </a>
           .
+          {/* Comic Vine (#279) : le lien retour exigé par leurs conditions — dès
+              que la clé est posée, et seulement alors (débranchable). */}
+          {process.env.COMIC_VINE_API_KEY && (
+            <>
+              {" "}
+              Couvertures VO complémentaires :{" "}
+              <a href="https://comicvine.gamespot.com" className="text-ink2 underline" rel="noopener noreferrer" target="_blank">
+                Comic Vine
+              </a>{" "}
+              (usage non commercial).
+            </>
+          )}
         </p>
       </footer>
     </section>

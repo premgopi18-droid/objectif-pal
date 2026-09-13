@@ -42,6 +42,8 @@ const nextConfig: NextConfig = {
       { protocol: "https", hostname: "inventaire.io" },
       { protocol: "https", hostname: "openapi.bnf.fr", pathname: "/couverture/**" },
       { protocol: "https", hostname: "images.epagine.fr", pathname: "/**/*.jpg" },
+      // Comic Vine (#279) : lien direct, jamais rapatrié — leurs images restent chez eux.
+      { protocol: "https", hostname: "comicvine.gamespot.com", pathname: "/a/uploads/**" },
       ...(supabaseHostname
         ? [{ protocol: "https" as const, hostname: supabaseHostname, pathname: "/storage/v1/object/public/**" }]
         : []),

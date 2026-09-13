@@ -117,6 +117,10 @@ const { data: candidates, error: selectError } = await admin
   .select("id, user_id, cover_url")
   .not("cover_url", "is", null)
   .not("cover_url", "like", `${internalPrefix}%`)
+  // Comic Vine (#279) : JAMAIS rapatrié (« ne pas reproduire sur un autre
+  // support ») — exclu dès la sélection pour ne pas le compter en « hôte
+  // inconnu sauté » chaque nuit. L'hôte reste absent de KNOWN_COVER_HOSTNAMES ici.
+  .not("cover_url", "like", "https://comicvine.gamespot.com/%")
   .is("deleted_at", null)
   .order("created_at", { ascending: true })
   .limit(MAX_PER_RUN);

@@ -9,6 +9,7 @@ import { validateEditionQuery } from "@/lib/covers/edition-query";
 import { contributionLabel } from "@/lib/covers/share-state";
 import { isActionAllowed, LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
 import { createDefaultDeps } from "@/lib/resolution/resolve";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionOrError } from "@/lib/supabase/server";
 import type { CoverActionResult } from "@/lib/books/cover-actions";
 
@@ -33,7 +34,7 @@ export async function getCoverCandidates(bookId: string): Promise<CoverCandidate
 
   const { data: book, error } = await supabase
     .from("books")
-    .select("barcode_type, barcode_raw, isbn, cover_url")
+    .select("barcode_type, barcode_raw, isbn, cover_url, series_name, issue_number, metadata_source, metadata_source_id")
     .eq("id", bookId)
     .eq("user_id", user.id)
     .is("deleted_at", null)
@@ -46,7 +47,16 @@ export async function getCoverCandidates(bookId: string): Promise<CoverCandidate
 
   // Sans code exploitable (saisie manuelle), aucune source à interroger —
   // et pas de tick de quota pour rien (review #281).
-  const target = { barcodeType: book.barcode_type as "isbn" | "upc" | null, barcode: book.barcode_raw, isbn: book.isbn };
+  const target = {
+    barcodeType: book.barcode_type as "isbn" | "upc" | null,
+    barcode: book.barcode_raw,
+    isbn: book.isbn,
+    // Comic Vine (#279) n'a pas de code-barres : série + numéro, et l'année de
+    // début de la série si GCD la connaît (départage Nightwing 1996 / 2016).
+    seriesName: book.series_name,
+    issueNumber: book.issue_number,
+    startYear: book.barcode_type === "upc" ? await gcdSeriesStartYear(book.metadata_source, book.metadata_source_id) : null,
+  };
   const hasCode = (target.barcodeType === "upc" && target.barcode !== null) || (target.barcodeType === "isbn" && target.isbn !== null);
   if (!hasCode) return { ok: true, candidates: [], degraded: false };
 
@@ -146,4 +156,24 @@ export async function searchEditionCovers(
 
   const { candidates, degraded } = await listEditionCandidates(validation.query, createDefaultDeps());
   return { ok: true, candidates: candidates.filter((candidate) => candidate.url !== book.cover_url), degraded };
+}
+
+/**
+ * L'année de début de la série GCD d'un livre (#279) — pour départager les
+ * volumes homonymes chez Comic Vine. Lecture des tables de référence (client
+ * admin, comme la résolution) ; `null` si le livre ne vient pas de GCD ou si
+ * la ligne a disparu du dump.
+ */
+async function gcdSeriesStartYear(metadataSource: string, metadataSourceId: string | null): Promise<number | null> {
+  if (metadataSource !== "gcd" || metadataSourceId === null || !/^\d+$/.test(metadataSourceId)) return null;
+  try {
+    const admin = createAdminClient();
+    const { data: issue } = await admin.from("gcd_issues").select("series_id").eq("gcd_id", Number(metadataSourceId)).maybeSingle();
+    if (!issue?.series_id) return null;
+    const { data: series } = await admin.from("gcd_series").select("year_began").eq("id", issue.series_id).maybeSingle();
+    return series?.year_began ?? null;
+  } catch (error) {
+    console.error("[covers] gcdSeriesStartYear:", error instanceof Error ? error.message : String(error));
+    return null;
+  }
 }

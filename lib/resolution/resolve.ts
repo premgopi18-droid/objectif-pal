@@ -7,6 +7,7 @@ import {
 import { createBnfProvider, type BnfProvider } from "./providers/bnf";
 import { createBnfCoversProvider, type BnfCoversProvider } from "./providers/bnf-covers";
 import { createCacheProvider, type CacheProvider } from "./providers/cache";
+import { createComicVineProvider, type ComicVineProvider } from "./providers/comic-vine";
 import { createEpagineProvider, type EpagineProvider } from "./providers/epagine";
 import {
   createGcdProvider,
@@ -70,6 +71,12 @@ export type ResolutionDeps = {
   bnfCovers: BnfCoversProvider;
   epagine: EpagineProvider;
   metron: MetronProvider;
+  /**
+   * Comic Vine (#279) : JAMAIS appelé par la cascade ni la réparation — il ne
+   * sert qu'aux candidates de la feuille (usage non commercial, lien direct).
+   * Muet sans `COMIC_VINE_API_KEY`.
+   */
+  comicVine: ComicVineProvider;
   cache: CacheProvider;
 };
 
@@ -83,6 +90,7 @@ export function createDefaultDeps(): ResolutionDeps {
     bnfCovers: createBnfCoversProvider(),
     epagine: createEpagineProvider(),
     metron: createMetronProvider(),
+    comicVine: createComicVineProvider(),
     cache: createCacheProvider(),
   };
 }

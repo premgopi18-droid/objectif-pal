@@ -39,6 +39,7 @@ function fakeDeps(overrides: {
   bnfCovers?: Partial<ResolutionDeps["bnfCovers"]>;
   epagine?: Partial<ResolutionDeps["epagine"]>;
   metron?: Partial<ResolutionDeps["metron"]>;
+  comicVine?: Partial<ResolutionDeps["comicVine"]>;
   cache?: Partial<ResolutionDeps["cache"]>;
 } = {}): ResolutionDeps {
   return {
@@ -61,6 +62,7 @@ function fakeDeps(overrides: {
       findIssueByUpc: vi.fn(async () => null),
       ...overrides.metron,
     },
+    comicVine: { isEnabled: () => true, findIssueCovers: vi.fn(async () => []), ...overrides.comicVine },
     cache: {
       get: vi.fn(async () => null),
       set: vi.fn(async () => {}),
@@ -961,5 +963,25 @@ describe("les autres éditions ne sont jamais posées toutes seules (#277)", () 
     await resolveScannedCode("9782723488525", deps);
     await findReplacementCover({ barcodeType: "isbn", isbn: "9782723488525", barcode: "9782723488525" }, deps);
     expect(searchEditionCovers).not.toHaveBeenCalled();
+  });
+});
+
+/**
+ * Comic Vine (#279) : usage non commercial, lien direct — il ne sert qu'aux
+ * candidates de la feuille. Ni la cascade ni la réparation ne l'appellent.
+ */
+describe("Comic Vine n'entre jamais dans la cascade (#279)", () => {
+  it("resolveScannedCode et findReplacementCover n'appellent jamais findIssueCovers", async () => {
+    const findIssueCovers = vi.fn(async () => []);
+    const deps = fakeDeps({
+      gcd: {
+        findIssuesByBarcode: vi.fn(async () => [gcdIssue()]),
+        getSeriesByIds: vi.fn(async () => new Map([[42, gcdSeries()]])),
+      },
+      comicVine: { isEnabled: () => true, findIssueCovers },
+    });
+    await resolveScannedCode("76194134174312311", deps);
+    await findReplacementCover({ barcodeType: "upc", isbn: null, barcode: "76194134174312311" }, deps);
+    expect(findIssueCovers).not.toHaveBeenCalled();
   });
 });

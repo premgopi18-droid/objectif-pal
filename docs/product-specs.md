@@ -1088,7 +1088,7 @@ commercialement.** C'est logique — une couverture est une **œuvre sous copyri
 
 | Source | Verdict |
 |---|---|
-| **Comic Vine** | La plus grosse base d'images, indé compris — mais **usage commercial explicitement interdit** (clé révoquée), 200 req/h. |
+| **Comic Vine** | La plus grosse base d'images, indé compris — mais **usage commercial explicitement interdit** (clé révoquée), 200 req/h. ✅ **Ajoutée le 13/09/2026 (#279), l'app étant non commerciale** : source de **candidates** de la feuille seulement (jamais la cascade), **lien direct jamais rapatrié** (clause « ne pas reproduire »), lien retour au pied du Profil, **débranchable** en retirant `COMIC_VINE_API_KEY`. Mesuré sur *Absolute Green Arrow* #4 : 2 images là où Metron en a 8 — son apport, c'est l'indé. |
 | **GCD** | Les scans existent sur le site mais **pas dans le dump** (vérifié : aucune table `cover`). Hotlinker = fragile et discourtois. |
 | **Google Books** | Couvertures **par ISBN seulement** → parfait pour BD, manga, roman, TPB, omnibus. **Inutile pour les fascicules**, et **exige une clé** (429 systématique sans clé, même en résidentiel). |
 | **BnF** | Identifie très bien (95 %) et, depuis le **17/02/2026**, expose un **Service Couvertures officiel** (bêta) — ✅ **ajouté le 19/07/2026** : par ISBN/EAN/ark, gratuit, sans clé, conditions BnF (source créditée). Mesuré : HEAD refusé (405), **image absente = HTTP 500** (pas 404), fonds récent clairsemé. |
@@ -1099,7 +1099,8 @@ commercialement.** C'est logique — une couverture est une **œuvre sous copyri
 | **League of Comic Geeks / CLZ / Bedetheque** | Vérifié le 19/07/2026 : **aucune API publique** — communautés fair use ou base propriétaire payante. Le problème est structurel, pas un trou de recherche. |
 | **epagine (`images.epagine.fr`)** | ✅ **Ajoutée le 19/07/2026** — le CDN d'images des libraires français (Place des Libraires, leslibraires.fr) : **la mieux fournie en VF récente** (mesuré : seule source à avoir un Urban Comics 2022 absent partout ailleurs). **Pas d'API publique ni de licence affichée** : hotlink assumé, en **dernier cran seulement**, avec la réparation des couvertures comme filet (voir décision ci-dessous). Motif d'URL mesuré : `/{3 derniers chiffres ISBN}/{isbn}_1_75.jpg` ; **ISBN inconnu = HTTP 200 mais placeholder PNG** (2 687 o) — les vraies couvertures sont des JPEG. |
 
-> **Comic Vine, décision du 19/07/2026** : différée. La plus riche des bases VO (indés compris) mais licence
+> **Comic Vine, décision du 19/07/2026** (*levée le 13/09/2026, #279 — voir « Comic Vine, débranchable » plus
+> bas*) : différée. La plus riche des bases VO (indés compris) mais licence
 > **non-commerciale stricte** (clé révocable). À rouvrir **sur mesure d'usage** : si le filet photo se déclenche
 > trop souvent sur de la VO ancienne/indé, on tranchera alors la question « l'app restera-t-elle non
 > commerciale ? ».
@@ -1239,7 +1240,18 @@ redistribution), **zéro quota**, et c'est **l'exemplaire réel** avec sa vraie 
 >   comme référence). Table `cover_contributions` (RLS : lecture des vivantes par tous, écriture des siennes,
 >   pas de DELETE), **cloisonnement prouvé en CI** (B lit la contribution de A, ne l'écrit ni ne la modifie ;
 >   le CHECK refuse une URL hors de `shared/`). Export : mes contributions.
-> - À venir dans l'epic : **Comic Vine débranchable** (lot C, #279).
+> - **Comic Vine, débranchable (lot C, #279, livré le 13/09/2026).** L'encadré « différée » du 19/07/2026 est
+>   levé par la décision non commerciale. Conditions relues le 12/09/2026 : clé gratuite, non commercial strict,
+>   **200 req/ressource/h** (quota global `comic_vine_hourly` 150/h en SQL), mise en cache et **lien retour**
+>   obligatoires, « ne pas reproduire sur un autre support ». D'où : **candidates de la feuille seulement** (la
+>   cascade et la réparation ne l'appellent jamais — testé), **lien direct, jamais rapatrié** (`covers-internalize`
+>   l'exclut dès la sélection ; l'hôte est dans `remotePatterns` et la garde SSRF pour l'affichage et la
+>   re-vérification), légende « Comic Vine · {caption} », ligne d'attribution au pied du Profil **si la clé est
+>   posée**. Pas de code-barres chez eux : volume cherché par **nom de série normalisé puis année de début la plus
+>   proche** (celle de la série GCD), issue par numéro ; `image` + `associated_images[]` (variantes légendées),
+>   jamais présélectionnées. **Muet sans `COMIC_VINE_API_KEY`** (motif Google Books) — retirer la variable sur
+>   Vercel débranche ; `scripts/covers-comicvine-detach.mts` re-résout ensuite les livres qui pointaient chez eux
+>   et les repasse en automatique. La clé se pose **sur décision explicite**, le lot est livrable clé absente.
 
 > **Décisions du 19/07/2026 (deuxième vague — le trou VF)** — déclencheur : *Batman : La Cour des Hiboux*
 > (Urban Comics 2022, 9791026820963), fiche Google Books **sans image**, inconnu d'OpenLibrary, d'Inventaire
@@ -1366,7 +1378,11 @@ c'est de l'ingénierie pour l'ingénierie — et une CI cassée est plus pénibl
 ### Licence — obligation, pas option
 
 Données **GCD** et **Metron** en **CC BY-SA 4.0** → l'app **doit créditer les deux bases** (mention visible +
-lien). Commercialisation possible à cette condition.
+lien). Commercialisation possible à cette condition — **mais l'app est non commerciale depuis le 12/09/2026**
+(§5.4), ce qui a ouvert **Comic Vine** (#279) : ses conditions exigent un **lien retour** (au pied du Profil, dès
+que la clé est posée) et interdisent l'usage commercial et la reproduction (couvertures en lien direct, jamais
+rapatriées). Revenir au commercial = retirer la clé Comic Vine, jouer `scripts/covers-comicvine-detach.mts`,
+et fermer le pool partagé (#278).
 
 ---
 

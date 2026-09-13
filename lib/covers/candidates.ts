@@ -18,7 +18,9 @@ export type CoverCandidateSource =
   | "epagine"
   | "open_library_edition"
   /** Le pool partagé (#278) : la couverture d'un autre utilisateur pour le même code. */
-  | "contribution";
+  | "contribution"
+  /** Comic Vine (#279) : la VO que Metron n'a pas — lien direct, jamais rapatrié. */
+  | "comic_vine";
 
 export type CoverCandidate = {
   url: string;
@@ -37,7 +39,7 @@ export type CoverCandidatesResult = {
   degraded: boolean;
 };
 
-const SOURCE_LABELS: Record<Exclude<CoverCandidateSource, "metron" | "open_library_edition" | "contribution">, string> = {
+const SOURCE_LABELS: Record<Exclude<CoverCandidateSource, "metron" | "open_library_edition" | "contribution" | "comic_vine">, string> = {
   google_books: "Google Books",
   open_library: "OpenLibrary",
   inventaire: "Inventaire",
@@ -49,6 +51,10 @@ type CandidateBook = {
   barcodeType: "isbn" | "upc" | null;
   barcode: string | null;
   isbn: string | null;
+  /** Pour Comic Vine (#279), qui n'a pas de code-barres : la série et le numéro, et l'année de début si GCD la connaît. */
+  seriesName?: string | null;
+  issueNumber?: string | null;
+  startYear?: number | null;
 };
 
 /** Dédoublonne par URL exacte, ordre d'arrivée conservé. */
@@ -103,12 +109,18 @@ export async function listCoverCandidates(
   budgetMs: number = RESOLUTION_BUDGET_MILLISECONDS,
 ): Promise<CoverCandidatesResult> {
   if (book.barcodeType === "upc" && book.barcode) {
-    const { results, degraded } = await raceWithBudget([() => metronCandidates(deps, book.barcode as string)], budgetMs);
+    // Comic Vine (#279) APRÈS Metron dans l'ordre, en parallèle dans le temps :
+    // absent sans clé (muet), absent sans série+numéro (il n'a pas de code-barres).
+    const comicVineTask =
+      deps.comicVine.isEnabled() && book.seriesName && book.issueNumber
+        ? [() => comicVineCandidates(deps, { seriesName: book.seriesName as string, issueNumber: book.issueNumber as string, startYear: book.startYear ?? null })]
+        : [];
+    const { results, degraded } = await raceWithBudget([() => metronCandidates(deps, book.barcode as string), ...comicVineTask], budgetMs);
     return { candidates: dedupe(results.flat()), degraded };
   }
   if (book.barcodeType === "isbn" && book.isbn) {
     const isbn = book.isbn;
-    const single = (source: Exclude<CoverCandidateSource, "metron" | "open_library_edition" | "contribution">, lookup: () => Promise<string | null>) => async () => {
+    const single = (source: Exclude<CoverCandidateSource, "metron" | "open_library_edition" | "contribution" | "comic_vine">, lookup: () => Promise<string | null>) => async () => {
       const url = await lookup();
       return url ? [{ url, source, label: SOURCE_LABELS[source], preselected: false }] : [];
     };
@@ -205,3 +217,17 @@ const editionLabel = (edition: { workTitle: string | null; publisher: string | n
   const head = otherWork ?? "Autre édition";
   return detail.length > 0 ? `${head} · ${detail}` : `${head} · OpenLibrary`;
 };
+
+/** Comic Vine (#279) : principale puis variantes légendées, jamais présélectionnées (pas de code-barres chez eux). */
+async function comicVineCandidates(
+  deps: Pick<ResolutionDeps, "comicVine">,
+  query: { seriesName: string; issueNumber: string; startYear: number | null },
+): Promise<CoverCandidate[]> {
+  const covers = await deps.comicVine.findIssueCovers(query);
+  return covers.map((cover) => ({
+    url: cover.url,
+    source: "comic_vine" as const,
+    label: cover.caption ? `Comic Vine · ${cover.caption}` : "Comic Vine · Couverture principale",
+    preselected: false,
+  }));
+}
