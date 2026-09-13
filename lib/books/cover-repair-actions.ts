@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { decideCoverRepair, isKnownCoverImageUrl, isRepairAttemptFresh } from "@/lib/books/cover-repair";
-import { isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
+import { isHouseCoverPhotoUrl, isSharedCoverUrl } from "@/lib/books/cover-photo";
 import { isActionAllowed } from "@/lib/resolution/lookup-rate-limit";
 import { createCacheProvider } from "@/lib/resolution/providers/cache";
 import { findReplacementCover } from "@/lib/resolution/resolve";
@@ -30,8 +30,9 @@ export type CoverRepairResult = { coverUrl: string | null };
  */
 async function isUrlAlive(url: string): Promise<boolean | null> {
   // Garde SSRF (review #57) : jamais de fetch serveur hors des hôtes de
-  // couverture connus. Indéterminable → le doute profite à l'existant (keep).
-  if (!isKnownCoverImageUrl(url)) return null;
+  // couverture connus — ni hors de notre propre bucket (une copie du pool
+  // partagé, #278). Indéterminable → le doute profite à l'existant (keep).
+  if (!isKnownCoverImageUrl(url) && !isSharedCoverUrl(url)) return null;
   // Un 200 à CORPS VIDE est un cadavre (#154 bis, vu en prod : Inventaire sert
   // parfois un 200 image/webp de 0 octet) — sans ce test, l'URL morte passait
   // pour vivante et la photo (#33) n'était jamais proposée. L'absence d'en-tête
@@ -86,8 +87,11 @@ export async function repairBrokenCover(bookId: string): Promise<CoverRepairResu
     .maybeSingle();
   if (error || !book?.cover_url) return { coverUrl: null };
 
-  // Une photo maison ne se « répare » pas ici — elle est chez nous.
-  if (isHouseCoverPhotoUrl(book.cover_url)) return { coverUrl: book.cover_url };
+  // Une photo maison ne se « répare » pas ici — elle est chez nous, dans le
+  // PROPRE dossier de l'utilisateur. Une copie du pool partagé (#278), elle,
+  // peut mourir (purge après retrait, contribution forgée) : elle se répare
+  // comme une couverture de source — chaîne, ou retour au placeholder.
+  if (isHouseCoverPhotoUrl(book.cover_url) && !isSharedCoverUrl(book.cover_url)) return { coverUrl: book.cover_url };
 
   // L'anti-boucle PERSISTANTE (#177) : le Set mémoire du client meurt au
   // rechargement — ce tampon-ci survit. Une tentative récente (< 7 j) ne se

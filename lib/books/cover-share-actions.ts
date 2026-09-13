@@ -3,7 +3,7 @@
 import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
-import { coverStoragePathFromUrl, COVERS_BUCKET, isOwnHouseCoverPhotoUrl, sharedCoverPath } from "@/lib/books/cover-photo";
+import { coverStoragePathFromUrl, COVERS_BUCKET, isOwnHouseCoverPhotoUrl, isSharedPoolBarcode, sharedCoverPath } from "@/lib/books/cover-photo";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionOrError } from "@/lib/supabase/server";
 
@@ -37,6 +37,10 @@ export async function shareCover(bookId: string): Promise<CoverShareResult> {
   }
   if (!book) return { ok: false, error: "Livre introuvable." };
   if (book.barcode_raw === null) return { ok: false, error: "Un livre sans code-barres ne peut pas partager sa couverture." };
+  // Le code entre dans un chemin Storage écrit en SERVICE ROLE (review #283) :
+  // seule la forme que produit le scan (des chiffres) est acceptée — jamais
+  // un `../` venu d'une saisie forgée.
+  if (!isSharedPoolBarcode(book.barcode_raw)) return { ok: false, error: "Ce code-barres ne peut pas alimenter le pool partagé." };
   // Seul le PROPRE dossier de l'appelant se copie (#180) : jamais la photo d'un
   // autre rejouée depuis un export, jamais une URL externe (elle sera
   // rapatriée d'abord, puis partageable).

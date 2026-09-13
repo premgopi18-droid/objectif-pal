@@ -7,6 +7,7 @@ import {
   isInternalizedCoverUrl,
   isOwnHouseCoverPhotoUrl,
   isSharedCoverUrl,
+  isSharedPoolBarcode,
   sharedCoverPath,
 } from "./cover-photo";
 
@@ -140,8 +141,14 @@ describe("chemins de stockage des couvertures", () => {
 describe("le pool partagé (#278)", () => {
   const SHARED_URL = `${SUPABASE_URL}/storage/v1/object/public/covers/shared/9782070342266/abc.webp`;
 
-  it("sharedCoverPath : shared/{barcode}/{id}.webp", () => {
+  it("sharedCoverPath : shared/{barcode}/{id}.webp — et seulement pour un code en chiffres (review #283)", () => {
     expect(sharedCoverPath("9782070342266", "abc")).toBe("shared/9782070342266/abc.webp");
+    expect(isSharedPoolBarcode("76194139422000421")).toBe(true);
+    // Le chemin est écrit en service role : un code forgé ne doit jamais y entrer.
+    expect(isSharedPoolBarcode("../user-2")).toBe(false);
+    expect(isSharedPoolBarcode("9782070342266/..")).toBe(false);
+    expect(isSharedPoolBarcode("1234567")).toBe(false);
+    expect(() => sharedCoverPath("../user-2", "abc")).toThrow();
   });
 
   it("isSharedCoverUrl reconnaît une copie partagée, pas une photo ni une rapatriée", () => {

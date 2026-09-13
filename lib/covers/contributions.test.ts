@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import type { ResolvedBook } from "@/lib/resolution/types";
+import type { ResolvedBook, ScanLookupResult } from "@/lib/resolution/types";
 import { withContributionCover } from "./contributions";
 
 const book: ResolvedBook = {
@@ -36,7 +36,7 @@ describe("withContributionCover (#278) — proposée par défaut seulement quand
   });
 
   it("sans contribution, ou sur un pick, rien ne change", () => {
-    const pick: import("@/lib/resolution/types").ScanLookupResult = { kind: "pick-series", candidates: [] };
+    const pick: ScanLookupResult = { kind: "pick-series", candidates: [] };
     expect(withContributionCover(pick, SHARED)).toBe(pick);
     const bare = { kind: "resolved" as const, book };
     expect(withContributionCover(bare, null)).toBe(bare);
