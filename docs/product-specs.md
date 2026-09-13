@@ -409,6 +409,9 @@ même patron que le moteur de score) :
     plus **ancien**.
 - **Répartition par série** + séries en cours (tomes lus, tome suivant).
 
+  > ⚠️ **Retiré par §4.17 (décision 5, 13/09/2026)** : le catalogue GCD et ses trois silences sont remplacés par la
+  > progression dérivée des tomes possédés + total déclaré ; GCD ne reste qu'un pré-remplissage vivant du total.
+
   **Séries en cours & tome suivant (étape 3/3 de #30, lot B — mesuré le 19/07/2026, pas supposé).** C'est le
   seul morceau des analyses qui sort du modèle pur : il faut la numérotation de la série, qui vit dans notre
   import GCD. Ce que les données permettent RÉELLEMENT :
@@ -988,6 +991,101 @@ décélération ~4 s, arrêt sur l'élue.
   que les confettis du Journal).
 - Technique : hasard et filtrage dans `lib/pal/roulette.ts` (module pur, rng injectable, testé) ;
   mise en scène dans `components/pal/reading-roulette.tsx`.
+
+---
+
+### 4.17 Le suivi de séries — lus · dans la pile · total (décisions du 13/09/2026)
+
+Idée de Prem & Léna : suivre sa progression dans une série — BD, manga, comics, roman — et un jour se
+comparer dessus (« où en sont les copains ? »). Maquette `docs/protos/proto-series.html` (deux cadrans :
+le segment « Séries » de la Biblio, et la retombée dans les Stats). **Le partage entre membres est un
+objectif dès le départ** : il structure le modèle.
+
+**Le principe** : la progression d'une série, ce sont trois nombres — **lus · dans la pile · total**. Les
+deux premiers se **dérivent** des faits déjà en base (lectures terminées, possession, achats : la même
+règle de pile que §4.6 et §4.13). Le troisième ne se dérive de rien : il est **déclaré par un humain** en
+un geste (« 12 tomes » ou « parution en cours »), pré-rempli par GCD quand il sait, **jamais deviné,
+jamais menti**. Tant qu'une info manque, la fiche le dit plutôt que d'afficher une jauge fausse.
+
+**Ce que la mesure a changé (13/09/2026, prod, 4 comptes réels).** Le nom de série manque sur la majorité
+des livres VF : 655 livres BnF, 82 avec une série (Léna : 458 livres BnF, 51 avec série). Cause : le
+provider BnF lit le schéma **Dublin Core**, dont le titre est le titre d'épisode (« Ace entre en scène »),
+et une regex « . N » devine le tome. Le schéma **`unimarcXchange`** de la même API SRU expose la zone
+**461** (`$t` titre de la série, `$v` numéro de tome, `$0` identifiant BnF de la notice de série), la 200
+`$h` (numéro de partie) et la 225 `$v` (numéro dans la collection). Sondage sur 80 ISBN BnF tirés au
+hasard : **7 séries captées aujourd'hui → 40 par la seule 461 (36 avec numéro) → 49 en combinant
+461 / 200$h / 225$v** ; les 31 restants sont surtout de vrais one-shots. Pièges mesurés : casse BnF
+(« One piece » là où GCD écrit « One Piece »), `$t` pollué (« Fables / scénario, Bill Willingham »),
+numéros en toutes lettres (« volume deux », « [Quatrième volume] », « tome I »), et le **225 `$v` d'un
+roman est un numéro de collection** (« Le livre de poche 34028 »), jamais un tome. Autre mesure : les
+séries sont petites (Prem : 88 séries dont 58 à un seul livre ; Léna : 158 dont 113) — **les singletons
+sont du bruit**. Et notre import GCD **n'a ni total, ni `year_ended`, ni `is_current`** : le total ne
+peut venir que d'une déclaration.
+
+**Décisions produit (13/09/2026)** :
+
+1. **Une vraie table de séries, partagée entre tous les comptes** (référentiel commun, comme GCD — pas une
+   donnée personnelle). Une ligne par série : nom canonique, catégorie, identifiants externes quand on
+   les a (**série BnF** = `$0` de la 461, **série GCD** = `series_id`). Chaque livre pointe vers sa série
+   (`books.series_id`, nullable) ; `books.series_name` reste le texte d'affichage et de transition, il ne
+   disparaît pas. Ce qui est à l'utilisateur, c'est le **lien** livre → série ; la progression est
+   **dérivée par utilisateur**, jamais stockée. Raison : « One Piece » (GCD, chez Prem) et « One piece »
+   (BnF, chez Léna) doivent être **la même ligne** en base, sinon les bilans comparés par série seront
+   faux à la première graphie différente.
+2. **Rattachement au scan et à l'édition** : par identifiant externe d'abord, par **nom normalisé**
+   ensuite (minuscules, sans accents, espaces réduits, `$t` coupé au « / »), création sinon. Jamais de
+   rapprochement au jugé.
+3. **Le fait de série** (total déclaré **ou** parution en cours) vit **sur la ligne partagée**, avec
+   **qui** l'a déclaré et **quand**, visible sur la fiche (« 7 tomes, déclaré par Léna le 14/09 »). Un
+   **historique en ajout seul** (une ligne par déclaration, jamais écrasée) permet de voir la valeur
+   d'avant et de la remettre — pas d'interface de restauration en v1. **Une déclaration humaine
+   l'emporte toujours sur une source externe.** Pas de rôles ni de modération : à 30-40 membres, le
+   pseudo et l'historique suffisent.
+4. **GCD réduit à un pré-remplissage vivant, jamais une vérité.** L'indice « N numéros parus d'après GCD »
+   est le plus grand numéro numérique de la série dans notre import, **calculé à l'affichage** (index
+   `gcd_issues (series_id, number)`), donc il monte tout seul à chaque rafraîchissement du dump (§6). Une
+   série « parution en cours » n'a pas de total : la grille va jusqu'au plus grand numéro possédé, l'indice
+   à côté. Une série avec total déclaré affiche, quand GCD dépasse, un geste d'un tap « GCD en connaît 15,
+   mettre à jour » — **jamais de modification silencieuse**. C'est un plancher (import = codes-barres et
+   ISBN seulement) : excellent pour les fascicules VO, correct en BD, faible en manga VF.
+5. **La section « Séries en cours » des Stats et son catalogue GCD (§4.5, lot B de #30) sont retirés** :
+   les « trois silences » n'ont plus d'objet, le nouveau modèle marche pour la BnF, donc pour Léna. Perte
+   assumée : une série GCD lue jusqu'au 5 sans total déclaré disait « tome 6 à lire », elle dira « total
+   à déclarer » (pré-rempli à 6 par l'indice). `series-catalog.ts` et sa requête bornée disparaissent ; GCD
+   continue de poser le numéro de tome au scan.
+6. **Seuil d'apparition** dans le segment : **au moins 2 livres**, ou 1 livre avec un total déclaré. Un
+   singleton numéroté reste visible sous « Tous », pas dans le segment.
+7. **Les états** : « En cours », « À jour » (parution en cours, tout ce qui est possédé est lu), « Complète »
+   (total déclaré atteint — jamais sans total), « Total à déclarer », « ≈ approximatif » (un tome lu sans
+   numéro : jauge et suivant restent muets plutôt que faux, un tap sur la case « ? » règle ça).
+8. **Le tome suivant** = le plus petit numéro non lu, règle de #30 conservée : « à lire, il est dans ta
+   pile » s'il est possédé, « il te manque le tome N » sinon (N ≤ total ou ≤ plus grand possédé).
+9. **Fusion et renommage de séries** — rayon global, donc prudence structurelle : deux séries portant deux
+   identifiants externes **différents** refusent la fusion (même garde que `merge_books` et ses deux
+   codes-barres) ; la fusion n'est **proposée** que sur égalité de nom normalisé, entre séries où la
+   personne possède au moins un livre de chaque ; renommage et fusion sont journalisés avec auteur.
+10. **Intégrales et omnibus : hors v1.** Un omnibus compte pour 1 avec son numéro. Besoin noté au backlog :
+    « couvre les tomes X à Y ».
+11. **Périmètre romans** : la 461 couvre aussi les cycles (Dune mesuré). Même modèle, aucun cas particulier.
+12. **Rattrapage des livres existants** : script one-shot qui re-résout par ISBN les livres BnF sans série
+    et **ne remplit que les champs vides** (la règle du rescan, `mergeBookFieldsOnRescan`), tous comptes,
+    sans demander, comptes journalisés — comme la réparation de couvertures.
+13. **Pas de ligne de série dans le texte copiable du bilan** ni dans la carte image (jugée sans utilité).
+14. **Export et suppression RGPD** couvrent le lien livre → série et les déclarations de l'utilisateur dès
+    la migration ; **cloisonnement prouvé en CI** (le test d'isolation s'étend : les séries sont lisibles
+    par tous, les liens et la progression ne fuient pas).
+
+**Les surfaces** : la Biblio gagne un **3ᵉ segment « Séries »** (cartes triées par dette décroissante,
+jauge vert = lu / ambre = pile, filtres Toutes / En cours / À jour / Complètes, bannière de fusion) ; la
+**fiche série** (grands compteurs, carte « à lire ensuite » ou « il te manque », grille des tomes, stepper
+du total, source de la numérotation) ; les **Stats** (tuiles En cours / À jour / Complètes / Tomes en
+dette, « dette de série » = possédés pas lus, « à lire ensuite ») ; la **roulette** §4.16 gagne un mode
+« on continue une série » qui ne tire que parmi les tomes suivants possédés.
+
+**Les lots** (epic #289) : **0** (#290) la donnée (BnF UNIMARC + normalisation + rattrapage) — vaut seul, sert
+tout de suite le journal, les filtres, les stats et Comic Vine ; **A** (#291) le modèle (table partagée, liens,
+faits, historique, RPC de fusion/renommage, dérivation pure `lib/series/`) ; **B** (#292) la surface (segment,
+fiche, trois gestes) ; **C** (#293) les retombées (Stats, roulette).
 
 ---
 
