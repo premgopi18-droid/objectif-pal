@@ -1025,8 +1025,10 @@ peut venir que d'une déclaration.
 **Décisions produit (13/09/2026)** :
 
 1. **Une vraie table de séries, partagée entre tous les comptes** (référentiel commun, comme GCD — pas une
-   donnée personnelle). Une ligne par série : nom canonique, catégorie, identifiants externes quand on
-   les a (**série BnF** = `$0` de la 461, **série GCD** = `series_id`). Chaque livre pointe vers sa série
+   donnée personnelle). Une ligne par série : nom canonique, catégorie, et ses identifiants externes
+   quand on les a (**série BnF** = `$0` de la 461, **série GCD** = `series_id`) — dans une table à part
+   (`series_external_ids`), **plusieurs par série** : mesuré au lot 0 (#294), la BnF donne UNE notice de série
+   PAR ÉDITION (One Piece 2003 ≠ One Piece 2013), et une fusion additionne les identifiants. Chaque livre pointe vers sa série
    (`books.series_id`, nullable) ; `books.series_name` reste le texte d'affichage et de transition, il ne
    disparaît pas. Ce qui est à l'utilisateur, c'est le **lien** livre → série ; la progression est
    **dérivée par utilisateur**, jamais stockée. Raison : « One Piece » (GCD, chez Prem) et « One piece »
@@ -1062,8 +1064,8 @@ peut venir que d'une déclaration.
 8. **Le tome suivant** = le plus petit numéro non lu, règle de #30 conservée : « à lire, il est dans ta
    pile » s'il est possédé, « il te manque le tome N » sinon (N ≤ total ou ≤ plus grand possédé).
 9. **Fusion et renommage de séries** — rayon global, donc prudence structurelle : deux séries portant deux
-   identifiants externes **différents** refusent la fusion (même garde que `merge_books` et ses deux
-   codes-barres) ; la fusion n'est **proposée** que sur égalité de nom normalisé, entre séries où la
+   identifiants **GCD** différents refusent la fusion (même garde que `merge_books` et ses deux codes-barres ;
+   pas pour la BnF, dont les notices sont par édition) ; la fusion n'est **proposée** que sur égalité de nom normalisé, entre séries où la
    personne possède au moins un livre de chaque ; renommage et fusion sont journalisés avec auteur.
 10. **Intégrales et omnibus : hors v1.** Un omnibus compte pour 1 avec son numéro. Besoin noté au backlog :
     « couvre les tomes X à Y ».
@@ -1075,6 +1077,13 @@ peut venir que d'une déclaration.
 14. **Export et suppression RGPD** couvrent le lien livre → série et les déclarations de l'utilisateur dès
     la migration ; **cloisonnement prouvé en CI** (le test d'isolation s'étend : les séries sont lisibles
     par tous, les liens et la progression ne fuient pas).
+15. **Risques acceptés (review #295)** : `find_or_create_series` n'est **pas** sous quota — la rafale (80 scans)
+    grillerait `series_write` et perdrait des liens ; un compte peut donc créer des lignes du référentiel sans
+    borne, comme il crée des livres (`created_by` posé, fusion à la main). **Renommer une série ne périme pas
+    les mois clos** : `books_bump_fact_version` ne surveille pas `series_name`, les agrégats du cercle gardent
+    l'ancien nom jusqu'au prochain bump (cosmétique). **La catégorie de la série** (`series.category`) est celle
+    du premier tome rattaché et n'est jamais révisée : les surfaces (lot B) affichent la catégorie **dérivée des
+    livres de l'utilisateur** (majorité), pas la colonne.
 
 **Les surfaces** : la Biblio gagne un **3ᵉ segment « Séries »** (cartes triées par dette décroissante,
 jauge vert = lu / ambre = pile, filtres Toutes / En cours / À jour / Complètes, bannière de fusion) ; la
@@ -1626,6 +1635,24 @@ RLS fait autorité) : la pastille de la nav en un seul appel, l'identité lue da
 clos seulement, **aucune policy UPDATE/DELETE** : sens unique structurel) et prédicat
 `is_month_revealed(owner, month)` (`security definer`, réutilisé par les deux RPC du cercle) : révélé
 manuellement OU un mois entier écoulé depuis la clôture.
+
+**Le référentiel de séries (§4.17, lot A #291, 14/09/2026)** — commun à tous les comptes, comme GCD :
+`series` (`id`, `name` canonique, `name_normalized` entretenu par trigger — `normalize_series_name()`,
+miroir SQL de `lib/series/normalize.ts` —, `category`, **le fait** : `total_volumes` OU `is_ongoing`
+(CHECK exclusif), `fact_declared_by`/`fact_declared_at`, `created_by`) ; `series_external_ids`
+(`series_id`, `source` bnf/gcd, `external_id`, clé primaire (source, id) — **plusieurs par série**, une
+notice BnF par édition) ; `series_events` (historique **en ajout seul** : `kind` declare_total /
+declare_ongoing / rename / merge, valeurs, `user_id` en `set null` à la suppression du compte — l'événement
+reste, anonymisé). Les trois tables : SELECT pour tout authentifié, **aucune policy d'écriture** — seules les
+RPC `security definer` écrivent, en vérifiant l'appelant : `find_or_create_series(name, category, bnf?, gcd?)`
+(identifiant d'abord, nom normalisé ensuite — sans conflit d'identifiant GCD —, création sinon ; verrou
+consultatif sur le nom ; appelable en service role pour le rattachement du parc), `link_book_series`,
+`declare_series_fact`, `rename_series` (le `series_name` des livres suit, tous comptes), `merge_series`
+(refus si deux identifiants GCD ; livres, identifiants et historique migrent, le fait de la conservée
+l'emporte) — les trois derniers sous quota `series_write` (30/min). `books.series_id` (nullable, `set
+null`) est le lien de l'utilisateur ; `merge_books` le comble comme les autres champs. L'indice GCD vivant
+= `gcd_series_max_issue_numbers(ids)`, jamais stocké. Export : `series_events` de l'utilisateur seulement
+(le référentiel n'est pas une donnée personnelle). Cloisonnement prouvé en CI (test d'isolation étendu).
 
 ### Tables de référence (GCD, en lecture seule)
 

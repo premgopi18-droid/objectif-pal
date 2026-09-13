@@ -3,15 +3,18 @@ import type { BookCategory } from "@/lib/scoring/types";
 /**
  * L'alignement de catégorie par série (#257) — la partie PURE : ce que la
  * feuille de proposition affiche, et rien d'autre. Le ciblage du lot vit en
- * SQL (`applyCategoryToSeries` : `series_name` égal, catégorie différente,
- * scopé user) ; le COMPTE vient du serveur (`updateBookDetails` le renvoie
- * après l'enregistrement) — la Biblio n'affiche que l'inventaire, un compte
- * client aurait raté les emprunts lus de la même série.
+ * SQL (`applyCategoryToSeries` : même `series_id` du référentiel partagé
+ * depuis #291 — plus une égalité de texte —, catégorie différente, scopé
+ * user) ; le COMPTE vient du serveur (`updateBookDetails` le renvoie après
+ * l'enregistrement) — la Biblio n'affiche que l'inventaire, un compte client
+ * aurait raté les emprunts lus de la même série.
  */
 
 /** Ce que l'enregistrement d'une fiche renvoie quand la série diverge. */
 export type SeriesAlignProposal = {
-  /** Le nom de série SAUVÉ (normalisé par prepareBookEdit) — la clé exacte du lot. */
+  /** La série du référentiel (#291) — la clé exacte du lot. */
+  seriesId: string;
+  /** Le nom affiché dans la feuille. */
   seriesName: string;
   category: BookCategory;
   /** Les AUTRES livres de la série qui portent une autre catégorie. */

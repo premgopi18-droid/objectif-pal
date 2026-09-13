@@ -16,6 +16,7 @@ function entry(title: string, category: BookCategory, isInProgress = false): Pal
     bookId: `book-${title}`,
     title,
     seriesName: null,
+    seriesId: null,
     issueNumber: null,
     category,
     coverUrl: null,

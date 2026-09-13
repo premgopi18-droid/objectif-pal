@@ -33,12 +33,13 @@ const EXPORT_TABLES: Record<
   | "objective_targets"
   | "monthly_picks"
   | "friendships"
-  | "cover_contributions",
+  | "cover_contributions"
+  | "series_events",
   { columns: string; orderBy: string; ownOnly?: boolean }
 > = {
   books: {
     columns:
-      "id, title, series_name, issue_number, authors, publisher, page_count, category, barcode_raw, barcode_type, barcode_prefix, isbn, cover_url, cover_chosen_at, metadata_source, metadata_source_id, created_at, deleted_at",
+      "id, title, series_name, series_id, issue_number, authors, publisher, page_count, category, barcode_raw, barcode_type, barcode_prefix, isbn, cover_url, cover_chosen_at, metadata_source, metadata_source_id, created_at, deleted_at",
     orderBy: "created_at",
   },
   readings: {
@@ -75,6 +76,14 @@ const EXPORT_TABLES: Record<
   // explicite sur user_id dans fetchTable, seule table à en avoir besoin.
   cover_contributions: {
     columns: "id, barcode, cover_url, source_cover_url, created_at, deleted_at",
+    orderBy: "created_at",
+    ownOnly: true,
+  },
+  // Le référentiel de séries (#291) est commun, pas une donnée personnelle ;
+  // ce qui est à l'utilisateur, ce sont SES déclarations (total, renommage,
+  // fusion) — lisibles par tous, d'où le filtre explicite comme pour le pool.
+  series_events: {
+    columns: "id, series_id, kind, total_volumes, is_ongoing, old_name, new_name, merged_series_id, created_at",
     orderBy: "created_at",
     ownOnly: true,
   },
@@ -154,6 +163,7 @@ export async function GET(request: Request) {
       objectiveTargets,
       monthlyPicks,
       coverContributions,
+      seriesEvents,
     ] = await Promise.all([
       fetchTable("books"),
       fetchTable("readings"),
@@ -165,6 +175,7 @@ export async function GET(request: Request) {
       fetchTable("objective_targets"),
       fetchTable("monthly_picks"),
       fetchTable("cover_contributions"),
+      fetchTable("series_events"),
     ]);
 
     const payload = {
@@ -181,6 +192,7 @@ export async function GET(request: Request) {
       objective_targets: objectiveTargets,
       monthly_picks: monthlyPicks,
       cover_contributions: coverContributions,
+      series_events: seriesEvents,
     };
 
     return new Response(JSON.stringify(payload, null, 2), {

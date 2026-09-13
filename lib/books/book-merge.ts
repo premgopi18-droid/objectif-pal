@@ -13,7 +13,7 @@ import type { BookInput } from "@/lib/books/actions";
 type Tables = Database["public"]["Tables"];
 type MergeableFields = Pick<
   Tables["books"]["Row"],
-  "series_name" | "issue_number" | "authors" | "publisher" | "page_count" | "isbn" | "cover_url"
+  "series_name" | "series_id" | "issue_number" | "authors" | "publisher" | "page_count" | "isbn" | "cover_url"
 >;
 type BookUpdatePayload = MergeableFields & {
   deleted_at: null;
@@ -21,13 +21,24 @@ type BookUpdatePayload = MergeableFields & {
   category: BookInput["category"];
 };
 
-export function mergeBookFieldsOnRescan(existing: MergeableFields, input: BookInput): BookUpdatePayload {
+/**
+ * `resolvedSeriesId` : le lien au référentiel de séries (#291) que le scan
+ * vient de résoudre pour cette saisie — comblé comme les autres champs, jamais
+ * écrasé (un livre déjà relié garde sa série, même si la source en propose une
+ * autre : le geste de fusion est humain).
+ */
+export function mergeBookFieldsOnRescan(
+  existing: MergeableFields,
+  input: BookInput,
+  resolvedSeriesId: string | null = null,
+): BookUpdatePayload {
   return {
     deleted_at: null, // un livre supprimé en douceur ressuscite au rescan
     title: input.title.trim(),
     category: input.category,
     // Comblement des NULL uniquement — jamais d'écrasement d'une valeur existante.
     series_name: existing.series_name ?? input.seriesName,
+    series_id: existing.series_id ?? resolvedSeriesId,
     issue_number: existing.issue_number ?? input.issueNumber,
     authors: existing.authors ?? input.authors,
     publisher: existing.publisher ?? input.publisher,

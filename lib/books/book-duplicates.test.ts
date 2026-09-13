@@ -17,6 +17,7 @@ function entry(overrides: Partial<LibraryEntry> = {}): LibraryEntry {
     bookId: `book-${counter}`,
     title: `Livre ${counter}`,
     seriesName: null,
+    seriesId: null,
     issueNumber: null,
     category: "bd",
     coverUrl: null,

@@ -132,6 +132,7 @@ const resolvedToInput = (book: ResolvedBook, scannedCode: string | null): BookIn
   isbn: book.isbn,
   metadataSource: book.source,
   metadataSourceId: book.sourceId,
+  seriesRef: book.seriesRef,
 });
 
 export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; pendingInboxCount: number }) {

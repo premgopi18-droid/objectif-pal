@@ -111,6 +111,7 @@ export function BookActionSheet({
     isbn: book.isbn,
     metadataSource: book.source,
     metadataSourceId: book.sourceId,
+    seriesRef: book.seriesRef,
   });
 
   /** L'intention choisie → l'action serveur existante. Switch exhaustif : une 6ᵉ intention sans branche casse le build. */

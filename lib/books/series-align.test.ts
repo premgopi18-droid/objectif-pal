@@ -10,7 +10,7 @@ import { seriesAlignSheetCopy, seriesAlignedToastMessage } from "./series-align"
 describe("seriesAlignSheetCopy — la feuille de proposition", () => {
   it("au pluriel : le compte partout, série et catégorie citées", () => {
     expect(
-      seriesAlignSheetCopy({ seriesName: "Berserk", category: "manga", divergentCount: 11 }, "Manga"),
+      seriesAlignSheetCopy({ seriesId: "s-berserk", seriesName: "Berserk", category: "manga", divergentCount: 11 }, "Manga"),
     ).toEqual({
       title: "Toute la série en « Manga » ?",
       body: "11 autres tomes de « Berserk » ont une autre catégorie. Les points de leurs lectures suivront la nouvelle.",
@@ -19,7 +19,7 @@ describe("seriesAlignSheetCopy — la feuille de proposition", () => {
   });
 
   it("au singulier : l'accord suit", () => {
-    const copy = seriesAlignSheetCopy({ seriesName: "Akira", category: "manga", divergentCount: 1 }, "Manga");
+    const copy = seriesAlignSheetCopy({ seriesId: "s-akira", seriesName: "Akira", category: "manga", divergentCount: 1 }, "Manga");
     expect(copy.body).toBe(
       "1 autre tome de « Akira » a une autre catégorie. Les points de ses lectures suivront la nouvelle.",
     );
