@@ -17,6 +17,14 @@ export const COVER_PHOTO = {
 /** Le bucket Storage — public, chemins `{user_id}/{book_id}.webp`. */
 export const COVERS_BUCKET = "covers";
 
+/**
+ * Le grand côté d'une couverture RAPATRIÉE (#208) : l'affichage plafonne à
+ * 96×144 CSS (192-288 px en retina), 400 px couvrent tout. La variante
+ * Inventaire demandée par le provider s'aligne dessus — une seule vérité,
+ * partagée par l'app et `scripts/covers-internalize.mts`.
+ */
+export const INTERNALIZED_COVER_MAX_DIMENSION = 400;
+
 /** Le chemin de LA photo d'un livre (une seule, écrasée si reprise). */
 export const coverPhotoPath = (userId: string, bookId: string) => `${userId}/${bookId}.webp`;
 

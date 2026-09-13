@@ -7,16 +7,17 @@
  * partout.
  */
 
+import { INTERNALIZED_COVER_MAX_DIMENSION } from "@/lib/books/cover-photo";
 import { OUTBOUND_USER_AGENT, PROVIDER_REQUEST_TIMEOUT_MILLISECONDS } from "@/lib/resolution/types";
 
 const INVENTAIRE_ORIGIN = "https://inventaire.io";
 
 /**
- * Largeur demandée à leur redimensionneur — alignée sur le rapatriement
- * (MAX_DIMENSION de scripts/covers-internalize.mjs) : l'affichage plafonne à
- * 96×144 CSS (192-288 px retina), on ne stocke jamais plus grand que 400.
+ * Largeur demandée à leur redimensionneur — LA constante du rapatriement
+ * (`INTERNALIZED_COVER_MAX_DIMENSION`, importée) : l'affichage plafonne à
+ * 96×144 CSS (192-288 px retina), on ne stocke jamais plus grand.
  */
-const INVENTAIRE_RESIZED_SIZE = 400;
+const INVENTAIRE_RESIZED_SIZE = INTERNALIZED_COVER_MAX_DIMENSION;
 
 /** Le chemin nu d'une image d'entité (`/img/entities/<hash>`), tel que rendu par leur API. */
 const BARE_ENTITY_IMAGE_PATH = /^\/img\/entities\/([0-9a-f]+)$/;
@@ -27,7 +28,7 @@ const BARE_ENTITY_IMAGE_PATH = /^\/img\/entities\/([0-9a-f]+)$/;
  * sert des 200 image/webp de 0 octet (empoisonnés depuis le 20/08, immutables
  * un an), alors que le redimensionneur régénère depuis la source — la variante
  * est donc le chemin FIABLE, l'URL nue le repli.
- * ⚠️ En phase avec la même règle dans scripts/covers-internalize.mjs.
+ * Une seule règle : scripts/covers-internalize.mts l'importe (audit #274).
  */
 export function resizedInventaireVariant(absoluteUrl: string): string | null {
   let parsed: URL;

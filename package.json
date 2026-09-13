@@ -10,7 +10,11 @@
     "test": "vitest run",
     "gcd:load": "node scripts/gcd-load.mjs",
     "db:types": "supabase gen types typescript --project-id reqtckmawllprisvrzlb --schema public > lib/supabase/database.types.ts",
-    "postinstall": "node scripts/copy-zxing-wasm.mjs"
+    "postinstall": "node scripts/copy-zxing-wasm.mjs",
+    "covers:internalize": "node --conditions=react-server --import tsx scripts/covers-internalize.mts",
+    "covers:detach-comicvine": "node --conditions=react-server --import tsx scripts/covers-comicvine-detach.mts",
+    "maintenance:purge": "node --conditions=react-server --import tsx scripts/maintenance-purge.mts",
+    "reports:materialize": "node --conditions=react-server --import tsx scripts/materialize-monthly-reports.mts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.70.0",

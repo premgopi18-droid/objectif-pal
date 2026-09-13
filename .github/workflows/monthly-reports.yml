@@ -27,7 +27,7 @@ jobs:
       - run: npm ci
       # tsx : le script est en TypeScript pour réutiliser le moteur de scoring
       # et la synchro de la page Bilan — zéro barème dupliqué.
-      - run: npx tsx scripts/materialize-monthly-reports.mts ${{ inputs.dry_run && '--dry-run' || '' }}
+      - run: npm run reports:materialize -- ${{ inputs.dry_run && '--dry-run' || '' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

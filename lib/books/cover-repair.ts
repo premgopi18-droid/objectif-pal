@@ -18,7 +18,7 @@ const KNOWN_COVER_HOSTNAMES = [
   "openapi.bnf.fr",
   "images.epagine.fr",
   // Comic Vine (#279) : hôte d'affichage et de re-vérification — mais PAS de
-  // rapatriement (scripts/covers-internalize.mjs l'exclut : « ne pas
+  // rapatriement (`isInternalizableCoverUrl` l'exclut, scripts/covers-internalize.mts : « ne pas
   // reproduire sur un autre support »).
   "comicvine.gamespot.com",
 ] as const;
@@ -41,6 +41,25 @@ export function isKnownCoverImageUrl(url: string): boolean {
     (KNOWN_COVER_HOSTNAMES as readonly string[]).includes(parsed.hostname) ||
     parsed.hostname.endsWith(GOOGLE_USER_CONTENT_SUFFIX)
   );
+}
+
+/**
+ * Les hôtes connus dont on ne RAPATRIE jamais l'image (Comic Vine, #279 :
+ * « ne pas reproduire sur un autre support ») — affichables et re-vérifiables,
+ * mais servis en lien direct pour toujours.
+ */
+const HOTLINK_ONLY_HOSTNAMES = ["comicvine.gamespot.com"] as const;
+
+/**
+ * Vrai si le job de rapatriement (`scripts/covers-internalize.mts`) a le droit
+ * de télécharger cette couverture : un hôte connu, hors des hôtes en lien
+ * direct. UNE frontière, partagée par l'app et le script — plus de liste
+ * recopiée « en phase avec ».
+ */
+export function isInternalizableCoverUrl(url: string): boolean {
+  if (!isKnownCoverImageUrl(url)) return false;
+  const { hostname } = new URL(url);
+  return !(HOTLINK_ONLY_HOSTNAMES as readonly string[]).includes(hostname);
 }
 
 export type CoverRepairDecision =

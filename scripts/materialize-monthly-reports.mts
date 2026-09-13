@@ -21,43 +21,21 @@
  * `user_id` explicitement (la règle maison des scripts de prod).
  *
  * Usage :
- *   npx tsx scripts/materialize-monthly-reports.mts           → matérialisation réelle
- *   npx tsx scripts/materialize-monthly-reports.mts --dry-run → état de fraîcheur, zéro écriture
+ *   npm run reports:materialize             → matérialisation réelle
+ *   npm run reports:materialize -- --dry-run → état de fraîcheur, zéro écriture
  *
  * Env : NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY (environnement,
- * ou .env.local en local — patron maintenance-purge.mjs).
+ * ou .env.local en local — socle commun scripts/lib/env.mts).
  */
 
-import { readFileSync } from "node:fs";
-import { createClient } from "@supabase/supabase-js";
 import { readFactVersion, syncMonthlyReports } from "@/lib/bilan/report-sync";
 import { listClosedActivityMonths, type BilanReadingFact } from "@/lib/scoring/closed-months";
 import type { MonthlyObjective, PurchaseFact } from "@/lib/scoring/types";
 import { fetchAllRows } from "@/lib/supabase/pagination";
-import type { Database } from "@/lib/supabase/database.types";
+import { createAdminClientFromEnv, isDryRun as readDryRun } from "./lib/env.mjs";
 
-const isDryRun = process.argv.includes("--dry-run");
-
-// En local, .env.local complète l'environnement (jamais l'inverse).
-try {
-  for (const line of readFileSync(new URL("../.env.local", import.meta.url), "utf8").split("\n")) {
-    const eq = line.indexOf("=");
-    if (eq < 1 || line.startsWith("#")) continue;
-    const key = line.slice(0, eq).trim();
-    if (!process.env[key]) process.env[key] = line.slice(eq + 1).trim();
-  }
-} catch {
-  // Pas de .env.local (CI) : l'environnement doit suffire.
-}
-
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!url || !serviceRoleKey) {
-  console.error("NEXT_PUBLIC_SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY sont requis.");
-  process.exit(1);
-}
-
-const supabase = createClient<Database>(url, serviceRoleKey, { auth: { persistSession: false } });
+const isDryRun = readDryRun();
+const { admin: supabase } = createAdminClientFromEnv();
 const currentMonth = new Date().toISOString().slice(0, 7);
 
 /** Les faits d'UN compte — les mêmes requêtes que la page Bilan, filtrées user_id (service role !). */

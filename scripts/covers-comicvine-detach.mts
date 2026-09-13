@@ -15,40 +15,20 @@
  * `id` précis (la règle maison des scripts de prod).
  *
  * Usage :
- *   npx tsx scripts/covers-comicvine-detach.mts           → retrait réel
- *   npx tsx scripts/covers-comicvine-detach.mts --dry-run → liste sans écrire
+ *   npm run covers:detach-comicvine             → retrait réel
+ *   npm run covers:detach-comicvine -- --dry-run → liste sans écrire
+ * (la chaîne de résolution importe `server-only` : la condition Node
+ * `react-server` du runner npm le rend inerte hors de Next)
  *
  * Env : NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY, et les clés des
  * sources de remplacement (Metron, Google Books) — .env.local en local.
  */
 
-import { readFileSync } from "node:fs";
-import { createClient } from "@supabase/supabase-js";
 import { findReplacementCover } from "@/lib/resolution/resolve";
-import type { Database } from "@/lib/supabase/database.types";
+import { createAdminClientFromEnv, isDryRun as readDryRun } from "./lib/env.mjs";
 
-const isDryRun = process.argv.includes("--dry-run");
-
-// En local, .env.local complète l'environnement (jamais l'inverse).
-try {
-  for (const line of readFileSync(new URL("../.env.local", import.meta.url), "utf8").split("\n")) {
-    const eq = line.indexOf("=");
-    if (eq < 1 || line.startsWith("#")) continue;
-    const key = line.slice(0, eq).trim();
-    if (!process.env[key]) process.env[key] = line.slice(eq + 1).trim();
-  }
-} catch {
-  // Pas de .env.local (CI) : l'environnement doit suffire.
-}
-
-const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-if (!url || !serviceRoleKey) {
-  console.error("NEXT_PUBLIC_SUPABASE_URL et SUPABASE_SERVICE_ROLE_KEY requis");
-  process.exit(1);
-}
-
-const admin = createClient<Database>(url, serviceRoleKey, { auth: { persistSession: false } });
+const isDryRun = readDryRun();
+const { admin } = createAdminClientFromEnv();
 const COMIC_VINE_PREFIX = "https://comicvine.gamespot.com/";
 // Metron : 15 req/min pour toute l'app, 2-3 par UPC — 5 s entre deux fascicules
 // (audit #274). Les ISBN ne touchent pas Metron : 500 ms suffisent.
