@@ -88,3 +88,9 @@ describe("isRepairAttemptFresh", () => {
     expect(isRepairAttemptFresh("pas-une-date", NOW)).toBe(false);
   });
 });
+
+describe("Comic Vine (#279) : affichable et re-vérifiable, mais jamais rapatrié", () => {
+  it("l'hôte d'images Comic Vine est connu de la garde SSRF", () => {
+    expect(isKnownCoverImageUrl("https://comicvine.gamespot.com/a/uploads/original/11161/111615891/10161955-cover.jpg")).toBe(true);
+  });
+});

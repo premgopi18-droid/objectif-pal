@@ -17,6 +17,10 @@ const KNOWN_COVER_HOSTNAMES = [
   "inventaire.io",
   "openapi.bnf.fr",
   "images.epagine.fr",
+  // Comic Vine (#279) : hôte d'affichage et de re-vérification — mais PAS de
+  // rapatriement (scripts/covers-internalize.mjs l'exclut : « ne pas
+  // reproduire sur un autre support »).
+  "comicvine.gamespot.com",
 ] as const;
 const GOOGLE_USER_CONTENT_SUFFIX = ".googleusercontent.com";
 

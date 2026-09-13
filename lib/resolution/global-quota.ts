@@ -11,7 +11,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
  * ne coupe pas le scan — elle est loggée pour rester visible (#181).
  */
 
-export type GlobalQuotaKind = "google_books_daily" | "metron";
+export type GlobalQuotaKind = "google_books_daily" | "metron" | "comic_vine_hourly";
 
 type AdminClient = ReturnType<typeof createAdminClient>;
 

@@ -22,6 +22,7 @@ function deps(overrides: Partial<{ [K in keyof ResolutionDeps]: Partial<Resoluti
     bnfCovers: { findCoverByIsbn: vi.fn(async () => null), ...overrides.bnfCovers } as ResolutionDeps["bnfCovers"],
     epagine: { findCoverByIsbn: vi.fn(async () => null), ...overrides.epagine } as ResolutionDeps["epagine"],
     metron: { findIssueByGcdId: vi.fn(async () => null), findIssueByUpc: vi.fn(async () => null), ...overrides.metron } as ResolutionDeps["metron"],
+    comicVine: { isEnabled: () => true, findIssueCovers: vi.fn(async () => []), ...overrides.comicVine } as ResolutionDeps["comicVine"],
   };
 }
 
@@ -185,5 +186,42 @@ describe("listEditionCandidates — l'étiquette dit quand c'est une AUTRE œuvr
       "Buffy the Vampire Slayer · Dark Horse Comics 2014",
       "Autre édition · Boom 2022",
     ]);
+  });
+});
+
+describe("listCoverCandidates — Comic Vine (#279)", () => {
+  it("UPC : Comic Vine après Metron, principale et variantes légendées, jamais présélectionnées", async () => {
+    const findIssueCovers = vi.fn(async () => [
+      { url: "https://comicvine.gamespot.com/a/uploads/original/main.jpg", caption: null, comicVineUrl: "https://comicvine.gamespot.com/x/4000-1/" },
+      { url: "https://comicvine.gamespot.com/a/uploads/original/b.jpg", caption: "Variant cover by Simmonds", comicVineUrl: null },
+    ]);
+    const d = deps({ metron: { findIssueByUpc: vi.fn(async () => metronIssue()) }, comicVine: { isEnabled: () => true, findIssueCovers } });
+    const result = await listCoverCandidates({ ...UPC_BOOK, seriesName: "Absolute Green Arrow", issueNumber: "4", startYear: 2026 }, d);
+    expect(findIssueCovers).toHaveBeenCalledWith({ seriesName: "Absolute Green Arrow", issueNumber: "4", startYear: 2026 });
+    expect(result.candidates.slice(-2).map((candidate) => [candidate.source, candidate.label, candidate.preselected])).toEqual([
+      ["comic_vine", "Comic Vine · Couverture principale", false],
+      ["comic_vine", "Comic Vine · Variant cover by Simmonds", false],
+    ]);
+    expect(result.candidates[0].source).toBe("metron");
+  });
+
+  it("débranché (pas de clé) ou sans série+numéro : Comic Vine n'est jamais appelé", async () => {
+    const findIssueCovers = vi.fn(async () => []);
+    const off = deps({ comicVine: { isEnabled: () => false, findIssueCovers } });
+    await listCoverCandidates({ ...UPC_BOOK, seriesName: "X", issueNumber: "1" }, off);
+    const noSeries = deps({ comicVine: { isEnabled: () => true, findIssueCovers } });
+    await listCoverCandidates({ ...UPC_BOOK, seriesName: null, issueNumber: "1" }, noSeries);
+    await listCoverCandidates(ISBN_BOOK, noSeries);
+    expect(findIssueCovers).not.toHaveBeenCalled();
+  });
+
+  it("Comic Vine en panne : les candidates Metron remontent, degraded", async () => {
+    const d = deps({
+      metron: { findIssueByUpc: vi.fn(async () => metronIssue()) },
+      comicVine: { isEnabled: () => true, findIssueCovers: vi.fn(async () => { throw new Error("420"); }) },
+    });
+    const result = await listCoverCandidates({ ...UPC_BOOK, seriesName: "X", issueNumber: "4" }, d);
+    expect(result.degraded).toBe(true);
+    expect(result.candidates.every((candidate) => candidate.source === "metron")).toBe(true);
   });
 });
