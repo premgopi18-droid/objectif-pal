@@ -146,3 +146,11 @@ describe("le mode « on continue une série » (§4.16, lot C)", () => {
     expect(categoryCounts(pile, null).get("roman")).toBe(1);
   });
 });
+
+describe("le mode série sur un vivier vide (review #297)", () => {
+  it("un ensemble vide vide le vivier — c'est la vue qui éteint le mode dans ce cas", () => {
+    const pile = [entry("Dune", "roman")];
+    expect(eligibleEntries(pile, new Set(), new Set())).toEqual([]);
+    expect(categoryCounts(pile, new Set()).size).toBe(0);
+  });
+});

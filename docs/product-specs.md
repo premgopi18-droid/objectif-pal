@@ -407,7 +407,7 @@ même patron que le moteur de score) :
   - **Moyenne de lectures par mois** : rapportée à **tous** les mois écoulés depuis la première lecture jusqu'au
     mois de référence, **mois vides compris** (les ignorer gonflerait la moyenne). Meilleur mois : à égalité, le
     plus **ancien**.
-- **Répartition par série** + séries en cours (tomes lus, tome suivant).
+- **Répartition par série** + « Mes séries » (§4.17 : états, dette de série, à lire ensuite).
 
   **Séries en cours — historique (retiré par §4.17-5, lot C de #289, 14/09/2026).** Du 19/07/2026 au 14/09/2026,
   cette section croisait les tomes lus avec la numérotation GCD de notre import (mesuré alors : 82,0 % de numéros

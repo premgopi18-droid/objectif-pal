@@ -13,7 +13,11 @@ import type { SeriesSummary } from "@/lib/series/derive-series";
  *
  * Purement présentatiel : l'agrégat vient de `summarizeSeries` (pur, testé).
  */
-export function SeriesSummarySection({ summary, seriesCount }: { summary: SeriesSummary; seriesCount: number }) {
+export function SeriesSummarySection({ summary, seriesCount }: { summary: SeriesSummary | null; seriesCount: number }) {
+  // Panne ≠ absence (review #297) : la page n'a pas pu dériver la moisson.
+  if (summary === null) {
+    return <Card className="text-sm text-ink2">Les séries n&apos;ont pas pu être chargées — réessaie.</Card>;
+  }
   const maxDebt = Math.max(1, ...summary.topDebt.map((entry) => entry.pile));
 
   if (seriesCount === 0) {
@@ -66,11 +70,12 @@ export function SeriesSummarySection({ summary, seriesCount }: { summary: Series
           <ul className="mt-2.5 flex flex-col gap-2.5" aria-label="Les tomes suivants">
             {summary.nextToRead.map((entry) => {
               const inPile = entry.next.kind === "read-next";
+              // Le compte ET le suivant, sans prétendre à une position (review
+              // #297 : « tu en es au tome N » mentait dès qu'un trou existait).
+              const readCount = `${entry.read} lu${entry.read > 1 ? "s" : ""}${entry.totalVolumes !== null ? ` sur ${entry.totalVolumes}` : ""}`;
               const hint = inPile
-                ? entry.totalVolumes !== null
-                  ? `tu en es au tome ${entry.read} sur ${entry.totalVolumes}`
-                  : `le tome ${entry.next.number} est déjà dans ta pile`
-                : `il te manque le tome ${entry.next.number}`;
+                ? `${readCount} — le tome ${entry.next.number} est dans ta pile`
+                : `${readCount} — il te manque le tome ${entry.next.number}`;
               return (
                 <li key={entry.seriesId}>
                   <Link

@@ -78,8 +78,10 @@ export function ReadingRoulette({
   // séries, elle reçoit un ensemble d'ids et reste pure.
   const [continueSeries, setContinueSeries] = useState(false);
   const seriesPool = useMemo(() => new Set(seriesNextBookIds), [seriesNextBookIds]);
-  const seriesFilter = continueSeries ? seriesPool : null;
   const seriesCandidateCount = useMemo(() => baseEntries(entries, seriesPool).length, [entries, seriesPool]);
+  // Le mode s'éteint tout seul quand le dernier tome suivant est lu ou commencé
+  // (review #297) : sinon le vivier vide dirait « toute la pile est en cours ».
+  const seriesFilter = continueSeries && seriesCandidateCount > 0 ? seriesPool : null;
   const [phase, setPhase] = useState<RoulettePhase>({ kind: "idle" });
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   // La roulette a SA plomberie de geste : son erreur s'affiche dans l'overlay,

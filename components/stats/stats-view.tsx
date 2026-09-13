@@ -112,9 +112,6 @@ function BarLine({ label, count, max, color }: { label: string; count: number; m
   );
 }
 
-/** La moisson vide — quand la page n'a pas pu la dériver, la section explique. */
-const EMPTY_SERIES_SUMMARY: SeriesSummary = { inProgress: 0, upToDate: 0, complete: 0, debt: 0, topDebt: [], nextToRead: [] };
-
 /** Une liste « nom · moyenne » — les meilleures séries, les éditeurs décevants… */
 function RatedGroupList({ title, groups }: { title: string; groups: RatedGroup[] }) {
   if (groups.length === 0) return null;
@@ -411,7 +408,7 @@ export function StatsView({ records, readingEvents, seriesSummary = null }: Stat
       <section>
         <SectionLabel>Mes séries</SectionLabel>
         <SeriesSummarySection
-          summary={seriesSummary?.summary ?? EMPTY_SERIES_SUMMARY}
+          summary={seriesSummary?.summary ?? null}
           seriesCount={seriesSummary?.seriesCount ?? 0}
         />
       </section>

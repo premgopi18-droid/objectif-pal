@@ -47,7 +47,7 @@ export default async function BilanPage({
     // Le journal d'états part EN PARALLÈLE : il porte les abandons et reprises
     // du lot A (#30). Requête bornée (filtrée `user_id` + RLS, index de #27),
     // et son échec n'emporte pas la page — les stats restent lisibles sans lui.
-    const [{ data, error }, sessionResult] = await Promise.all([
+    const [{ data, error }, sessionResult, loadedSeries] = await Promise.all([
       supabase
         .from("books")
         .select(
@@ -63,6 +63,10 @@ export default async function BilanPage({
         .is("readings.deleted_at", null)
         .is("ownerships.deleted_at", null),
       supabase.auth.getUser(),
+      // La moisson du suivi de séries (§4.17, lot C) — même dérivation que le
+      // segment Séries, sans pseudos ni indice GCD ; en parallèle, son échec
+      // n'emporte pas la page (review #297).
+      loadSeriesProgress(supabase),
     ]);
 
     if (error) {
@@ -101,10 +105,6 @@ export default async function BilanPage({
       })),
     }));
 
-    // La moisson du suivi de séries (§4.17, lot C) — dérivée ici, une fois,
-    // par la même dérivation que le segment Séries (sans pseudos ni indice GCD :
-    // les Stats n'en ont pas besoin). Son échec n'emporte pas la page.
-    const loadedSeries = await loadSeriesProgress(supabase);
     if ("error" in loadedSeries) console.error("[bilan] séries:", loadedSeries.error);
     const seriesSummary =
       "error" in loadedSeries
