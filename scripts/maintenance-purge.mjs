@@ -25,6 +25,7 @@
 
 import { readFileSync } from "node:fs";
 import { createClient } from "@supabase/supabase-js";
+import { isOrphan } from "./maintenance-verdict.mjs";
 
 const isDryRun = process.argv.includes("--dry-run");
 
@@ -67,6 +68,9 @@ const referenced = new Set();
 for (const source of [
   { table: "books", column: "cover_url", filter: (q) => q },
   { table: "scan_inbox", column: "cover_url", filter: (q) => q.eq("status", "pending").is("deleted_at", null) },
+  // Le pool partagé (#278) : une copie partagée vivante est référencée — elle
+  // survit à son auteur tant qu'un livre ou une contribution la porte.
+  { table: "cover_contributions", column: "cover_url", filter: (q) => q.is("deleted_at", null) },
 ]) {
   for (let from = 0; ; from += 1000) {
     const query = source.filter(admin.from(source.table).select(source.column).not(source.column, "is", null));
@@ -86,19 +90,29 @@ const cutoff = Date.now() - SAFETY_AGE_DAYS * 86_400_000;
 const orphans = [];
 const { data: folders, error: rootError } = await admin.storage.from(COVERS_BUCKET).list("", { limit: 1000 });
 if (rootError) throw new Error(`storage racine : ${rootError.message}`);
-for (const folder of folders ?? []) {
-  if (folder.id !== null) continue; // un objet à la racine (jamais produit par l'app) : on ne touche pas
+/**
+ * Balaye un dossier page par page ; un sous-dossier (id null) est descendu —
+ * le dossier commun du pool (#278) est à deux niveaux : shared/{barcode}/{uuid}.webp.
+ * La décision « orphelin » est pure et testée (maintenance-verdict.mjs).
+ */
+async function walk(prefix) {
   for (let offset = 0; ; offset += PAGE) {
-    const { data: objects, error } = await admin.storage.from(COVERS_BUCKET).list(folder.name, { limit: PAGE, offset });
-    if (error) throw new Error(`storage ${folder.name} : ${error.message}`);
+    const { data: objects, error } = await admin.storage.from(COVERS_BUCKET).list(prefix, { limit: PAGE, offset });
+    if (error) throw new Error(`storage ${prefix} : ${error.message}`);
     for (const object of objects ?? []) {
-      const path = `${folder.name}/${object.name}`;
-      const createdAt = Date.parse(object.created_at ?? "");
-      if (Number.isFinite(createdAt) && createdAt > cutoff) continue; // marge de sécurité
-      if (!referenced.has(path)) orphans.push(path);
+      const path = `${prefix}/${object.name}`;
+      if (object.id === null) {
+        await walk(path);
+        continue;
+      }
+      if (isOrphan({ path, createdAt: object.created_at, referenced, cutoffMs: cutoff })) orphans.push(path);
     }
     if (!objects || objects.length < PAGE) break;
   }
+}
+for (const folder of folders ?? []) {
+  if (folder.id !== null) continue; // un objet à la racine (jamais produit par l'app) : on ne touche pas
+  await walk(folder.name);
 }
 console.log(`${orphans.length} photos orphelines (de plus de ${SAFETY_AGE_DAYS} j)`);
 

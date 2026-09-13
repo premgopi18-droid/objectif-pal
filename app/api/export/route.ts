@@ -32,8 +32,9 @@ const EXPORT_TABLES: Record<
   | "monthly_objectives"
   | "objective_targets"
   | "monthly_picks"
-  | "friendships",
-  { columns: string; orderBy: string }
+  | "friendships"
+  | "cover_contributions",
+  { columns: string; orderBy: string; ownOnly?: boolean }
 > = {
   books: {
     columns:
@@ -69,6 +70,14 @@ const EXPORT_TABLES: Record<
     columns: "id, user_low, user_high, requester_id, status, created_at, accepted_at",
     orderBy: "created_at",
   },
+  // Le pool partagé (#278) : ce que J'AI partagé. La RLS rend aussi les
+  // contributions vivantes des AUTRES (c'est le but du pool) — d'où le filtre
+  // explicite sur user_id dans fetchTable, seule table à en avoir besoin.
+  cover_contributions: {
+    columns: "id, barcode, cover_url, source_cover_url, created_at, deleted_at",
+    orderBy: "created_at",
+    ownOnly: true,
+  },
 };
 
 type ExportTable = keyof typeof EXPORT_TABLES;
@@ -93,12 +102,18 @@ export async function GET(request: Request) {
   // erreur — « toutes mes données » amputées en silence trahirait le §4.10.
   // L'id en clé de tri SECONDAIRE rend l'ordre total (donc les pages stables) :
   // created_at et month ne sont pas uniques.
+  // Capturé AVANT la fermeture : TypeScript ne propage pas le rétrécissement
+  // de `user` dans une fonction imbriquée.
+  const userId = user.id;
   async function fetchTable(table: ExportTable) {
     const { columns, orderBy } = EXPORT_TABLES[table];
     return fetchAllRows(async (from, to) => {
       const { data, error } = await supabase
         .from(table)
         .select(columns)
+        // Les tables cloisonnées par la RLS n'ont pas besoin de ce filtre ; le
+        // pool partagé (#278) si — ses lignes vivantes sont lisibles par tous.
+        .match(EXPORT_TABLES[table].ownOnly ? { user_id: userId } : {})
         .order(orderBy, { ascending: true })
         .order("id", { ascending: true })
         .range(from, to);
@@ -138,6 +153,7 @@ export async function GET(request: Request) {
       monthlyObjectives,
       objectiveTargets,
       monthlyPicks,
+      coverContributions,
     ] = await Promise.all([
       fetchTable("books"),
       fetchTable("readings"),
@@ -148,6 +164,7 @@ export async function GET(request: Request) {
       fetchTable("monthly_objectives"),
       fetchTable("objective_targets"),
       fetchTable("monthly_picks"),
+      fetchTable("cover_contributions"),
     ]);
 
     const payload = {
@@ -163,6 +180,7 @@ export async function GET(request: Request) {
       monthly_objectives: monthlyObjectives,
       objective_targets: objectiveTargets,
       monthly_picks: monthlyPicks,
+      cover_contributions: coverContributions,
     };
 
     return new Response(JSON.stringify(payload, null, 2), {

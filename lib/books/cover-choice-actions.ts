@@ -1,10 +1,12 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { isSharedCoverUrl } from "@/lib/books/cover-photo";
 import { isKnownCoverImageUrl } from "@/lib/books/cover-repair";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
 import { listCoverCandidates, listEditionCandidates, type CoverCandidate } from "@/lib/covers/candidates";
 import { validateEditionQuery } from "@/lib/covers/edition-query";
+import { contributionLabel } from "@/lib/covers/share-state";
 import { isActionAllowed, LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
 import { createDefaultDeps } from "@/lib/resolution/resolve";
 import { getSessionOrError } from "@/lib/supabase/server";
@@ -54,11 +56,31 @@ export async function getCoverCandidates(bookId: string): Promise<CoverCandidate
     return { ok: false, error: LOOKUP_RATE_LIMIT_MESSAGE };
   }
 
-  const { candidates, degraded } = await listCoverCandidates(target, createDefaultDeps());
+  // Les contributions des autres (#278) partent en parallèle des sources : une
+  // fonction `security definer` qui ne rend que le pseudo des membres du cercle.
+  const [{ candidates, degraded }, contributions] = await Promise.all([
+    listCoverCandidates(target, createDefaultDeps()),
+    target.barcode === null
+      ? Promise.resolve([] as CoverCandidate[])
+      : supabase
+          .rpc("get_cover_contributions", { target_barcode: target.barcode })
+          .then(({ data, error: rpcError }) => {
+            if (rpcError) {
+              console.error("[covers] get_cover_contributions:", rpcError.message);
+              return [] as CoverCandidate[];
+            }
+            return (data ?? []).map((row) => ({
+              url: row.cover_url,
+              source: "contribution" as const,
+              label: contributionLabel(row.contributor_label),
+              preselected: false,
+            }));
+          }),
+  ]);
   // La couverture actuelle est déjà en tête de la feuille : pas deux fois. Une
   // rapatriée (#208) vit chez nous sous une autre URL — impossible de la
   // reconnaître ici, elle réapparaîtra parmi les candidates ; assumé.
-  return { ok: true, candidates: candidates.filter((candidate) => candidate.url !== book.cover_url), degraded };
+  return { ok: true, candidates: [...candidates, ...contributions].filter((candidate) => candidate.url !== book.cover_url), degraded };
 }
 
 export async function chooseCover(bookId: string, url: string): Promise<CoverActionResult> {
@@ -68,7 +90,8 @@ export async function chooseCover(bookId: string, url: string): Promise<CoverAct
 
   // Garde SSRF/qualité (review #57) : une URL hors des hôtes de couverture
   // connus n'entre pas en base — `next/image` la refuserait de toute façon.
-  if (!isKnownCoverImageUrl(url)) return { ok: false, error: "Cette image ne vient pas d'une source connue." };
+  // Une copie du pool partagé (#278) est chez nous : acceptée aussi.
+  if (!isKnownCoverImageUrl(url) && !isSharedCoverUrl(url)) return { ok: false, error: "Cette image ne vient pas d'une source connue." };
 
   const { error, count } = await supabase
     .from("books")

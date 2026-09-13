@@ -12,7 +12,7 @@ import {
   type BookInput,
   type ScanActionResult,
 } from "@/lib/books/actions";
-import { isHouseCoverPhotoUrl, isOwnHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
+import { isHouseCoverPhotoUrl, isOwnHouseCoverPhotoUrl, isSharedCoverUrl } from "@/lib/books/cover-photo";
 import { isKnownCoverImageUrl } from "@/lib/books/cover-repair";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
 import type { ScanIntent } from "@/lib/books/scan-inbox";
@@ -82,8 +82,10 @@ export async function addToScanInbox(
   // export), soit un hôte de couvertures de la cascade (« image oui, infos
   // non »). Tout le reste est refusé — c'est une URL forgée.
   if (capture.coverUrl !== null) {
+    // Une copie du pool partagé (#278) est chez nous mais dans le dossier
+    // commun : acceptée, c'est le défaut au scan d'un code sans image.
     const acceptable = isHouseCoverPhotoUrl(capture.coverUrl)
-      ? isOwnHouseCoverPhotoUrl(capture.coverUrl, user.id)
+      ? isOwnHouseCoverPhotoUrl(capture.coverUrl, user.id) || isSharedCoverUrl(capture.coverUrl)
       : isKnownCoverImageUrl(capture.coverUrl);
     if (!acceptable) {
       return { ok: false, error: GENERIC_ERROR_MESSAGE };

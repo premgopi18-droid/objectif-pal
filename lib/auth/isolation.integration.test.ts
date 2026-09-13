@@ -354,6 +354,68 @@ describe.runIf(shouldRun)("le choix de couverture en base (#275)", () => {
   }, INTEGRATION_TIMEOUT_MS);
 });
 
+/**
+ * Le pool partagé de couvertures (#278) — l'EXCEPTION voulue au cloisonnement :
+ * B lit la contribution de A (c'est le but), étiquetée au pseudo seulement si
+ * A a rejoint le cercle ; mais B n'écrit ni ne modifie rien au nom de A, et le
+ * retrait doux de A la fait disparaître pour B. Idempotent (upsert + nettoyage).
+ */
+describe.runIf(shouldRun)("le pool partagé de couvertures (#278)", () => {
+  const POOL_BARCODE = "0000000000278";
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
+  const sharedUrl = `${supabaseUrl}/storage/v1/object/public/covers/shared/${POOL_BARCODE}/temoin.webp`;
+
+  it("A partage ; B lit (anonyme hors cercle), ne modifie pas, ne s'approprie pas ; A retire, B ne voit plus", async () => {
+    const a = await signIn(
+      process.env.ISOLATION_TEST_USER_A_EMAIL as string,
+      process.env.ISOLATION_TEST_USER_A_PASSWORD as string,
+    );
+    const b = await signIn(
+      process.env.ISOLATION_TEST_USER_B_EMAIL as string,
+      process.env.ISOLATION_TEST_USER_B_PASSWORD as string,
+    );
+    await a.client.from("profiles").update({ circle_joined_at: null }).eq("id", a.userId);
+
+    // A pose (ou ravive) sa contribution-témoin — une URL du dossier commun, comme le serveur l'écrirait.
+    const { error: upsertError } = await a.client
+      .from("cover_contributions")
+      .upsert(
+        { user_id: a.userId, barcode: POOL_BARCODE, cover_url: sharedUrl, source_cover_url: `${supabaseUrl}/storage/v1/object/public/covers/${a.userId}/temoin.webp`, deleted_at: null },
+        { onConflict: "barcode,user_id" },
+      );
+    expect(upsertError).toBeNull();
+
+    // B la LIT via la fonction — anonyme : A n'a pas rejoint le cercle, son pseudo ne sort pas.
+    const { data: seenByB, error: rpcError } = await b.client.rpc("get_cover_contributions", { target_barcode: POOL_BARCODE });
+    expect(rpcError).toBeNull();
+    expect(seenByB?.map((row) => [row.cover_url, row.contributor_label])).toEqual([[sharedUrl, null]]);
+    // A ne se voit pas elle-même dans la fonction (les AUTRES seulement).
+    const { data: seenByA } = await a.client.rpc("get_cover_contributions", { target_barcode: POOL_BARCODE });
+    expect(seenByA).toEqual([]);
+
+    // B ne s'approprie pas la ligne de A (with check), ne la modifie pas (0 ligne), ne la supprime pas (pas de policy).
+    const { error: crossInsert } = await b.client
+      .from("cover_contributions")
+      .insert({ user_id: a.userId, barcode: "0000000000279", cover_url: sharedUrl, source_cover_url: sharedUrl });
+    expect(crossInsert).not.toBeNull();
+    const { data: updated } = await b.client.from("cover_contributions").update({ deleted_at: new Date().toISOString() }).eq("user_id", a.userId).eq("barcode", POOL_BARCODE).select("id");
+    expect(updated).toEqual([]);
+    const { data: deleted } = await b.client.from("cover_contributions").delete().eq("user_id", a.userId).eq("barcode", POOL_BARCODE).select("id");
+    expect(deleted).toEqual([]);
+    // Le CHECK : une URL hors du dossier commun est refusée, même pour soi.
+    const { error: badUrl } = await b.client
+      .from("cover_contributions")
+      .insert({ user_id: b.userId, barcode: "0000000000279", cover_url: `${supabaseUrl}/storage/v1/object/public/covers/${b.userId}/x.webp`, source_cover_url: sharedUrl });
+    expect(badUrl).not.toBeNull();
+
+    // A retire (doux) : B ne la voit plus.
+    const { error: withdrawError } = await a.client.from("cover_contributions").update({ deleted_at: new Date().toISOString() }).eq("user_id", a.userId).eq("barcode", POOL_BARCODE);
+    expect(withdrawError).toBeNull();
+    const { data: afterWithdraw } = await b.client.rpc("get_cover_contributions", { target_barcode: POOL_BARCODE });
+    expect(afterWithdraw).toEqual([]);
+  }, INTEGRATION_TIMEOUT_MS);
+});
+
 describe.runIf(!shouldRun)("cloisonnement inter-utilisateurs (RLS)", () => {
   it.skip("désactivé — INTEGRATION_ISOLATION=1 + identifiants de test requis", () => {});
 });

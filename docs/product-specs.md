@@ -1140,9 +1140,10 @@ redistribution), **zéro quota**, et c'est **l'exemplaire réel** avec sa vraie 
 > - **Bucket `covers` PUBLIC**, chemins `{user_id}/{book_id}.webp` — deux UUID, indevinables, pas de listing.
 >   URL directe dans `books.cover_url`, comme les couvertures externes : zéro plomberie d'URLs signées, cache
 >   `next/image` intact.
-> - **Photos strictement PAR UTILISATEUR** (policies d'écriture par dossier). Le **pool partagé** (« le premier
->   qui photographie, les autres en profitent ») est une piste multi-user volontairement non ouverte : elle
->   sacrifierait l'argument « aucune redistribution » ci-dessus — à re-peser à l'ouverture multi-utilisateur.
+> - **Photos strictement PAR UTILISATEUR** (policies d'écriture par dossier). ~~Le **pool partagé** (« le
+>   premier qui photographie, les autres en profitent ») est une piste multi-user volontairement non
+>   ouverte~~ — **ouvert le 13/09/2026 (#278)**, l'app étant non commerciale : voir « Le pool partagé »
+>   ci-dessous. Les policies par dossier restent ; la copie partagée vit dans `shared/`, écrite par le serveur.
 > - ~~**La photo est le filet ULTIME**~~ — règle du 19/07/2026 (#33/#47 : proposée seulement quand
 >   `cover_url` est vide, une couverture de **source** intouchable, seule une photo maison reprenable),
 >   **abrogée le 12/09/2026 par #275** — voir « Choisir sa couverture » ci-dessous. Restent de cette époque :
@@ -1220,7 +1221,25 @@ redistribution), **zéro quota**, et c'est **l'exemplaire réel** avec sa vraie 
 >   *Astérix* 18). Verdict : OpenLibrary est solide sur le fonds classique (roman, manga, BD patrimoniale) et
 >   maigre sur le récent VO grand format et la jeunesse VF. Le cran **Inventaire** (œuvres → éditions) reste à
 >   mesurer sur la BD franco-belge récente avant d'être ajouté — pas dans ce lot.
-> - À venir dans l'epic : **le pool partagé** (lot D, #278), **Comic Vine débranchable** (lot C, #279).
+> - **Le pool partagé (lot D, #278, livré le 13/09/2026).** Le paragraphe « pool partagé volontairement non
+>   ouvert » plus haut est **caduc** : l'app étant non commerciale, une couverture photographiée ou choisie peut
+>   être proposée aux autres pour le **même code-barres exact** (`barcode_raw`, supplément compris — une cover B
+>   ne se propose qu'aux cover B). **Une contribution est une candidate de plus** dans la feuille, étiquetée
+>   « Photo de {pseudo} » si le contributeur a rejoint le cercle (§4.14 : le pseudo n'est cherchable qu'à
+>   l'entrée au cercle, les défauts Google/email ne fuient jamais — la fonction `get_cover_contributions`,
+>   `security definer`, rend `null` sinon → « Photo d'un·e lecteur·ice »). Elle ne devient couverture par
+>   défaut **au scan** que pour un code qu'aucune source ne couvre (appliqué par la route APRÈS la cascade, sur
+>   le résultat rendu — **jamais dans `barcode_cache` ni `barcode_misses`**). **Opt-in pour une photo** (case
+>   décochée, « vérifie qu'on n'y voit rien de personnel »), **cochée par défaut pour une rapatriée** d'une
+>   source ; « Ne plus partager » = retrait doux, ceux qui l'ont prise la gardent ; changer sa couverture rend
+>   la contribution « périmée » (`source_cover_url`), la case propose « Partager la nouvelle couverture ». **La
+>   copie vit dans un dossier COMMUN** `covers/shared/{barcode}/{uuid}.webp` (copie serveur, aucun client n'y
+>   écrit) : elle **survit à la suppression du compte** du contributeur — la ligne part par cascade, le fichier
+>   reste tant qu'un livre le référence, puis la purge #205 le ramasse (`cover_contributions.cover_url` compte
+>   comme référence). Table `cover_contributions` (RLS : lecture des vivantes par tous, écriture des siennes,
+>   pas de DELETE), **cloisonnement prouvé en CI** (B lit la contribution de A, ne l'écrit ni ne la modifie ;
+>   le CHECK refuse une URL hors de `shared/`). Export : mes contributions.
+> - À venir dans l'epic : **Comic Vine débranchable** (lot C, #279).
 
 > **Décisions du 19/07/2026 (deuxième vague — le trou VF)** — déclencheur : *Batman : La Cour des Hiboux*
 > (Urban Comics 2022, 9791026820963), fiche Google Books **sans image**, inconnu d'OpenLibrary, d'Inventaire

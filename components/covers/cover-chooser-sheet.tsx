@@ -9,6 +9,8 @@ import { getCoverState, recordCoverPhoto, resetCoverToAutomatic, type CoverActio
 import { chooseCover, getCoverCandidates, searchEditionCovers, type CoverCandidatesActionResult } from "@/lib/books/cover-choice-actions";
 import type { CoverCandidate } from "@/lib/covers/candidates";
 import { authorForSearch, EDITION_QUERY_MAX_LENGTH } from "@/lib/covers/edition-query";
+import { shareCover, unshareCover } from "@/lib/books/cover-share-actions";
+import { deriveShareState } from "@/lib/covers/share-state";
 import { coverPhotoPath, COVERS_BUCKET, fileToWebpBlob } from "@/lib/books/cover-photo";
 import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { deriveCoverSheetState } from "@/lib/covers/sheet-state";
@@ -54,6 +56,10 @@ export type CoverSheetBook = {
   authors?: string | null;
   /** Un code exploitable par les sources ? Inconnu (`undefined`) tant que la base n'a pas répondu. */
   hasCode?: boolean;
+  /** Le code exact — la clé du pool partagé (#278) ; inconnu tant que la base n'a pas répondu. */
+  barcodeRaw?: string | null;
+  /** La couverture-source de ma contribution vivante pour ce code (#278). */
+  sharedSourceCoverUrl?: string | null;
 };
 
 type CandidatesState =
@@ -179,11 +185,26 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
           coverChosenAt: state.coverChosenAt,
           authors: state.authors,
           hasCode: state.hasCode,
+          barcodeRaw: state.barcodeRaw,
+          sharedSourceCoverUrl: state.sharedSourceCoverUrl,
         });
         // La requête d'éditions suit la fiche tant que l'utilisateur n'y a pas touché.
         if (!queryTouched.current) {
           setEditionTitle(state.title);
           setEditionAuthor(authorForSearch(state.authors) ?? "");
+        }
+        // Une couverture RAPATRIÉE d'une source se partage par défaut (#278,
+        // décision du 12/09) : rien de personnel dessus. La case apparaît
+        // cochée, et décocher retire. Une photo, elle, attend le geste.
+        const shareState = deriveShareState({ coverUrl: state.coverUrl, barcodeRaw: state.barcodeRaw, sharedSourceCoverUrl: state.sharedSourceCoverUrl });
+        if (shareState.shareable && shareState.defaultChecked && !shareState.shared && !shareState.stale) {
+          shareCover(initial.bookId)
+            .then((result) => {
+              if (!cancelled && result.ok && result.shared) setBook((previous) => ({ ...previous, sharedSourceCoverUrl: previous.coverUrl }));
+            })
+            .catch(() => {
+              // Pas grave : la case restera décochée, le geste manuel reste possible.
+            });
         }
       })
       .catch(() => {
@@ -204,6 +225,31 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
   }, [busy, onClose]);
 
   const state = deriveCoverSheetState({ coverUrl: book.coverUrl, coverChosenAt: book.coverChosenAt });
+  // Le partage (#278) — dérivé pur, inconnu tant que la base n'a pas répondu (`barcodeRaw` undefined).
+  const share =
+    book.barcodeRaw === undefined
+      ? null
+      : deriveShareState({ coverUrl: book.coverUrl, barcodeRaw: book.barcodeRaw, sharedSourceCoverUrl: book.sharedSourceCoverUrl ?? null });
+  const [shareBusy, setShareBusy] = useState(false);
+  const [shareError, setShareError] = useState<string | null>(null);
+
+  async function toggleShare(next: boolean) {
+    setShareBusy(true);
+    setShareError(null);
+    try {
+      const result = next ? await shareCover(book.bookId) : await unshareCover(book.bookId);
+      if (!result.ok) {
+        setShareError(result.error);
+        return;
+      }
+      // La contribution reflète désormais (ou plus) la couverture actuelle.
+      setBook((previous) => ({ ...previous, sharedSourceCoverUrl: result.shared ? previous.coverUrl : null }));
+    } catch {
+      setShareError(NETWORK_ERROR_MESSAGE);
+    } finally {
+      setShareBusy(false);
+    }
+  }
 
   const applied = (result: CoverActionResult, chosenAt: string | null, message: string) => {
     if (!result.ok) {
@@ -316,6 +362,35 @@ function SheetBody({ book: initial, onClose, onChanged }: CoverChooserSheetProps
             )}
           </div>
         </div>
+
+        {/* Le pool partagé (#278) : proposer SA couverture aux autres pour le
+            même code. Opt-in pour une photo (une main, un salon…), la case
+            reflète l'état réel ; une rapatriée d'une source se partage sans
+            arrière-pensée. Jamais un remplacement chez les autres. */}
+        {share?.shareable && (
+          <div className="mt-3 flex flex-col gap-1">
+            <label className="flex items-start gap-2 text-sm text-ink2">
+              <input
+                type="checkbox"
+                checked={share.shared}
+                disabled={shareBusy || busy !== null}
+                onChange={(event) => toggleShare(event.target.checked)}
+                className="mt-0.5 h-4 w-4 accent-cyan"
+              />
+              <span>
+                {share.shared ? "Partagée avec les autres ✓" : share.stale ? "Partager la nouvelle couverture avec les autres" : "Partager cette couverture avec les autres"}
+                <span className="block text-xs text-ink3">
+                  {share.shared
+                    ? "Proposée sur ce livre à qui le scanne — décoche pour retirer (ceux qui l'ont prise la gardent)."
+                    : share.defaultChecked
+                      ? "Elle vient d'une source : rien de personnel dessus."
+                      : "Vérifie qu'on n'y voit rien de personnel (une main, ton salon…)."}
+                </span>
+              </span>
+            </label>
+            {shareError !== null && <ErrorAlert message={shareError} />}
+          </div>
+        )}
 
         {showSources && (
           <section className="mt-4" aria-busy={candidates.status === "loading"}>

@@ -143,3 +143,55 @@ export async function fileToWebpBlob(
     );
   });
 }
+
+/** Le dossier COMMUN du pool partagé (#278) : `shared/{barcode}/{uuid}.webp` — aucun client n'y écrit (policies par dossier utilisateur), le serveur copie. */
+export const SHARED_COVERS_FOLDER = "shared";
+
+/**
+ * Un code-barres admissible comme SEGMENT DE CHEMIN du pool (review #283) : la
+ * forme que produit `classifyScannedCode` — des chiffres, 8 à 17. Le chemin est
+ * écrit en service role : rien d'autre n'y entre, jamais un `../`.
+ */
+export const isSharedPoolBarcode = (barcode: string): boolean => /^\d{8,17}$/.test(barcode);
+
+/** Le chemin de la copie partagée d'une couverture, pour un code-barres (validé par `isSharedPoolBarcode`). */
+export const sharedCoverPath = (barcode: string, copyId: string) => {
+  if (!isSharedPoolBarcode(barcode)) throw new Error("code-barres inadmissible dans un chemin du pool");
+  return `${SHARED_COVERS_FOLDER}/${barcode}/${copyId}.webp`;
+};
+
+/**
+ * Vrai si l'URL désigne une copie du pool partagé (#278). Comme
+ * `isOwnHouseCoverPhotoUrl`, sur l'URL PARSÉE — pas de `../` qui tienne.
+ */
+export function isSharedCoverUrl(
+  coverUrl: string | null,
+  supabaseUrl: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL,
+): boolean {
+  const path = coverStoragePathFromUrl(coverUrl, supabaseUrl);
+  return path !== null && path.startsWith(`${SHARED_COVERS_FOLDER}/`);
+}
+
+/**
+ * Le chemin objet d'une URL publique du bucket (sans la version `?v=`), ou
+ * null si l'URL n'est pas chez nous. C'est ce que Storage `copy`/`remove`
+ * attendent — et ce que la purge #205 compare.
+ */
+export function coverStoragePathFromUrl(
+  coverUrl: string | null,
+  supabaseUrl: string | undefined = process.env.NEXT_PUBLIC_SUPABASE_URL,
+): string | null {
+  if (coverUrl === null || !supabaseUrl) return null;
+  let parsed: URL;
+  let base: URL;
+  try {
+    parsed = new URL(coverUrl);
+    base = new URL(supabaseUrl);
+  } catch {
+    return null;
+  }
+  const prefix = `/storage/v1/object/public/${COVERS_BUCKET}/`;
+  if (parsed.origin !== base.origin || !parsed.pathname.startsWith(prefix)) return null;
+  const path = decodeURIComponent(parsed.pathname.slice(prefix.length));
+  return path.length > 0 ? path : null;
+}
