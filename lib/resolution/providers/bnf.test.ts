@@ -1,40 +1,115 @@
-import { describe, expect, it } from "vitest";
-import { parseBnfResponse } from "./bnf";
+import { readFileSync } from "node:fs";
+import { describe, expect, it, vi } from "vitest";
+import { createBnfProvider, parseBnfResponse } from "./bnf";
 
-/** Fixture réduite d'une vraie réponse SRU (Père & fils, tome 4, Ki-oon). */
-const REAL_RESPONSE = `<?xml version="1.0" encoding="UTF-8"?>
-<srw:searchRetrieveResponse xmlns:srw="http://www.loc.gov/zing/srw/">
-  <srw:version>1.2</srw:version>
-  <srw:numberOfRecords>1</srw:numberOfRecords>
-  <srw:records>
-    <srw:record>
-      <srw:recordData>
-        <oai_dc:dc xmlns:oai_dc="http://www.openarchives.org/OAI/2.0/oai_dc/" xmlns:dc="http://purl.org/dc/elements/1.1/">
-          <dc:title>Père &amp; fils. 4 / Mi Tagawa</dc:title>
-          <dc:creator>Tagawa, Mi (1982-....). Auteur du texte</dc:creator>
-          <dc:publisher>Ki-oon</dc:publisher>
-          <dc:date>2016</dc:date>
-          <dc:format>1 vol. (206 p.) : ill. ; 18 cm</dc:format>
-        </oai_dc:dc>
-      </srw:recordData>
-    </srw:record>
-  </srw:records>
-</srw:searchRetrieveResponse>`;
+/**
+ * Des notices RÉELLES (capturées le 13/09/2026 en `unimarcXchange`), jamais
+ * inventées : chaque cas est un ISBN de la base de prod qui illustrait un
+ * piège mesuré (lot 0 de l'epic séries, #290).
+ */
+const fixture = (isbn: string): string =>
+  readFileSync(new URL(`./fixtures/bnf/${isbn}.xml`, import.meta.url), "utf8");
 
 const EMPTY_RESPONSE = `<?xml version="1.0" encoding="UTF-8"?>
 <srw:searchRetrieveResponse xmlns:srw="http://www.loc.gov/zing/srw/">
   <srw:numberOfRecords>0</srw:numberOfRecords>
 </srw:searchRetrieveResponse>`;
 
-describe("le parsing des réponses BnF (SRU Dublin Core)", () => {
-  it("extrait titre, tome, auteur, éditeur et pages d'une notice réelle", () => {
-    expect(parseBnfResponse(REAL_RESPONSE)).toEqual({
-      title: "Père & fils. 4",
-      seriesName: "Père & fils",
-      issueNumber: "4",
-      authors: "Tagawa, Mi (1982-....). Auteur du texte",
-      publisher: "Ki-oon",
-      pageCount: 206,
+describe("le parsing des notices BnF (SRU UNIMARC)", () => {
+  it("zone 461 : la série, le tome et l'identifiant de série — le titre DC n'était que l'épisode", () => {
+    expect(parseBnfResponse(fixture("9782723494748"))).toEqual({
+      title: "Ace entre en scène",
+      seriesName: "One piece",
+      issueNumber: "18",
+      bnfSeriesId: "38888890",
+      authors: "Eiichirō Oda", // 700 seulement : le traducteur (702) n'est pas un auteur
+      publisher: "Glénat",
+      pageCount: 224,
+    });
+  });
+
+  it("deux éditions d'une même série ont DEUX notices de série chez la BnF (mesuré) — le nom normalisé fera le lien", () => {
+    // Deux éditions (2013 « nouvelle édition » vs 2003) → deux notices de
+    // série chez la BnF. C'est le nom normalisé qui les rapprochera (lot A) ;
+    // le test fige ce que la source donne, pas ce qu'on voudrait.
+    const record = parseBnfResponse(fixture("9782723488525"));
+    expect(record).toMatchObject({
+      title: "Romance dawn : à l'aube d'une grande aventure",
+      seriesName: "One piece",
+      issueNumber: "1",
+      bnfSeriesId: "43702987",
+      publisher: "Glénat",
+      pageCount: 203,
+    });
+  });
+
+  it("461 et 200 $h : le numéro vient de la 461, le titre propre reste le titre", () => {
+    expect(parseBnfResponse(fixture("9782205203042"))).toEqual({
+      title: "Les murailles invisibles",
+      seriesName: "Les murailles invisibles",
+      issueNumber: "1",
+      bnfSeriesId: "47203983",
+      authors: "Alex Chauvel",
+      publisher: "Dargaud", // 214, la zone moderne, avant 210
+      pageCount: 90,
+    });
+  });
+
+  it("un $t pollué par la mention de responsabilité est coupé au « / »", () => {
+    expect(parseBnfResponse(fixture("9791026828822"))).toMatchObject({
+      title: "Fables",
+      seriesName: "Fables",
+      issueNumber: "7", // « [Volume 7] » en 200 $h, « 7 » en 461 $v
+      bnfSeriesId: "47197081",
+      authors: "Bill Willingham",
+      publisher: "Urban comics",
+      pageCount: 377,
+    });
+  });
+
+  it("un numéro en toutes lettres et une pagination approximative sont lus", () => {
+    expect(parseBnfResponse(fixture("9791039124614"))).toMatchObject({
+      title: "Excalibur. 1990-1991", // le titre de partie ($i) suit le titre propre
+      seriesName: "Excalibur",
+      issueNumber: "4", // « [Quatrième volume] »
+      bnfSeriesId: "46839514",
+      authors: "Scott Lobdell, Christopher Claremont", // 700 puis 701
+      pageCount: 343, // « non paginé [ca 343] p. »
+    });
+  });
+
+  it("461 sans $v : la série est connue, le numéro vient du 200 $h", () => {
+    expect(parseBnfResponse(fixture("9791039108768"))).toMatchObject({
+      title: "Star wars, les récits légendaires. Les vauriens de la galaxie",
+      seriesName: "Star wars, légendes",
+      issueNumber: "3", // « [3] »
+      bnfSeriesId: "47050997",
+      authors: null, // ni 700/701 ni 200 $f sur cette notice
+      publisher: "Panini comics",
+    });
+  });
+
+  it("sans 461 ni $h, le titre qui porte son tome est le dernier repli", () => {
+    expect(parseBnfResponse(fixture("9782302093744"))).toEqual({
+      title: "Abaddon T02 : antinéa",
+      seriesName: "Abaddon",
+      issueNumber: "2",
+      bnfSeriesId: null, // aucune notice de série : le lot A rapprochera par le nom
+      authors: "Christophe Bec, Vincent Powell, Jérôme Alvarez", // 700 puis les 701, dans l'ordre de la notice
+      publisher: "Soleil",
+      pageCount: 56,
+    });
+  });
+
+  it("un roman en collection n'a PAS de série : le 225 (Le livre de poche, 34028) est ignoré", () => {
+    expect(parseBnfResponse(fixture("9782253183969"))).toEqual({
+      title: "Joyland : roman",
+      seriesName: null,
+      issueNumber: null,
+      bnfSeriesId: null,
+      authors: "Stephen King",
+      publisher: "le Livre de poche",
+      pageCount: 399,
     });
   });
 
@@ -42,11 +117,48 @@ describe("le parsing des réponses BnF (SRU Dublin Core)", () => {
     expect(parseBnfResponse(EMPTY_RESPONSE)).toBeNull();
   });
 
-  it("un titre sans tome reste entier, sans série déduite", () => {
-    const xml = REAL_RESPONSE.replace("Père &amp; fils. 4 / Mi Tagawa", "L'Étranger / Albert Camus");
+  it("une notice comptée mais sans titre propre (200 $a) vaut null — jamais un livre au titre vide", () => {
+    const xml = fixture("9782253183969").replace('<mxc:subfield code="a">Joyland</mxc:subfield>', "");
+    expect(parseBnfResponse(xml)).toBeNull();
+  });
+
+  it("une anthologie à cinquante auteurs est bornée à six noms + « et al. » (plafond de validateBook)", () => {
+    const extraAuthors = Array.from(
+      { length: 49 },
+      (_, index) =>
+        `<mxc:datafield tag="701" ind1=" " ind2="1"><mxc:subfield code="a">Nom${index}</mxc:subfield><mxc:subfield code="b">Prénom${index}</mxc:subfield></mxc:datafield>`,
+    ).join("");
+    const xml = fixture("9782253183969").replace("</mxc:record>", `${extraAuthors}</mxc:record>`);
     const record = parseBnfResponse(xml);
-    expect(record?.title).toBe("L'Étranger");
-    expect(record?.seriesName).toBeNull();
-    expect(record?.issueNumber).toBeNull();
+    expect(record?.authors).toBe("Stephen King, Prénom0 Nom0, Prénom1 Nom1, Prénom2 Nom2, Prénom3 Nom3, Prénom4 Nom4 et al.");
+    expect(record?.authors?.length).toBeLessThan(200);
+  });
+
+  it("« Fahrenheit 451 » n'est pas le tome 451 de « Fahrenheit »", () => {
+    const xml = fixture("9782253183969").replace(
+      '<mxc:subfield code="a">Joyland</mxc:subfield>',
+      '<mxc:subfield code="a">Fahrenheit 451</mxc:subfield>',
+    );
+    expect(parseBnfResponse(xml)).toMatchObject({ title: "Fahrenheit 451 : roman", seriesName: null, issueNumber: null });
+  });
+});
+
+describe("le provider BnF", () => {
+  it("interroge le SRU en UNIMARC avec l'identité de l'app", async () => {
+    const fetchImplementation = vi.fn(async () => new Response(fixture("9782723494748"), { status: 200 }));
+    const provider = createBnfProvider(fetchImplementation as unknown as typeof fetch);
+
+    const record = await provider.resolveIsbn("9782723494748");
+
+    expect(record?.seriesName).toBe("One piece");
+    const [url, init] = fetchImplementation.mock.calls[0] as unknown as [string, RequestInit];
+    expect(url).toContain("recordSchema=unimarcXchange");
+    expect(url).toContain(encodeURIComponent('bib.isbn any "9782723494748"'));
+    expect((init.headers as Record<string, string>)["User-Agent"]).toContain("objectif-pal");
+  });
+
+  it("une réponse HTTP en erreur jette (panne ≠ absence)", async () => {
+    const provider = createBnfProvider((async () => new Response("", { status: 503 })) as unknown as typeof fetch);
+    await expect(provider.resolveIsbn("9782723494748")).rejects.toThrow("HTTP 503");
   });
 });

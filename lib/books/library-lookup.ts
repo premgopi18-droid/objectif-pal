@@ -84,6 +84,8 @@ export async function findBookInLibrary(
       title: row.title,
       seriesName: row.series_name,
       issueNumber: row.issue_number,
+      // Le livre est déjà en base : son rattachement à une série est l'affaire du lot A (#291).
+      seriesRef: null,
       authors: row.authors,
       publisher: row.publisher,
       pageCount: row.page_count,

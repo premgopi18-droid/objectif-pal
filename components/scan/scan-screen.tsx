@@ -65,6 +65,7 @@ const manualInputToBook = (input: BookInput): ResolvedBook => ({
   title: input.title,
   seriesName: input.seriesName,
   issueNumber: input.issueNumber,
+  seriesRef: null, // une saisie manuelle ne connaît aucune notice de série
   authors: input.authors,
   publisher: input.publisher,
   pageCount: input.pageCount,

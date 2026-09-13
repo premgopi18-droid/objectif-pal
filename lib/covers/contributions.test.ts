@@ -6,6 +6,7 @@ const book: ResolvedBook = {
   title: "T",
   seriesName: null,
   issueNumber: null,
+  seriesRef: null,
   authors: null,
   publisher: null,
   pageCount: null,

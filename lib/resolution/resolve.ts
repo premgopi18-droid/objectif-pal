@@ -12,6 +12,7 @@ import { createEpagineProvider, type EpagineProvider } from "./providers/epagine
 import {
   createGcdProvider,
   GCD_LANGUAGE_FRENCH,
+  UNKNOWN_SERIES_ID,
   type GcdIssue,
   type GcdProvider,
   type GcdSeries,
@@ -129,6 +130,7 @@ const fromCache = (entry: CacheEntry, barcodeType: "isbn" | "upc"): ResolvedBook
   // Ceinture-bretelles (review #59) : une entrée « [nn] » écrite hors de
   // l'app ne doit pas re-exposer le marqueur — même règle qu'à la résolution.
   issueNumber: entry.issueNumber === GCD_UNNUMBERED_ISSUE_NUMBER ? null : entry.issueNumber,
+  seriesRef: entry.seriesRef ?? null,
   authors: entry.authors,
   publisher: entry.publisher,
   pageCount: sanitizePageCount(entry.pageCount),
@@ -154,6 +156,8 @@ function fromGcdIssue(issue: GcdIssue, series: GcdSeries | undefined, barcodeTyp
     seriesName: series?.name ?? null,
     // « [nn] » = sans numéro chez GCD (issue #58) : une absence, pas un numéro.
     issueNumber: issue.number === GCD_UNNUMBERED_ISSUE_NUMBER ? null : issue.number || null,
+    // La série GCD est un identifiant STABLE (#290) — même quand son nom n'a pas été chargé.
+    seriesRef: issue.seriesId === UNKNOWN_SERIES_ID ? null : { source: "gcd", id: String(issue.seriesId) },
     authors: null, // le dump réduit ne porte pas les crédits
     publisher: series?.publisher ?? null,
     pageCount: sanitizePageCount(issue.pageCount),
@@ -384,6 +388,7 @@ async function resolveIsbn(
       title: bnfRecord.title,
       seriesName: bnfRecord.seriesName,
       issueNumber: bnfRecord.issueNumber,
+      seriesRef: bnfRecord.bnfSeriesId ? { source: "bnf", id: bnfRecord.bnfSeriesId } : null,
       authors: bnfRecord.authors,
       publisher: bnfRecord.publisher,
       pageCount: sanitizePageCount(bnfRecord.pageCount),
@@ -411,6 +416,7 @@ async function resolveIsbn(
       title: googleRecord.title,
       seriesName: null,
       issueNumber: null,
+      seriesRef: null, // Google Books ne modélise pas la série
       authors: googleRecord.authors,
       publisher: googleRecord.publisher,
       pageCount: sanitizePageCount(googleRecord.pageCount),
@@ -534,6 +540,7 @@ function fromMetronIssue(metronIssue: MetronIssue, raw: string): ResolvedBook {
     title: metronIssue.issueName,
     seriesName: metronIssue.seriesName,
     issueNumber: metronIssue.number,
+    seriesRef: null, // la colle entre comptes est GCD ou BnF (§4.17) — Metron n'en fait pas partie
     authors: null,
     publisher: metronIssue.publisher,
     pageCount: metronIssue.pageCount,
@@ -558,6 +565,7 @@ const toCacheEntry = (barcode: string, book: ResolvedBook, source: CacheEntry["s
   coverUrl: book.coverUrl,
   source,
   sourceId: book.sourceId,
+  seriesRef: book.seriesRef,
 });
 
 /** Le 4ᵉ chiffre du supplément UPC encode la couverture : 1 = la principale. */

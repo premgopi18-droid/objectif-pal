@@ -35,11 +35,27 @@ export const OUTBOUND_USER_AGENT = "objectif-pal/1.0 (+https://objectif-pal.verc
  */
 export const GCD_UNNUMBERED_ISSUE_NUMBER = "[nn]";
 
+/**
+ * La série chez une source qui la MODÉLISE (lot 0 de l'epic séries #289) :
+ * la notice de série BnF (461 `$0`) ou le `series_id` GCD. C'est la colle
+ * entre comptes du futur référentiel partagé (specs §4.17) — un nom de série
+ * seul se rapproche au jugé, un identifiant se rapproche à coup sûr.
+ */
+export const SERIES_EXTERNAL_SOURCES = ["bnf", "gcd"] as const;
+export type SeriesExternalSource = (typeof SERIES_EXTERNAL_SOURCES)[number];
+export type SeriesExternalRef = { source: SeriesExternalSource; id: string };
+
+/** La colonne `series_external_source` est du texte en base (CHECK côté SQL) : on la resserre à la lecture. */
+export const isSeriesExternalSource = (value: string | null): value is SeriesExternalSource =>
+  value !== null && (SERIES_EXTERNAL_SOURCES as readonly string[]).includes(value);
+
 /** Un livre résolu, normalisé quelle que soit la source. */
 export type ResolvedBook = {
   title: string | null;
   seriesName: string | null;
   issueNumber: string | null;
+  /** `null` quand la source ne modélise pas la série (Google Books, Metron, saisie). */
+  seriesRef: SeriesExternalRef | null;
   authors: string | null;
   publisher: string | null;
   pageCount: number | null;
@@ -120,6 +136,12 @@ export type CacheEntry = {
   coverUrl: string | null;
   source: MetadataSource;
   sourceId: string | null;
+  /**
+   * La série chez la source (#290) — absente (`undefined`) quand l'écriture
+   * ne doit pas y toucher (repair, saisie manuelle), `null` quand la
+   * résolution a établi que la source n'en connaît pas.
+   */
+  seriesRef?: SeriesExternalRef | null;
   /**
    * Le dernier verdict PROPRE « pas de couverture » de la chaîne (#176) —
    * absent (`undefined`) quand l'écriture ne doit pas y toucher : l'upsert ne

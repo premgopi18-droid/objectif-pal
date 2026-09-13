@@ -1,0 +1,687 @@
+<title>Proto suivi de séries</title>
+<style>
+  /* ── Tokens « nuit du plateau » (globals.css, design-specs §2) ─────────── */
+  :root {
+    --bg0: #120826; --bg1: #1b0f38; --card: #221345; --card2: #2b1a55;
+    --line: rgba(255,255,255,.08);
+    --ink: #f4effc; --ink2: #b3a5d6; --ink3: #9083bc;
+    --magenta: #f32fb6; --violet: #8c5cf6; --cyan: #2bd7f0;
+    --green: #3be596; --amber: #ffb63b; --red: #ff5470;
+    --grad: linear-gradient(100deg, #f32fb6, #8c5cf6 45%, #2bd7f0 75%, #3be596);
+    --page: #0a0614;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  [hidden] { display: none !important; }
+  body {
+    background: var(--page); color: var(--ink);
+    font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+    padding: 32px 20px 64px; min-height: 100vh;
+  }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; }
+  button:focus-visible { outline: 2px solid var(--cyan); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+
+  /* ── Chrome du proto ──────────────────────────────────────────────────── */
+  .intro { max-width: 900px; margin: 0 auto 40px; }
+  .intro h1 { font-size: 1.35rem; font-weight: 800; letter-spacing: -.01em; }
+  .intro p { margin-top: 10px; font-size: .92rem; line-height: 1.55; color: var(--ink2); max-width: 68ch; }
+  .intro p b { color: var(--ink); font-weight: 700; }
+  .intro .hint { color: var(--ink3); font-size: .84rem; margin-top: 6px; }
+
+  .protos { display: flex; flex-wrap: wrap; gap: 40px 32px; justify-content: center; max-width: 1400px; margin: 0 auto; }
+  .proto { width: 390px; max-width: 100%; }
+  .proto > .tag {
+    display: inline-block; font-size: .7rem; font-weight: 700; letter-spacing: .1em;
+    text-transform: uppercase; color: var(--cyan);
+    border: 1px solid color-mix(in srgb, var(--cyan) 35%, transparent);
+    background: color-mix(in srgb, var(--cyan) 10%, transparent);
+    padding: 3px 10px; border-radius: 999px; margin-bottom: 8px;
+  }
+  .proto > h2 { font-size: 1.02rem; font-weight: 700; margin-bottom: 6px; text-wrap: balance; }
+  .proto > .note { font-size: .84rem; line-height: 1.5; color: var(--ink3); margin-bottom: 12px; min-height: 6.5em; }
+  .proto > .note b { color: var(--ink2); font-weight: 600; }
+
+  .phone {
+    position: relative; height: 730px; border-radius: 28px; overflow: hidden;
+    background: linear-gradient(175deg, var(--bg1), var(--bg0) 38%);
+    border: 1px solid rgba(255,255,255,.12);
+    box-shadow: 0 18px 48px rgba(0,0,0,.55);
+  }
+  .screen { position: absolute; inset: 0; overflow-y: auto; padding: 18px 16px 40px; scrollbar-width: none; }
+  .screen::-webkit-scrollbar { display: none; }
+  .apptitle { font-size: 1.28rem; font-weight: 800; letter-spacing: -.01em; }
+
+  .seg { display: flex; gap: 4px; background: var(--card); border: 1px solid var(--line); border-radius: 999px; padding: 4px; margin-top: 14px; }
+  .seg span { flex: 1; text-align: center; padding: 7px 0; border-radius: 999px; font-size: .82rem; font-weight: 700; color: var(--ink3); }
+  .seg span.on { background: var(--grad); color: var(--bg0); }
+
+  /* Bandeau de synthèse en tête du segment Séries */
+  .headline { margin-top: 14px; font-size: .82rem; color: var(--ink2); line-height: 1.5; }
+  .headline b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+  .filters { display: flex; gap: 7px; margin-top: 12px; overflow-x: auto; scrollbar-width: none; }
+  .filters::-webkit-scrollbar { display: none; }
+  .fchip {
+    flex: none; font-size: .78rem; font-weight: 700; padding: 6px 12px; border-radius: 999px;
+    background: var(--card); border: 1px solid var(--line); color: var(--ink2);
+  }
+  .fchip.on { background: var(--grad); border-color: transparent; color: var(--bg0); }
+
+  /* ── Bannière de fusion ───────────────────────────────────────────────── */
+  .mergebar {
+    margin-top: 12px; border-radius: 16px; padding: 11px 13px;
+    background: color-mix(in srgb, var(--violet) 14%, var(--card));
+    border: 1px solid color-mix(in srgb, var(--violet) 40%, transparent);
+    font-size: .8rem; line-height: 1.45; color: var(--ink2);
+  }
+  .mergebar b { color: var(--ink); }
+  .mergebar .acts { display: flex; gap: 8px; margin-top: 9px; }
+  .mergebar .acts button {
+    font-size: .78rem; font-weight: 700; padding: 6px 13px; border-radius: 999px;
+  }
+  .mergebar .do { background: var(--grad); color: var(--bg0); }
+  .mergebar .skip { background: var(--card2); color: var(--ink2); border: 1px solid var(--line); }
+
+  /* ── Cartes série ─────────────────────────────────────────────────────── */
+  .slist { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; list-style: none; }
+  .scard {
+    display: block; width: 100%; text-align: left;
+    background: var(--card); border: 1px solid var(--line); border-radius: 20px; padding: 12px;
+    transition: transform .1s;
+  }
+  .scard:active { transform: scale(.985); }
+  .scard .top { display: flex; align-items: center; gap: 11px; }
+  .scard .mid { min-width: 0; flex: 1; }
+  .scard .name { font-size: 14.5px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .scard .meta { font-size: 11.5px; color: var(--ink3); margin-top: 2px; }
+  .scard .chev { color: var(--ink3); font-size: 1rem; flex: none; }
+
+  /* Pile de couvertures factices (dégradé par hash + initiale, comme l'app) */
+  .covstack { flex: none; position: relative; width: 52px; height: 60px; }
+  .covstack .cov { position: absolute; top: 0; width: 42px; height: 60px; border-radius: 7px; color: var(--bg0);
+    display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.05rem;
+    border: 1px solid rgba(255,255,255,.14); }
+  .covstack .cov:nth-child(1) { left: 0; z-index: 3; }
+  .covstack .cov:nth-child(2) { left: 7px; z-index: 2; transform: rotate(3.5deg); opacity: .8; }
+  .covstack .cov:nth-child(3) { left: 12px; z-index: 1; transform: rotate(7deg); opacity: .55; }
+
+  /* La jauge : lus (vert) · dans la pile (ambre) · le reste (piste) */
+  .gauge { display: flex; height: 7px; border-radius: 999px; overflow: hidden; background: rgba(255,255,255,.07); margin-top: 10px; }
+  .gauge .read { background: var(--green); }
+  .gauge .pile { background: var(--amber); }
+  .gauge .fade { background: linear-gradient(90deg, rgba(255,255,255,.07), transparent); }
+  .gline { display: flex; justify-content: space-between; align-items: baseline; margin-top: 6px; }
+  .gcount { font-size: 11.5px; color: var(--ink2); font-variant-numeric: tabular-nums; }
+  .gcount b { color: var(--ink); font-weight: 700; }
+
+  .status {
+    display: inline-block; font-size: 10px; font-weight: 800; letter-spacing: .05em;
+    text-transform: uppercase; padding: 3px 9px; border-radius: 999px;
+  }
+  .status.inprogress { color: var(--cyan); background: color-mix(in srgb, var(--cyan) 13%, transparent); }
+  .status.uptodate { color: var(--green); background: color-mix(in srgb, var(--green) 13%, transparent); }
+  .status.done { color: var(--green); background: color-mix(in srgb, var(--green) 13%, transparent); }
+  .status.unknown { color: var(--amber); background: color-mix(in srgb, var(--amber) 14%, transparent); }
+  .status.approx { color: var(--magenta); background: color-mix(in srgb, var(--magenta) 13%, transparent); }
+
+  /* ── Fiche série (overlay plein cadran) ───────────────────────────────── */
+  .overlay {
+    position: absolute; inset: 0; z-index: 6; display: none; flex-direction: column;
+    background: linear-gradient(175deg, var(--bg1), var(--bg0) 42%);
+  }
+  .overlay.open { display: flex; }
+  .ovscroll { flex: 1; overflow-y: auto; padding: 18px 16px 40px; scrollbar-width: none; }
+  .ovscroll::-webkit-scrollbar { display: none; }
+  .ovback { font-size: .84rem; font-weight: 700; color: var(--ink3); display: inline-flex; align-items: center; gap: 6px; }
+  .ovback:hover { color: var(--ink2); }
+
+  .shead { display: flex; gap: 13px; margin-top: 14px; align-items: center; }
+  .shead .cov { width: 58px; height: 84px; border-radius: 9px; color: var(--bg0); flex: none;
+    display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: 1.5rem;
+    border: 1px solid rgba(255,255,255,.14); }
+  .shead h3 { font-size: 1.22rem; font-weight: 800; letter-spacing: -.01em; line-height: 1.2; }
+  .shead .meta { font-size: .8rem; color: var(--ink3); margin-top: 4px; }
+  .shead .status { margin-top: 7px; }
+
+  .bigcounts { display: flex; gap: 8px; margin-top: 16px; }
+  .bc { flex: 1; background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 10px 8px; text-align: center; }
+  .bc .n { font-size: 1.25rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .bc .l { font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--ink3); margin-top: 2px; }
+  .bc.green .n { color: var(--green); }
+  .bc.amber .n { color: var(--amber); }
+
+  /* La carte « prochain geste » : à lire, à acheter, ou rien */
+  .nextcard {
+    margin-top: 12px; border-radius: 16px; padding: 12px 14px; display: flex; align-items: center; gap: 11px;
+    background: color-mix(in srgb, var(--cyan) 9%, var(--card));
+    border: 1px solid color-mix(in srgb, var(--cyan) 30%, transparent);
+  }
+  .nextcard.buy { background: color-mix(in srgb, var(--amber) 9%, var(--card)); border-color: color-mix(in srgb, var(--amber) 32%, transparent); }
+  .nextcard .ico { font-size: 1.25rem; flex: none; }
+  .nextcard .t { font-size: .88rem; font-weight: 700; }
+  .nextcard .s { font-size: .76rem; color: var(--ink2); margin-top: 1px; }
+
+  /* Grille de tomes */
+  .gridhead { display: flex; justify-content: space-between; align-items: baseline; margin-top: 18px; }
+  .gridhead h4 { font-size: .82rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--ink2); }
+  .gridhead .src { font-size: .72rem; color: var(--ink3); }
+  .tgrid { display: grid; grid-template-columns: repeat(6, 1fr); gap: 7px; margin-top: 10px; }
+  .tome {
+    aspect-ratio: 1; border-radius: 11px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 1px;
+    font-weight: 800; font-size: .92rem; font-variant-numeric: tabular-nums;
+    background: var(--card); border: 1px solid var(--line); color: var(--ink3);
+    position: relative;
+  }
+  .tome .st { font-size: 8.5px; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; }
+  .tome.read { background: color-mix(in srgb, var(--green) 16%, var(--card)); border-color: color-mix(in srgb, var(--green) 45%, transparent); color: var(--green); }
+  .tome.pile { background: color-mix(in srgb, var(--amber) 14%, var(--card)); border-color: color-mix(in srgb, var(--amber) 42%, transparent); color: var(--amber); }
+  .tome.missing { background: transparent; border-style: dashed; border-color: rgba(255,255,255,.16); }
+  .tome.next { box-shadow: 0 0 0 2px var(--cyan); }
+  .tome.unnum { background: color-mix(in srgb, var(--magenta) 13%, var(--card)); border-color: color-mix(in srgb, var(--magenta) 45%, transparent); color: var(--magenta); cursor: pointer; }
+  .tome.more { border: 0; background: transparent; color: var(--ink3); font-size: .78rem; font-weight: 700; }
+  .legend { display: flex; flex-wrap: wrap; gap: 5px 14px; margin-top: 10px; font-size: .72rem; color: var(--ink3); }
+  .legend i { display: inline-block; width: 9px; height: 9px; border-radius: 3px; margin-right: 5px; vertical-align: -1px; }
+  .legend .lg-read i { background: var(--green); } .legend .lg-pile i { background: var(--amber); }
+  .legend .lg-miss i { border: 1px dashed rgba(255,255,255,.3); } .legend .lg-unnum i { background: var(--magenta); }
+
+  /* Avertissement honnête : un tome sans numéro */
+  .warn {
+    margin-top: 12px; border-radius: 14px; padding: 10px 13px; font-size: .78rem; line-height: 1.45; color: var(--ink2);
+    background: color-mix(in srgb, var(--magenta) 10%, var(--card));
+    border: 1px solid color-mix(in srgb, var(--magenta) 32%, transparent);
+  }
+  .warn b { color: var(--ink); }
+
+  /* Ligne « total » + carte de déclaration */
+  .totline { display: flex; justify-content: space-between; align-items: center; margin-top: 16px;
+    background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 11px 14px; }
+  .totline .t { font-size: .84rem; color: var(--ink2); }
+  .totline .t b { color: var(--ink); }
+  .totline .edit { font-size: .78rem; font-weight: 700; color: var(--cyan); }
+
+  .declare {
+    margin-top: 16px; border-radius: 18px; padding: 14px;
+    background: color-mix(in srgb, var(--amber) 8%, var(--card));
+    border: 1px solid color-mix(in srgb, var(--amber) 32%, transparent);
+  }
+  .declare h4 { font-size: .92rem; font-weight: 800; }
+  .declare p { font-size: .78rem; color: var(--ink2); line-height: 1.45; margin-top: 4px; }
+  .stepper { display: flex; align-items: center; justify-content: center; gap: 14px; margin-top: 12px; }
+  .stepper button {
+    width: 44px; height: 44px; border-radius: 14px; font-size: 1.3rem; font-weight: 800;
+    background: var(--card2); border: 1px solid var(--line); color: var(--ink);
+  }
+  .stepper .val { font-size: 1.7rem; font-weight: 800; min-width: 2.4ch; text-align: center; font-variant-numeric: tabular-nums; }
+  .declare .acts { display: flex; flex-direction: column; gap: 8px; margin-top: 14px; }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 7px;
+    border-radius: 12px; font-weight: 700; font-size: .9rem; padding: 12px 16px;
+    transition: transform .1s; width: 100%;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn.grad { background: var(--grad); color: var(--bg0); }
+  .btn.ghost { background: var(--card2); color: var(--ink); border: 1px solid var(--line); }
+
+  /* ── Sheet « assigner un numéro » ─────────────────────────────────────── */
+  .backdrop { position: absolute; inset: 0; z-index: 8; background: rgba(6,3,14,.6); display: none; }
+  .sheet {
+    position: absolute; left: 0; right: 0; bottom: 0; z-index: 9; display: none;
+    background: var(--bg1); border-radius: 24px 24px 0 0; border-top: 1px solid var(--line);
+    padding: 14px 18px 24px;
+  }
+  .phone.sheet-open .backdrop, .phone.sheet-open .sheet { display: block; }
+  .sheet .grip { width: 38px; height: 4px; border-radius: 999px; background: var(--ink3); opacity: .5; margin: 0 auto 14px; }
+  .sheet h3 { font-size: 1.02rem; font-weight: 800; }
+  .sheet .sub { font-size: .82rem; color: var(--ink2); margin-top: 4px; line-height: 1.45; }
+  .sheet .sub b { color: var(--ink); }
+  .numpad { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; margin-top: 14px; }
+  .numpad button {
+    aspect-ratio: 1.15; border-radius: 12px; font-weight: 800; font-size: 1rem;
+    background: var(--card); border: 1px solid var(--line); color: var(--ink);
+  }
+  .numpad button:disabled { opacity: .3; }
+  .numpad button:not(:disabled):active { background: var(--grad); color: var(--bg0); }
+
+  .toast {
+    position: absolute; left: 50%; bottom: 22px; transform: translateX(-50%) translateY(8px);
+    background: var(--card2); border: 1px solid var(--line); border-radius: 999px;
+    padding: 9px 16px; font-size: .8rem; font-weight: 600; white-space: nowrap;
+    opacity: 0; transition: opacity .25s, transform .25s; pointer-events: none; z-index: 12;
+    box-shadow: 0 8px 24px rgba(0,0,0,.5); max-width: 92%;
+  }
+  .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
+  .toast .ok { color: var(--green); }
+
+  /* ── Cadran B : Stats & antenne ───────────────────────────────────────── */
+  .tiles { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 14px; }
+  .tile { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 12px; }
+  .tile .n { font-size: 1.45rem; font-weight: 800; font-variant-numeric: tabular-nums; }
+  .tile .l { font-size: 10.5px; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--ink3); margin-top: 2px; }
+  .tile.cyan .n { color: var(--cyan); } .tile.green .n { color: var(--green); } .tile.amber .n { color: var(--amber); }
+  .sect { font-size: .82rem; font-weight: 800; letter-spacing: .06em; text-transform: uppercase; color: var(--ink2); margin-top: 20px; }
+  .nextrows { display: flex; flex-direction: column; gap: 8px; margin-top: 10px; }
+  .nrow { display: flex; align-items: center; gap: 10px; background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 9px 12px; }
+  .nrow .cov { width: 30px; height: 43px; border-radius: 5px; color: var(--bg0); flex: none;
+    display: flex; align-items: center; justify-content: center; font-weight: 900; font-size: .8rem; }
+  .nrow .t { font-size: .84rem; font-weight: 700; flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .nrow .t small { display: block; font-size: .72rem; font-weight: 600; color: var(--ink3); margin-top: 1px; }
+  .nrow .vol { font-size: .8rem; font-weight: 800; color: var(--cyan); font-variant-numeric: tabular-nums; flex: none; }
+  .nrow .vol.buy { color: var(--amber); }
+  .roulnote { font-size: .74rem; color: var(--ink3); margin-top: 8px; line-height: 1.45; }
+  .debtrows { display: flex; flex-direction: column; gap: 6px; margin-top: 10px; }
+  .drow { display: flex; align-items: center; gap: 10px; font-size: .82rem; }
+  .drow .name { flex: none; width: 108px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .drow .bar { flex: 1; height: 7px; border-radius: 999px; background: rgba(255,255,255,.07); overflow: hidden; }
+  .drow .bar i { display: block; height: 100%; background: var(--amber); border-radius: 999px; }
+  .drow .n { flex: none; width: 62px; text-align: right; color: var(--ink2); font-variant-numeric: tabular-nums; font-size: .76rem; }
+  .copycard { margin-top: 12px; background: var(--card); border: 1px solid var(--line); border-radius: 18px; padding: 14px; }
+  .copycard pre { font-family: ui-monospace, "Cascadia Code", Consolas, monospace; font-size: .74rem; line-height: 1.6; color: var(--ink2); white-space: pre-wrap; }
+  .copycard pre b { color: var(--ink); font-weight: 700; }
+  .copycard .btn { margin-top: 12px; }
+</style>
+
+<div class="intro">
+  <h1>Suivi de séries — BD, manga, comics, romans</h1>
+  <p>Le principe qui gouverne tout : la progression d'une série, ce sont trois nombres — <b>lus · dans la pile ·
+  total</b>. Les deux premiers, l'app les connaît déjà (regroupement par <b>nom de série</b>, la clé de #257).
+  Le troisième est <b>déclaré par l'utilisateur en un geste</b> (« 12 tomes » ou « parution en cours »), et
+  auto-rempli quand GCD sait — jamais deviné, jamais menti. Chaque info manquante a son geste d'un tap :
+  déclarer le total, numéroter un tome, fusionner deux graphies. Tant qu'une info manque, la fiche le dit
+  honnêtement plutôt que d'afficher une jauge fausse.</p>
+  <p class="hint">Point laissé ouvert exprès : les intégrales (1 livre = 3 tomes de progression ?) — hors v1,
+  à trancher à la spec. Le « tome suivant » nourrit aussi la roulette de la PAL (« on continue une série ? »).</p>
+</div>
+
+<div class="protos">
+
+  <!-- ═══════════════ CADRAN A : Biblio · segment Séries ═══════════════ -->
+  <section class="proto">
+    <span class="tag">Cadran A — le cœur</span>
+    <h2>Bibliothèque → segment « Séries »</h2>
+    <p class="note">La Biblio gagne un 3ᵉ segment. Chaque carte : jauge <b>vert = lu</b>, <b>ambre = dans la
+    pile</b>, piste = le reste. À essayer : <b>ouvrir Saga</b> (déclarer le total → « il te manque le
+    tome 4 » apparaît), <b>ouvrir Le Trône de fer</b> (numéroter le tome « ? » en un tap — la jauge se
+    réveille), <b>fusionner les deux Berserk</b> depuis la bannière, et ouvrir Lastman ou One Piece
+    (« à lire ensuite »).</p>
+
+    <div class="phone" id="phoneA">
+      <div class="screen">
+        <div class="apptitle">Bibliothèque</div>
+        <div class="seg"><span>Tous</span><span>Pile</span><span class="on">Séries</span></div>
+        <p class="headline" id="headline"></p>
+        <div class="filters" id="filters"></div>
+        <div class="mergebar" id="mergebar" hidden>
+          <div>📚 <b>« Berserk »</b> et <b>« Berserk (Glénat) »</b> n'en font qu'une ?</div>
+          <div class="acts">
+            <button class="do" id="mergeDo">Fusionner</button>
+            <button class="skip" id="mergeSkip">Ce sont deux séries</button>
+          </div>
+        </div>
+        <ul class="slist" id="slist"></ul>
+      </div>
+
+      <!-- Fiche série -->
+      <div class="overlay" id="fiche">
+        <div class="ovscroll" id="ficheBody"></div>
+      </div>
+
+      <!-- Sheet : assigner un numéro -->
+      <div class="backdrop" id="bdA"></div>
+      <div class="sheet" id="numSheet">
+        <div class="grip"></div>
+        <h3>Quel tome est-ce ?</h3>
+        <p class="sub"><b id="numBookTitle"></b> n'a pas de numéro — la BnF ne le fournit pas toujours.
+        Un tap suffit.</p>
+        <div class="numpad" id="numpad"></div>
+      </div>
+
+      <div class="toast" id="toastA"></div>
+    </div>
+  </section>
+
+  <!-- ═══════════════ CADRAN B : ce que ça donne aux Stats & à l'antenne ═══════════════ -->
+  <section class="proto">
+    <span class="tag">Cadran B — la retombée</span>
+    <h2>Stats & bilan : la moisson pour l'antenne</h2>
+    <p class="note">Ce que le suivi rapporte sans rien demander de plus : les compteurs de séries dans
+    <b>/stats</b>, le top des <b>dettes de série</b> (la PAL vue par série), la liste « à lire ensuite »
+    qui peut nourrir la roulette 🎲, et <b>une ligne de plus dans le texte copiable du bilan</b> — la stat
+    que Léna peut lire à l'antenne. Essayer le bouton copier.</p>
+
+    <div class="phone" id="phoneB">
+      <div class="screen">
+        <div class="apptitle">Bilan</div>
+        <div class="seg"><span>Bilan</span><span class="on">Stats</span></div>
+
+        <div class="sect" style="margin-top:16px">Mes séries</div>
+        <div class="tiles">
+          <div class="tile cyan"><div class="n">4</div><div class="l">En cours</div></div>
+          <div class="tile green"><div class="n">1</div><div class="l">À jour</div></div>
+          <div class="tile green"><div class="n">1</div><div class="l">Complètes</div></div>
+          <div class="tile amber"><div class="n">7</div><div class="l">Tomes en dette</div></div>
+        </div>
+
+        <div class="sect">Dette de série <span style="font-weight:600;color:var(--ink3);text-transform:none;letter-spacing:0">— possédés pas lus</span></div>
+        <div class="debtrows">
+          <div class="drow"><span class="name">One Piece</span><div class="bar"><i style="width:100%"></i></div><span class="n">4 tomes</span></div>
+          <div class="drow"><span class="name">Lastman</span><div class="bar"><i style="width:50%"></i></div><span class="n">2 tomes</span></div>
+          <div class="drow"><span class="name">Le Trône de fer</span><div class="bar"><i style="width:25%"></i></div><span class="n">1 tome</span></div>
+        </div>
+
+        <div class="sect">À lire ensuite</div>
+        <div class="nextrows">
+          <div class="nrow"><span class="cov" style="background:linear-gradient(140deg,#f32fb6,#8c5cf6)">L</span>
+            <span class="t">Lastman <small>tu en es au tome 8 sur 12</small></span><span class="vol">t.9 →</span></div>
+          <div class="nrow"><span class="cov" style="background:linear-gradient(140deg,#2bd7f0,#3be596)">O</span>
+            <span class="t">One Piece <small>le t.13 est déjà dans ta pile</small></span><span class="vol">t.13 →</span></div>
+          <div class="nrow"><span class="cov" style="background:linear-gradient(140deg,#ffb63b,#f32fb6)">S</span>
+            <span class="t">Saga <small>il te manque le tome 4</small></span><span class="vol buy">t.4 🛒</span></div>
+        </div>
+        <p class="roulnote">🎲 Cette liste peut nourrir la roulette de la PAL : un mode « on continue une
+        série » qui ne tire que parmi les tomes suivants déjà possédés.</p>
+
+        <div class="sect">Dans le texte du bilan</div>
+        <div class="copycard">
+          <pre>📚 Bilan d'août — Premou
+Lu : 6 livres · 87 pts
+<b>Séries : 4 en cours, 1 terminée ce
+mois-ci (Blacksad 🏁), à jour sur
+Frieren. Plus grosse dette : One
+Piece, 4 tomes qui attendent.</b></pre>
+          <button class="btn ghost" id="copyBtn">📋 Copier pour l'antenne</button>
+        </div>
+      </div>
+      <div class="toast" id="toastB"></div>
+    </div>
+  </section>
+</div>
+
+<script>
+/* ─────────────────────────────────────────────────────────────────────────
+   Données du proto — le fonds réel de l'émission : BD franco-belge, manga
+   VF, comics VO, romans. total : nombre | "ongoing" | null (à déclarer).
+   totalSource : d'où vient le total (gcd | user | null).
+   ───────────────────────────────────────────────────────────────────────── */
+const PALETTES = [
+  ["#f32fb6", "#8c5cf6"], ["#2bd7f0", "#3be596"], ["#ffb63b", "#f32fb6"],
+  ["#8c5cf6", "#2bd7f0"], ["#3be596", "#2bd7f0"], ["#ff5470", "#ffb63b"],
+];
+function covStyle(name) {
+  let h = 0; for (const c of name) h = (h * 31 + c.charCodeAt(0)) >>> 0;
+  const [a, b] = PALETTES[h % PALETTES.length];
+  return `background:linear-gradient(140deg,${a},${b})`;
+}
+
+let SERIES = [
+  { id: "lastman", name: "Lastman", cat: "BD", pub: "Casterman", total: 12, totalSource: "gcd",
+    vols: [1,2,3,4,5,6,7,8].map(n => ({ n, s: "read" })).concat([{ n: 9, s: "pile" }, { n: 10, s: "pile" }]) },
+  { id: "onepiece", name: "One Piece", cat: "Manga", pub: "Glénat", total: "ongoing", totalSource: "user",
+    vols: [1,2,3,4,5,6,7,8,9,10,11,12].map(n => ({ n, s: "read" })).concat([13,14,15,16].map(n => ({ n, s: "pile" }))) },
+  { id: "saga", name: "Saga", cat: "Comics", pub: "Urban Comics", total: null, totalSource: null,
+    vols: [1,2,3].map(n => ({ n, s: "read" })) },
+  { id: "trone", name: "Le Trône de fer", cat: "Roman", pub: "J'ai lu", total: 15, totalSource: "user",
+    vols: [{ n: 1, s: "read" }, { n: null, s: "read", title: "La Bataille des rois" }, { n: 3, s: "pile" }] },
+  { id: "frieren", name: "Frieren", cat: "Manga", pub: "Ki-oon", total: "ongoing", totalSource: "user",
+    vols: [1,2,3,4,5,6].map(n => ({ n, s: "read" })) },
+  { id: "blacksad", name: "Blacksad", cat: "BD", pub: "Dargaud", total: 7, totalSource: "gcd",
+    vols: [1,2,3,4,5,6,7].map(n => ({ n, s: "read" })) },
+  { id: "berserk1", name: "Berserk", cat: "Manga", pub: "Glénat", total: "ongoing", totalSource: "user",
+    vols: [1,2,3,4].map(n => ({ n, s: "read" })) },
+  { id: "berserk2", name: "Berserk (Glénat)", cat: "Manga", pub: "Glénat", total: null, totalSource: null,
+    vols: [{ n: 5, s: "read" }] },
+];
+
+/* ── Dérivations (le futur lib/series/derive-series.ts : PUR, testé) ────── */
+function derive(s) {
+  const read = s.vols.filter(v => v.s === "read").length;
+  const pile = s.vols.filter(v => v.s === "pile").length;
+  const unnumbered = s.vols.filter(v => v.n === null).length;
+  const nums = new Set(s.vols.filter(v => v.n !== null).map(v => v.n));
+  const readNums = new Set(s.vols.filter(v => v.n !== null && v.s === "read").map(v => v.n));
+  const maxOwned = Math.max(0, ...nums);
+  const gridMax = typeof s.total === "number" ? s.total : maxOwned;
+
+  // Le prochain geste = le plus petit tome non lu (règle #30 : à lire s'il est
+  // possédé, à acheter s'il manque). Silence si un tome lu n'a pas de numéro.
+  let next = null;
+  if (unnumbered === 0) {
+    for (let n = 1; n <= gridMax; n++) {
+      if (readNums.has(n)) continue;
+      next = { n, owned: nums.has(n) };
+      break;
+    }
+    if (!next && s.total === "ongoing" && pile === 0) next = { uptodate: true };
+  }
+
+  let status, label;
+  if (unnumbered > 0) { status = "approx"; label = "≈ approximatif"; }
+  else if (s.total === null) { status = "unknown"; label = "Total à déclarer"; }
+  else if (typeof s.total === "number" && read >= s.total) { status = "done"; label = "Complète ✓"; }
+  else if (s.total === "ongoing" && pile === 0 && read === nums.size) { status = "uptodate"; label = "À jour"; }
+  else { status = "inprogress"; label = "En cours"; }
+
+  return { read, pile, unnumbered, nums, readNums, maxOwned, gridMax, next, status, label };
+}
+
+/* ── Cadran A : rendu ──────────────────────────────────────────────────── */
+const $ = (sel, root) => (root || document).querySelector(sel);
+let currentFilter = "all";
+let currentSeriesId = null;
+
+function toast(phoneSel, html) {
+  const el = $(phoneSel + " .toast");
+  el.innerHTML = html;
+  el.classList.add("show");
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove("show"), 2600);
+}
+
+function gaugeHtml(s, d) {
+  const total = typeof s.total === "number" ? s.total : Math.max(d.maxOwned, d.read + d.pile);
+  const pr = total ? (d.read / total) * 100 : 0;
+  const pp = total ? (d.pile / total) * 100 : 0;
+  const fade = s.total === "ongoing" ? `<span class="fade" style="flex:1"></span>` : "";
+  return `<div class="gauge"><span class="read" style="width:${pr}%"></span><span class="pile" style="width:${pp}%"></span>${fade}</div>`;
+}
+
+function countsText(s, d) {
+  const bits = [`<b>${d.read}</b> lu${d.read > 1 ? "s" : ""}`];
+  if (d.pile) bits.push(`<b>${d.pile}</b> dans la pile`);
+  if (typeof s.total === "number") bits.push(`sur <b>${s.total}</b>`);
+  else if (s.total === "ongoing") bits.push(`parution en cours`);
+  else bits.push(`total ?`);
+  return bits.join(" · ");
+}
+
+function renderList() {
+  const list = $("#slist");
+  const derived = SERIES.map(s => ({ s, d: derive(s) }));
+
+  const counts = { all: derived.length,
+    inprogress: derived.filter(x => x.d.status === "inprogress" || x.d.status === "approx" || x.d.status === "unknown").length,
+    uptodate: derived.filter(x => x.d.status === "uptodate").length,
+    done: derived.filter(x => x.d.status === "done").length };
+  const debt = derived.reduce((sum, x) => sum + x.d.pile, 0);
+  $("#headline").innerHTML = `<b>${counts.all}</b> séries · dette totale : <b>${debt}</b> tome${debt > 1 ? "s" : ""} à lire`;
+
+  $("#filters").innerHTML = [
+    ["all", `Toutes`], ["inprogress", `En cours`], ["uptodate", `À jour`], ["done", `Complètes`],
+  ].map(([k, l]) => `<button class="fchip ${currentFilter === k ? "on" : ""}" data-f="${k}">${l} <span style="opacity:.7">${counts[k]}</span></button>`).join("");
+
+  const visible = derived.filter(({ d }) => {
+    if (currentFilter === "all") return true;
+    if (currentFilter === "inprogress") return d.status === "inprogress" || d.status === "approx" || d.status === "unknown";
+    return d.status === currentFilter;
+  });
+  // Tri : la plus grosse dette d'abord — c'est elle qu'on vient regarder.
+  visible.sort((a, b) => b.d.pile - a.d.pile || b.d.read - a.d.read);
+
+  list.innerHTML = visible.map(({ s, d }) => `
+    <li><button class="scard" data-open="${s.id}">
+      <div class="top">
+        <span class="covstack">
+          <span class="cov" style="${covStyle(s.name)}">${s.name[0]}</span>
+          <span class="cov" style="${covStyle(s.name + "b")}"></span>
+          <span class="cov" style="${covStyle(s.name + "c")}"></span>
+        </span>
+        <span class="mid">
+          <span class="name">${s.name}</span>
+          <span class="meta" style="display:block">${s.cat} · ${s.pub}</span>
+        </span>
+        <span class="status ${d.status}">${d.label}</span>
+        <span class="chev">›</span>
+      </div>
+      ${gaugeHtml(s, d)}
+      <div class="gline"><span class="gcount">${countsText(s, d)}</span></div>
+    </button></li>`).join("");
+}
+
+/* ── Fiche série ───────────────────────────────────────────────────────── */
+function nextCardHtml(s, d) {
+  if (d.unnumbered > 0) return "";
+  if (typeof s.total === "number" && d.read >= s.total) return `<div class="nextcard" style="background:color-mix(in srgb,var(--green) 9%,var(--card));border-color:color-mix(in srgb,var(--green) 32%,transparent)">
+    <span class="ico">🏁</span><div><div class="t">Série complète</div><div class="s">Les ${s.total} tomes sont lus. Chapeau.</div></div></div>`;
+  if (!d.next) return "";
+  if (d.next.uptodate) return `<div class="nextcard" style="background:color-mix(in srgb,var(--green) 9%,var(--card));border-color:color-mix(in srgb,var(--green) 32%,transparent)">
+    <span class="ico">🌿</span><div><div class="t">À jour de ta pile</div><div class="s">Tout ce que tu possèdes est lu — on guette la suite.</div></div></div>`;
+  if (d.next.owned) return `<div class="nextcard"><span class="ico">📖</span>
+    <div><div class="t">À lire ensuite : tome ${d.next.n}</div><div class="s">Il est déjà dans ta pile.</div></div></div>`;
+  return `<div class="nextcard buy"><span class="ico">🛒</span>
+    <div><div class="t">Il te manque le tome ${d.next.n}</div><div class="s">Le prochain à lire n'est pas dans ta bibliothèque.</div></div></div>`;
+}
+
+function renderFiche(id) {
+  const s = SERIES.find(x => x.id === id);
+  if (!s) return;
+  currentSeriesId = id;
+  const d = derive(s);
+
+  // Grille : 1..total (ou 1..max possédé + « … » si parution en cours)
+  const cells = [];
+  const volByNum = new Map(s.vols.filter(v => v.n !== null).map(v => [v.n, v]));
+  for (let n = 1; n <= d.gridMax; n++) {
+    const v = volByNum.get(n);
+    const state = v ? v.s : "missing";
+    const isNext = d.next && !d.next.uptodate && d.next.n === n;
+    cells.push(`<div class="tome ${state} ${isNext ? "next" : ""}">${n}${state === "read" ? '<span class="st">lu</span>' : state === "pile" ? '<span class="st">pile</span>' : ""}</div>`);
+  }
+  for (const v of s.vols.filter(v => v.n === null)) {
+    cells.push(`<button class="tome unnum" data-numfix="${v.title || "ce tome"}">?<span class="st">n° ?</span></button>`);
+  }
+  if (s.total === "ongoing") cells.push(`<div class="tome more">…</div>`);
+
+  const src = s.totalSource === "gcd" ? "numérotation : GCD" : s.totalSource === "user" ? "total déclaré à la main" : "";
+  const totline = s.total === null ? "" : `
+    <div class="totline">
+      <span class="t">Total de la série : <b>${s.total === "ongoing" ? "parution en cours" : s.total + " tomes"}</b></span>
+      <button class="edit" data-redeclare>Modifier</button>
+    </div>`;
+
+  const declare = (s.total === null || s._declaring) ? `
+    <div class="declare">
+      <h4>Combien de tomes fait cette série ?</h4>
+      <p>Un chiffre suffit pour suivre ta progression — corrigeable à tout moment. GCD le pré-remplit quand il sait ; ici il ne sait pas.</p>
+      <div class="stepper">
+        <button data-step="-1" aria-label="Un tome de moins">−</button>
+        <span class="val" id="totVal">${s._draft ?? Math.max(d.maxOwned, 10)}</span>
+        <button data-step="1" aria-label="Un tome de plus">+</button>
+      </div>
+      <div class="acts">
+        <button class="btn grad" data-settotal>✓ C'est le total</button>
+        <button class="btn ghost" data-ongoing>♾️ Parution en cours</button>
+      </div>
+    </div>` : "";
+
+  const warn = d.unnumbered > 0 ? `
+    <div class="warn">≈ <b>${d.unnumbered} tome lu sans numéro</b> — la jauge et le tome suivant restent muets
+    plutôt que faux. Un tap sur la case <b>?</b> règle ça.</div>` : "";
+
+  $("#ficheBody").innerHTML = `
+    <button class="ovback" data-close>‹ Séries</button>
+    <div class="shead">
+      <span class="cov" style="${covStyle(s.name)}">${s.name[0]}</span>
+      <div>
+        <h3>${s.name}</h3>
+        <div class="meta">${s.cat} · ${s.pub}${src ? " · " + src : ""}</div>
+        <span class="status ${d.status}">${d.label}</span>
+      </div>
+    </div>
+    <div class="bigcounts">
+      <div class="bc green"><div class="n">${d.read}</div><div class="l">Lus</div></div>
+      <div class="bc amber"><div class="n">${d.pile}</div><div class="l">Dans la pile</div></div>
+      <div class="bc"><div class="n">${s.total === "ongoing" ? "∞" : s.total ?? "?"}</div><div class="l">Total</div></div>
+    </div>
+    ${nextCardHtml(s, d)}
+    ${warn}
+    <div class="gridhead"><h4>Les tomes</h4><span class="src">tap sur ? pour numéroter</span></div>
+    <div class="tgrid">${cells.join("")}</div>
+    <div class="legend">
+      <span class="lg-read"><i></i>lu</span><span class="lg-pile"><i></i>dans la pile</span>
+      <span class="lg-miss"><i></i>pas possédé</span>${d.unnumbered ? '<span class="lg-unnum"><i></i>sans numéro</span>' : ""}
+    </div>
+    ${totline}
+    ${declare}`;
+  $("#fiche").classList.add("open");
+}
+
+/* ── Interactions cadran A ─────────────────────────────────────────────── */
+$("#phoneA").addEventListener("click", (e) => {
+  const t = e.target.closest("button");
+  if (!t) return;
+  const s = currentSeriesId ? SERIES.find(x => x.id === currentSeriesId) : null;
+
+  if (t.dataset.f) { currentFilter = t.dataset.f; renderList(); }
+  else if (t.dataset.open) { renderFiche(t.dataset.open); }
+  else if (t.hasAttribute("data-close")) { $("#fiche").classList.remove("open"); currentSeriesId = null; renderList(); }
+  else if (t.dataset.step && s) {
+    const val = $("#totVal");
+    s._draft = Math.max(derive(s).maxOwned, (s._draft ?? Number(val.textContent)) + Number(t.dataset.step));
+    val.textContent = s._draft;
+  }
+  else if (t.hasAttribute("data-settotal") && s) {
+    s.total = s._draft ?? Number($("#totVal").textContent);
+    s.totalSource = "user"; delete s._declaring; delete s._draft;
+    renderFiche(s.id);
+    toast("#phoneA", `<span class="ok">✓</span> ${s.name} : ${s.total} tomes — jauge à jour`);
+  }
+  else if (t.hasAttribute("data-ongoing") && s) {
+    s.total = "ongoing"; s.totalSource = "user"; delete s._declaring; delete s._draft;
+    renderFiche(s.id);
+    toast("#phoneA", `<span class="ok">✓</span> ${s.name} : parution en cours`);
+  }
+  else if (t.hasAttribute("data-redeclare") && s) { s._declaring = true; renderFiche(s.id); }
+  else if (t.dataset.numfix && s) {
+    $("#numBookTitle").textContent = `« ${t.dataset.numfix} »`;
+    const taken = derive(s).nums;
+    $("#numpad").innerHTML = Array.from({ length: 10 }, (_, i) => i + 1)
+      .map(n => `<button data-setnum="${n}" ${taken.has(n) ? "disabled" : ""}>${n}</button>`).join("");
+    $("#phoneA").classList.add("sheet-open");
+  }
+  else if (t.dataset.setnum && s) {
+    const v = s.vols.find(v => v.n === null);
+    if (v) v.n = Number(t.dataset.setnum);
+    $("#phoneA").classList.remove("sheet-open");
+    renderFiche(s.id);
+    toast("#phoneA", `<span class="ok">✓</span> Tome ${t.dataset.setnum} — progression recalculée`);
+  }
+  else if (t.id === "mergeDo") {
+    const a = SERIES.find(x => x.id === "berserk1"), b = SERIES.find(x => x.id === "berserk2");
+    a.vols = a.vols.concat(b.vols);
+    SERIES = SERIES.filter(x => x.id !== "berserk2");
+    $("#mergebar").hidden = true;
+    renderList();
+    toast("#phoneA", `<span class="ok">✓</span> Séries fusionnées — Berserk : 5 tomes lus`);
+  }
+  else if (t.id === "mergeSkip") { $("#mergebar").hidden = true; }
+});
+$("#bdA").addEventListener("click", () => $("#phoneA").classList.remove("sheet-open"));
+
+/* ── Cadran B ──────────────────────────────────────────────────────────── */
+$("#copyBtn").addEventListener("click", () => {
+  toast("#phoneB", `<span class="ok">✓</span> Copié — prêt pour Léna`);
+});
+
+$("#mergebar").hidden = false;
+renderList();
+</script>
