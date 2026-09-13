@@ -18,6 +18,14 @@ import { OUTBOUND_USER_AGENT, PROVIDER_REQUEST_TIMEOUT_MILLISECONDS, ProviderUna
 
 const METRON_ENDPOINT = "https://metron.cloud/api";
 
+/** Une réponse non-ok ORDINAIRE (404, 400…) — ni throttle ni 5xx, qui sont des pannes (`ProviderUnavailableError`). */
+export class MetronHttpError extends Error {
+  constructor(public readonly status: number) {
+    super(`Metron : HTTP ${status}`);
+    this.name = "MetronHttpError";
+  }
+}
+
 /** Une couverture alternative de l'issue — sans UPC pour les exclusivités boutique. */
 export type MetronVariant = {
   name: string;
@@ -84,7 +92,7 @@ export function createMetronProvider(
     if (response.status === 429 || response.status >= 500) {
       throw new ProviderUnavailableError("Metron", `HTTP ${response.status}`);
     }
-    if (!response.ok) throw new Error(`Metron : HTTP ${response.status}`);
+    if (!response.ok) throw new MetronHttpError(response.status);
     return (await response.json()) as T;
   }
 
@@ -160,8 +168,9 @@ export function createMetronProvider(
       try {
         return await toIssue({ id: metronId }, scannedUpc);
       } catch (error) {
-        // Un 404 (issue supprimée chez eux) est une absence, pas une panne.
-        if (error instanceof Error && !(error instanceof ProviderUnavailableError) && /HTTP 404/.test(error.message)) return null;
+        // Un 404 (issue supprimée chez eux) est une absence, pas une panne —
+        // décidé sur le STATUT typé, jamais sur le texte du message (review #286).
+        if (error instanceof MetronHttpError && error.status === 404) return null;
         throw error;
       }
     },
