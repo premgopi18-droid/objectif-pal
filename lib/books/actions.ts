@@ -15,6 +15,7 @@ import {
   type BulkFailure,
 } from "@/lib/books/bulk-read-plan";
 import { isInInventory } from "@/lib/library/derive-library";
+import { RAW_BARCODE_PATTERN } from "@/lib/resolution/barcode-router";
 import { createCacheProvider } from "@/lib/resolution/providers/cache";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
 import type { BookCategory } from "@/lib/scoring/types";
@@ -96,6 +97,11 @@ const MAX_TEXT_FIELD_LENGTH = 1000;
 
 function validateBook(input: BookInput): string | null {
   if (!input.title?.trim()) return "Le titre est obligatoire.";
+  // Le code brut est un segment de chemin du pool partagé et un paramètre de
+  // requête chez Metron (audit #274) : seule la forme du scan entre en base.
+  if (input.barcodeRaw !== null && !RAW_BARCODE_PATTERN.test(input.barcodeRaw)) {
+    return "Le code-barres est invalide.";
+  }
   if (input.pageCount !== null && (!Number.isInteger(input.pageCount) || input.pageCount <= 0)) {
     return "Le nombre de pages est invalide.";
   }

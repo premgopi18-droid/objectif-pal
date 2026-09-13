@@ -18,6 +18,14 @@ import { OUTBOUND_USER_AGENT, PROVIDER_REQUEST_TIMEOUT_MILLISECONDS, ProviderUna
 
 const METRON_ENDPOINT = "https://metron.cloud/api";
 
+/** Une réponse non-ok ORDINAIRE (404, 400…) — ni throttle ni 5xx, qui sont des pannes (`ProviderUnavailableError`). */
+export class MetronHttpError extends Error {
+  constructor(public readonly status: number) {
+    super(`Metron : HTTP ${status}`);
+    this.name = "MetronHttpError";
+  }
+}
+
 /** Une couverture alternative de l'issue — sans UPC pour les exclusivités boutique. */
 export type MetronVariant = {
   name: string;
@@ -84,7 +92,7 @@ export function createMetronProvider(
     if (response.status === 429 || response.status >= 500) {
       throw new ProviderUnavailableError("Metron", `HTTP ${response.status}`);
     }
-    if (!response.ok) throw new Error(`Metron : HTTP ${response.status}`);
+    if (!response.ok) throw new MetronHttpError(response.status);
     return (await response.json()) as T;
   }
 
@@ -108,7 +116,8 @@ export function createMetronProvider(
     const mainCoverUrl = detail.image ?? item.image ?? null;
     return {
       metronId: item.id,
-      issueName: item.issue ?? null,
+      // Par identifiant direct la liste n'a pas été lue : le nom vient du détail.
+      issueName: item.issue ?? (detail.series?.name && detail.number ? `${detail.series.name} #${detail.number}` : null),
       seriesName: detail.series?.name ?? null,
       number: detail.number ?? item.number ?? null,
       coverUrl: matched?.coverUrl ?? mainCoverUrl,
@@ -135,15 +144,35 @@ export function createMetronProvider(
     /** Par UPC : exact d'abord, puis normalisé sur la couverture principale. */
     async findIssueByUpc(upc: string): Promise<MetronIssue | null> {
       if (!authorization) return null;
-      const candidates = [upc];
+      const upcsToTry = [upc];
       const normalized = normalizeUpcForMetron(upc);
-      if (normalized && normalized !== upc) candidates.push(normalized);
+      if (normalized && normalized !== upc) upcsToTry.push(normalized);
 
-      for (const candidate of candidates) {
-        const item = await firstListItem(`/issue/?upc=${candidate}`);
+      for (const candidate of upcsToTry) {
+        // Encodé (audit #274) : le code vient de la base, jamais brut dans une
+        // requête authentifiée du compte de service.
+        const item = await firstListItem(`/issue/?upc=${encodeURIComponent(candidate)}`);
         if (item) return toIssue(item, upc);
       }
       return null;
+    },
+
+    /**
+     * Par identifiant Metron connu (`books.metadata_source_id` d'un livre résolu
+     * chez eux) : le DÉTAIL directement — UN tick au lieu de deux ou trois
+     * (audit #274 : le quota Metron est le plus rare de l'app et il est partagé
+     * avec le scan). Le code scanné choisit la variante comme ailleurs.
+     */
+    async findIssueById(metronId: number, scannedUpc: string | null = null): Promise<MetronIssue | null> {
+      if (!authorization || !Number.isInteger(metronId) || metronId <= 0) return null;
+      try {
+        return await toIssue({ id: metronId }, scannedUpc);
+      } catch (error) {
+        // Un 404 (issue supprimée chez eux) est une absence, pas une panne —
+        // décidé sur le STATUT typé, jamais sur le texte du message (review #286).
+        if (error instanceof MetronHttpError && error.status === 404) return null;
+        throw error;
+      }
     },
   };
 }

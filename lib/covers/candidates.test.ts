@@ -21,7 +21,7 @@ function deps(overrides: Partial<{ [K in keyof ResolutionDeps]: Partial<Resoluti
     inventaire: { findCoverByIsbn: vi.fn(async () => null), ...overrides.inventaire } as ResolutionDeps["inventaire"],
     bnfCovers: { findCoverByIsbn: vi.fn(async () => null), ...overrides.bnfCovers } as ResolutionDeps["bnfCovers"],
     epagine: { findCoverByIsbn: vi.fn(async () => null), ...overrides.epagine } as ResolutionDeps["epagine"],
-    metron: { findIssueByGcdId: vi.fn(async () => null), findIssueByUpc: vi.fn(async () => null), ...overrides.metron } as ResolutionDeps["metron"],
+    metron: { findIssueByGcdId: vi.fn(async () => null), findIssueByUpc: vi.fn(async () => null), findIssueById: vi.fn(async () => null), ...overrides.metron } as ResolutionDeps["metron"],
     comicVine: { isEnabled: () => true, findIssueCovers: vi.fn(async () => []), ...overrides.comicVine } as ResolutionDeps["comicVine"],
   };
 }
@@ -223,5 +223,30 @@ describe("listCoverCandidates — Comic Vine (#279)", () => {
     const result = await listCoverCandidates({ ...UPC_BOOK, seriesName: "X", issueNumber: "4" }, d);
     expect(result.degraded).toBe(true);
     expect(result.candidates.every((candidate) => candidate.source === "metron")).toBe(true);
+  });
+});
+
+describe("listCoverCandidates — le chemin Metron le moins cher (audit #274)", () => {
+  it("un livre résolu chez Metron lit son détail par identifiant, jamais les listes", async () => {
+    const findIssueById = vi.fn(async () => metronIssue());
+    const findIssueByUpc = vi.fn(async () => null);
+    const d = deps({ metron: { findIssueById, findIssueByUpc, findIssueByGcdId: vi.fn(async () => null) } });
+    await listCoverCandidates({ ...UPC_BOOK, metadataSource: "metron", metadataSourceId: "173173" }, d);
+    expect(findIssueById).toHaveBeenCalledWith(173173, UPC_BOOK.barcode);
+    expect(findIssueByUpc).not.toHaveBeenCalled();
+  });
+
+  it("un livre résolu chez GCD passe par son gcd_id ; sans identifiant, ou en échec, les listes par UPC", async () => {
+    const findIssueByGcdId = vi.fn(async () => metronIssue());
+    const findIssueByUpc = vi.fn(async () => metronIssue());
+    const d = deps({ metron: { findIssueByGcdId, findIssueByUpc, findIssueById: vi.fn(async () => null) } });
+    await listCoverCandidates({ ...UPC_BOOK, metadataSource: "gcd", metadataSourceId: "2844040" }, d);
+    expect(findIssueByGcdId).toHaveBeenCalledWith(2844040, UPC_BOOK.barcode);
+    expect(findIssueByUpc).not.toHaveBeenCalled();
+    await listCoverCandidates({ ...UPC_BOOK, metadataSource: "manual", metadataSourceId: null }, d);
+    expect(findIssueByUpc).toHaveBeenCalledTimes(1);
+    const missing = deps({ metron: { findIssueById: vi.fn(async () => null), findIssueByUpc, findIssueByGcdId: vi.fn(async () => null) } });
+    await listCoverCandidates({ ...UPC_BOOK, metadataSource: "metron", metadataSourceId: "9" }, missing);
+    expect(findIssueByUpc).toHaveBeenCalledTimes(2);
   });
 });

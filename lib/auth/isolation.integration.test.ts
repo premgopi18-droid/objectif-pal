@@ -362,8 +362,12 @@ describe.runIf(shouldRun)("le choix de couverture en base (#275)", () => {
  */
 describe.runIf(shouldRun)("le pool partagé de couvertures (#278)", () => {
   const POOL_BARCODE = "0000000000278";
+  const OTHER_BARCODE = "0000000000279";
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL as string;
-  const sharedUrl = `${supabaseUrl}/storage/v1/object/public/covers/shared/${POOL_BARCODE}/temoin.webp`;
+  // La forme exacte qu'exige le CHECK (audit #274) : notre bucket, le dossier
+  // commun, LE code de la ligne, un uuid.
+  const sharedUrlFor = (barcode: string) => `${supabaseUrl}/storage/v1/object/public/covers/shared/${barcode}/${crypto.randomUUID()}.webp`;
+  const sharedUrl = sharedUrlFor(POOL_BARCODE);
 
   it("A partage ; B lit (anonyme hors cercle), ne modifie pas, ne s'approprie pas ; A retire, B ne voit plus", async () => {
     const a = await signIn(
@@ -393,26 +397,46 @@ describe.runIf(shouldRun)("le pool partagé de couvertures (#278)", () => {
     const { data: seenByA } = await a.client.rpc("get_cover_contributions", { target_barcode: POOL_BARCODE });
     expect(seenByA).toEqual([]);
 
-    // B ne s'approprie pas la ligne de A (with check), ne la modifie pas (0 ligne), ne la supprime pas (pas de policy).
+    // B ne LIT pas la ligne de A par la table (audit #274 : seule la fonction sert les autres).
+    const { data: direct } = await b.client.from("cover_contributions").select("id").eq("user_id", a.userId);
+    expect(direct).toEqual([]);
+
+    // B ne s'approprie pas la ligne de A (RLS 42501 — l'URL est conforme au CHECK,
+    // pour que ce soit bien la RLS qui refuse), ne la modifie pas (0 ligne), ne la
+    // supprime pas (pas de policy).
     const { error: crossInsert } = await b.client
       .from("cover_contributions")
-      .insert({ user_id: a.userId, barcode: "0000000000279", cover_url: sharedUrl, source_cover_url: sharedUrl });
-    expect(crossInsert).not.toBeNull();
+      .insert({ user_id: a.userId, barcode: OTHER_BARCODE, cover_url: sharedUrlFor(OTHER_BARCODE), source_cover_url: sharedUrl });
+    expect(crossInsert?.code).toBe("42501");
     const { data: updated } = await b.client.from("cover_contributions").update({ deleted_at: new Date().toISOString() }).eq("user_id", a.userId).eq("barcode", POOL_BARCODE).select("id");
     expect(updated).toEqual([]);
     const { data: deleted } = await b.client.from("cover_contributions").delete().eq("user_id", a.userId).eq("barcode", POOL_BARCODE).select("id");
     expect(deleted).toEqual([]);
-    // Le CHECK : une URL hors du dossier commun est refusée, même pour soi.
-    const { error: badUrl } = await b.client
+    // Le CHECK (23514) : une URL hors du dossier commun, ou du dossier d'un AUTRE
+    // code, ou avec le chemin caché en query, est refusée — même pour soi.
+    for (const forged of [
+      `${supabaseUrl}/storage/v1/object/public/covers/${b.userId}/x.webp`,
+      sharedUrlFor(POOL_BARCODE),
+      `https://evil.example/pixel.png?x=/storage/v1/object/public/covers/shared/${OTHER_BARCODE}/`,
+    ]) {
+      const { error: badUrl } = await b.client
+        .from("cover_contributions")
+        .insert({ user_id: b.userId, barcode: OTHER_BARCODE, cover_url: forged, source_cover_url: sharedUrl });
+      expect(badUrl?.code).toBe("23514");
+    }
+    // Les colonnes techniques sont hors de portée (grants par colonne) : 42501.
+    const { error: forgedDate } = await b.client
       .from("cover_contributions")
-      .insert({ user_id: b.userId, barcode: "0000000000279", cover_url: `${supabaseUrl}/storage/v1/object/public/covers/${b.userId}/x.webp`, source_cover_url: sharedUrl });
-    expect(badUrl).not.toBeNull();
+      .insert({ user_id: b.userId, barcode: OTHER_BARCODE, cover_url: sharedUrlFor(OTHER_BARCODE), source_cover_url: sharedUrl, created_at: "2999-01-01T00:00:00Z" });
+    expect(forgedDate?.code).toBe("42501");
 
-    // A retire (doux) : B ne la voit plus.
+    // A retire (doux) : B ne la voit plus. A, elle, relit sa ligne retirée (export, re-partage).
     const { error: withdrawError } = await a.client.from("cover_contributions").update({ deleted_at: new Date().toISOString() }).eq("user_id", a.userId).eq("barcode", POOL_BARCODE);
     expect(withdrawError).toBeNull();
     const { data: afterWithdraw } = await b.client.rpc("get_cover_contributions", { target_barcode: POOL_BARCODE });
     expect(afterWithdraw).toEqual([]);
+    const { data: ownWithdrawn } = await a.client.from("cover_contributions").select("deleted_at").eq("user_id", a.userId).eq("barcode", POOL_BARCODE);
+    expect(ownWithdrawn?.[0]?.deleted_at).not.toBeNull();
   }, INTEGRATION_TIMEOUT_MS);
 });
 

@@ -17,6 +17,13 @@ export const EAN13_LENGTH = 13;
 const MINIMUM_BARCODE_LENGTH = 8;
 
 /** Vrai si le code désigne un LIVRE (préfixe Bookland → ISBN). Pure, client-safe. */
+/**
+ * La forme d'un code BRUT tel que le scan le produit : des chiffres, de 8 à 18
+ * (EAN-13 + supplément prix = 18). Tout ce qui entre en base ou dans un chemin
+ * Storage sous ce nom doit la respecter (audit #274).
+ */
+export const RAW_BARCODE_PATTERN = /^\d{8,18}$/;
+
 export function isBooklandCode(code: string): boolean {
   return BOOKLAND_PREFIXES.test(code);
 }

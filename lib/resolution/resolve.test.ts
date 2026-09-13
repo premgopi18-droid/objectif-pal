@@ -60,6 +60,7 @@ function fakeDeps(overrides: {
     metron: {
       findIssueByGcdId: vi.fn(async () => null),
       findIssueByUpc: vi.fn(async () => null),
+      findIssueById: vi.fn(async () => null),
       ...overrides.metron,
     },
     comicVine: { isEnabled: () => true, findIssueCovers: vi.fn(async () => []), ...overrides.comicVine },

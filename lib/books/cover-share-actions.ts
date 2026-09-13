@@ -4,6 +4,7 @@ import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
 import { coverStoragePathFromUrl, COVERS_BUCKET, isOwnHouseCoverPhotoUrl, isSharedPoolBarcode, sharedCoverPath } from "@/lib/books/cover-photo";
+import { isActionAllowed, LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getSessionOrError } from "@/lib/supabase/server";
 
@@ -19,7 +20,13 @@ import { getSessionOrError } from "@/lib/supabase/server";
 
 export type CoverShareResult = { ok: true; shared: boolean } | { ok: false; error: string };
 
-export async function shareCover(bookId: string): Promise<CoverShareResult> {
+/**
+ * `silent` (audit #274) : le partage AUTOMATIQUE d'une couverture rapatriée à
+ * l'ouverture de la feuille ne re-rend pas la Biblio (rien à rafraîchir : la
+ * feuille tient son état) — un geste de consultation ne doit pas coûter un
+ * rendu complet de la liste.
+ */
+export async function shareCover(bookId: string, options: { silent?: boolean } = {}): Promise<CoverShareResult> {
   const session = await getSessionOrError();
   if (!session) return { ok: false, error: "Authentification requise." };
   const { supabase, user } = session;
@@ -50,6 +57,23 @@ export async function shareCover(bookId: string): Promise<CoverShareResult> {
   const sourcePath = coverStoragePathFromUrl(book.cover_url);
   if (!sourcePath) return { ok: false, error: GENERIC_ERROR_MESSAGE };
 
+  // Déjà partagée pour CETTE couverture : rien à copier (audit #274 — chaque
+  // appel faisait une copie de plus, orpheline jusqu'à la purge).
+  const { data: existing } = await supabase
+    .from("cover_contributions")
+    .select("source_cover_url")
+    .eq("user_id", user.id)
+    .eq("barcode", book.barcode_raw)
+    .is("deleted_at", null)
+    .maybeSingle();
+  if (existing?.source_cover_url === book.cover_url) return { ok: true, shared: true };
+
+  // Métré (audit #274) : une copie Storage en service role par appel — 5/min,
+  // on ne re-partage pas plus vite que ça à la main ; une boucle est un abus.
+  if (!(await isActionAllowed(supabase, "cover_share"))) {
+    return { ok: false, error: LOOKUP_RATE_LIMIT_MESSAGE };
+  }
+
   const admin = createAdminClient();
   const targetPath = sharedCoverPath(book.barcode_raw, randomUUID());
   const { error: copyError } = await admin.storage.from(COVERS_BUCKET).copy(sourcePath, targetPath);
@@ -61,6 +85,8 @@ export async function shareCover(bookId: string): Promise<CoverShareResult> {
 
   // Une contribution par (code, utilisateur) : re-partager remplace la copie
   // servie — l'ancienne devient orpheline, la purge (#205) la ramassera.
+  // `deleted_at: null` ravive une contribution retirée — la colonne est dans les
+  // droits UPDATE du client (grants par colonne, migration 20260913130000).
   const { error: upsertError } = await supabase.from("cover_contributions").upsert(
     {
       user_id: user.id,
@@ -76,7 +102,7 @@ export async function shareCover(bookId: string): Promise<CoverShareResult> {
     return { ok: false, error: GENERIC_ERROR_MESSAGE };
   }
 
-  revalidatePath("/bibliotheque");
+  if (!options.silent) revalidatePath("/bibliotheque");
   return { ok: true, shared: true };
 }
 

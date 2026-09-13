@@ -98,3 +98,29 @@ describe("les variantes Metron (#276)", () => {
     expect(issue?.variants).toEqual([{ name: "Variante", upc: null, coverUrl: "https://static.metron.cloud/x.jpg" }]);
   });
 });
+
+describe("findIssueById — un tick au lieu de trois (audit #274)", () => {
+  it("lit le détail directement, la variante scannée choisie, sans appel de liste", async () => {
+    const { provider, calls } = fakeMetron();
+    const issue = await provider.findIssueById(173173, COVER_B_UPC);
+    expect(issue?.coverUrl).toBe("https://static.metron.cloud/b.jpg");
+    expect(issue?.issueName).toBe("Absolute Green Arrow #4");
+    expect(calls).toHaveLength(1);
+    expect(calls[0]).toMatch(/\/issue\/173173\/$/);
+  });
+
+  it("un identifiant invalide ne coûte rien ; un 404 est une absence, pas une panne", async () => {
+    const { provider, calls } = fakeMetron();
+    expect(await provider.findIssueById(0)).toBeNull();
+    expect(await provider.findIssueById(1.5)).toBeNull();
+    expect(calls).toHaveLength(0);
+    const gone = createMetronProvider(credentials, (async () => jsonResponse({}, 404)) as unknown as typeof fetch, async () => true);
+    expect(await gone.findIssueById(42)).toBeNull();
+  });
+
+  it("le code scanné est encodé dans la requête de liste (audit #274)", async () => {
+    const { provider, calls } = fakeMetron();
+    await provider.findIssueByUpc("123&page_size=1000");
+    expect(calls[0]).toContain("upc=123%26page_size%3D1000");
+  });
+});

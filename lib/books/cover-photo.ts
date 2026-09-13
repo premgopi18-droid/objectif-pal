@@ -5,6 +5,8 @@
  * plusieurs Mo du capteur), compression décidée le 19/07/2026.
  */
 
+import { RAW_BARCODE_PATTERN } from "@/lib/resolution/barcode-router";
+
 export const COVER_PHOTO = {
   /** Le grand côté maximal, en pixels. */
   maxDimension: 800,
@@ -60,7 +62,8 @@ export function isHouseCoverPhotoUrl(
 /**
  * Vrai si la couverture est une RAPATRIÉE (#208) : elle vit chez nous, mais
  * c'est l'image d'une source, pas une photo de l'exemplaire. L'étiquette de la
- * feuille (#275) s'en sert ; aucune garde n'en dépend.
+ * feuille (#275) s'en sert, et le partage par défaut du pool (#278) aussi : une
+ * image de source se partage sans arrière-pensée, une photo attend le geste.
  */
 export function isInternalizedCoverUrl(
   coverUrl: string | null,
@@ -149,10 +152,11 @@ export const SHARED_COVERS_FOLDER = "shared";
 
 /**
  * Un code-barres admissible comme SEGMENT DE CHEMIN du pool (review #283) : la
- * forme que produit `classifyScannedCode` — des chiffres, 8 à 17. Le chemin est
- * écrit en service role : rien d'autre n'y entre, jamais un `../`.
+ * forme que produit `classifyScannedCode` — des chiffres, 8 à 18 (un ISBN avec
+ * son supplément prix fait 18 ; l'audit #274 a corrigé le 17 initial). Le chemin
+ * est écrit en service role : rien d'autre n'y entre, jamais un `../`.
  */
-export const isSharedPoolBarcode = (barcode: string): boolean => /^\d{8,17}$/.test(barcode);
+export const isSharedPoolBarcode = (barcode: string): boolean => RAW_BARCODE_PATTERN.test(barcode);
 
 /** Le chemin de la copie partagée d'une couverture, pour un code-barres (validé par `isSharedPoolBarcode`). */
 export const sharedCoverPath = (barcode: string, copyId: string) => {
@@ -192,6 +196,13 @@ export function coverStoragePathFromUrl(
   }
   const prefix = `/storage/v1/object/public/${COVERS_BUCKET}/`;
   if (parsed.origin !== base.origin || !parsed.pathname.startsWith(prefix)) return null;
-  const path = decodeURIComponent(parsed.pathname.slice(prefix.length));
+  // Un `%E0` orphelin fait jeter decodeURIComponent (audit #274) : une URL
+  // malformée n'est pas un chemin, pas une exception dans une Server Action.
+  let path: string;
+  try {
+    path = decodeURIComponent(parsed.pathname.slice(prefix.length));
+  } catch {
+    return null;
+  }
   return path.length > 0 ? path : null;
 }

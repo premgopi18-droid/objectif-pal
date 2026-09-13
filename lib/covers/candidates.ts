@@ -55,6 +55,12 @@ type CandidateBook = {
   seriesName?: string | null;
   issueNumber?: string | null;
   startYear?: number | null;
+  /**
+   * D'où vient la fiche (audit #274) : un livre résolu chez Metron porte son
+   * identifiant — le détail se lit en UN tick, sans repasser par les listes.
+   */
+  metadataSource?: string | null;
+  metadataSourceId?: string | null;
 };
 
 /** Dédoublonne par URL exacte, ordre d'arrivée conservé. */
@@ -115,7 +121,7 @@ export async function listCoverCandidates(
       deps.comicVine.isEnabled() && book.seriesName && book.issueNumber
         ? [() => comicVineCandidates(deps, { seriesName: book.seriesName as string, issueNumber: book.issueNumber as string, startYear: book.startYear ?? null })]
         : [];
-    const { results, degraded } = await raceWithBudget([() => metronCandidates(deps, book.barcode as string), ...comicVineTask], budgetMs);
+    const { results, degraded } = await raceWithBudget([() => metronCandidates(deps, book), ...comicVineTask], budgetMs);
     return { candidates: dedupe(results.flat()), degraded };
   }
   if (book.barcodeType === "isbn" && book.isbn) {
@@ -141,9 +147,23 @@ export async function listCoverCandidates(
   return { candidates: [], degraded: false };
 }
 
-/** VO : la principale puis chaque variante, la variante scannée entourée. */
-async function metronCandidates(deps: ResolutionDeps, barcode: string): Promise<CoverCandidate[]> {
-  const issue = await deps.metron.findIssueByUpc(barcode);
+/**
+ * VO : la principale puis chaque variante, la variante scannée entourée.
+ *
+ * Le chemin le moins cher d'abord (audit #274 — le quota Metron, 15/min pour
+ * toute l'app, est partagé avec le scan) : l'identifiant Metron du livre (UN
+ * tick), sinon son gcd_id (deux), sinon les listes par UPC (jusqu'à trois).
+ */
+async function metronCandidates(deps: ResolutionDeps, book: CandidateBook): Promise<CoverCandidate[]> {
+  const barcode = book.barcode as string;
+  const sourceId = book.metadataSourceId ?? null;
+  let issue = null;
+  if (book.metadataSource === "metron" && sourceId !== null && /^\d+$/.test(sourceId)) {
+    issue = await deps.metron.findIssueById(Number(sourceId), barcode);
+  } else if (book.metadataSource === "gcd" && sourceId !== null && /^\d+$/.test(sourceId)) {
+    issue = await deps.metron.findIssueByGcdId(Number(sourceId), barcode);
+  }
+  if (!issue) issue = await deps.metron.findIssueByUpc(barcode);
   if (!issue) return [];
   const candidates: CoverCandidate[] = [];
   if (issue.mainCoverUrl) {
@@ -200,6 +220,7 @@ export async function listEditionCandidates(
 const normalizeTitle = (title: string): string =>
   title
     .normalize("NFD")
+    // Échappements, pas de combinants bruts (leçon review #63).
     .replace(/[̀-ͯ]/g, "")
     .toLowerCase()
     .replace(/[^a-z0-9]+/g, " ")

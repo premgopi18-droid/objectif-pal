@@ -1237,9 +1237,19 @@ redistribution), **zéro quota**, et c'est **l'exemplaire réel** avec sa vraie 
 >   copie vit dans un dossier COMMUN** `covers/shared/{barcode}/{uuid}.webp` (copie serveur, aucun client n'y
 >   écrit) : elle **survit à la suppression du compte** du contributeur — la ligne part par cascade, le fichier
 >   reste tant qu'un livre le référence, puis la purge #205 le ramasse (`cover_contributions.cover_url` compte
->   comme référence). Table `cover_contributions` (RLS : lecture des vivantes par tous, écriture des siennes,
->   pas de DELETE), **cloisonnement prouvé en CI** (B lit la contribution de A, ne l'écrit ni ne la modifie ;
->   le CHECK refuse une URL hors de `shared/`). Export : mes contributions.
+>   comme référence). Table `cover_contributions` (RLS : **lecture des siennes seulement** — les autres passent
+>   par la fonction —, écriture des siennes, pas de DELETE), **cloisonnement prouvé en CI** (B lit la
+>   contribution de A par la fonction seulement, ne l'écrit ni ne la modifie ; le CHECK, **ancré**, refuse une
+>   URL hors de `shared/`, d'un autre code, ou avec le chemin caché en query ; les colonnes techniques sont hors
+>   de portée du client). Export : mes contributions.
+>   **Durci après l'audit du 13/09/2026** : le pseudo n'est montré qu'entre **amis acceptés** (même critère que
+>   les bilans du cercle — « Léna possède ce livre » n'est pas pour des inconnus) ; le partage est **métré**
+>   (`cover_share`, 5/min — une copie Storage par appel) et ne recopie rien si la contribution vivante reflète
+>   déjà la couverture ; le partage **automatique** d'une rapatriée à l'ouverture de la feuille est **silencieux**
+>   (pas de re-rendu de la Biblio) ; les consommateurs (route de scan, candidates) ne proposent qu'une URL de
+>   `shared/` quoi que la table contienne ; une copie partagée **morte** se répare comme une source ; le code
+>   brut est validé partout (`^\d{8,18}$` — 18 = ISBN + supplément prix) ; `chooseCover` accepte une copie du
+>   pool ; Metron est lu par **identifiant** (un tick) quand le livre le porte.
 > - **Comic Vine, débranchable (lot C, #279, livré le 13/09/2026).** L'encadré « différée » du 19/07/2026 est
 >   levé par la décision non commerciale. Conditions relues le 12/09/2026 : clé gratuite, non commercial strict,
 >   **200 req/ressource/h** (quota global `comic_vine_hourly` 150/h en SQL), mise en cache et **lien retour**

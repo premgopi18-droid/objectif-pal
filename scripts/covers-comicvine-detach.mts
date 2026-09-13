@@ -50,7 +50,9 @@ if (!url || !serviceRoleKey) {
 
 const admin = createClient<Database>(url, serviceRoleKey, { auth: { persistSession: false } });
 const COMIC_VINE_PREFIX = "https://comicvine.gamespot.com/";
-const POLITENESS_DELAY_MS = 500;
+// Metron : 15 req/min pour toute l'app, 2-3 par UPC — 5 s entre deux fascicules
+// (audit #274). Les ISBN ne touchent pas Metron : 500 ms suffisent.
+const POLITENESS_DELAY_MS = { upc: 5000, isbn: 500 } as const;
 
 const { data: books, error } = await admin
   .from("books")
@@ -66,9 +68,16 @@ let cleared = 0;
 for (const book of books) {
   // La politesse envers les sources, AVANT chaque résolution (y compris après
   // un livre non touché).
-  await new Promise((resolve) => setTimeout(resolve, POLITENESS_DELAY_MS));
-  const barcodeType = book.barcode_type as "isbn" | "upc" | null;
+  const barcodeType = book.barcode_type;
+  await new Promise((resolve) => setTimeout(resolve, POLITENESS_DELAY_MS[barcodeType === "upc" ? "upc" : "isbn"]));
   const replacement = barcodeType ? await findReplacementCover({ barcodeType, isbn: book.isbn, barcode: book.barcode_raw }) : null;
+  // Un fascicule sans remplaçante n'est PAS vidé (audit #274) : un quota Metron
+  // épuisé rend null comme une absence — on garde le lien Comic Vine et on
+  // relance le script plus tard, plutôt que d'effacer une couverture par erreur.
+  if (replacement === null && barcodeType === "upc") {
+    console.log(` - ${book.title} → rien trouvé chez Metron (quota ou absence) : non touché, à relancer`);
+    continue;
+  }
   console.log(` - ${book.title} → ${replacement ?? "(rien : placeholder)"}`);
   if (!isDryRun) {
     const { error: updateError, count } = await admin

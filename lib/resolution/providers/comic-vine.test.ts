@@ -130,3 +130,14 @@ describe("Comic Vine (#279)", () => {
     expect(fetchSpy).not.toHaveBeenCalled();
   });
 });
+
+describe("le numéro d'issue entre dans leur filtre (audit #274)", () => {
+  it("un numéro hors alphabet (virgule, barre) ne déclenche aucun appel", async () => {
+    const { provider, calls } = fakeComicVine();
+    expect(await provider.findIssueCovers({ seriesName: "Nightwing", issueNumber: "1, 2", startYear: null })).toEqual([]);
+    expect(await provider.findIssueCovers({ seriesName: "Nightwing", issueNumber: "1|volume:9", startYear: null })).toEqual([]);
+    expect(calls).toHaveLength(0);
+    await provider.findIssueCovers({ seriesName: "Nightwing", issueNumber: "12A", startYear: null });
+    expect(calls).toHaveLength(2);
+  });
+});
