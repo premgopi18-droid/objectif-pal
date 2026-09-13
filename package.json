@@ -15,7 +15,8 @@
     "covers:detach-comicvine": "node --conditions=react-server --import tsx scripts/covers-comicvine-detach.mts",
     "maintenance:purge": "node --conditions=react-server --import tsx scripts/maintenance-purge.mts",
     "reports:materialize": "node --conditions=react-server --import tsx scripts/materialize-monthly-reports.mts",
-    "series:backfill-bnf": "node --conditions=react-server --import tsx scripts/series-backfill-bnf.mts"
+    "series:backfill-bnf": "node --conditions=react-server --import tsx scripts/series-backfill-bnf.mts",
+    "series:link-backfill": "node --conditions=react-server --import tsx scripts/series-link-backfill.mts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.70.0",

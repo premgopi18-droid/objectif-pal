@@ -13,6 +13,8 @@ import {
   type BookEditPayload,
 } from "@/lib/books/book-edit";
 import type { SeriesAlignProposal } from "@/lib/books/series-align";
+import { userFacingSqlError } from "@/lib/supabase/user-facing-sql-error";
+import { findOrCreateSeriesId } from "@/lib/series/link";
 
 /**
  * « Retirer de la bibliothèque » (issue #49) — suppression douce du LIVRE
@@ -116,30 +118,43 @@ export async function updateBookDetails(
   const prepared = prepareBookEdit(input);
   if (!prepared.ok) return { ok: false, error: prepared.error };
 
-  const written = await writeBookFields(session, bookId, prepared.payload, "updateBookDetails");
+  // Le lien au référentiel de séries (#291) suit le nom saisi : une série
+  // nommée est rattachée (trouvée ou créée), une série effacée est détachée.
+  // Jamais bloquant — la fiche est sauvée même si le référentiel tousse.
+  const seriesId = await findOrCreateSeriesId(session.supabase, {
+    seriesName: prepared.payload.series_name,
+    category: prepared.payload.category,
+  });
+  const written = await writeBookFields(
+    session,
+    bookId,
+    { ...prepared.payload, series_id: seriesId },
+    "updateBookDetails",
+  );
   if (!written.ok) return written;
 
-  return { ok: true, seriesAlign: await findSeriesAlignProposal(session, bookId, prepared.payload) };
+  return { ok: true, seriesAlign: await findSeriesAlignProposal(session, bookId, prepared.payload, seriesId) };
 }
 
 /**
  * Le comptage de la divergence de série (#257) — les AUTRES livres de
- * l'utilisateur portant exactement le même `series_name` (la clé du lot,
- * comparaison stricte — la normalisation d'affichage ne s'applique pas ici)
- * avec une autre catégorie. `null` = rien à proposer.
+ * l'utilisateur reliés à la même série du référentiel (#291 : la clé du lot
+ * est `series_id`, plus une égalité de texte) avec une autre catégorie.
+ * `null` = rien à proposer.
  */
 async function findSeriesAlignProposal(
   session: NonNullable<Awaited<ReturnType<typeof getSessionOrError>>>,
   bookId: string,
   payload: BookEditPayload,
+  seriesId: string | null,
 ): Promise<SeriesAlignProposal | null> {
-  if (payload.series_name === null) return null;
+  if (seriesId === null || payload.series_name === null) return null;
 
   const { count, error } = await session.supabase
     .from("books")
     .select("id", { count: "exact", head: true })
     .eq("user_id", session.user.id)
-    .eq("series_name", payload.series_name)
+    .eq("series_id", seriesId)
     .neq("id", bookId)
     .neq("category", payload.category)
     .is("deleted_at", null);
@@ -149,7 +164,7 @@ async function findSeriesAlignProposal(
   }
   if (!count) return null;
 
-  return { seriesName: payload.series_name, category: payload.category, divergentCount: count };
+  return { seriesId, seriesName: payload.series_name, category: payload.category, divergentCount: count };
 }
 
 /**
@@ -166,21 +181,20 @@ async function findSeriesAlignProposal(
  * justes sans job manuel.
  */
 export async function applyCategoryToSeries(
-  seriesName: string,
+  seriesId: string,
   category: BookCategory,
 ): Promise<{ ok: true; updated: number } | { ok: false; error: string }> {
   const session = await getSessionOrError();
   if (!session) return { ok: false, error: "Authentification requise." };
 
   if (!isValidCategory(category)) return { ok: false, error: UNKNOWN_CATEGORY_MESSAGE };
-  const trimmedSeriesName = seriesName.trim();
-  if (trimmedSeriesName === "") return { ok: false, error: "La série est introuvable." };
+  if (!seriesId) return { ok: false, error: "La série est introuvable." };
 
   const { error, count } = await session.supabase
     .from("books")
     .update({ category }, { count: "exact" })
     .eq("user_id", session.user.id)
-    .eq("series_name", trimmedSeriesName)
+    .eq("series_id", seriesId)
     .neq("category", category)
     .is("deleted_at", null);
   if (error) {
@@ -194,31 +208,6 @@ export async function applyCategoryToSeries(
   revalidatePath("/journal");
   revalidatePath("/bilan");
   return { ok: true, updated: count ?? 0 };
-}
-
-/**
- * Le préfixe qui marque un `raise exception` SQL **destiné à l'écran**.
- *
- * Sans convention explicite, tout `raise exception` finirait affiché à
- * l'utilisateur — y compris celui qu'un futur contributeur ajouterait pour une
- * raison technique. On ne remonte donc QUE les messages qui se présentent, et
- * on retire le préfixe avant l'affichage.
- */
-const SQL_USER_MESSAGE_PREFIX = "UX: ";
-/** Le code PostgreSQL d'un `raise exception` sans `errcode` explicite. */
-const POSTGRES_RAISE_EXCEPTION = "P0001";
-
-/**
- * Un échec de RPC → le message à montrer. Tout ce qui n'est pas un refus
- * métier explicitement marqué part sur le message générique : une panne ne
- * doit jamais exposer d'interne (§8).
- */
-function userFacingSqlError(code: string | undefined, message: string): string {
-  if (code !== POSTGRES_RAISE_EXCEPTION || !message.includes(SQL_USER_MESSAGE_PREFIX)) {
-    return GENERIC_ERROR_MESSAGE;
-  }
-  // PostgREST peut préfixer le message ; on repart du marqueur, pas du début.
-  return message.slice(message.indexOf(SQL_USER_MESSAGE_PREFIX) + SQL_USER_MESSAGE_PREFIX.length).trim();
 }
 
 /**
@@ -265,7 +254,7 @@ export async function mergeBooks(keepBookId: string, mergeBookId: string): Promi
 async function writeBookFields(
   session: NonNullable<Awaited<ReturnType<typeof getSessionOrError>>>,
   bookId: string,
-  fields: Partial<BookEditPayload>,
+  fields: Partial<BookEditPayload> & { series_id?: string | null },
   label: string,
 ): Promise<JournalActionResult> {
   const { error, count } = await session.supabase

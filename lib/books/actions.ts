@@ -17,6 +17,8 @@ import {
 import { isInInventory } from "@/lib/library/derive-library";
 import { RAW_BARCODE_PATTERN } from "@/lib/resolution/barcode-router";
 import { createCacheProvider } from "@/lib/resolution/providers/cache";
+import type { SeriesExternalRef } from "@/lib/resolution/types";
+import { findOrCreateSeriesId } from "@/lib/series/link";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
 import type { BookCategory } from "@/lib/scoring/types";
 import type { Database } from "@/lib/supabase/database.types";
@@ -53,6 +55,8 @@ export type BookInput = {
   isbn: string | null;
   metadataSource: "gcd" | "bnf" | "google_books" | "metron" | "manual";
   metadataSourceId: string | null;
+  /** La série chez la source (#290) — la colle du référentiel partagé (§4.17). Absente = inconnue. */
+  seriesRef?: SeriesExternalRef | null;
 };
 
 export type ScanActionResult =
@@ -128,10 +132,14 @@ async function findOrCreateBook(
   userId: string,
   input: BookInput,
 ): Promise<{ bookId: string; alreadyExisted: boolean } | { error: string }> {
+  // Le lien au référentiel de séries (#291) se résout AVANT : il sert au
+  // rescan (comblement) comme à la création. Jamais bloquant.
+  const seriesId = await findOrCreateSeriesId(supabase, input);
+
   if (input.barcodeRaw) {
     const { data: existing, error } = await supabase
       .from("books")
-      .select("id, deleted_at, series_name, issue_number, authors, publisher, page_count, isbn, cover_url")
+      .select("id, deleted_at, series_name, series_id, issue_number, authors, publisher, page_count, isbn, cover_url")
       .eq("user_id", userId)
       .eq("barcode_raw", input.barcodeRaw)
       .maybeSingle();
@@ -147,7 +155,7 @@ async function findOrCreateBook(
       // jamais « comblable » — on ne touche donc pas à l'id non plus.
       const { error: updateError } = await supabase
         .from("books")
-        .update(mergeBookFieldsOnRescan(existing, input))
+        .update(mergeBookFieldsOnRescan(existing, input, seriesId))
         .eq("id", existing.id);
       if (updateError) {
         console.error("[books] findOrCreateBook:", updateError.message);
@@ -163,6 +171,7 @@ async function findOrCreateBook(
       user_id: userId,
       title: input.title.trim(),
       series_name: input.seriesName,
+      series_id: seriesId,
       issue_number: input.issueNumber,
       authors: input.authors,
       publisher: input.publisher,

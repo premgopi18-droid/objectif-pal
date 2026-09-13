@@ -30,6 +30,7 @@ function input(overrides: Partial<BookInput> = {}): BookInput {
 
 const existingFull = {
   series_name: "Série existante",
+  series_id: "series-existante",
   issue_number: "1",
   authors: "Auteur existant",
   publisher: "Éditeur existant",
@@ -40,6 +41,7 @@ const existingFull = {
 
 const existingEmpty = {
   series_name: null,
+  series_id: null,
   issue_number: null,
   authors: null,
   publisher: null,
@@ -92,5 +94,19 @@ describe("mergeBookFieldsOnRescan", () => {
     const payload = mergeBookFieldsOnRescan(existingFull, input({ coverUrl: "https://example.test/autre.jpg" }));
     expect("cover_chosen_at" in payload).toBe(false);
     expect(payload.cover_url).toBe("https://example.test/existing.jpg");
+  });
+});
+
+describe("mergeBookFieldsOnRescan — le lien au référentiel de séries (#291)", () => {
+  it("un livre pas encore relié prend la série résolue par le scan", () => {
+    expect(mergeBookFieldsOnRescan(existingEmpty, input(), "series-resolue").series_id).toBe("series-resolue");
+  });
+
+  it("un livre déjà relié garde sa série, même si la source en propose une autre", () => {
+    expect(mergeBookFieldsOnRescan(existingFull, input(), "series-autre").series_id).toBe("series-existante");
+  });
+
+  it("sans série résolue, rien ne bouge", () => {
+    expect(mergeBookFieldsOnRescan(existingEmpty, input()).series_id).toBeNull();
   });
 });

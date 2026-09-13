@@ -33,6 +33,8 @@ export type PalEntry = {
   bookId: string;
   title: string;
   seriesName: string | null;
+  /** La série du référentiel partagé (#291), `null` tant que le livre n'y est pas relié. */
+  seriesId: string | null;
   issueNumber: string | null;
   category: BookCategory;
   coverUrl: string | null;
@@ -341,6 +343,8 @@ export type PalBookRecord = Pick<
   purchases: Pick<Tables["purchases"]["Row"], "id" | "purchased_at" | "deleted_at">[] | null;
   readings: Pick<Tables["readings"]["Row"], "status" | "finished_at" | "deleted_at">[] | null;
   ownerships?: Pick<Tables["ownerships"]["Row"], "id" | "owned_since" | "disposed_at" | "deleted_at">[] | null;
+  /** La série du référentiel partagé (#291) — optionnel : les fixtures n'en ont pas. */
+  series_id?: string | null;
 };
 
 /** Exactement ce que `PalView` consomme. */
@@ -419,6 +423,7 @@ export function derivePal(books: PalBookRecord[]): PalDerivation {
       bookId: book.id,
       title: book.title,
       seriesName: book.series_name,
+      seriesId: book.series_id ?? null,
       issueNumber: book.issue_number,
       category: book.category,
       coverUrl: book.cover_url,

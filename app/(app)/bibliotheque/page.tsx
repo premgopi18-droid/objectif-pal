@@ -45,7 +45,7 @@ export default async function BibliothequePage({
         // `authors`, `publisher` et `page_count` ne s'affichent pas dans la
         // liste : ils alimentent le formulaire d'édition (#100), qui doit
         // ouvrir déjà rempli sans une requête de plus par livre.
-        `id, title, series_name, issue_number, category, cover_url, cover_chosen_at, created_at,
+        `id, title, series_name, series_id, issue_number, category, cover_url, cover_chosen_at, created_at,
          authors, publisher, page_count, barcode_raw,
          readings (status, started_at, finished_at, deleted_at),
          purchases (purchased_at, deleted_at),
@@ -88,7 +88,7 @@ export default async function BibliothequePage({
       // lus), que la dérivation jette. À l'échelle actuelle (une bibliothèque
       // personnelle) c'est sans effet ; la pagination #32 lot C reprendra le
       // sujet, et c'est là qu'un filtre serveur « possédé » aura sa place.
-      `id, title, series_name, issue_number, category, cover_url, created_at, deleted_at,
+      `id, title, series_name, series_id, issue_number, category, cover_url, created_at, deleted_at,
        purchases (id, purchased_at, deleted_at),
        readings (status, started_at, finished_at, deleted_at),
        ownerships (id, owned_since, disposed_at, deleted_at)`,

@@ -131,6 +131,7 @@ export type Database = {
           metadata_source_id: string | null
           page_count: number | null
           publisher: string | null
+          series_id: string | null
           series_name: string | null
           title: string
           user_id: string
@@ -153,6 +154,7 @@ export type Database = {
           metadata_source_id?: string | null
           page_count?: number | null
           publisher?: string | null
+          series_id?: string | null
           series_name?: string | null
           title: string
           user_id: string
@@ -175,11 +177,19 @@ export type Database = {
           metadata_source_id?: string | null
           page_count?: number | null
           publisher?: string | null
+          series_id?: string | null
           series_name?: string | null
           title?: string
           user_id?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "books_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "series"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "books_user_id_fkey"
             columns: ["user_id"]
@@ -848,6 +858,143 @@ export type Database = {
           },
         ]
       }
+      series: {
+        Row: {
+          category: Database["public"]["Enums"]["book_category"]
+          created_at: string
+          created_by: string | null
+          fact_declared_at: string | null
+          fact_declared_by: string | null
+          id: string
+          is_ongoing: boolean
+          name: string
+          name_normalized: string
+          total_volumes: number | null
+        }
+        Insert: {
+          category: Database["public"]["Enums"]["book_category"]
+          created_at?: string
+          created_by?: string | null
+          fact_declared_at?: string | null
+          fact_declared_by?: string | null
+          id?: string
+          is_ongoing?: boolean
+          name: string
+          name_normalized: string
+          total_volumes?: number | null
+        }
+        Update: {
+          category?: Database["public"]["Enums"]["book_category"]
+          created_at?: string
+          created_by?: string | null
+          fact_declared_at?: string | null
+          fact_declared_by?: string | null
+          id?: string
+          is_ongoing?: boolean
+          name?: string
+          name_normalized?: string
+          total_volumes?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "series_created_by_fkey"
+            columns: ["created_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "series_fact_declared_by_fkey"
+            columns: ["fact_declared_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      series_events: {
+        Row: {
+          created_at: string
+          id: string
+          is_ongoing: boolean | null
+          kind: string
+          merged_series_id: string | null
+          new_name: string | null
+          old_name: string | null
+          series_id: string
+          total_volumes: number | null
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          is_ongoing?: boolean | null
+          kind: string
+          merged_series_id?: string | null
+          new_name?: string | null
+          old_name?: string | null
+          series_id: string
+          total_volumes?: number | null
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          is_ongoing?: boolean | null
+          kind?: string
+          merged_series_id?: string | null
+          new_name?: string | null
+          old_name?: string | null
+          series_id?: string
+          total_volumes?: number | null
+          user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "series_events_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "series"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "series_events_user_id_fkey"
+            columns: ["user_id"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      series_external_ids: {
+        Row: {
+          created_at: string
+          external_id: string
+          series_id: string
+          source: string
+        }
+        Insert: {
+          created_at?: string
+          external_id: string
+          series_id: string
+          source: string
+        }
+        Update: {
+          created_at?: string
+          external_id?: string
+          series_id?: string
+          source?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "series_external_ids_series_id_fkey"
+            columns: ["series_id"]
+            isOneToOne: false
+            referencedRelation: "series"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       user_fact_versions: {
         Row: {
           user_id: string
@@ -910,6 +1057,30 @@ export type Database = {
       consume_action_quota: { Args: { action_kind: string }; Returns: boolean }
       consume_global_quota: { Args: { action_kind: string }; Returns: boolean }
       count_pending_friend_requests: { Args: never; Returns: number }
+      declare_series_fact: {
+        Args: {
+          p_is_ongoing?: boolean
+          p_series_id: string
+          p_total_volumes?: number
+        }
+        Returns: undefined
+      }
+      find_or_create_series: {
+        Args: {
+          p_bnf_series_id?: string
+          p_category: Database["public"]["Enums"]["book_category"]
+          p_gcd_series_id?: string
+          p_name: string
+        }
+        Returns: string
+      }
+      gcd_series_max_issue_numbers: {
+        Args: { p_series_ids: number[] }
+        Returns: {
+          max_number: number
+          series_id: number
+        }[]
+      }
       get_circle_monthly_picks: {
         Args: never
         Returns: {
@@ -950,8 +1121,21 @@ export type Database = {
         Args: { owner_id: string; report_month: string }
         Returns: boolean
       }
+      link_book_series: {
+        Args: { p_book_id: string; p_series_id?: string }
+        Returns: undefined
+      }
       merge_books: {
         Args: { keep_book_id: string; merge_book_id: string }
+        Returns: undefined
+      }
+      merge_series: {
+        Args: { keep_series_id: string; merge_series_id: string }
+        Returns: undefined
+      }
+      normalize_series_name: { Args: { name: string }; Returns: string }
+      rename_series: {
+        Args: { p_name: string; p_series_id: string }
         Returns: undefined
       }
       search_circle_profiles: {

@@ -32,6 +32,8 @@ export type LibraryBookRow = Pick<
 > & {
   /** Le verrou du choix de couverture (#275) — optionnel : les fixtures et les requêtes anciennes n'en ont pas. */
   cover_chosen_at?: string | null;
+  /** La série du référentiel partagé (#291) — optionnel pour la même raison. */
+  series_id?: string | null;
   // `finished_at` et `purchased_at` sont nécessaires au réducteur de pile
   // partagé (il raisonne sur des dates, pas sur des comptages).
   readings: Pick<Tables["readings"]["Row"], "status" | "started_at" | "finished_at" | "deleted_at">[] | null;
@@ -54,6 +56,8 @@ export type LibraryEntry = {
   bookId: string;
   title: string;
   seriesName: string | null;
+  /** La série du référentiel partagé (#291), `null` tant que le livre n'y est pas relié. */
+  seriesId: string | null;
   issueNumber: string | null;
   category: BookCategory;
   coverUrl: string | null;
@@ -148,6 +152,7 @@ export function deriveLibrary(rows: LibraryBookRow[]): LibraryEntry[] {
       bookId: row.id,
       title: row.title,
       seriesName: row.series_name,
+      seriesId: row.series_id ?? null,
       issueNumber: row.issue_number,
       category: row.category,
       coverUrl: row.cover_url,

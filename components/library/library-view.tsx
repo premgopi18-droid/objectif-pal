@@ -119,7 +119,7 @@ export function LibraryView({ entries: serverEntries, focusBookId = null }: Libr
     setAlignError(null);
     startAlignTransition(async () => {
       try {
-        const result = await applyCategoryToSeries(proposal.seriesName, proposal.category);
+        const result = await applyCategoryToSeries(proposal.seriesId, proposal.category);
         if (!result.ok) {
           // La feuille RESTE ouverte sur échec (review #261) : l'erreur
           // s'affiche dedans, le CTA se réactive — pas besoin de

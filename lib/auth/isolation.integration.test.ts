@@ -440,6 +440,97 @@ describe.runIf(shouldRun)("le pool partagé de couvertures (#278)", () => {
   }, INTEGRATION_TIMEOUT_MS);
 });
 
+/**
+ * Le référentiel partagé de séries (#291, §4.17) — la seconde exception voulue
+ * au cloisonnement : la SÉRIE (nom, total déclaré, historique) est commune et
+ * lisible par tous ; ce qui reste cloisonné, c'est le LIEN livre → série et
+ * les livres eux-mêmes. Écriture uniquement par RPC : la table refuse tout
+ * accès direct, même à l'auteur. Idempotent : le nom-témoin retombe sur la
+ * même ligne à chaque run (c'est précisément la propriété testée).
+ */
+describe.runIf(shouldRun)("le référentiel partagé de séries (#291)", () => {
+  const SERIES_NAME = "Série témoin isolation #291";
+  const SERIES_GCD_ID = "999999291"; // hors de tout vrai référentiel
+  const BOOK_BARCODE = "0000000000291";
+
+  it("A crée et déclare ; B lit la série et l'historique, ne touche pas la table, ne relie pas le livre de A, mais déclare aussi (fait partagé)", async () => {
+    const a = await signIn(
+      process.env.ISOLATION_TEST_USER_A_EMAIL as string,
+      process.env.ISOLATION_TEST_USER_A_PASSWORD as string,
+    );
+    const b = await signIn(
+      process.env.ISOLATION_TEST_USER_B_EMAIL as string,
+      process.env.ISOLATION_TEST_USER_B_PASSWORD as string,
+    );
+
+    // A rattache (trouve ou crée) la série-témoin, avec un identifiant GCD.
+    const { data: seriesId, error: createError } = await a.client.rpc("find_or_create_series", {
+      p_name: SERIES_NAME,
+      p_category: "bd",
+      p_gcd_series_id: SERIES_GCD_ID,
+    });
+    expect(createError).toBeNull();
+    expect(seriesId).toBeTruthy();
+
+    // B, avec une autre CASSE et des espaces, retombe sur la MÊME ligne : c'est le but du référentiel.
+    const { data: sameSeriesId } = await b.client.rpc("find_or_create_series", {
+      p_name: `  ${SERIES_NAME.toUpperCase()}  `,
+      p_category: "bd",
+    });
+    expect(sameSeriesId).toBe(seriesId);
+
+    // A déclare un total ; B le LIT (référentiel commun), avec l'auteur.
+    const { error: declareError } = await a.client.rpc("declare_series_fact", { p_series_id: seriesId as string, p_total_volumes: 12 });
+    expect(declareError).toBeNull();
+    const { data: seenByB } = await b.client.from("series").select("name, total_volumes, is_ongoing, fact_declared_by").eq("id", seriesId as string);
+    expect(seenByB).toEqual([{ name: SERIES_NAME, total_volumes: 12, is_ongoing: false, fact_declared_by: a.userId }]);
+    const { data: eventsSeenByB } = await b.client.from("series_events").select("kind, user_id").eq("series_id", seriesId as string).eq("kind", "declare_total");
+    expect(eventsSeenByB?.some((event) => event.user_id === a.userId)).toBe(true);
+
+    // La table ne s'écrit PAS directement — même pour l'auteur : aucune policy d'écriture.
+    const { error: directInsert } = await a.client.from("series").insert({ name: "Intrus", name_normalized: "intrus", category: "bd" });
+    expect(directInsert?.code).toBe("42501");
+    const { data: directUpdate } = await b.client.from("series").update({ total_volumes: 99 }).eq("id", seriesId as string).select("id");
+    expect(directUpdate).toEqual([]);
+    const { data: directDelete } = await b.client.from("series").delete().eq("id", seriesId as string).select("id");
+    expect(directDelete).toEqual([]);
+    const { error: eventInsert } = await b.client.from("series_events").insert({ series_id: seriesId as string, kind: "rename", user_id: b.userId });
+    expect(eventInsert?.code).toBe("42501");
+
+    // A a un livre ; B ne peut pas le relier (la RPC ne voit que ses propres livres).
+    const { data: aBook, error: bookError } = await a.client
+      .from("books")
+      .upsert(
+        { user_id: a.userId, title: "Tome témoin #291", category: "bd", barcode_raw: BOOK_BARCODE, barcode_type: "isbn", metadata_source: "manual", deleted_at: null },
+        { onConflict: "user_id,barcode_raw" },
+      )
+      .select("id")
+      .single();
+    expect(bookError).toBeNull();
+    const { error: crossLink } = await b.client.rpc("link_book_series", { p_book_id: aBook!.id, p_series_id: seriesId as string });
+    expect(crossLink?.message).toContain("UX: Livre introuvable");
+    const { error: ownLink } = await a.client.rpc("link_book_series", { p_book_id: aBook!.id, p_series_id: seriesId as string });
+    expect(ownLink).toBeNull();
+    // Le livre de A, relié, reste invisible pour B.
+    const { data: aBooksSeenByB } = await b.client.from("books").select("id").eq("series_id", seriesId as string).eq("user_id", a.userId);
+    expect(aBooksSeenByB).toEqual([]);
+
+    // Le fait est partagé et modifiable par tous (§4.17-3) : B déclare « parution en cours », A le voit.
+    const { error: bDeclare } = await b.client.rpc("declare_series_fact", { p_series_id: seriesId as string, p_is_ongoing: true });
+    expect(bDeclare).toBeNull();
+    const { data: seenByA } = await a.client.from("series").select("total_volumes, is_ongoing, fact_declared_by").eq("id", seriesId as string);
+    expect(seenByA).toEqual([{ total_volumes: null, is_ongoing: true, fact_declared_by: b.userId }]);
+    // Et l'historique garde la valeur d'avant (ajout seul) — la ligne de A n'a pas bougé.
+    const { data: history } = await a.client.from("series_events").select("kind, total_volumes, user_id").eq("series_id", seriesId as string).order("created_at", { ascending: false }).limit(2);
+    expect(history?.map((event) => event.kind)).toEqual(["declare_ongoing", "declare_total"]);
+
+    // Une série à identifiant GCD DIFFÉRENT ne se fusionne pas avec celle-ci (deux séries, pas une graphie).
+    const { data: otherId } = await a.client.rpc("find_or_create_series", { p_name: `${SERIES_NAME} (autre)`, p_category: "bd", p_gcd_series_id: "999999292" });
+    const { error: mergeError } = await a.client.rpc("merge_series", { keep_series_id: seriesId as string, merge_series_id: otherId as string });
+    expect(mergeError?.message).toContain("UX: Ces deux séries sont deux séries différentes chez GCD");
+  }, INTEGRATION_TIMEOUT_MS);
+});
+
 describe.runIf(!shouldRun)("cloisonnement inter-utilisateurs (RLS)", () => {
   it.skip("désactivé — INTEGRATION_ISOLATION=1 + identifiants de test requis", () => {});
 });
