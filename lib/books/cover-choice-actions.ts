@@ -55,7 +55,12 @@ export async function getCoverCandidates(bookId: string): Promise<CoverCandidate
     // début de la série si GCD la connaît (départage Nightwing 1996 / 2016).
     seriesName: book.series_name,
     issueNumber: book.issue_number,
-    startYear: book.barcode_type === "upc" ? await gcdSeriesStartYear(book.metadata_source, book.metadata_source_id) : null,
+    // …et seulement si Comic Vine est branché (review #284) : deux lectures
+    // admin pour rien sinon — le même signal que `isEnabled()`.
+    startYear:
+      book.barcode_type === "upc" && Boolean(process.env.COMIC_VINE_API_KEY)
+        ? await gcdSeriesStartYear(book.metadata_source, book.metadata_source_id)
+        : null,
   };
   const hasCode = (target.barcodeType === "upc" && target.barcode !== null) || (target.barcodeType === "isbn" && target.isbn !== null);
   if (!hasCode) return { ok: true, candidates: [], degraded: false };

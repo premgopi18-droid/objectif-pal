@@ -64,20 +64,27 @@ console.log(`${books.length} livre(s) avec une couverture Comic Vine${isDryRun ?
 let replaced = 0;
 let cleared = 0;
 for (const book of books) {
+  // La politesse envers les sources, AVANT chaque résolution (y compris après
+  // un livre non touché).
+  await new Promise((resolve) => setTimeout(resolve, POLITENESS_DELAY_MS));
   const barcodeType = book.barcode_type as "isbn" | "upc" | null;
   const replacement = barcodeType ? await findReplacementCover({ barcodeType, isbn: book.isbn, barcode: book.barcode_raw }) : null;
   console.log(` - ${book.title} → ${replacement ?? "(rien : placeholder)"}`);
   if (!isDryRun) {
-    const { error: updateError } = await admin
+    const { error: updateError, count } = await admin
       .from("books")
-      .update({ cover_url: replacement, cover_chosen_at: null })
+      .update({ cover_url: replacement, cover_chosen_at: null }, { count: "exact" })
       .eq("id", book.id)
       .eq("user_id", book.user_id)
       .eq("cover_url", book.cover_url as string);
     if (updateError) throw new Error(`update ${book.id} : ${updateError.message}`);
+    // Une course perdue (choix concurrent) n'est pas un retrait (review #284).
+    if (count !== 1) {
+      console.log("   (couverture changée entre-temps : non touché)");
+      continue;
+    }
   }
   if (replacement) replaced += 1;
   else cleared += 1;
-  await new Promise((resolve) => setTimeout(resolve, POLITENESS_DELAY_MS));
 }
 console.log(`${replaced} remplacée(s), ${cleared} vidée(s)${isDryRun ? " — rien n'a été écrit" : ""}.`);

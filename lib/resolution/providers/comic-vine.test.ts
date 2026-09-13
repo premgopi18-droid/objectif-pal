@@ -72,6 +72,31 @@ describe("Comic Vine (#279)", () => {
     ]);
   });
 
+  it("repli sur un préfixe quand aucun nom n'est strictement égal (review #284), année la plus proche", async () => {
+    const fetchImplementation = (async (url: string | URL) =>
+      String(url).includes("/api/search/")
+        ? jsonResponse({
+            status_code: 1,
+            results: [
+              { id: 7, name: "Batman: The Adventures Continue Season Two", start_year: "2021" },
+              { id: 8, name: "Batman: The Adventures Continue", start_year: "2020" },
+              { id: 9, name: "Batman", start_year: "1940" },
+            ],
+          })
+        : jsonResponse({ status_code: 1, results: [{ id: 1, image: { original_url: "https://comicvine.gamespot.com/a/uploads/original/x.jpg" } }] })) as unknown as typeof fetch;
+    const provider = createComicVineProvider("k", fetchImplementation, async () => true);
+    // Égalité stricte disponible : elle gagne, quelle que soit l'année.
+    const calls: string[] = [];
+    const spyProvider = createComicVineProvider("k", (async (url: string | URL, init?: RequestInit) => { calls.push(String(url)); return fetchImplementation(url, init); }) as unknown as typeof fetch, async () => true);
+    await spyProvider.findIssueCovers({ seriesName: "Batman: The Adventures Continue", issueNumber: "1", startYear: 2021 });
+    expect(calls[1]).toContain("volume%3A8%2C");
+    // Sans égalité stricte : le préfixe, année la plus proche.
+    calls.length = 0;
+    await spyProvider.findIssueCovers({ seriesName: "Batman: The Adventures Continue Season Two Special", issueNumber: "1", startYear: 2021 });
+    expect(calls[1]).toContain("volume%3A7%2C");
+    expect(await provider.findIssueCovers({ seriesName: "Superman", issueNumber: "1", startYear: null })).toEqual([]);
+  });
+
   it("sans année connue : le premier volume au bon nom ; aucun nom qui matche : []", async () => {
     const { provider, calls } = fakeComicVine();
     await provider.findIssueCovers({ seriesName: "Nightwing", issueNumber: "1", startYear: null });

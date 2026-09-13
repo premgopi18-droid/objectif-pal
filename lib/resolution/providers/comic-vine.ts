@@ -99,15 +99,11 @@ export function createComicVineProvider(
       const volumes = await requestJson<VolumeResult[]>("/search/", {
         resources: "volume",
         query: seriesName,
-        limit: "5",
+        limit: "10",
         field_list: "id,name,start_year",
       });
-      const wanted = normalizeName(seriesName);
-      const matching = volumes.filter((volume) => typeof volume.id === "number" && volume.name && normalizeName(volume.name) === wanted);
-      if (matching.length === 0) return [];
-      // L'année de début la plus proche départage les relances (Nightwing 1996 / 2016).
-      const byYear = [...matching].sort((a, b) => yearDistance(a, query.startYear) - yearDistance(b, query.startYear));
-      const volume = byYear[0];
+      const volume = pickVolume(volumes, seriesName, query.startYear);
+      if (!volume) return [];
 
       const issues = await requestJson<IssueResult[]>("/issues/", {
         filter: `volume:${volume.id},issue_number:${issueNumber}`,
@@ -128,6 +124,28 @@ export function createComicVineProvider(
       return covers.filter((cover) => (seen.has(cover.url) ? false : (seen.add(cover.url), true)));
     },
   };
+}
+
+/**
+ * Le volume à retenir (review #284) : égalité stricte du nom normalisé d'abord,
+ * sinon un PRÉFIXE (l'un des noms commence par l'autre — un sous-titre en plus
+ * d'un côté, « Season Two »…) ; dans les deux cas, l'année de début la plus
+ * proche départage les homonymes (Nightwing 1996 / 2016).
+ */
+export function pickVolume(volumes: VolumeResult[], seriesName: string, startYear: number | null): (VolumeResult & { id: number }) | null {
+  const wanted = normalizeName(seriesName);
+  if (wanted.length === 0) return null;
+  const named = volumes.filter((volume): volume is VolumeResult & { id: number; name: string } => typeof volume.id === "number" && typeof volume.name === "string");
+  const exact = named.filter((volume) => normalizeName(volume.name) === wanted);
+  const candidates =
+    exact.length > 0
+      ? exact
+      : named.filter((volume) => {
+          const name = normalizeName(volume.name);
+          return name.length > 0 && (name.startsWith(`${wanted} `) || wanted.startsWith(`${name} `));
+        });
+  if (candidates.length === 0) return null;
+  return [...candidates].sort((a, b) => yearDistance(a, startYear) - yearDistance(b, startYear))[0];
 }
 
 const yearDistance = (volume: VolumeResult, startYear: number | null): number => {
