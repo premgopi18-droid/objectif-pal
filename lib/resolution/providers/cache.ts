@@ -1,4 +1,4 @@
-import { sanitizePageCount, type CacheEntry } from "@/lib/resolution/types";
+import { isSeriesExternalSource, sanitizePageCount, type CacheEntry } from "@/lib/resolution/types";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 /**
@@ -37,6 +37,10 @@ export function createCacheProvider(client = createAdminClient()) {
         coverUrl: row.cover_url,
         source: row.source,
         sourceId: row.source_id,
+        seriesRef:
+          isSeriesExternalSource(row.series_external_source) && row.series_external_id
+            ? { source: row.series_external_source, id: row.series_external_id }
+            : null,
         coverCheckedAt: row.cover_checked_at,
       };
     },
@@ -61,6 +65,14 @@ export function createCacheProvider(client = createAdminClient()) {
           ...(entry.coverCheckedAt !== undefined ? { cover_checked_at: entry.coverCheckedAt } : {}),
           // Provenance des saisies manuelles (#179) — même règle d'absence.
           ...(entry.createdBy !== undefined ? { created_by: entry.createdBy } : {}),
+          // La série chez la source (#290) — même règle d'absence ; les deux
+          // colonnes vont ensemble (contrainte CHECK en base).
+          ...(entry.seriesRef !== undefined
+            ? {
+                series_external_source: entry.seriesRef?.source ?? null,
+                series_external_id: entry.seriesRef?.id ?? null,
+              }
+            : {}),
         },
         { onConflict: "barcode" },
       );

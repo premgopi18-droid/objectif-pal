@@ -43,6 +43,8 @@ export type Database = {
           page_count: number | null
           publisher: string | null
           resolved_at: string
+          series_external_id: string | null
+          series_external_source: string | null
           series_name: string | null
           source: Database["public"]["Enums"]["metadata_source"]
           source_id: string | null
@@ -58,6 +60,8 @@ export type Database = {
           page_count?: number | null
           publisher?: string | null
           resolved_at?: string
+          series_external_id?: string | null
+          series_external_source?: string | null
           series_name?: string | null
           source: Database["public"]["Enums"]["metadata_source"]
           source_id?: string | null
@@ -73,6 +77,8 @@ export type Database = {
           page_count?: number | null
           publisher?: string | null
           resolved_at?: string
+          series_external_id?: string | null
+          series_external_source?: string | null
           series_name?: string | null
           source?: Database["public"]["Enums"]["metadata_source"]
           source_id?: string | null

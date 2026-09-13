@@ -35,7 +35,7 @@ type IssueRow = Pick<
 >;
 
 /** Jamais attribué par GCD (ses ids commencent à 1) : la recherche de série rend « inconnue ». */
-const UNKNOWN_SERIES_ID = 0;
+export const UNKNOWN_SERIES_ID = 0;
 
 // Notre table d'import ne porte pas les NOT NULL du schéma GCD d'origine
 // (series_id et number y sont obligatoires) : on absorbe ici le NULL

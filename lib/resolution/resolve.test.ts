@@ -93,8 +93,10 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
     );
     expect(result).toMatchObject({
       kind: "resolved",
-      book: { suggestedCategory: "bd", source: "gcd", seriesName: "Les Aventures de Tintin" },
+      // La série GCD voyage comme identifiant stable (#290) — jusque dans le cache.
+      book: { suggestedCategory: "bd", source: "gcd", seriesName: "Les Aventures de Tintin", seriesRef: { source: "gcd", id: "42" } },
     });
+    expect(deps.cache.set).toHaveBeenCalledWith(expect.objectContaining({ seriesRef: { source: "gcd", id: "42" } }));
   });
 
   it("un TPB VO trouvé par ISBN est proposé comics, et Metron peut le requalifier omnibus", async () => {
@@ -176,6 +178,7 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
           title: "Père & fils. 4",
           seriesName: "Père & fils",
           issueNumber: "4",
+          bnfSeriesId: "12345678",
           authors: "Tagawa, Mi",
           publisher: "Ki-oon",
           pageCount: 206,
@@ -201,9 +204,12 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
         source: "bnf",
         suggestedCategory: "manga", // l'éditeur Ki-oon (specs §5.5)
         coverUrl: "https://books.google.com/cover.jpg", // la BnF n'illustre pas
+        seriesRef: { source: "bnf", id: "12345678" }, // la notice de série BnF (#290)
       },
     });
-    expect(deps.cache.set).toHaveBeenCalledWith(expect.objectContaining({ barcode: "9791032700327", source: "bnf" }));
+    expect(deps.cache.set).toHaveBeenCalledWith(
+      expect.objectContaining({ barcode: "9791032700327", source: "bnf", seriesRef: { source: "bnf", id: "12345678" } }),
+    );
   });
 
   it("Google Books sans image : OpenLibrary comble, dans l'ordre, et le résultat part en cache", async () => {
@@ -214,6 +220,7 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
           title: "Radiant T1",
           seriesName: "Radiant",
           issueNumber: "1",
+          bnfSeriesId: null,
           authors: "Tony Valente",
           publisher: "Ankama",
           pageCount: 176,
@@ -234,7 +241,7 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
 
   it("OpenLibrary muet : Inventaire prend le relais, et les crans suivants ne sont pas appelés", async () => {
     const deps = fakeDeps({
-      bnf: { resolveIsbn: vi.fn(async () => ({ title: "Un roman", seriesName: null, issueNumber: null, authors: null, publisher: null, pageCount: null })) },
+      bnf: { resolveIsbn: vi.fn(async () => ({ title: "Un roman", seriesName: null, issueNumber: null, bnfSeriesId: null, authors: null, publisher: null, pageCount: null })) },
       inventaire: { findCoverByIsbn: vi.fn(async () => "https://inventaire.io/img/entities/def") },
     });
     const result = await resolveScannedCode("9782070360024", deps);
@@ -249,7 +256,7 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
     // fiche Google Books sans image, ISBN inconnu d'OpenLibrary, d'Inventaire
     // et du Service Couvertures BnF — seul le CDN des libraires l'a.
     const deps = fakeDeps({
-      bnf: { resolveIsbn: vi.fn(async () => ({ title: "Batman", seriesName: null, issueNumber: null, authors: "Scott Snyder", publisher: "Urban comics", pageCount: 176 })) },
+      bnf: { resolveIsbn: vi.fn(async () => ({ title: "Batman", seriesName: null, issueNumber: null, bnfSeriesId: null, authors: "Scott Snyder", publisher: "Urban comics", pageCount: 176 })) },
       epagine: { findCoverByIsbn: vi.fn(async () => "https://images.epagine.fr/963/9791026820963_1_75.jpg") },
     });
     const result = await resolveScannedCode("9791026820963", deps);
@@ -263,7 +270,7 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
 
   it("BnF Couvertures comble avant epagine quand il a l'image", async () => {
     const deps = fakeDeps({
-      bnf: { resolveIsbn: vi.fn(async () => ({ title: "Un roman", seriesName: null, issueNumber: null, authors: null, publisher: null, pageCount: null })) },
+      bnf: { resolveIsbn: vi.fn(async () => ({ title: "Un roman", seriesName: null, issueNumber: null, bnfSeriesId: null, authors: null, publisher: null, pageCount: null })) },
       bnfCovers: {
         findCoverByIsbn: vi.fn(
           async () =>
