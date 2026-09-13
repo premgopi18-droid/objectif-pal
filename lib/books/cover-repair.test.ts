@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { decideCoverRepair, isKnownCoverImageUrl, isRepairAttemptFresh } from "./cover-repair";
+import { decideCoverRepair, isInternalizableCoverUrl, isKnownCoverImageUrl, isRepairAttemptFresh } from "./cover-repair";
 
 const DEAD_URL = "https://images.epagine.fr/963/9791026820963_1_75.jpg";
 const NEW_URL = "https://covers.openlibrary.org/b/isbn/9791026820963-L.jpg";
@@ -92,5 +92,15 @@ describe("isRepairAttemptFresh", () => {
 describe("Comic Vine (#279) : affichable et re-vérifiable, mais jamais rapatrié", () => {
   it("l'hôte d'images Comic Vine est connu de la garde SSRF", () => {
     expect(isKnownCoverImageUrl("https://comicvine.gamespot.com/a/uploads/original/11161/111615891/10161955-cover.jpg")).toBe(true);
+  });
+});
+
+describe("isInternalizableCoverUrl — la frontière du rapatriement, partagée avec le script", () => {
+  it("un hôte de source connu se rapatrie ; Comic Vine (lien direct) et un hôte inconnu jamais", () => {
+    expect(isInternalizableCoverUrl("https://static.metron.cloud/media/issue/x.jpg")).toBe(true);
+    expect(isInternalizableCoverUrl("https://images.epagine.fr/963/x.jpg")).toBe(true);
+    expect(isInternalizableCoverUrl("https://comicvine.gamespot.com/a/uploads/original/x.jpg")).toBe(false);
+    expect(isInternalizableCoverUrl("https://evil.example/x.jpg")).toBe(false);
+    expect(isInternalizableCoverUrl("pas une url")).toBe(false);
   });
 });

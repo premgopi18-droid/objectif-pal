@@ -1,6 +1,6 @@
 /**
  * Le verdict d'un run de rapatriement des couvertures (#272) — pur, testé,
- * partagé par scripts/covers-internalize.mjs.
+ * partagé par scripts/covers-internalize.mts.
  *
  * Avant : « 0 rapatriée + au moins un échec → exit 1 ». Ce garde-fou
  * confondait « panne réseau ou bucket » et « il ne reste que des cadavres
@@ -19,13 +19,16 @@
  *  - infra   : NOTRE côté (bucket, base, erreur inattendue). Toujours rouge.
  */
 
+export type CoverFailureKind = "corpse" | "network" | "infra";
+
 /** Une erreur de rapatriement qui connaît sa famille. */
 export class CoverFailure extends Error {
-  /** @param {"corpse" | "network" | "infra"} kind */
-  constructor(kind, message) {
+  constructor(
+    public readonly kind: CoverFailureKind,
+    message: string,
+  ) {
     super(message);
     this.name = "CoverFailure";
-    this.kind = kind;
   }
 }
 
@@ -33,9 +36,8 @@ export class CoverFailure extends Error {
  * La famille d'une erreur attrapée dans la boucle : une CoverFailure porte la
  * sienne, tout le reste est de l'infra — l'inattendu est rouge, jamais
  * rangé en silence chez les cadavres.
- * @returns {"corpse" | "network" | "infra"}
  */
-export function classifyFailure(error) {
+export function classifyFailure(error: unknown): CoverFailureKind {
   return error instanceof CoverFailure ? error.kind : "infra";
 }
 
@@ -43,9 +45,8 @@ export function classifyFailure(error) {
  * Rouge seulement sur panne d'INFRA, ou sur panne RÉSEAU totale : rien de
  * rapatrié, aucune réponse HTTP reçue, et au moins un essai. Les cadavres
  * seuls (ou mêlés à quelques erreurs réseau) laissent le run vert.
- * @param {{ internalized: number; corpse: number; network: number; infra: number }} counts
  */
-export function shouldFailRun({ internalized, corpse, network, infra }) {
+export function shouldFailRun({ internalized, corpse, network, infra }: { internalized: number; corpse: number; network: number; infra: number }): boolean {
   if (infra > 0) return true;
   return internalized === 0 && network > 0 && corpse === 0;
 }
