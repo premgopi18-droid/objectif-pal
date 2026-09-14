@@ -332,26 +332,38 @@ export type Database = {
         Row: {
           format: string | null
           id: number
+          is_current: boolean | null
+          issue_count: number | null
           language_id: number | null
+          last_number: number | null
           name: string | null
           publisher: string | null
           year_began: number | null
+          year_ended: number | null
         }
         Insert: {
           format?: string | null
           id: number
+          is_current?: boolean | null
+          issue_count?: number | null
           language_id?: number | null
+          last_number?: number | null
           name?: string | null
           publisher?: string | null
           year_began?: number | null
+          year_ended?: number | null
         }
         Update: {
           format?: string | null
           id?: number
+          is_current?: boolean | null
+          issue_count?: number | null
           language_id?: number | null
+          last_number?: number | null
           name?: string | null
           publisher?: string | null
           year_began?: number | null
+          year_ended?: number | null
         }
         Relationships: []
       }
@@ -865,6 +877,7 @@ export type Database = {
           created_by: string | null
           fact_declared_at: string | null
           fact_declared_by: string | null
+          fact_source: string
           id: string
           is_ongoing: boolean
           name: string
@@ -877,6 +890,7 @@ export type Database = {
           created_by?: string | null
           fact_declared_at?: string | null
           fact_declared_by?: string | null
+          fact_source?: string
           id?: string
           is_ongoing?: boolean
           name: string
@@ -889,6 +903,7 @@ export type Database = {
           created_by?: string | null
           fact_declared_at?: string | null
           fact_declared_by?: string | null
+          fact_source?: string
           id?: string
           is_ongoing?: boolean
           name?: string
@@ -1153,6 +1168,14 @@ export type Database = {
           avatar_url: string
           display_name: string
           id: string
+        }[]
+      }
+      sync_series_facts_from_gcd: {
+        Args: never
+        Returns: {
+          declared_ongoing: number
+          declared_total: number
+          unchanged: number
         }[]
       }
     }

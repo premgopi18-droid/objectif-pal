@@ -23,6 +23,7 @@ const series = (overrides: Partial<SeriesFact> = {}): SeriesFact => ({
   isOngoing: false,
   factDeclaredBy: null,
   factDeclaredAt: null,
+  factSource: "human",
   ...overrides,
 });
 
@@ -170,6 +171,13 @@ describe("deriveSeriesProgress — lus · dans la pile · total", () => {
     ]);
     expect(progress.knownMax.map((known) => known.value)).toEqual([111, 15]);
     expect(progress.status).toBe("unknown-total");
+  });
+
+  it("les tomes pas possédés se comptent dès que le total est connu — jamais sans", () => {
+    const withTotal = deriveSeriesProgress(series(declared({ totalVolumes: 12 })), [...volumes([1, 2, 3], "read"), volume("5", "pile")]);
+    expect(withTotal.missing).toBe(8); // 4, 6..12
+    expect(deriveSeriesProgress(series(), volumes([1, 2], "read")).missing).toBeNull();
+    expect(deriveSeriesProgress(series(declared({ isOngoing: true })), volumes([1, 2], "read")).missing).toBeNull();
   });
 
   it("un tome 0 lu (prologue) ne compte pas pour « complète » (review #295)", () => {

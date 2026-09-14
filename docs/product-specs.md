@@ -1050,6 +1050,17 @@ comme prévu), 0 livre nommé sans lien.
    erreur de notre côté rend le run rouge. La fiche liste les planchers (« 111 tomes déposés à la BnF pour l'édition
    Glénat · 40 numéros parus d'après GCD »), le stepper part du plus grand, et « La BnF en connaît 112 → Mettre à
    jour » signale un total déclaré dépassé — même geste que GCD.
+   **Le fait de série depuis GCD (décision de Prem du 14/09/2026, amendement à « jamais à ta place »).** Un plancher
+   n'est pas un total : après la remise à zéro, 101 séries disaient « Total à déclarer » alors que GCD SAIT, pour
+   77 d'entre elles, si la série est close (`is_current`) et son dernier numéro (`last_issue_id` → `number`). Ces
+   champs entrent dans notre import (`gcd_series.is_current`, `year_ended`, `issue_count`, `last_number` — posés par
+   `gcd-export.mjs` / `gcd-load.mjs`), et la synchronisation `sync_series_facts_from_gcd()` (service role, job
+   `series:gcd-facts` chaque nuit et après chaque dump) **déclare le fait à la place de l'utilisateur** pour toute
+   série reliée à GCD sans déclaration humaine : « parution en cours » si l'une de ses séries GCD est courante, sinon
+   le plus grand dernier numéro connu comme total. Source `gcd`, auteur « GCD » (« 12 numéros, série close d'après
+   GCD »), journalisé, **modifiable d'un tap** : une déclaration humaine n'est jamais touchée, une déclaration GCD
+   suit GCD. Ce n'est plus deviner : c'est le fait d'une source qui modélise la fin de série. Les séries BnF et sans
+   identifiant restent à déclarer, stepper pré-rempli.
 5. **La section « Séries en cours » des Stats et son catalogue GCD (§4.5, lot B de #30) sont retirés** :
    les « trois silences » n'ont plus d'objet, le nouveau modèle marche pour la BnF, donc pour Léna. Perte
    assumée : une série GCD lue jusqu'au 5 sans total déclaré disait « tome 6 à lire », elle dira « total
@@ -1646,7 +1657,9 @@ manuellement OU un mois entier écoulé depuis la clôture.
 **Le référentiel de séries (§4.17, lot A #291, 14/09/2026)** — commun à tous les comptes, comme GCD :
 `series` (`id`, `name` canonique, `name_normalized` entretenu par trigger — `normalize_series_name()`,
 miroir SQL de `lib/series/normalize.ts` —, `category`, **le fait** : `total_volumes` OU `is_ongoing`
-(CHECK exclusif), `fact_declared_by`/`fact_declared_at`, `created_by`) ; `series_external_ids`
+(CHECK exclusif), `fact_declared_by`/`fact_declared_at`, `fact_source` human | gcd — un fait posé par la
+synchronisation `sync_series_facts_from_gcd()` (service role, job `series:gcd-facts` chaque nuit et derrière
+`gcd:load`) n'écrase jamais un fait humain, et `merge_series` le recopie avec le reste —, `created_by`) ; `series_external_ids`
 (`series_id`, `source` bnf/gcd, `external_id`, clé primaire (source, id) — **plusieurs par série**, une
 notice BnF par édition ; depuis #299 le plancher VF par édition : `known_max`, `known_max_label`,
 `known_max_checked_at`, posés par le job de nuit en service role, index partiel sur l'ancienneté) ; `series_events` (historique **en ajout seul** : `kind` declare_total /
@@ -1668,7 +1681,9 @@ null`) est le lien de l'utilisateur ; `merge_books` le comble comme les autres c
 `isbn` *(indexé)*, `page_count`, `key_date`, `title`. **559 516 lignes** — tout ce qui a **un code-barres OU un
 ISBN** (donc la BD franco-belge, indexée par ISBN).
 
-**`gcd_series`** — `id`, `name`, `format`, `year_began`, `publisher`, `language_id`. 121 308 lignes.
+**`gcd_series`** — `id`, `name`, `format`, `year_began`, `publisher`, `language_id`, et depuis le 14/09/2026
+`is_current`, `year_ended`, `issue_count`, `last_number` (le `number` du fascicule `last_issue_id` s'il est numérique —
+58 526 séries — le total d'une série close, §4.17-4). 121 308 lignes.
 
 Ces deux tables sont **jetables** : écrasées à chaque rafraîchissement du dump, entièrement reconstructibles.
 

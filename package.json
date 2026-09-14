@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "gcd:load": "node scripts/gcd-load.mjs",
+    "gcd:load": "node scripts/gcd-load.mjs && npm run series:gcd-facts",
     "db:types": "supabase gen types typescript --project-id reqtckmawllprisvrzlb --schema public > lib/supabase/database.types.ts",
     "postinstall": "node scripts/copy-zxing-wasm.mjs",
     "covers:internalize": "node --conditions=react-server --import tsx scripts/covers-internalize.mts",
@@ -17,7 +17,8 @@
     "reports:materialize": "node --conditions=react-server --import tsx scripts/materialize-monthly-reports.mts",
     "series:backfill-bnf": "node --conditions=react-server --import tsx scripts/series-backfill-bnf.mts",
     "series:link-backfill": "node --conditions=react-server --import tsx scripts/series-link-backfill.mts",
-    "series:bnf-floor": "node --conditions=react-server --import tsx scripts/series-bnf-floor.mts"
+    "series:bnf-floor": "node --conditions=react-server --import tsx scripts/series-bnf-floor.mts",
+    "series:gcd-facts": "node --conditions=react-server --import tsx scripts/series-gcd-facts.mts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.70.0",
