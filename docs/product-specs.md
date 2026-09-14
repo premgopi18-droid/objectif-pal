@@ -1062,9 +1062,20 @@ comme prévu), 0 livre nommé sans lien.
    `series:gcd-facts` chaque nuit et après chaque dump) **déclare le fait à la place de l'utilisateur** pour toute
    série reliée à GCD sans déclaration humaine : « parution en cours » si l'une de ses séries GCD est courante, sinon
    le plus grand dernier numéro connu comme total. Source `gcd`, auteur « GCD » (« 12 numéros, série close d'après
-   GCD »), journalisé, **modifiable d'un tap** : une déclaration humaine n'est jamais touchée, une déclaration GCD
-   suit GCD. Ce n'est plus deviner : c'est le fait d'une source qui modélise la fin de série. Les séries BnF et sans
-   identifiant restent à déclarer, stepper pré-rempli.
+   GCD »), journalisé, **modifiable d'un tap**, une déclaration GCD suit GCD. Ce n'est plus deviner : c'est le fait
+   d'une source qui modélise la fin de série. Les séries BnF et sans identifiant restent à déclarer, stepper pré-rempli.
+   **Les sources valident ou remplacent un fait humain (#317, décision de Prem du 14/09/2026).** Quatre règles :
+   (1) seules les valeurs DE FAIT remplacent — GCD « close, dernier N » / « en cours », AniList « terminée, N » / « en
+   cours » — jamais un plancher (BnF, GCD « N parus ») ; (2) un fait humain **non verrouillé** différent est remplacé,
+   **jamais en silence** : événement `source_override` (valeur d'avant + source), la dernière déclaration humaine reste
+   sur la série (`human_*`) et la fiche dit « 15 numéros, série close d'après GCD — Léna avait dit 12 · Garder 12 » ;
+   (3) **« Garder » verrouille** (`fact_locked_at`), comme toute déclaration humaine faite par-dessus un fait de
+   source (choix informé) — plus aucune source ne repasse ; une déclaration faite quand aucune source ne sait n'est
+   pas verrouillée ; (4) la **validation est visible** : une source qui dit la même chose que l'humain pose
+   `fact_confirmed_by` et la fiche affiche « confirmé par GCD » (effacé par une nouvelle déclaration). AniList > GCD
+   reste (un fait AniList n'est pas remplacé par GCD). Les romans, sans source de fait, gardent la valeur humaine
+   souveraine — c'est le sens de la règle 1. Une seule règle en SQL : `sync_series_facts_from_gcd` délègue à
+   `declare_series_fact_from_source`, qui rend `declared | overridden | confirmed | unchanged`.
    **AniList pour le manga (#304, 14/09/2026).** Aucune source ouverte ne décrit les parutions françaises (Électre et
    Dilicom sont payantes, Bédéthèque et Manga-news sans API, Wikidata trop bruité — sondé). Pour le manga, AniList
    décrit l'œuvre, et une édition française normale partage son découpage et son statut : mesuré sur les 20 séries

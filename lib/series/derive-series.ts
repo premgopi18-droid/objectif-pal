@@ -39,6 +39,15 @@ export type SeriesFact = {
   factDeclaredAt: string | null;
   /** Qui a posé le fait : un membre, la synchronisation GCD, ou AniList pour le manga (#304). */
   factSource: SeriesFactSource;
+  /** La dernière déclaration humaine, conservée quand une source a remplacé le fait (#317) — pour « Garder N ». */
+  humanTotalVolumes: number | null;
+  humanIsOngoing: boolean | null;
+  humanDeclaredBy: string | null;
+  humanDeclaredAt: string | null;
+  /** Verrouillé : déclaré par-dessus une source, plus aucune source ne repasse (#317). */
+  factLockedAt: string | null;
+  /** Une source dit la même chose que le fait humain courant (#317). */
+  factConfirmedBy: Exclude<SeriesFactSource, "human"> | null;
 };
 
 /** Un livre de l'utilisateur relié à une série, avec ses faits. */
@@ -102,6 +111,12 @@ export type SeriesProgress = {
   factDeclaredBy: string | null;
   factDeclaredAt: string | null;
   factSource: SeriesFactSource;
+  humanTotalVolumes: number | null;
+  humanIsOngoing: boolean | null;
+  humanDeclaredBy: string | null;
+  humanDeclaredAt: string | null;
+  factLockedAt: string | null;
+  factConfirmedBy: Exclude<SeriesFactSource, "human"> | null;
   /**
    * L'éditeur majoritaire des tomes de l'utilisateur, valeur BRUTE du livre
    * (« Panini comics (Nice) » et « Panini France (Nice) » sont deux valeurs) —
@@ -231,6 +246,12 @@ export function deriveSeriesProgress(
     factDeclaredBy: series.factDeclaredBy,
     factDeclaredAt: series.factDeclaredAt,
     factSource: series.factSource,
+    humanTotalVolumes: series.humanTotalVolumes,
+    humanIsOngoing: series.humanIsOngoing,
+    humanDeclaredBy: series.humanDeclaredBy,
+    humanDeclaredAt: series.humanDeclaredAt,
+    factLockedAt: series.factLockedAt,
+    factConfirmedBy: series.factConfirmedBy,
     publisher: majority(books.map((book) => book.publisher)),
     knownMax: [...knownMax].sort((left, right) => right.value - left.value),
     gridMax,

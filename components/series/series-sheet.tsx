@@ -9,7 +9,16 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatTile } from "@/components/ui/stat-tile";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
-import { SERIES_STATUS_LABELS, approximateWarning, declaredByLabel, knownMaxExceedsLabel, knownMaxSummary, nextCardCopy } from "@/lib/series/copy";
+import {
+  SERIES_STATUS_LABELS,
+  approximateWarning,
+  declaredByLabel,
+  keepHumanFactLabel,
+  knownMaxExceedsLabel,
+  knownMaxSummary,
+  nextCardCopy,
+  overriddenByLabel,
+} from "@/lib/series/copy";
 import type { SeriesProgress, SeriesVolume } from "@/lib/series/derive-series";
 
 /**
@@ -47,6 +56,8 @@ const CELL_STATES: Record<SeriesVolume["state"] | "missing", string> = {
 export type SeriesSheetProps = {
   progress: SeriesProgress;
   declarerLabel: string | null;
+  /** Le pseudo de la dernière déclaration humaine, pour « Léna avait dit 12 » (#317). */
+  humanDeclarerLabel: string | null;
   isPending: boolean;
   errorMessage: string | null;
   onClose: () => void;
@@ -59,6 +70,7 @@ export type SeriesSheetProps = {
 export function SeriesSheet({
   progress,
   declarerLabel,
+  humanDeclarerLabel,
   isPending,
   errorMessage,
   onClose,
@@ -100,6 +112,10 @@ export function SeriesSheet({
   const sourceLine = knownMaxSummary(progress.knownMax);
   const next = progress.next !== null && progress.unnumberedRead === 0 ? nextCardCopy(progress.next, progress.totalVolumes) : null;
   const declared = declaredByLabel(progress, declarerLabel);
+  // Une source a remplacé une déclaration humaine (#317) : on le dit, et « Garder » verrouille.
+  // Le bouton « Garder » rejoue une déclaration humaine qui existe : un total, ou « en cours » — jamais un repli inventé (review #318).
+  const keepableHumanFact = progress.humanIsOngoing === true ? { isOngoing: true as const } : progress.humanTotalVolumes !== null ? { totalVolumes: progress.humanTotalVolumes } : null;
+  const overridden = keepableHumanFact === null ? null : overriddenByLabel(progress, humanDeclarerLabel);
   const volumeByNumber = new Map(progress.volumes.filter((volume) => volume.number !== null).map((volume) => [volume.number as number, volume]));
   const unnumbered = progress.volumes.filter((volume) => volume.number === null && volume.state !== "other");
   const nextNumber = progress.next && "number" in progress.next ? progress.next.number : null;
@@ -275,6 +291,19 @@ export function SeriesSheet({
             >
               Modifier
             </button>
+          </div>
+        )}
+        {overridden !== null && !isDeclaring && (
+          <div className="flex items-center justify-between gap-3 rounded-card border border-amber/30 bg-amber/10 p-3 text-sm text-ink">
+            <span>{overridden}</span>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={isPending}
+              onClick={() => (keepableHumanFact === null || "isOngoing" in keepableHumanFact ? onDeclareOngoing() : onDeclareTotal(keepableHumanFact.totalVolumes))}
+            >
+              {keepHumanFactLabel(progress)}
+            </Button>
           </div>
         )}
         {topKnown !== null && progress.totalVolumes !== null && topKnown.value > progress.totalVolumes && !isDeclaring && (

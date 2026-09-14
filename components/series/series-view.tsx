@@ -215,6 +215,7 @@ export function SeriesView({ data, focusSeriesId = null }: { data: SeriesSegment
         <SeriesSheet
           progress={openProgress}
           declarerLabel={openProgress.factDeclaredBy ? (data.declarerLabels[openProgress.factDeclaredBy] ?? null) : null}
+          humanDeclarerLabel={openProgress.humanDeclaredBy ? (data.declarerLabels[openProgress.humanDeclaredBy] ?? null) : null}
           isPending={isPending}
           errorMessage={errorMessage}
           onClose={closeSheet}

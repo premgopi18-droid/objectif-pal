@@ -140,7 +140,7 @@ for (const target of selected) {
     if (searchedError) console.error(`  series ${target.seriesId} : ${searchedError.message}`);
   }
   if (fact !== null) {
-    const { data: changed, error } = await admin.rpc("declare_series_fact_from_source", {
+    const { data: outcome, error } = await admin.rpc("declare_series_fact_from_source", {
       p_series_id: target.seriesId,
       p_source: "anilist",
       p_total_volumes: "totalVolumes" in fact ? fact.totalVolumes : undefined,
@@ -149,8 +149,9 @@ for (const target of selected) {
     if (error) {
       counts.infraErrors += 1;
       console.error(`  declare_series_fact_from_source ${target.seriesId} : ${error.message}`);
-    } else if (changed) {
+    } else if (outcome === "declared" || outcome === "overridden") {
       counts.declared += 1;
+      if (outcome === "overridden") console.log(`  ${target.seriesId} : a remplacé une déclaration humaine (journalisé, « Garder » possible)`);
     }
   }
   await sleep(ANILIST_POLITENESS_DELAY_MS);

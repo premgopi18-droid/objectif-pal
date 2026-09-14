@@ -83,7 +83,7 @@ const EXPORT_TABLES: Record<
   // ce qui est à l'utilisateur, ce sont SES déclarations (total, renommage,
   // fusion) — lisibles par tous, d'où le filtre explicite comme pour le pool.
   series_events: {
-    columns: "id, series_id, kind, total_volumes, is_ongoing, old_name, new_name, merged_series_id, created_at",
+    columns: "id, series_id, kind, total_volumes, is_ongoing, previous_total_volumes, previous_is_ongoing, source, old_name, new_name, merged_series_id, created_at",
     orderBy: "created_at",
     ownOnly: true,
   },

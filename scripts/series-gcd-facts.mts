@@ -29,4 +29,5 @@ const [counts] = data;
 console.log("Faits de série depuis GCD :");
 console.log(`  totaux déclarés (série close, dernier numéro) : ${counts?.declared_total ?? 0}`);
 console.log(`  parutions en cours déclarées : ${counts?.declared_ongoing ?? 0}`);
-console.log(`  inchangées (déjà à jour, ou GCD sans dernier numéro numérique) : ${counts?.unchanged ?? 0}`);
+console.log(`  faits humains remplacés (journalisés, « Garder » possible) : ${counts?.overridden ?? 0} · confirmés : ${counts?.confirmed ?? 0}`);
+console.log(`  inchangées (déjà à jour, verrouillées, ou GCD sans dernier numéro numérique) : ${counts?.unchanged ?? 0}`);
