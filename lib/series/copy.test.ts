@@ -4,6 +4,7 @@ import {
   declaredByLabel,
   knownMaxExceedsLabel,
   knownMaxHint,
+  knownMaxSummary,
   matchesSeriesFilter,
   nextCardCopy,
   seriesCountsText,
@@ -79,6 +80,20 @@ describe("les textes du suivi de séries", () => {
     );
     expect(knownMaxHint([{ source: "bnf", value: 7, label: null }])).toBe("7 tomes déposés à la BnF pour l'édition française.");
     expect(knownMaxHint([])).toBe("Aucune source ne connaît cette série : à toi de dire.");
+    expect(knownMaxHint([], { category: "bd", publisher: "Dargaud" })).toBe("Aucune source ne connaît cette série : à toi de dire.");
+    expect(knownMaxHint([], { category: "roman", publisher: "Lorestone (Paris)" })).toBe(
+      "Aucune source ne connaît cette série (aucune source ouverte ne décrit les parutions françaises des romans) : à toi de dire.",
+    );
+    expect(knownMaxHint([], { category: "comics", publisher: "Panini comics (Nice)" })).toBe(
+      "Aucune source ne connaît cette série (GCD n'indexe pas les parutions Panini) : à toi de dire.",
+    );
+    // Un plancher connu : la raison n'a plus lieu d'être.
+    expect(knownMaxHint([{ source: "gcd", value: 2, label: null }], { category: "comics", publisher: "Panini" })).toBe("2 numéros parus d'après GCD (au moins).");
+  });
+
+  it("knownMaxSummary — la ligne de la fiche, rien sans plancher (#307)", () => {
+    expect(knownMaxSummary([])).toBeNull();
+    expect(knownMaxSummary([{ source: "gcd", value: 2, label: null }])).toBe("2 numéros parus d'après GCD (au moins).");
     expect(knownMaxExceedsLabel({ source: "bnf", value: 112, label: "Glénat" })).toBe("La BnF en connaît 112.");
     expect(knownMaxExceedsLabel({ source: "gcd", value: 15, label: null })).toBe("GCD en connaît 15.");
   });

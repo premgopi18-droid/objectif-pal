@@ -1031,8 +1031,12 @@ comme prévu), 0 livre nommé sans lien.
 4. **GCD réduit à un pré-remplissage vivant, jamais une vérité.** L'indice « N numéros parus d'après GCD »
    est le plus grand numéro numérique de la série dans notre import, **calculé à l'affichage** (index
    `gcd_issues (series_id, number)`), donc il monte tout seul à chaque rafraîchissement du dump (§6). Une
-   série « parution en cours » n'a pas de total : la grille va jusqu'au plus grand numéro possédé, l'indice
-   à côté. Une série avec total déclaré affiche, quand GCD dépasse, un geste d'un tap « GCD en connaît 15,
+   série « parution en cours » n'a pas de total : la grille va jusqu'au plus grand entre le **possédé** et le
+   **plancher** (#307, 14/09/2026 — le tome 2 d'Absolute Superman, connu de GCD, manquait à une fiche arrêtée au
+   tome 1), « N pas possédés » se compte sur cette grille, le tome suivant peut être « il te manque le tome 2 »
+   même sans le posséder, et la fiche dit d'où vient le plancher (« 2 numéros parus d'après GCD »). Un plancher
+   n'est jamais un fait : il ne remplit ni le total ni la parution en cours. Une série avec total déclaré garde
+   la grille du total et affiche, quand GCD dépasse, un geste d'un tap « GCD en connaît 15,
    mettre à jour » — **jamais de modification silencieuse**. C'est un plancher (import = codes-barres et
    ISBN seulement) : excellent pour les fascicules VO, correct en BD, faible en manga VF.
    **Le plancher VF vient de la BnF, par édition (#299, 14/09/2026).** Le total est une propriété de l'édition
@@ -1072,6 +1076,19 @@ comme prévu), 0 livre nommé sans lien.
    AniList > GCD** (AniList est plus frais : Jagaaan « en cours » chez GCD, « terminé, 14 volumes » chez AniList).
    Fiche : « 23 volumes, série terminée d'après AniList ». L'identifiant AniList vit sur `series_external_ids` ; une
    série non reconnue est retentée après 7 jours (`series.anilist_searched_at`).
+   **Verdict des sources par médium (audit du 14/09/2026, #307/#308/#309, mesuré en prod sur 217 séries réelles).**
+   BD : GCD (Glénat 2 234 séries françaises, Dargaud, Casterman, Dupuis, Soleil…) — 44 séries sur 48 reliées, 35
+   faits. Comics VF Urban/Delcourt : GCD, à jour au dump. Comics VF Panini : **aucune source** — Panini n'est pas
+   indexé par ISBN dans GCD (0 des 73 séries sans lien GCD n'a un ISBN connu de GCD), les homonymes GCD sont
+   ambigus (Spider-Man : 8 séries françaises) ; seul un rattachement nom + éditeur, candidat unique, validé à la
+   main (#309). Manga : AniList (15/20, 0 erreur) et GCD (Ki-oon, Pika). Romans : BnF seule, plancher partiel
+   (Dungeon Crawler Carl 3/5) et délai de dépôt légal > 5 mois (les tomes d'avril 2026 absents en septembre).
+   **Écartés, mesurés** : Google Books (0 résultat pour Absolute Superman chez Urban ; `langRestrict=fr` renvoie
+   les volumes DC en anglais), Inventaire et Wikidata (niveau œuvre, donc la VO : Dungeon Crawler Carl y a 8
+   parties pour 5 tomes VF), Sudoc (vide), MangaDex (doublon d'AniList), Bédéthèque et Manga-news (sans API,
+   scraping interdit), Électre et Dilicom (payants). Conséquence : la fiche **dit la limite** quand aucune source
+   ne connaît la série (« aucune source ouverte ne décrit les parutions françaises des romans », « GCD n'indexe
+   pas les parutions Panini ») plutôt qu'un silence. La fraîcheur de GCD, elle, ne dépend plus du dump : #308.
 5. **La section « Séries en cours » des Stats et son catalogue GCD (§4.5, lot B de #30) sont retirés** :
    les « trois silences » n'ont plus d'objet, le nouveau modèle marche pour la BnF, donc pour Léna. Perte
    assumée : une série GCD lue jusqu'au 5 sans total déclaré disait « tome 6 à lire », elle dira « total
@@ -1079,11 +1096,13 @@ comme prévu), 0 livre nommé sans lien.
    continue de poser le numéro de tome au scan.
 6. **Seuil d'apparition** dans le segment : **au moins 2 livres**, ou 1 livre avec un total déclaré. Un
    singleton numéroté reste visible sous « Tous », pas dans le segment.
-7. **Les états** : « En cours », « À jour » (parution en cours, tout ce qui est possédé est lu), « Complète »
+7. **Les états** : « En cours », « À jour » (parution en cours, tout ce qui est **paru et connu** est lu — le
+   plancher compte, #307), « Complète »
    (total déclaré atteint — jamais sans total), « Total à déclarer », « ≈ approximatif » (un tome lu sans
    numéro : jauge et suivant restent muets plutôt que faux, un tap sur la case « ? » règle ça).
 8. **Le tome suivant** = le plus petit numéro non lu, règle de #30 conservée : « à lire, il est dans ta
-   pile » s'il est possédé, « il te manque le tome N » sinon (N ≤ total ou ≤ plus grand possédé).
+   pile » s'il est possédé, « il te manque le tome N » sinon (N ≤ total, ou ≤ plus grand entre possédé et
+   plancher — #307).
 9. **Fusion et renommage de séries** — rayon global, donc prudence structurelle : deux séries portant deux
    identifiants **GCD** différents refusent la fusion (même garde que `merge_books` et ses deux codes-barres ;
    pas pour la BnF, dont les notices sont par édition) ; la fusion n'est **proposée** que sur égalité de nom normalisé, entre séries où la

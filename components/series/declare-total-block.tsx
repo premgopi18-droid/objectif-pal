@@ -34,7 +34,7 @@ export function DeclareTotalBlock({
     <div className="flex flex-col gap-3 rounded-card border border-line bg-card2 p-3">
       <h4 className="text-sm font-bold text-ink">Combien de tomes fait cette série ?</h4>
       <p className="text-xs leading-relaxed text-ink2">
-        Un chiffre suffit pour suivre ta progression — corrigeable à tout moment. {knownMaxHint(progress.knownMax)}
+        Un chiffre suffit pour suivre ta progression — corrigeable à tout moment. {knownMaxHint(progress.knownMax, progress)}
       </p>
       <div className="flex items-center justify-center gap-4">
         <button

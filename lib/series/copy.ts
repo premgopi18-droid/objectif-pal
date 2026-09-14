@@ -1,4 +1,5 @@
 import { formatDateFrench } from "@/lib/dates";
+import type { BookCategory } from "@/lib/scoring/types";
 import type { KnownMax, SeriesNext, SeriesProgress, SeriesStatus } from "@/lib/series/derive-series";
 
 /**
@@ -41,7 +42,7 @@ const plural = (count: number, singular: string, pluralForm = `${singular}s`) =>
 export function seriesCountsText(progress: Pick<SeriesProgress, "read" | "pile" | "totalVolumes" | "isOngoing" | "missing">): string {
   const parts = [plural(progress.read, "lu")];
   if (progress.pile > 0) parts.push(`${progress.pile} dans la pile`);
-  // Le troisième état (lu · dans la pile · pas possédé) n'a de sens qu'avec un total.
+  // Le troisième état (lu · dans la pile · pas possédé) dès qu'un total OU un plancher dit ce qui existe (#307).
   if (progress.missing !== null && progress.missing > 0) parts.push(`${progress.missing} pas possédé${progress.missing > 1 ? "s" : ""}`);
   if (progress.totalVolumes !== null) parts.push(`sur ${progress.totalVolumes}`);
   else if (progress.isOngoing) parts.push("parution en cours");
@@ -127,10 +128,31 @@ export function knownMaxLine(known: KnownMax): string {
   return `${known.value} tomes déposés à la BnF pour l'édition ${known.label ?? "française"}`;
 }
 
-/** La mention sous le stepper — les planchers vivants, ou leur absence, jamais une vérité. */
-export function knownMaxHint(knownMax: readonly KnownMax[]): string {
-  if (knownMax.length === 0) return "Aucune source ne connaît cette série : à toi de dire.";
+/**
+ * Pourquoi aucune source ne connaît la série — mesuré le 14/09/2026 (#307) :
+ * aucune source ouverte ne décrit les parutions françaises des romans, et
+ * Panini n'est pas indexé par ISBN dans GCD. Le dire vaut mieux qu'un silence.
+ */
+export function sourcelessReason(context: { category: BookCategory; publisher: string | null }): string | null {
+  if (context.category === "roman") return "aucune source ouverte ne décrit les parutions françaises des romans";
+  if (context.publisher !== null && /panini/i.test(context.publisher)) return "GCD n'indexe pas les parutions Panini";
+  return null;
+}
+
+/** La ligne sous les compteurs de la fiche : d'où vient ce que la grille sait (#307) — `null` sans plancher. */
+export function knownMaxSummary(knownMax: readonly KnownMax[]): string | null {
+  if (knownMax.length === 0) return null;
   return `${knownMax.map(knownMaxLine).join(" · ")}.`;
+}
+
+/** La mention sous le stepper — les planchers vivants, ou leur absence (et sa raison), jamais une vérité. */
+export function knownMaxHint(knownMax: readonly KnownMax[], context?: { category: BookCategory; publisher: string | null }): string {
+  const summary = knownMaxSummary(knownMax);
+  if (summary !== null) return summary;
+  const reason = context ? sourcelessReason(context) : null;
+  return reason === null
+    ? "Aucune source ne connaît cette série : à toi de dire."
+    : `Aucune source ne connaît cette série (${reason}) : à toi de dire.`;
 }
 
 /** Le libellé de la source d'un plancher qui dépasse le total déclaré : « GCD en connaît 15 » / « La BnF en connaît 112 ». */

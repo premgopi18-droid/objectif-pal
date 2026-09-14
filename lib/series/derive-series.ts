@@ -50,6 +50,8 @@ export type SeriesBookFact = {
   category: BookCategory;
   issueNumber: string | null;
   coverUrl: string | null;
+  /** L'éditeur du livre — la fiche s'en sert pour dire POURQUOI aucune source ne connaît la série (#307). */
+  publisher: string | null;
   purchases: PurchaseFact[];
   readings: ReadingFact[];
   ownerships: OwnershipFact[];
@@ -78,7 +80,7 @@ export type SeriesNext =
   | { kind: "read-next"; number: number; bookId: string }
   /** Le prochain à lire n'est pas possédé. */
   | { kind: "missing"; number: number }
-  /** Parution en cours, tout le possédé est lu. */
+  /** Parution en cours, tout ce qui est paru et connu est lu (#307). */
   | { kind: "up-to-date" }
   /** Total déclaré atteint. */
   | { kind: "complete" };
@@ -100,11 +102,20 @@ export type SeriesProgress = {
   factDeclaredBy: string | null;
   factDeclaredAt: string | null;
   factSource: SeriesFactSource;
+  /**
+   * L'éditeur majoritaire des tomes de l'utilisateur, valeur BRUTE du livre
+   * (« Panini comics (Nice) » et « Panini France (Nice) » sont deux valeurs) —
+   * un indice pour les textes, jamais une famille d'éditeur (review #310).
+   */
+  publisher: string | null;
   /** Les planchers vivants (§4.17-4, #299) : GCD et éditions BnF, du plus grand au plus petit. */
   knownMax: KnownMax[];
-  /** La grille des tomes va de 1 à là. */
+  /** La grille des tomes va de 1 à là : le total déclaré, sinon le plus grand entre possédé et plancher (#307). */
   gridMax: number;
-  /** Les tomes 1..total ni lus ni dans la pile — `null` sans total déclaré (on ne sait pas ce qui manque). */
+  /**
+   * Les tomes 1..gridMax ni lus ni dans la pile — `null` quand rien ne dit ce
+   * qui existe (ni total déclaré, ni plancher) : on ne sait pas ce qui manque.
+   */
   missing: number | null;
   next: SeriesNext | null;
   status: SeriesStatus;
@@ -115,6 +126,13 @@ export type SeriesProgress = {
 
 /** Deux livres, ou un livre et un fait — humain ou posé par une source (§4.17-6, décision du 14/09/2026). */
 export const MIN_BOOKS_TO_SHOW_SERIES = 2;
+
+/**
+ * Au-delà, un plancher n'est pas une série mais une erreur de saisie chez la
+ * source (la RPC GCD accepte cinq chiffres) : il ne borne pas la grille — la
+ * même limite que `sync_series_facts_from_gcd` (review #310).
+ */
+export const MAX_PLAUSIBLE_VOLUMES = 5000;
 
 const volumeState = (book: SeriesBookFact): SeriesVolumeState => {
   if (finishedReadingsOf(book.readings).length > 0) return "read";
@@ -141,20 +159,23 @@ const toVolume = (book: SeriesBookFact): SeriesVolume => {
 
 const sortedUnique = (numbers: number[]): number[] => [...new Set(numbers)].sort((left, right) => left - right);
 
-/** La catégorie de la majorité des tomes de l'utilisateur (égalité : la première rencontrée). */
-const majorityCategory = (books: SeriesBookFact[]): BookCategory | null => {
-  const counts = new Map<BookCategory, number>();
-  for (const book of books) counts.set(book.category, (counts.get(book.category) ?? 0) + 1);
-  let best: BookCategory | null = null;
+/** La valeur majoritaire (égalité : la première rencontrée), `null` sans valeur. */
+const majority = <T>(values: readonly (T | null)[]): T | null => {
+  const counts = new Map<T, number>();
+  for (const value of values) if (value !== null) counts.set(value, (counts.get(value) ?? 0) + 1);
+  let best: T | null = null;
   let bestCount = 0;
-  for (const [category, count] of counts) {
+  for (const [value, count] of counts) {
     if (count > bestCount) {
-      best = category;
+      best = value;
       bestCount = count;
     }
   }
   return best;
 };
+
+/** La catégorie de la majorité des tomes de l'utilisateur. */
+const majorityCategory = (books: SeriesBookFact[]): BookCategory | null => majority(books.map((book) => book.category));
 
 /** La progression d'UNE série à partir de ses tomes chez l'utilisateur. */
 export function deriveSeriesProgress(
@@ -172,13 +193,20 @@ export function deriveSeriesProgress(
   const readNumbers = sortedUnique(readVolumes.flatMap((volume) => (volume.number === null ? [] : [volume.number])));
   const pileNumbers = sortedUnique(pileVolumes.flatMap((volume) => (volume.number === null ? [] : [volume.number])));
   const ownedMax = Math.max(0, ...readNumbers, ...pileNumbers);
-  const gridMax = series.totalVolumes ?? ownedMax;
+  // Sans total déclaré, le plus grand plancher (GCD, édition BnF) borne la
+  // grille : un tome paru et connu manque même si personne ne le possède
+  // (#307, vécu sur Absolute Superman : tome 2 chez Urban, fiche arrêtée au 1).
+  // Un plancher par édition peut être plus bas que le possédé : le max le neutralise.
+  const floorMax = Math.max(0, ...knownMax.filter((known) => known.value <= MAX_PLAUSIBLE_VOLUMES).map((known) => known.value));
+  const gridMax = series.totalVolumes ?? Math.max(ownedMax, floorMax);
   const hasFact = series.factDeclaredAt !== null;
   const owned = new Set([...readNumbers, ...pileNumbers]);
+  // « Pas possédés » n'a de sens que si quelque chose dit ce qui existe : un
+  // total déclaré, ou un plancher. Sinon on ne sait pas ce qui manque.
   const missing =
-    series.totalVolumes === null
+    series.totalVolumes === null && floorMax === 0
       ? null
-      : Array.from({ length: series.totalVolumes }, (_, index) => index + 1).filter((number) => !owned.has(number)).length;
+      : Array.from({ length: gridMax }, (_, index) => index + 1).filter((number) => !owned.has(number)).length;
 
   const next = resolveNext({ series, readNumbers, pileNumbers, pileVolumes, gridMax, unnumberedRead });
 
@@ -203,6 +231,7 @@ export function deriveSeriesProgress(
     factDeclaredBy: series.factDeclaredBy,
     factDeclaredAt: series.factDeclaredAt,
     factSource: series.factSource,
+    publisher: majority(books.map((book) => book.publisher)),
     knownMax: [...knownMax].sort((left, right) => right.value - left.value),
     gridMax,
     missing,
@@ -220,9 +249,11 @@ export function deriveSeriesProgress(
 
 /**
  * Le tome suivant = le plus petit numéro non lu (règle de #30, §4.17-8) :
- * « à lire » s'il est dans la pile, « il te manque » sinon. Silence si un
- * tome lu n'a pas de numéro. « Complète » seulement avec un total déclaré ;
- * « À jour » seulement en parution en cours, quand tout le possédé est lu.
+ * « à lire » s'il est dans la pile, « il te manque » sinon — jusqu'à gridMax,
+ * donc jusqu'au plancher d'une source quand rien n'est déclaré (#307). Silence
+ * si un tome lu n'a pas de numéro. « Complète » seulement avec un total
+ * déclaré ; « À jour » seulement en parution en cours, quand tout ce qui est
+ * paru et connu est lu.
  */
 function resolveNext(input: {
   series: SeriesFact;

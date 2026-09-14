@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   deriveSeries,
   deriveSeriesProgress,
+  MAX_PLAUSIBLE_VOLUMES,
   MIN_BOOKS_TO_SHOW_SERIES,
   nextInPileBookIds,
   summarizeSeries,
@@ -43,6 +44,7 @@ const volume = (number: string | null, state: State, seriesId = "s1"): SeriesBoo
   category: "bd",
   issueNumber: number,
   coverUrl: null,
+  publisher: null,
   purchases: [],
   readings:
     state === "read" || state === "borrowed-read"
@@ -116,7 +118,57 @@ describe("deriveSeriesProgress — lus · dans la pile · total", () => {
 
   it("Frieren : parution en cours, tout le possédé est lu → à jour", () => {
     const progress = deriveSeriesProgress(series(declared({ isOngoing: true })), volumes(range(1, 6), "read"));
-    expect(progress).toMatchObject({ status: "up-to-date", next: { kind: "up-to-date" } });
+    expect(progress).toMatchObject({ status: "up-to-date", next: { kind: "up-to-date" }, missing: null });
+  });
+
+  it("Absolute Superman (#307) : parution en cours, tome 1 lu, GCD en connaît 2 → le 2 manque, la grille va à 2", () => {
+    const progress = deriveSeriesProgress(series(declared({ isOngoing: true, factSource: "gcd" })), volumes([1], "read"), [
+      { source: "gcd", value: 2, label: null },
+    ]);
+    expect(progress).toMatchObject({ status: "in-progress", gridMax: 2, missing: 1, next: { kind: "missing", number: 2 } });
+  });
+
+  it("« À jour » exige d'avoir lu tout ce qui est paru et connu : tomes 1-2 lus, plancher 2 → à jour, rien ne manque", () => {
+    const progress = deriveSeriesProgress(series(declared({ isOngoing: true })), volumes([1, 2], "read"), [{ source: "gcd", value: 2, label: null }]);
+    expect(progress).toMatchObject({ status: "up-to-date", gridMax: 2, missing: 0 });
+  });
+
+  it("un plancher d'édition plus bas que le possédé ne rétrécit rien", () => {
+    const progress = deriveSeriesProgress(series(), volumes([1, 2, 3, 5], "read"), [{ source: "bnf", value: 3, label: "Lorestone" }]);
+    expect(progress).toMatchObject({ gridMax: 5, missing: 1, next: { kind: "missing", number: 4 } });
+  });
+
+  it("avec un total déclaré, la grille reste bornée au total : le plancher qui dépasse est seulement signalé", () => {
+    const progress = deriveSeriesProgress(series(declared({ totalVolumes: 12 })), volumes(range(1, 12), "read"), [{ source: "gcd", value: 15, label: null }]);
+    expect(progress).toMatchObject({ status: "complete", gridMax: 12, missing: 0 });
+    expect(progress.knownMax[0]).toEqual({ source: "gcd", value: 15, label: null });
+  });
+
+  it("un plancher GCD de 209 numéros (Wolverine Panini) borne la grille à 209 — le composant plafonne l'affichage", () => {
+    const progress = deriveSeriesProgress(series(declared({ isOngoing: true })), volumes([1], "read"), [{ source: "gcd", value: 209, label: null }]);
+    expect(progress).toMatchObject({ gridMax: 209, missing: 208 });
+  });
+
+  it("un plancher au-delà du plausible (erreur de saisie chez la source) ne borne pas la grille — il reste listé (review #310)", () => {
+    const progress = deriveSeriesProgress(series(declared({ isOngoing: true })), volumes([1], "read"), [
+      { source: "gcd", value: MAX_PLAUSIBLE_VOLUMES + 1, label: null },
+    ]);
+    expect(progress).toMatchObject({ gridMax: 1, missing: null, status: "up-to-date" });
+    expect(progress.knownMax[0]?.value).toBe(MAX_PLAUSIBLE_VOLUMES + 1);
+    expect(deriveSeriesProgress(series(declared({ isOngoing: true })), volumes([1], "read"), [{ source: "gcd", value: MAX_PLAUSIBLE_VOLUMES, label: null }]).gridMax).toBe(
+      MAX_PLAUSIBLE_VOLUMES,
+    );
+  });
+
+  it("l'éditeur de la série est celui de la majorité des tomes", () => {
+    const books = [
+      { ...volume("1", "read"), publisher: "Panini comics (Nice)" },
+      { ...volume("2", "read"), publisher: "Panini comics (Nice)" },
+      { ...volume("3", "pile"), publisher: "Urban comics" },
+      { ...volume("4", "pile"), publisher: null },
+    ];
+    expect(deriveSeriesProgress(series(), books).publisher).toBe("Panini comics (Nice)");
+    expect(deriveSeriesProgress(series(), [{ ...volume("1", "read"), publisher: null }]).publisher).toBeNull();
   });
 
   it("Blacksad : 7 tomes lus sur 7 déclarés → complète", () => {
@@ -173,11 +225,12 @@ describe("deriveSeriesProgress — lus · dans la pile · total", () => {
     expect(progress.status).toBe("unknown-total");
   });
 
-  it("les tomes pas possédés se comptent dès que le total est connu — jamais sans", () => {
+  it("les tomes pas possédés se comptent dès qu'un total ou un plancher dit ce qui existe — jamais sans (#307)", () => {
     const withTotal = deriveSeriesProgress(series(declared({ totalVolumes: 12 })), [...volumes([1, 2, 3], "read"), volume("5", "pile")]);
     expect(withTotal.missing).toBe(8); // 4, 6..12
-    expect(deriveSeriesProgress(series(), volumes([1, 2], "read")).missing).toBeNull();
+    expect(deriveSeriesProgress(series(), volumes([1, 3], "read")).missing).toBeNull();
     expect(deriveSeriesProgress(series(declared({ isOngoing: true })), volumes([1, 2], "read")).missing).toBeNull();
+    expect(deriveSeriesProgress(series(), volumes([1, 3], "read"), [{ source: "gcd", value: 4, label: null }]).missing).toBe(2); // 2, 4
   });
 
   it("un tome 0 lu (prologue) ne compte pas pour « complète » (review #295)", () => {
@@ -236,6 +289,17 @@ describe("summarizeSeries — la moisson pour les Stats (lot C)", () => {
       ["One Piece", "read-next"],
       ["Saga", "missing"],
     ]);
+  });
+
+  it("« À jour » dans les Stats suit le plancher (#307) : Frieren avec 7 tomes parus d’après GCD n’est plus à jour", () => {
+    const frieren = deriveSeriesProgress(
+      series({ id: "frieren", name: "Frieren", ...declared({ isOngoing: true }) }),
+      volumes(range(1, 6), "read").map((book) => ({ ...book, seriesId: "frieren" })),
+      [{ source: "gcd", value: 7, label: null }],
+    );
+    const summary = summarizeSeries([...list.filter((progress) => progress.seriesId !== "frieren"), frieren]);
+    expect(summary).toMatchObject({ inProgress: 4, upToDate: 0, complete: 1 });
+    expect(summary.nextToRead.map((entry) => [entry.name, entry.next.kind])).toContainEqual(["Frieren", "missing"]);
   });
 
   it("le vivier « on continue une série » = les tomes suivants déjà dans la pile", () => {
