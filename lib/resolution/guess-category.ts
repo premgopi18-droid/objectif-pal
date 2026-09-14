@@ -24,6 +24,19 @@ const normalizePublisherName = (name: string): string =>
  * correction en un tap fait le reste.
  */
 const MANGA_PUBLISHERS_FR = ["glenat", "kana", "pika", "kurokawa", "ki oon", "kaze", "ankama"] as const;
+/**
+ * Les maisons qui ne publient QUE du manga (review #302) : chez GCD, l'éditeur
+ * ne l'emporte sur la langue que pour elles — Glénat et Ankama publient aussi
+ * de la BD, et la BD franco-belge Glénat est le cas COURANT de l'import.
+ */
+const MANGA_ONLY_PUBLISHERS_FR = ["kana", "pika", "kurokawa", "ki oon", "kaze"] as const;
+
+/** « manga » si l'éditeur ne publie que ça, sinon null — le signal sûr, pour GCD. */
+export function guessMangaFromExclusivePublisher(publisher: string | null): BookCategory | null {
+  if (!publisher) return null;
+  const normalized = normalizePublisherName(publisher);
+  return MANGA_ONLY_PUBLISHERS_FR.some((keyword) => normalized.includes(keyword)) ? "manga" : null;
+}
 const FRANCO_BELGIAN_PUBLISHERS = ["dargaud", "dupuis", "lombard", "casterman", "delcourt", "bamboo"] as const;
 const COMICS_PUBLISHERS_FR = ["panini", "urban"] as const;
 

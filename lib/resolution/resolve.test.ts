@@ -87,6 +87,17 @@ describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
     expect(result).toMatchObject({ kind: "resolved", book: { source: "gcd", suggestedCategory: "manga" } });
   });
 
+  it("une série française chez Glénat reste bd : l'éditeur ne gagne que s'il ne publie que du manga (review #302)", async () => {
+    const deps = fakeDeps({
+      gcd: {
+        findIssuesByIsbn: vi.fn(async () => [gcdIssue({ isbn: "9782344049655", barcode: null, title: "L'abîme" })]),
+        getSeriesByIds: vi.fn(async () => new Map([[42, gcdSeries({ name: "Bergères guerrières", publisher: "Glénat", languageId: 34 })]])),
+      },
+    });
+    const result = await resolveScannedCode("9782344049655", deps);
+    expect(result).toMatchObject({ kind: "resolved", book: { source: "gcd", suggestedCategory: "bd" } });
+  });
+
   it("une BD franco-belge se résout en base, catégorie bd — et le balayage couverture PROPRE mais vide est tamponné (#176)", async () => {
     const deps = fakeDeps({
       gcd: {
