@@ -110,7 +110,7 @@ export type SeriesProgress = {
   volumes: SeriesVolume[];
 };
 
-/** Deux livres, ou un livre et un fait déclaré (§4.17-6). */
+/** Deux livres, ou un livre et un fait — humain ou posé par une source (§4.17-6, décision du 14/09/2026). */
 export const MIN_BOOKS_TO_SHOW_SERIES = 2;
 
 const volumeState = (book: SeriesBookFact): SeriesVolumeState => {
@@ -206,12 +206,11 @@ export function deriveSeriesProgress(
     next,
     status,
     // Ce que la carte affiche (lus + pile) décide de l'apparition — deux tomes
-    // cédés ne font pas une série à suivre (review #295). Un tome isolé n'y
-    // entre que sur un fait HUMAIN : la synchronisation GCD déclare des
-    // centaines de séries, elle ne doit pas peupler le segment de singletons
-    // (vécu sur « Ippo », 14/09/2026).
-    isVisible:
-      readVolumes.length + pileVolumes.length >= MIN_BOOKS_TO_SHOW_SERIES || (hasFact && series.factSource === "human"),
+    // cédés ne font pas une série à suivre (review #295). Un tome isolé y entre
+    // dès qu'un fait existe, quelle qu'en soit la source (décision de Prem du
+    // 14/09/2026 : « un bouquin d'une série dans la biblio doit suffire ») —
+    // « 1 lu sur 12 » est une information, pas du bruit.
+    isVisible: readVolumes.length + pileVolumes.length >= MIN_BOOKS_TO_SHOW_SERIES || hasFact,
     volumes,
   };
 }
