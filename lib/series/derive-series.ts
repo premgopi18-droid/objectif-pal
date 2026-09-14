@@ -206,8 +206,12 @@ export function deriveSeriesProgress(
     next,
     status,
     // Ce que la carte affiche (lus + pile) décide de l'apparition — deux tomes
-    // cédés ne font pas une série à suivre (review #295).
-    isVisible: readVolumes.length + pileVolumes.length >= MIN_BOOKS_TO_SHOW_SERIES || hasFact,
+    // cédés ne font pas une série à suivre (review #295). Un tome isolé n'y
+    // entre que sur un fait HUMAIN : la synchronisation GCD déclare des
+    // centaines de séries, elle ne doit pas peupler le segment de singletons
+    // (vécu sur « Ippo », 14/09/2026).
+    isVisible:
+      readVolumes.length + pileVolumes.length >= MIN_BOOKS_TO_SHOW_SERIES || (hasFact && series.factSource === "human"),
     volumes,
   };
 }

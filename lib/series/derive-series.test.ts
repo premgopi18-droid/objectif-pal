@@ -267,6 +267,12 @@ describe("deriveSeries — la liste", () => {
     expect(list.map((progress) => progress.seriesId)).toEqual(["b", "a", "d"]); // 2 lus, 2 lus (nom), puis 1 lu
   });
 
+  it("un tome isolé avec un fait posé par GCD reste sous le seuil — seul un fait humain l'y fait entrer", () => {
+    const gcdDeclared = series(declared({ id: "g", name: "Ippo", isOngoing: true, factSource: "gcd" }));
+    expect(deriveSeries([gcdDeclared], [{ ...volume("1", "read"), seriesId: "g" }])).toEqual([]);
+    expect(deriveSeries([singleDeclared], [{ ...volume("1", "read"), seriesId: "d" }]).map((progress) => progress.seriesId)).toEqual(["d"]);
+  });
+
   it("trie par dette décroissante, puis lus décroissants, puis nom", () => {
     const list = deriveSeries(
       [a, b],
