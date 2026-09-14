@@ -8,7 +8,7 @@
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",
-    "gcd:load": "node scripts/gcd-load.mjs",
+    "gcd:load": "node scripts/gcd-load.mjs && npm run series:gcd-facts",
     "db:types": "supabase gen types typescript --project-id reqtckmawllprisvrzlb --schema public > lib/supabase/database.types.ts",
     "postinstall": "node scripts/copy-zxing-wasm.mjs",
     "covers:internalize": "node --conditions=react-server --import tsx scripts/covers-internalize.mts",

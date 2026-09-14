@@ -1657,7 +1657,9 @@ manuellement OU un mois entier écoulé depuis la clôture.
 **Le référentiel de séries (§4.17, lot A #291, 14/09/2026)** — commun à tous les comptes, comme GCD :
 `series` (`id`, `name` canonique, `name_normalized` entretenu par trigger — `normalize_series_name()`,
 miroir SQL de `lib/series/normalize.ts` —, `category`, **le fait** : `total_volumes` OU `is_ongoing`
-(CHECK exclusif), `fact_declared_by`/`fact_declared_at`, `created_by`) ; `series_external_ids`
+(CHECK exclusif), `fact_declared_by`/`fact_declared_at`, `fact_source` human | gcd — un fait posé par la
+synchronisation `sync_series_facts_from_gcd()` (service role, job `series:gcd-facts` chaque nuit et derrière
+`gcd:load`) n'écrase jamais un fait humain, et `merge_series` le recopie avec le reste —, `created_by`) ; `series_external_ids`
 (`series_id`, `source` bnf/gcd, `external_id`, clé primaire (source, id) — **plusieurs par série**, une
 notice BnF par édition ; depuis #299 le plancher VF par édition : `known_max`, `known_max_label`,
 `known_max_checked_at`, posés par le job de nuit en service role, index partiel sur l'ancienneté) ; `series_events` (historique **en ajout seul** : `kind` declare_total /
@@ -1679,7 +1681,9 @@ null`) est le lien de l'utilisateur ; `merge_books` le comble comme les autres c
 `isbn` *(indexé)*, `page_count`, `key_date`, `title`. **559 516 lignes** — tout ce qui a **un code-barres OU un
 ISBN** (donc la BD franco-belge, indexée par ISBN).
 
-**`gcd_series`** — `id`, `name`, `format`, `year_began`, `publisher`, `language_id`. 121 308 lignes.
+**`gcd_series`** — `id`, `name`, `format`, `year_began`, `publisher`, `language_id`, et depuis le 14/09/2026
+`is_current`, `year_ended`, `issue_count`, `last_number` (le `number` du fascicule `last_issue_id` s'il est numérique —
+58 526 séries — le total d'une série close, §4.17-4). 121 308 lignes.
 
 Ces deux tables sont **jetables** : écrasées à chaque rafraîchissement du dump, entièrement reconstructibles.
 
