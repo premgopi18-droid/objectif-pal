@@ -247,6 +247,8 @@ seriesFile.write("id,name,format,year_began,publisher,language_id,is_current,yea
 /** Le numéro du dernier fascicule s'il est purement numérique (« 12 », pas « [nn] » ni « 41 (842) »), sinon vide. */
 const lastNumberOf = (lastIssueId) => {
   const number = issueNumberById.get(lastIssueId);
+  // Même règle que `numericIssueNumber` (lib/resolution/providers/gcd-live.ts, #308)
+  // et que la RPC `gcd_series_max_issue_numbers` : un entier de cinq chiffres au plus.
   return number !== undefined && /^\d{1,5}$/.test(number) ? String(Number(number)) : "";
 };
 

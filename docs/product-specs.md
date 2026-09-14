@@ -1088,7 +1088,26 @@ comme prévu), 0 livre nommé sans lien.
    parties pour 5 tomes VF), Sudoc (vide), MangaDex (doublon d'AniList), Bédéthèque et Manga-news (sans API,
    scraping interdit), Électre et Dilicom (payants). Conséquence : la fiche **dit la limite** quand aucune source
    ne connaît la série (« aucune source ouverte ne décrit les parutions françaises des romans », « GCD n'indexe
-   pas les parutions Panini ») plutôt qu'un silence. La fraîcheur de GCD, elle, ne dépend plus du dump : #308.
+   pas les parutions Panini ») plutôt qu'un silence.
+   **GCD en direct (#308, 14/09/2026).** Le dump se recharge à la main (cookie de session exigé, 403 sans) et
+   celui de prod avait deux mois et demi ; l'**API REST publique de comics.org** (JSON, sans clé, sans recherche —
+   sondée le 14/09) suffit pour tout ce qui est DÉJÀ relié. Elle est **anonyme et quotée à l'heure** (mesuré le
+   14/09 : ~20 appels, puis 429 avec `Retry-After: 1493`) : le job `series:gcd-live` tourne donc **toutes les
+   heures** (`series-gcd-live.yml`, suivi de `series:gcd-facts` pour que la fiche suive dans l'heure), 15 appels
+   par run séries et fascicules confondus, une requête par seconde, arrêt net au premier 429 (le quota est par IP :
+   un runner GitHub peut le trouver consommé — ce n'est pas une panne). Il relit les séries GCD reliées au
+   référentiel — en cours (ou sans fin connue) d'abord, jamais relues puis les plus anciennes, closes une fois par
+   mois (~100 séries en cours relues chaque jour ou deux) — et pose dans
+   `gcd_series` le nombre de fascicules, le dernier numéro (jamais en baisse ; le plus grand numéro numérique des
+   descripteurs, cinq chiffres au plus), l'année de fin et `is_current` **vers `false` seulement** (l'API ne
+   l'expose pas, on ne devine pas une reprise), plus `live_checked_at` ; et dans `gcd_issues` les fascicules
+   absents (5 par série et par run), normalisés comme l'export — un numéro qui est une année (intégrales « 1996 »)
+   n'est jamais un dernier numéro. **Un tome paru chez Urban se scanne et s'affiche comme manquant dans les heures
+   qui suivent son indexation sur comics.org.** Panne ≠ absence : 404 = série disparue chez GCD (journalisée,
+   datée, jamais supprimée), 403/5xx = série non datée, relue au run suivant ; aucune réponse sans que ce soit le
+   quota = run rouge. Le rechargement du dump écrase ces lignes par les siennes et vide
+   `live_checked_at` : tout se relit. Aucun contournement si Cloudflare refuse le runner GitHub : le job tourne
+   alors en local, et on le dit.
 5. **La section « Séries en cours » des Stats et son catalogue GCD (§4.5, lot B de #30) sont retirés** :
    les « trois silences » n'ont plus d'objet, le nouveau modèle marche pour la BnF, donc pour Léna. Perte
    assumée : une série GCD lue jusqu'au 5 sans total déclaré disait « tome 6 à lire », elle dira « total
@@ -1497,6 +1516,11 @@ code-barrées. Le reste : Image (20 850), IDW (18 543), Dynamite (18 201), Boom!
 Titan, Zenescope, Valiant, Avatar Press, Action Lab… **6 issues sur 10 ne sont ni Marvel ni DC.**
 
 **3. La base est vivante** : 15 000 à 20 000 issues indexées par an depuis 2015, dont déjà 8 614 pour 2026.
+**Et elle se lit en direct (#308)** : l'API REST publique (`https://www.comics.org/api/series/{id}/?format=json`,
+`/api/issue/{id}/`) sert la série (nom, années, fascicules actifs, descripteurs « 2 - Le fils du démon ») et le
+fascicule (numéro, titre, `key_date`, ISBN avec tirets, code-barres, pages en décimal) — sans clé, sans
+recherche (les filtres `?name=` sont ignorés, `/api/issue/?isbn=` = 404), derrière Cloudflare. Le dump reste
+la référence (rechargé à la main, une fois par mois) ; l'API rafraîchit chaque nuit ce qui est relié (§4.17-4).
 
 **4. Le préfixe UPC-A identifie bien la série.** Sur 41 425 préfixes distincts : **93,9 % ne pointent que vers
 une seule série** (81,7 % si on raisonne en issues). Les 6 % ambigus sont **structurels** — les éditeurs

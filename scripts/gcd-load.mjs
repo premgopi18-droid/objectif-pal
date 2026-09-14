@@ -19,6 +19,12 @@
  * Ces tables sont JETABLES (specs §6), entièrement reconstructibles depuis le
  * dump. Le cache de résolutions (barcode_cache) n'est jamais touché ici.
  *
+ * Entre deux dumps, `series:gcd-live` (#308, toutes les heures) ajoute des
+ * fascicules et met à jour des séries via l'API comics.org : la bascule les
+ * ÉCRASE par les lignes du dump (qui les contient alors) et vide
+ * `gcd_series.live_checked_at` (le staging naît par CREATE TABLE LIKE, la
+ * colonne n'est pas dans le CSV) — voulu : tout se relit dans les heures qui suivent.
+ *
  * Usage :
  *   npm run gcd:load
  *

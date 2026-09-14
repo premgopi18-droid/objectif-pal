@@ -1,4 +1,6 @@
-# Le plancher VF par édition (#299, suivi de séries §4.17) — chaque nuit.
+# Les séries, chaque nuit (suivi de séries §4.17) : plancher VF par édition
+# (#299), faits depuis GCD (#301), AniList (#304). GCD en direct (#308) tourne
+# toutes les heures dans series-gcd-live.yml (quota horaire de l'API).
 #
 # Pour chaque série à identifiant d'édition BnF, le plus grand tome déposé
 # (recherche titre + auteur regroupée par notice de série), posé sur

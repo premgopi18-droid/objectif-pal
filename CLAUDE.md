@@ -148,7 +148,10 @@ Solo au lancement, modèle de données multi-utilisateur dès le départ.
 ## Les données GCD
 
 - Dump source : `C:\Users\premg\Downloads\current\2026-07-01.sql` (3,76 Go, régénéré tous les 15 jours sur
-  comics.org).
+  comics.org — téléchargement sous cookie de session, `scripts/gcd-download.mjs`). **Rechargement à la main,
+  une fois par mois** (`npm run gcd:load`) : entre deux, l'**API REST publique de comics.org** (anonyme,
+  ~20 appels/heure mesurés) relit **toutes les heures** 15 séries ou fascicules reliés au référentiel
+  (`series:gcd-live`, #308) — fin, dernier numéro, fascicules nouveaux avec ISBN et code-barres.
 - `scripts/gcd-export.mjs` → `data/gcd_issues.csv` (559 516 lignes) + `data/gcd_series.csv` (121 308 séries).
   **`data/` est gitignoré** : les CSV se régénèrent depuis le dump en ~3 min.
 - `scripts/gcd-inspect.mjs` et `scripts/gcd-barcodes.mjs` : les parseurs en flux qui ont produit les mesures
