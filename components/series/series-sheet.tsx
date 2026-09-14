@@ -9,7 +9,7 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { StatTile } from "@/components/ui/stat-tile";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
-import { SERIES_STATUS_LABELS, approximateWarning, declaredByLabel, knownMaxExceedsLabel, nextCardCopy } from "@/lib/series/copy";
+import { SERIES_STATUS_LABELS, approximateWarning, declaredByLabel, knownMaxExceedsLabel, knownMaxSummary, nextCardCopy } from "@/lib/series/copy";
 import type { SeriesProgress, SeriesVolume } from "@/lib/series/derive-series";
 
 /**
@@ -183,6 +183,8 @@ export function SeriesSheet({
           <StatTile label="Dans la pile" value={progress.pile} tone={progress.pile > 0 ? "amber" : "default"} />
           <StatTile label="Total" value={progress.isOngoing ? "∞" : (progress.totalVolumes ?? "?")} />
         </div>
+        {/* D'où vient ce que la grille sait — le plancher borne la grille sans total (#307), on le dit. */}
+        {knownMaxSummary(progress.knownMax) !== null && <p className="text-xs text-ink2">{knownMaxSummary(progress.knownMax)}</p>}
 
         {next !== null && (
           <div className={`flex items-center gap-3 rounded-card border p-3 ${NEXT_TONES[next.tone]}`}>

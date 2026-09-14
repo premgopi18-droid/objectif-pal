@@ -43,7 +43,7 @@ export async function loadSeriesProgress(
   const { data: rows, error: booksError } = await supabase
     .from("books")
     .select(
-      `id, title, series_id, category, issue_number, cover_url,
+      `id, title, series_id, category, issue_number, cover_url, publisher,
        purchases (purchased_at, deleted_at),
        readings (status, finished_at, deleted_at),
        ownerships (owned_since, disposed_at, deleted_at)`,
@@ -66,6 +66,7 @@ export async function loadSeriesProgress(
             category: row.category,
             issueNumber: row.issue_number,
             coverUrl: row.cover_url,
+            publisher: row.publisher,
             purchases: (row.purchases ?? []).map((purchase) => ({ purchasedAt: purchase.purchased_at, deletedAt: purchase.deleted_at })),
             readings: (row.readings ?? []).map((reading) => ({
               status: reading.status,
