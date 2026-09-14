@@ -15,8 +15,8 @@
  * Le rechargement du dump écrase ces lignes par les siennes (qui les
  * contiennent alors) et vide `live_checked_at` : tout se relit, c'est voulu.
  *
- * L'API est anonyme et QUOTÉE À L'HEURE (mesuré le 14/09/2026 : ~20 appels,
- * puis 429 avec `Retry-After: 1493`) : 15 appels par run, séries et fascicules
+ * L'API est anonyme et QUOTÉE SUR UNE FENÊTRE GLISSANTE D'UNE HEURE (mesuré le
+ * 14/09/2026 : ~20 appels, puis 429 avec `Retry-After: 1493`) : 10 appels par run, séries et fascicules
  * confondus, une requête par seconde, `OUTBOUND_USER_AGENT`, et le run
  * s'arrête net au premier 429 — le prochain reprend là où la file en est.
  * Panne ≠ absence : une série qui ne répond pas n'est pas datée (elle repasse

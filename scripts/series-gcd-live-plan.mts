@@ -5,10 +5,12 @@
  *  - la SÉLECTION : les séries GCD reliées à notre référentiel, en cours (ou
  *    sans fin connue) d'abord — jamais relues, puis les plus anciennes —, les
  *    closes seulement une fois par mois ;
- *  - le BUDGET : l'API est anonyme et **quotée à l'heure** (mesuré le
- *    14/09/2026 : ~20 appels, puis 429 avec `Retry-After: 1493`). Le job
- *    tourne donc toutes les heures avec 15 appels, séries et fascicules
- *    confondus, et s'arrête net au premier 429 ;
+ *  - le BUDGET : l'API est anonyme et **quotée sur une fenêtre GLISSANTE
+ *    d'une heure** (mesuré le 14/09/2026 : ~20 appels, puis 429 avec
+ *    `Retry-After: 1493` ; à la réouverture, seules les requêtes vieilles
+ *    d'une heure ressortent). Deux runs à moins d'une heure sur la même IP
+ *    partagent donc le quota : 10 appels par run horaire, séries et
+ *    fascicules confondus, et arrêt net au premier 429 ;
  *  - la MISE À JOUR : ce que l'API change dans `gcd_series`, et rien d'autre
  *    (`is_current` ne passe qu'à `false`, jamais l'inverse : l'API ne l'expose
  *    pas, on ne devine pas une reprise) ;
@@ -19,8 +21,8 @@
 
 import type { GcdLiveSeries } from "@/lib/resolution/providers/gcd-live";
 
-/** Appels (série + fascicule) par run — sous les ~20/heure anonymes mesurés, avec de la marge. */
-export const LIVE_CALLS_PER_RUN = 15;
+/** Appels (série + fascicule) par run — la moitié des ~20/heure GLISSANTE mesurés : deux runs voisins tiennent dans la fenêtre. */
+export const LIVE_CALLS_PER_RUN = 10;
 /** Fascicules nouveaux relus par série et par run — une série longue se rattrape en quelques runs. */
 export const LIVE_ISSUES_PER_SERIES = 5;
 /** Une requête par seconde, pas plus : un service communautaire. */

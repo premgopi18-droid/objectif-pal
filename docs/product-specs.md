@@ -1091,10 +1091,11 @@ comme prévu), 0 livre nommé sans lien.
    pas les parutions Panini ») plutôt qu'un silence.
    **GCD en direct (#308, 14/09/2026).** Le dump se recharge à la main (cookie de session exigé, 403 sans) et
    celui de prod avait deux mois et demi ; l'**API REST publique de comics.org** (JSON, sans clé, sans recherche —
-   sondée le 14/09) suffit pour tout ce qui est DÉJÀ relié. Elle est **anonyme et quotée à l'heure** (mesuré le
-   14/09 : ~20 appels, puis 429 avec `Retry-After: 1493`) : le job `series:gcd-live` tourne donc **toutes les
-   heures** (`series-gcd-live.yml`, suivi de `series:gcd-facts` pour que la fiche suive dans l'heure), 15 appels
-   par run séries et fascicules confondus, une requête par seconde, arrêt net au premier 429 (le quota est par IP :
+   sondée le 14/09) suffit pour tout ce qui est DÉJÀ relié. Elle est **anonyme et quotée sur une fenêtre glissante d'une heure**
+   (mesuré le 14/09 : ~20 appels, puis 429 avec `Retry-After: 1493` ; à la réouverture, seules les requêtes vieilles
+   d'une heure ressortent) : le job `series:gcd-live` tourne donc **toutes les heures** (`series-gcd-live.yml`, suivi
+   de `series:gcd-facts` pour que la fiche suive dans l'heure), 10 appels par run séries et fascicules confondus
+   (deux runs voisins sur la même IP tiennent dans la fenêtre), une requête par seconde, arrêt net au premier 429 (le quota est par IP :
    un runner GitHub peut le trouver consommé — ce n'est pas une panne). Il relit les séries GCD reliées au
    référentiel — en cours (ou sans fin connue) d'abord, jamais relues puis les plus anciennes, closes une fois par
    mois (~100 séries en cours relues chaque jour ou deux) — et pose dans
