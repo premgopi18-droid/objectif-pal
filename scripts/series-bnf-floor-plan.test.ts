@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { authorSearchName, floorRunExitCode, selectFloorTargets, type FloorTarget } from "./series-bnf-floor-plan.mjs";
+import { authorSearchName, floorRunExitCode, oldestCheckedAt, selectFloorTargets, type FloorTarget } from "./series-bnf-floor-plan.mjs";
 
 const target = (name: string, oldestCheckedAt: string | null): FloorTarget => ({
   seriesId: `s-${name}`,
@@ -16,6 +16,15 @@ describe("selectFloorTargets — jamais relues d'abord, puis les plus anciennes,
       3,
     );
     expect(picked.map((entry) => entry.name)).toEqual(["Berserk", "One Piece", "Akira"]);
+  });
+});
+
+describe("oldestCheckedAt — null dès qu'une édition n'a jamais été relue (review #300)", () => {
+  it("prend la plus ancienne, ou null", () => {
+    expect(oldestCheckedAt(["2026-09-10T00:00:00Z", "2026-09-01T00:00:00Z"])).toBe("2026-09-01T00:00:00Z");
+    expect(oldestCheckedAt(["2026-09-10T00:00:00Z", null])).toBeNull();
+    expect(oldestCheckedAt([null])).toBeNull();
+    expect(oldestCheckedAt([])).toBeNull();
   });
 });
 

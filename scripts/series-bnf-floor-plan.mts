@@ -15,8 +15,21 @@
 
 export const FLOOR_RUN_LIMIT = 150;
 export const FLOOR_MAX_PAGES = 5;
-export const FLOOR_PAGE_TIMEOUT_MS = 60_000;
+/** Mesuré ~7 s par page pour One Piece : 30 s ne coûte que sur panne (review #300). */
+export const FLOOR_PAGE_TIMEOUT_MS = 30_000;
 export const FLOOR_POLITENESS_DELAY_MS = 250;
+/**
+ * Le budget d'un run (review #300) : une BnF lente une nuit ne doit pas
+ * faire tuer le job par Actions sans bilan — on s'arrête proprement, les
+ * séries non relues repassent demain (elles sont déjà en tête de file).
+ */
+export const FLOOR_RUN_BUDGET_MS = 40 * 60 * 1000;
+
+/** La plus ancienne relecture d'une série : `null` dès qu'une édition n'a jamais été relue, sinon la plus ancienne date. */
+export function oldestCheckedAt(dates: readonly (string | null)[]): string | null {
+  if (dates.length === 0 || dates.some((date) => date === null)) return null;
+  return [...(dates as string[])].sort()[0];
+}
 
 export type FloorTarget = {
   seriesId: string;

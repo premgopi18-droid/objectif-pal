@@ -31,8 +31,10 @@ import {
   FLOOR_MAX_PAGES,
   FLOOR_PAGE_TIMEOUT_MS,
   FLOOR_POLITENESS_DELAY_MS,
+  FLOOR_RUN_BUDGET_MS,
   FLOOR_RUN_LIMIT,
   floorRunExitCode,
+  oldestCheckedAt,
   selectFloorTargets,
   type FloorRunCounts,
   type FloorTarget,
@@ -50,16 +52,18 @@ const { data: links, error: linksError } = await admin
 if (linksError) throw new Error(`series_external_ids : ${linksError.message}`);
 
 const targetsBySeries = new Map<string, FloorTarget>();
+const checkedAtBySeries = new Map<string, (string | null)[]>();
 for (const link of links) {
   const name = link.series?.name;
   if (!name) continue;
   const target = targetsBySeries.get(link.series_id) ?? { seriesId: link.series_id, name, author: null, bnfSeriesIds: [], oldestCheckedAt: null };
   target.bnfSeriesIds.push(link.external_id);
-  if (link.known_max_checked_at === null) target.oldestCheckedAt = null;
-  else if (target.bnfSeriesIds.length === 1 || (target.oldestCheckedAt !== null && link.known_max_checked_at < target.oldestCheckedAt)) {
-    target.oldestCheckedAt = link.known_max_checked_at;
-  }
+  checkedAtBySeries.set(link.series_id, [...(checkedAtBySeries.get(link.series_id) ?? []), link.known_max_checked_at]);
   targetsBySeries.set(link.series_id, target);
+}
+for (const [seriesId, dates] of checkedAtBySeries) {
+  const target = targetsBySeries.get(seriesId);
+  if (target) target.oldestCheckedAt = oldestCheckedAt(dates);
 }
 
 // 2. L'auteur : un fait du LIVRE (n'importe quel compte), le premier trouvé par série.
@@ -84,8 +88,15 @@ console.log(`${targetsBySeries.size} séries à identifiant BnF, ${targets.lengt
 
 const counts: FloorRunCounts = { processed: 0, updated: 0, missing: 0, networkErrors: 0, infraErrors: 0 };
 const now = new Date().toISOString();
+const startedAt = Date.now();
+let stoppedByBudget = 0;
 
 for (const target of targets) {
+  // Le budget (review #300) : on s'arrête proprement, le bilan sort, le reste repasse demain.
+  if (Date.now() - startedAt > FLOOR_RUN_BUDGET_MS) {
+    stoppedByBudget += 1;
+    continue;
+  }
   counts.processed += 1;
   let floors;
   try {
@@ -131,5 +142,6 @@ console.log("\nBilan :");
 console.log(`  séries relues : ${counts.processed}`);
 console.log(`  planchers posés : ${counts.updated} · éditions sans plancher : ${counts.missing}`);
 console.log(`  erreurs réseau : ${counts.networkErrors} · erreurs de notre côté : ${counts.infraErrors}`);
+if (stoppedByBudget > 0) console.log(`  budget de run atteint : ${stoppedByBudget} séries repassent demain`);
 console.log(dryRun ? "\nDry-run : rien n'a été écrit." : "\nÉcrit.");
 process.exit(floorRunExitCode(counts));
