@@ -147,10 +147,15 @@ const fromCache = (entry: CacheEntry, barcodeType: "isbn" | "upc"): ResolvedBook
 
 /** Construit un livre depuis une issue GCD (avec sa série si connue). */
 function fromGcdIssue(issue: GcdIssue, series: GcdSeries | undefined, barcodeType: "isbn" | "upc"): ResolvedBook {
-  // Un UPC est un fascicule ; un ISBN chez GCD : BD si la série est française,
-  // sinon recueil VO (TPB) — Metron affinera avec series_type (omnibus…).
+  // Un UPC est un fascicule ; un ISBN chez GCD : l'ÉDITEUR d'abord (Kurokawa,
+  // Glénat, Kana… en français sont des mangas — vécu sur « Ippo », 14/09/2026),
+  // sinon BD si la série est française, sinon recueil VO (TPB) — Metron
+  // affinera avec series_type (omnibus…).
   const suggestedCategory =
-    barcodeType === "upc" ? "issue" : series?.languageId === GCD_LANGUAGE_FRENCH ? "bd" : "comics";
+    barcodeType === "upc"
+      ? "issue"
+      : (guessCategoryFromPublisher(series?.publisher ?? null) ??
+        (series?.languageId === GCD_LANGUAGE_FRENCH ? "bd" : "comics"));
   return {
     title: issue.title || null,
     seriesName: series?.name ?? null,

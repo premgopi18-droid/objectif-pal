@@ -76,6 +76,17 @@ function fakeDeps(overrides: {
 }
 
 describe("la cascade ISBN (GCD → BnF → Google Books)", () => {
+  it("un manga VF chez GCD (série française, éditeur Kurokawa) est proposé manga, pas bd — vécu sur « Ippo »", async () => {
+    const deps = fakeDeps({
+      gcd: {
+        findIssuesByIsbn: vi.fn(async () => [gcdIssue({ isbn: "9782351422328", barcode: null, title: "Ippo" })]),
+        getSeriesByIds: vi.fn(async () => new Map([[42, gcdSeries({ name: "Ippo", publisher: "Kurokawa", languageId: 34 })]])),
+      },
+    });
+    const result = await resolveScannedCode("9782351422328", deps);
+    expect(result).toMatchObject({ kind: "resolved", book: { source: "gcd", suggestedCategory: "manga" } });
+  });
+
   it("une BD franco-belge se résout en base, catégorie bd — et le balayage couverture PROPRE mais vide est tamponné (#176)", async () => {
     const deps = fakeDeps({
       gcd: {
