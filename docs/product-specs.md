@@ -1115,8 +1115,10 @@ comme prévu), 0 livre nommé sans lien.
    assumée : une série GCD lue jusqu'au 5 sans total déclaré disait « tome 6 à lire », elle dira « total
    à déclarer » (pré-rempli à 6 par l'indice). `series-catalog.ts` et sa requête bornée disparaissent ; GCD
    continue de poser le numéro de tome au scan.
-6. **Seuil d'apparition** dans le segment : **au moins 2 livres**, ou 1 livre avec un total déclaré. Un
-   singleton numéroté reste visible sous « Tous », pas dans le segment.
+6. **Seuil d'apparition** dans le segment : **au moins 2 livres**, ou 1 livre avec un fait (déclaré par un
+   humain ou posé par une source), ou 1 livre avec un **plancher** (#307, 14/09/2026 : Dungeon Crawler Carl, 1 lu,
+   la BnF en connaît 3 → « il te manque le tome 2 » est une information). Seul un tome dont aucune source ne sait
+   rien reste replié en bas du segment, avec sa porte vers la fiche pour déclarer (#306).
 7. **Les états** : « En cours », « À jour » (parution en cours, tout ce qui est **paru et connu** est lu — le
    plancher compte, #307), « Complète »
    (total déclaré atteint — jamais sans total), « Total à déclarer », « ≈ approximatif » (un tome lu sans

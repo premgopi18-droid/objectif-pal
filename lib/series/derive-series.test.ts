@@ -133,6 +133,13 @@ describe("deriveSeriesProgress — lus · dans la pile · total", () => {
     expect(progress).toMatchObject({ status: "up-to-date", gridMax: 2, missing: 0 });
   });
 
+  it("Dungeon Crawler Carl : un seul tome lu, aucun fait, mais la BnF en connaît 3 → visible, il te manque le tome 2", () => {
+    const progress = deriveSeriesProgress(series(), volumes([1], "read"), [{ source: "bnf", value: 3, label: "Lorestone" }]);
+    expect(progress).toMatchObject({ isVisible: true, gridMax: 3, missing: 2, next: { kind: "missing", number: 2 }, status: "unknown-total" });
+    // Sans plancher ni fait : replié, comme avant.
+    expect(deriveSeriesProgress(series(), volumes([1], "read")).isVisible).toBe(false);
+  });
+
   it("un plancher d'édition plus bas que le possédé ne rétrécit rien", () => {
     const progress = deriveSeriesProgress(series(), volumes([1, 2, 3, 5], "read"), [{ source: "bnf", value: 3, label: "Lorestone" }]);
     expect(progress).toMatchObject({ gridMax: 5, missing: 1, next: { kind: "missing", number: 4 } });

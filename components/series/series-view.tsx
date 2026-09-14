@@ -199,7 +199,7 @@ export function SeriesView({ data, focusSeriesId = null }: { data: SeriesSegment
       {hidden.length > 0 && (
         <details className="rounded-card border border-line bg-card p-3">
           <summary className="cursor-pointer text-sm font-semibold text-ink2">
-            {hidden.length} série{hidden.length > 1 ? "s" : ""} d&apos;un seul tome, sans total connu — ouvrir pour déclarer
+            {hidden.length} série{hidden.length > 1 ? "s" : ""} d&apos;un seul tome, dont aucune source ne sait rien — ouvrir pour déclarer
           </summary>
           <ul className="mt-3 flex flex-col gap-3">
             {hidden.map((progress) => (

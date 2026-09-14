@@ -124,7 +124,7 @@ export type SeriesProgress = {
   volumes: SeriesVolume[];
 };
 
-/** Deux livres, ou un livre et un fait — humain ou posé par une source (§4.17-6, décision du 14/09/2026). */
+/** Deux livres, ou un livre et un fait — humain ou posé par une source — ou un livre et un plancher (§4.17-6, décisions du 14/09/2026). */
 export const MIN_BOOKS_TO_SHOW_SERIES = 2;
 
 /**
@@ -240,9 +240,11 @@ export function deriveSeriesProgress(
     // Ce que la carte affiche (lus + pile) décide de l'apparition — deux tomes
     // cédés ne font pas une série à suivre (review #295). Un tome isolé y entre
     // dès qu'un fait existe, quelle qu'en soit la source (décision de Prem du
-    // 14/09/2026 : « un bouquin d'une série dans la biblio doit suffire ») —
-    // « 1 lu sur 12 » est une information, pas du bruit.
-    isVisible: readVolumes.length + pileVolumes.length >= MIN_BOOKS_TO_SHOW_SERIES || hasFact,
+    // 14/09/2026 : « un bouquin d'une série dans la biblio doit suffire »), ou
+    // dès qu'un plancher borne la grille (#307 : « il te manque le tome 2 » est
+    // une information — Dungeon Crawler Carl, 1 lu, BnF en connaît 3). Seul un
+    // tome dont personne ne sait rien reste replié.
+    isVisible: readVolumes.length + pileVolumes.length >= MIN_BOOKS_TO_SHOW_SERIES || hasFact || floorMax > 0,
     volumes,
   };
 }
