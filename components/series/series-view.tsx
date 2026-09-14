@@ -90,16 +90,21 @@ export function SeriesView({ data, focusSeriesId = null }: { data: SeriesSegment
   const [isPending, startTransition] = useTransition();
 
   const gcdLinked = useMemo(() => new Set(data.gcdLinkedSeriesIds), [data.gcdLinkedSeriesIds]);
+  // Les séries au seuil (§4.17-6) et, repliées en bas, celles d'un tome sans
+  // fait : la porte vers leur fiche, pour déclarer (vécu sur Dungeon Crawler
+  // Carl — un tome seul n'était joignable nulle part).
+  const shown = useMemo(() => data.progress.filter((progress) => progress.isVisible), [data.progress]);
+  const hidden = useMemo(() => data.progress.filter((progress) => !progress.isVisible), [data.progress]);
+  const visible = useMemo(() => shown.filter((progress) => matchesSeriesFilter(progress.status, filter)), [shown, filter]);
+  const debt = useMemo(() => shown.reduce((sum, progress) => sum + progress.pile, 0), [shown]);
   const counts = useMemo(
     () =>
       FILTER_CHIPS.map((chip) => ({
         ...chip,
-        label: `${chip.label} ${data.progress.filter((progress) => matchesSeriesFilter(progress.status, chip.value)).length}`,
+        label: `${chip.label} ${shown.filter((progress) => matchesSeriesFilter(progress.status, chip.value)).length}`,
       })),
-    [data.progress],
+    [shown],
   );
-  const visible = useMemo(() => data.progress.filter((progress) => matchesSeriesFilter(progress.status, filter)), [data.progress, filter]);
-  const debt = useMemo(() => data.progress.reduce((sum, progress) => sum + progress.pile, 0), [data.progress]);
   const mergePair = useMemo(
     () =>
       findMergeCandidates(
@@ -154,9 +159,9 @@ export function SeriesView({ data, focusSeriesId = null }: { data: SeriesSegment
 
   return (
     <div className="mt-4 flex flex-col gap-4">
-      <p className="text-sm text-ink2">{seriesHeadline(data.progress.length, debt)}</p>
+      <p className="text-sm text-ink2">{seriesHeadline(shown.length, debt)}</p>
 
-      {data.progress.length > 0 && <FilterChips chips={counts} value={filter} onChange={setFilter} label="Filtrer les séries" />}
+      {shown.length > 0 && <FilterChips chips={counts} value={filter} onChange={setFilter} label="Filtrer les séries" />}
 
       {errorMessage !== null && openProgress === null && <ErrorAlert message={errorMessage} />}
 
@@ -174,12 +179,12 @@ export function SeriesView({ data, focusSeriesId = null }: { data: SeriesSegment
         />
       )}
 
-      {data.progress.length === 0 ? (
+      {shown.length === 0 && hidden.length === 0 ? (
         <p className="py-8 text-center text-sm leading-relaxed text-ink2">
           Une série apparaît ici à partir de deux tomes — scanne la suite, ou renseigne la série d&apos;un livre
           depuis « Modifier » dans Tous.
         </p>
-      ) : visible.length === 0 ? (
+      ) : shown.length === 0 ? null : visible.length === 0 ? (
         <p className="py-8 text-center text-sm text-ink2">Aucune série dans cet état.</p>
       ) : (
         <ul className="flex flex-col gap-3">
@@ -189,6 +194,21 @@ export function SeriesView({ data, focusSeriesId = null }: { data: SeriesSegment
             </li>
           ))}
         </ul>
+      )}
+
+      {hidden.length > 0 && (
+        <details className="rounded-card border border-line bg-card p-3">
+          <summary className="cursor-pointer text-sm font-semibold text-ink2">
+            {hidden.length} série{hidden.length > 1 ? "s" : ""} d&apos;un seul tome, sans total connu — ouvrir pour déclarer
+          </summary>
+          <ul className="mt-3 flex flex-col gap-3">
+            {hidden.map((progress) => (
+              <li key={progress.seriesId}>
+                <SeriesCard progress={progress} onOpen={() => setOpenSeriesId(progress.seriesId)} />
+              </li>
+            ))}
+          </ul>
+        </details>
       )}
 
       {openProgress !== null && (
