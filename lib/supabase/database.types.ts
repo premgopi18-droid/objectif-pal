@@ -872,6 +872,7 @@ export type Database = {
       }
       series: {
         Row: {
+          anilist_searched_at: string | null
           category: Database["public"]["Enums"]["book_category"]
           created_at: string
           created_by: string | null
@@ -885,6 +886,7 @@ export type Database = {
           total_volumes: number | null
         }
         Insert: {
+          anilist_searched_at?: string | null
           category: Database["public"]["Enums"]["book_category"]
           created_at?: string
           created_by?: string | null
@@ -898,6 +900,7 @@ export type Database = {
           total_volumes?: number | null
         }
         Update: {
+          anilist_searched_at?: string | null
           category?: Database["public"]["Enums"]["book_category"]
           created_at?: string
           created_by?: string | null
@@ -1088,6 +1091,15 @@ export type Database = {
           p_total_volumes?: number
         }
         Returns: undefined
+      }
+      declare_series_fact_from_source: {
+        Args: {
+          p_is_ongoing?: boolean
+          p_series_id: string
+          p_source: string
+          p_total_volumes?: number
+        }
+        Returns: boolean
       }
       find_or_create_series: {
         Args: {

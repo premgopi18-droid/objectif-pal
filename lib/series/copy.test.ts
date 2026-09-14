@@ -54,6 +54,8 @@ describe("les textes du suivi de séries", () => {
     // Le fait posé par GCD dit sa source, sans pseudo.
     expect(declaredByLabel({ ...declared, totalVolumes: 12, factDeclaredBy: null, factSource: "gcd" }, null)).toBe("12 numéros, série close d'après GCD");
     expect(declaredByLabel({ ...declared, totalVolumes: null, isOngoing: true, factDeclaredBy: null, factSource: "gcd" }, null)).toBe("parution en cours d'après GCD");
+    expect(declaredByLabel({ ...declared, totalVolumes: 23, factDeclaredBy: null, factSource: "anilist" }, null)).toBe("23 volumes, série terminée d'après AniList");
+    expect(declaredByLabel({ ...declared, totalVolumes: null, isOngoing: true, factDeclaredBy: null, factSource: "anilist" }, null)).toBe("parution en cours d'après AniList");
   });
 
   it("le stepper part du plus grand plancher, sinon du plus grand possédé (10 au moins)", () => {
