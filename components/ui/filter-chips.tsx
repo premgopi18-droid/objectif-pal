@@ -1,10 +1,10 @@
 "use client";
 
 /**
- * Les chips de filtre (design-specs §4) : rangée de pills qui PASSE À LA LIGNE
- * (#319 : la rangée défilable coupait les chips et affichait un scrollbar
- * horizontal — même patron que la rangée de filtres de la Biblio), chip actif
- * en dégradé. Interactif → "use client".
+ * Les chips de filtre (design-specs §4) : UNE rangée de pills qui défile au
+ * doigt, sans barre visible (#319 puis #321 : le retour à la ligne était jugé
+ * moche, le scrollbar aussi — le patron natif, c'est la rangée qui glisse),
+ * chip actif en dégradé. Interactif → "use client".
  *
  * `aria-pressed` marque le chip actif ; texte du chip actif en `--bg0` (audit #66).
  */
@@ -24,7 +24,7 @@ type FilterChipsProps<T extends string> = {
 
 export function FilterChips<T extends string>({ chips, value, onChange, label }: FilterChipsProps<T>) {
   return (
-    <div role="group" aria-label={label} className="flex flex-wrap gap-2">
+    <div role="group" aria-label={label} className="scrollbar-hide -mx-4 flex gap-2 overflow-x-auto px-4">
       {chips.map((chip) => {
         const active = chip.value === value;
         return (

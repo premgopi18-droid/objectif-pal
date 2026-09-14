@@ -39,15 +39,15 @@ export function filterSeriesProgress<T extends Pick<SeriesProgress, "name" | "ca
 
 export type SeriesCategoryChip = { value: SeriesCategoryFilter; label: string };
 
-/** « Toutes », puis les catégories PRÉSENTES seulement, dans l'ordre du barème, avec leur compte. */
+/** « Tous les types », puis les catégories PRÉSENTES seulement, dans l'ordre du barème, avec leur compte — les options du sélecteur. */
 export function categoryChips(list: readonly Pick<SeriesProgress, "category">[]): SeriesCategoryChip[] {
   const counts = new Map<BookCategory, number>();
   for (const progress of list) counts.set(progress.category, (counts.get(progress.category) ?? 0) + 1);
   return [
-    { value: "all", label: `Toutes ${list.length}` },
+    { value: "all", label: "Tous les types" },
     ...ALL_CATEGORIES.filter((category) => counts.has(category)).map((category) => ({
       value: category,
-      label: `${CATEGORY_LABELS[category]} ${counts.get(category) ?? 0}`,
+      label: `${CATEGORY_LABELS[category]} (${counts.get(category) ?? 0})`,
     })),
   ];
 }

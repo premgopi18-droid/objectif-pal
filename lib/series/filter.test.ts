@@ -40,12 +40,12 @@ describe("filterSeriesProgress — les trois filtres cumulés", () => {
 describe("categoryChips — « Toutes », puis les catégories présentes seulement, dans l'ordre du barème", () => {
   it("compte, ordonne, omet les absentes", () => {
     expect(categoryChips(list)).toEqual([
-      { value: "all", label: "Toutes 5" },
-      { value: "manga", label: "Manga 1" },
-      { value: "bd", label: "BD 2" },
-      { value: "comics", label: "Comics 1" },
-      { value: "roman", label: "Roman 1" },
+      { value: "all", label: "Tous les types" },
+      { value: "manga", label: "Manga (1)" },
+      { value: "bd", label: "BD (2)" },
+      { value: "comics", label: "Comics (1)" },
+      { value: "roman", label: "Roman (1)" },
     ]);
-    expect(categoryChips([])).toEqual([{ value: "all", label: "Toutes 0" }]);
+    expect(categoryChips([])).toEqual([{ value: "all", label: "Tous les types" }]);
   });
 });
