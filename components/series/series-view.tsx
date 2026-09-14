@@ -176,17 +176,33 @@ export function SeriesView({ data, focusSeriesId = null }: { data: SeriesSegment
 
       {shown.length > 0 && (
         <>
-          <input
-            type="search"
-            value={searchText}
-            onChange={(event) => setSearchText(event.target.value)}
-            placeholder="Rechercher une série…"
-            aria-label="Rechercher une série"
-            className="w-full rounded-xl border border-line bg-card px-3 py-2.5 text-sm text-ink placeholder:text-ink3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
-          />
+          {/* Recherche + type sur une rangée, comme recherche + tri dans « Tous » (#321) ; les chips d'état défilent dessous. */}
+          <div className="flex gap-2">
+            <input
+              type="search"
+              value={searchText}
+              onChange={(event) => setSearchText(event.target.value)}
+              placeholder="Rechercher une série…"
+              aria-label="Rechercher une série"
+              className="min-w-0 flex-1 rounded-xl border border-line bg-card px-3 py-2.5 text-sm text-ink placeholder:text-ink3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+            />
+            {/* « Tous les types » + au moins deux catégories : une seule catégorie ne se filtre pas. */}
+            {categories.length > 2 && (
+              <select
+                aria-label="Filtrer les séries par type"
+                value={category}
+                onChange={(event) => setCategory(event.target.value as SeriesCategoryFilter)}
+                className="max-w-[45%] flex-none rounded-xl border border-line bg-card px-3 py-2.5 text-sm text-ink focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+              >
+                {categories.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    {option.label}
+                  </option>
+                ))}
+              </select>
+            )}
+          </div>
           <FilterChips chips={counts} value={filter} onChange={setFilter} label="Filtrer les séries par état" />
-          {/* « Toutes » + au moins deux catégories : une seule catégorie ne se filtre pas. */}
-          {categories.length > 2 && <FilterChips chips={categories} value={category} onChange={setCategory} label="Filtrer les séries par type" />}
         </>
       )}
 

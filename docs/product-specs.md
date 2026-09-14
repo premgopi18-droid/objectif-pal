@@ -1162,11 +1162,12 @@ comme prévu), 0 livre nommé sans lien.
 **Les surfaces** : la Biblio gagne un **3ᵉ segment « Séries »** (`?vue=series`, livré au lot B #292 : cartes
 triées par dette décroissante, jauge vert = lu / ambre = pile, chips Toutes / En cours / À jour / Complètes avec
 effectifs — « En cours » regroupe aussi « Total à déclarer » et « ≈ approximatif » —, bannière de fusion sur la
-première paire de graphies non ignorée ; **#319, 14/09/2026** : les chips passent à la ligne au lieu de défiler,
-une **recherche par nom** (même normalisation que la Biblio, valable aussi sur les séries repliées) et une rangée
-de chips **par type** — les catégories présentes seulement, avec compte, affichée à partir de deux catégories —
-qui se cumulent avec l'état ; les compteurs d'état disent ce qu'il reste, le bandeau de synthèse reste celui du
-parc ; rien n'est persisté) ; la **fiche série** (`?serie=<id>`, plein cadre : grands compteurs,
+première paire de graphies non ignorée ; **#319 / #321, 14/09/2026** : une **recherche par nom** (même
+normalisation que la Biblio, valable aussi sur les séries repliées) et un **sélecteur de type** sur la même rangée
+— les catégories présentes seulement, avec compte, affiché à partir de deux catégories —, puis les chips d'état
+sur UNE rangée qui défile au doigt sans barre visible (le retour à la ligne et le scrollbar ont été jugés moches :
+patron natif) ; les trois se cumulent, les compteurs d'état disent ce qu'il reste, le bandeau de synthèse reste
+celui du parc ; rien n'est persisté) ; la **fiche série** (`?serie=<id>`, plein cadre : grands compteurs,
 carte « à lire ensuite » / « il te manque » / « à jour » / « complète », avertissement « approximatif », grille
 1..gridMax avec le suivant surligné et les cases « ? » des tomes lus sans numéro, légende, total avec son auteur
 — « toi », le pseudo d'un ami, sinon « un membre » —, « GCD en connaît N → Mettre à jour », stepper pré-rempli par

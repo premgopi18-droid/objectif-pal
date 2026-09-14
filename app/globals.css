@@ -151,3 +151,15 @@ textarea {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+ * Rangée défilante sans barre visible (#321) : les chips de filtre défilent au
+ * doigt comme dans une app native, sans scrollbar ni retour à la ligne.
+ */
+.scrollbar-hide {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
