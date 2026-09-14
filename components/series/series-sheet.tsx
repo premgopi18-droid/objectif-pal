@@ -96,6 +96,8 @@ export function SeriesSheet({
   const status = SERIES_STATUS_LABELS[progress.status];
   // Le plus grand plancher (GCD ou édition BnF) — celui qui peut dépasser un total déclaré.
   const topKnown = progress.knownMax[0] ?? null;
+  // D'où vient ce que la grille sait — le plancher borne la grille sans total (#307), on le dit.
+  const sourceLine = knownMaxSummary(progress.knownMax);
   const next = progress.next !== null && progress.unnumberedRead === 0 ? nextCardCopy(progress.next, progress.totalVolumes) : null;
   const declared = declaredByLabel(progress, declarerLabel);
   const volumeByNumber = new Map(progress.volumes.filter((volume) => volume.number !== null).map((volume) => [volume.number as number, volume]));
@@ -183,8 +185,7 @@ export function SeriesSheet({
           <StatTile label="Dans la pile" value={progress.pile} tone={progress.pile > 0 ? "amber" : "default"} />
           <StatTile label="Total" value={progress.isOngoing ? "∞" : (progress.totalVolumes ?? "?")} />
         </div>
-        {/* D'où vient ce que la grille sait — le plancher borne la grille sans total (#307), on le dit. */}
-        {knownMaxSummary(progress.knownMax) !== null && <p className="text-xs text-ink2">{knownMaxSummary(progress.knownMax)}</p>}
+        {sourceLine !== null && <p className="text-xs text-ink2">{sourceLine}</p>}
 
         {next !== null && (
           <div className={`flex items-center gap-3 rounded-card border p-3 ${NEXT_TONES[next.tone]}`}>

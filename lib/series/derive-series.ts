@@ -102,7 +102,11 @@ export type SeriesProgress = {
   factDeclaredBy: string | null;
   factDeclaredAt: string | null;
   factSource: SeriesFactSource;
-  /** L'éditeur majoritaire des tomes de l'utilisateur (`null` sans éditeur connu). */
+  /**
+   * L'éditeur majoritaire des tomes de l'utilisateur, valeur BRUTE du livre
+   * (« Panini comics (Nice) » et « Panini France (Nice) » sont deux valeurs) —
+   * un indice pour les textes, jamais une famille d'éditeur (review #310).
+   */
   publisher: string | null;
   /** Les planchers vivants (§4.17-4, #299) : GCD et éditions BnF, du plus grand au plus petit. */
   knownMax: KnownMax[];
@@ -122,6 +126,13 @@ export type SeriesProgress = {
 
 /** Deux livres, ou un livre et un fait — humain ou posé par une source (§4.17-6, décision du 14/09/2026). */
 export const MIN_BOOKS_TO_SHOW_SERIES = 2;
+
+/**
+ * Au-delà, un plancher n'est pas une série mais une erreur de saisie chez la
+ * source (la RPC GCD accepte cinq chiffres) : il ne borne pas la grille — la
+ * même limite que `sync_series_facts_from_gcd` (review #310).
+ */
+export const MAX_PLAUSIBLE_VOLUMES = 5000;
 
 const volumeState = (book: SeriesBookFact): SeriesVolumeState => {
   if (finishedReadingsOf(book.readings).length > 0) return "read";
@@ -186,7 +197,7 @@ export function deriveSeriesProgress(
   // grille : un tome paru et connu manque même si personne ne le possède
   // (#307, vécu sur Absolute Superman : tome 2 chez Urban, fiche arrêtée au 1).
   // Un plancher par édition peut être plus bas que le possédé : le max le neutralise.
-  const floorMax = Math.max(0, ...knownMax.map((known) => known.value));
+  const floorMax = Math.max(0, ...knownMax.filter((known) => known.value <= MAX_PLAUSIBLE_VOLUMES).map((known) => known.value));
   const gridMax = series.totalVolumes ?? Math.max(ownedMax, floorMax);
   const hasFact = series.factDeclaredAt !== null;
   const owned = new Set([...readNumbers, ...pileNumbers]);

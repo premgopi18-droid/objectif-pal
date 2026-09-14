@@ -139,21 +139,20 @@ export function sourcelessReason(context: { category: BookCategory; publisher: s
   return null;
 }
 
-/** La mention sous le stepper — les planchers vivants, ou leur absence (et sa raison), jamais une vérité. */
-export function knownMaxHint(knownMax: readonly KnownMax[], context?: { category: BookCategory; publisher: string | null }): string {
-  if (knownMax.length === 0) {
-    const reason = context ? sourcelessReason(context) : null;
-    return reason === null
-      ? "Aucune source ne connaît cette série : à toi de dire."
-      : `Aucune source ne connaît cette série (${reason}) : à toi de dire.`;
-  }
-  return `${knownMax.map(knownMaxLine).join(" · ")}.`;
-}
-
-/** La ligne sous les compteurs de la fiche : d'où vient ce que la grille sait, sans total déclaré (#307). */
+/** La ligne sous les compteurs de la fiche : d'où vient ce que la grille sait (#307) — `null` sans plancher. */
 export function knownMaxSummary(knownMax: readonly KnownMax[]): string | null {
   if (knownMax.length === 0) return null;
   return `${knownMax.map(knownMaxLine).join(" · ")}.`;
+}
+
+/** La mention sous le stepper — les planchers vivants, ou leur absence (et sa raison), jamais une vérité. */
+export function knownMaxHint(knownMax: readonly KnownMax[], context?: { category: BookCategory; publisher: string | null }): string {
+  const summary = knownMaxSummary(knownMax);
+  if (summary !== null) return summary;
+  const reason = context ? sourcelessReason(context) : null;
+  return reason === null
+    ? "Aucune source ne connaît cette série : à toi de dire."
+    : `Aucune source ne connaît cette série (${reason}) : à toi de dire.`;
 }
 
 /** Le libellé de la source d'un plancher qui dépasse le total déclaré : « GCD en connaît 15 » / « La BnF en connaît 112 ». */

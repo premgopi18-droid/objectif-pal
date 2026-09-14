@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   deriveSeries,
   deriveSeriesProgress,
+  MAX_PLAUSIBLE_VOLUMES,
   MIN_BOOKS_TO_SHOW_SERIES,
   nextInPileBookIds,
   summarizeSeries,
@@ -148,6 +149,17 @@ describe("deriveSeriesProgress — lus · dans la pile · total", () => {
     expect(progress).toMatchObject({ gridMax: 209, missing: 208 });
   });
 
+  it("un plancher au-delà du plausible (erreur de saisie chez la source) ne borne pas la grille — il reste listé (review #310)", () => {
+    const progress = deriveSeriesProgress(series(declared({ isOngoing: true })), volumes([1], "read"), [
+      { source: "gcd", value: MAX_PLAUSIBLE_VOLUMES + 1, label: null },
+    ]);
+    expect(progress).toMatchObject({ gridMax: 1, missing: null, status: "up-to-date" });
+    expect(progress.knownMax[0]?.value).toBe(MAX_PLAUSIBLE_VOLUMES + 1);
+    expect(deriveSeriesProgress(series(declared({ isOngoing: true })), volumes([1], "read"), [{ source: "gcd", value: MAX_PLAUSIBLE_VOLUMES, label: null }]).gridMax).toBe(
+      MAX_PLAUSIBLE_VOLUMES,
+    );
+  });
+
   it("l'éditeur de la série est celui de la majorité des tomes", () => {
     const books = [
       { ...volume("1", "read"), publisher: "Panini comics (Nice)" },
@@ -277,6 +289,17 @@ describe("summarizeSeries — la moisson pour les Stats (lot C)", () => {
       ["One Piece", "read-next"],
       ["Saga", "missing"],
     ]);
+  });
+
+  it("« À jour » dans les Stats suit le plancher (#307) : Frieren avec 7 tomes parus d’après GCD n’est plus à jour", () => {
+    const frieren = deriveSeriesProgress(
+      series({ id: "frieren", name: "Frieren", ...declared({ isOngoing: true }) }),
+      volumes(range(1, 6), "read").map((book) => ({ ...book, seriesId: "frieren" })),
+      [{ source: "gcd", value: 7, label: null }],
+    );
+    const summary = summarizeSeries([...list.filter((progress) => progress.seriesId !== "frieren"), frieren]);
+    expect(summary).toMatchObject({ inProgress: 4, upToDate: 0, complete: 1 });
+    expect(summary.nextToRead.map((entry) => [entry.name, entry.next.kind])).toContainEqual(["Frieren", "missing"]);
   });
 
   it("le vivier « on continue une série » = les tomes suivants déjà dans la pile", () => {
