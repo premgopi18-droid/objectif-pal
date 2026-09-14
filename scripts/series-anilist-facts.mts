@@ -119,13 +119,22 @@ for (const target of selected) {
   }
 
   if (target.aniListId === null) {
-    const { error } = await admin.from("series_external_ids").upsert(
-      { series_id: target.seriesId, source: "anilist", external_id: String(media.id) },
-      { onConflict: "source,external_id" },
-    );
+    // INSERT … ON CONFLICT DO NOTHING (review #305) : la clé est (source, id) —
+    // deux séries qui matchent la même œuvre (homonymes distincts chez GCD,
+    // graphie pas encore fusionnée) ne se volent pas le lien. Le fait, lui,
+    // vaut pour les deux : il est déclaré quand même.
+    const { data: inserted, error } = await admin
+      .from("series_external_ids")
+      .upsert(
+        { series_id: target.seriesId, source: "anilist", external_id: String(media.id) },
+        { onConflict: "source,external_id", ignoreDuplicates: true },
+      )
+      .select("series_id");
     if (error) {
       counts.infraErrors += 1;
       console.error(`  series_external_ids ${target.seriesId} : ${error.message}`);
+    } else if (!inserted || inserted.length === 0) {
+      console.log(`    (AniList ${media.id} déjà porté par une autre série — lien non posé, fait déclaré quand même)`);
     }
     const { error: searchedError } = await admin.from("series").update({ anilist_searched_at: now }).eq("id", target.seriesId);
     if (searchedError) console.error(`  series ${target.seriesId} : ${searchedError.message}`);
