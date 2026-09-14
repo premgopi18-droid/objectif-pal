@@ -21,22 +21,26 @@ export type GcdSeriesCandidate = {
   lastNumber: number | null;
 };
 
-/** Familles d'éditeur : la clé, ses variantes chez nous (BnF, saisie) et son nom chez GCD — normalisés à la comparaison. */
+/**
+ * Familles d'éditeur : la clé, ses variantes chez nous (BnF, saisie) et son
+ * nom chez GCD — normalisés à la comparaison. Les variantes viennent des
+ * valeurs RÉELLES vues en prod (dry-run du 14/09/2026), jamais d'un préfixe.
+ */
 export const PUBLISHER_FAMILIES: readonly { key: string; gcdPublisher: string; variants: readonly string[] }[] = [
   { key: "panini", gcdPublisher: "Panini France", variants: ["panini", "panini comics", "panini france", "panini comics (nice)", "panini france (nice)", "panini family (nice)", "panini books"] },
-  { key: "urban", gcdPublisher: "Urban Comics", variants: ["urban comics", "urban comics (paris)", "urban"] },
+  { key: "urban", gcdPublisher: "Urban Comics", variants: ["urban comics", "urban comics (paris)", "urban comics (paris cedex 19)", "urban (paris)", "urban"] },
   { key: "glenat", gcdPublisher: "Glénat", variants: ["glenat", "glenat (grenoble)", "glenat (paris)", "editions glenat"] },
   { key: "lombard", gcdPublisher: "Le Lombard", variants: ["le lombard", "le lombard (bruxelles)", "lombard", "editions du lombard"] },
   { key: "delcourt", gcdPublisher: "Delcourt", variants: ["delcourt", "delcourt (paris)", "editions delcourt"] },
-  { key: "taifu", gcdPublisher: "Taïfu Comics", variants: ["taifu comics", "taifu", "taifu comics (paris)"] },
+  { key: "taifu", gcdPublisher: "Taïfu Comics", variants: ["taifu comics", "taifu", "taifu comics (paris)", "yuri"] } /* « Yuri » : le label yuri de Taïfu, tel que la BnF le sert */,
   { key: "kioon", gcdPublisher: "Ki-oon", variants: ["ki-oon", "ki-oon (paris)", "kioon"] },
-  { key: "pika", gcdPublisher: "Pika Édition", variants: ["pika", "pika edition", "pika (paris)", "pika edition (paris)"] },
+  { key: "pika", gcdPublisher: "Pika Édition", variants: ["pika", "pika edition", "pika editions", "pika (paris)", "pika edition (paris)", "pika editions (vanves)"] },
   { key: "kana", gcdPublisher: "Kana", variants: ["kana", "kana (bruxelles)", "kana (paris)"] },
   { key: "kurokawa", gcdPublisher: "Kurokawa", variants: ["kurokawa", "kurokawa (paris)"] },
-  { key: "dargaud", gcdPublisher: "Dargaud", variants: ["dargaud", "dargaud (paris)"] },
-  { key: "dupuis", gcdPublisher: "Dupuis", variants: ["dupuis", "dupuis (marcinelle)", "dupuis (paris)"] },
+  { key: "dargaud", gcdPublisher: "Dargaud", variants: ["dargaud", "dargaud (paris)", "dargaud benelux", "dargaud benelux (bruxelles)"] },
+  { key: "dupuis", gcdPublisher: "Dupuis", variants: ["dupuis", "dupuis (marcinelle)", "dupuis (marcinelle (belgique))", "dupuis (paris)"] },
   { key: "casterman", gcdPublisher: "Casterman", variants: ["casterman", "casterman (bruxelles)", "casterman (paris)"] },
-  { key: "soleil", gcdPublisher: "Soleil", variants: ["soleil", "soleil (toulon)", "soleil productions"] },
+  { key: "soleil", gcdPublisher: "Soleil", variants: ["soleil", "soleil (toulon)", "soleil productions", "soleil manga", "soleil manga (paris)"] },
 ];
 
 /** Minuscules, sans accents, espaces et ponctuation d'apparat réduits — pour comparer des noms d'éditeur. */

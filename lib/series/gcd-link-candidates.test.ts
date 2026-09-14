@@ -21,6 +21,10 @@ describe("familles d'éditeur — table explicite, comparée sans accents ni cas
     expect(bookPublisherFamily("Glénat (Grenoble)")).toBe("glenat");
     expect(bookPublisherFamily("le Lombard (Bruxelles)")).toBe("lombard");
     expect(bookPublisherFamily("Taïfu Comics")).toBe("taifu");
+    expect(bookPublisherFamily("Urban (Paris)")).toBe("urban");
+    expect(bookPublisherFamily("Soleil manga (Paris)")).toBe("soleil");
+    expect(bookPublisherFamily("Dupuis (Marcinelle (Belgique))")).toBe("dupuis");
+    expect(bookPublisherFamily("Pika éditions (Vanves)")).toBe("pika");
     expect(bookPublisherFamily("Lorestone (Paris)")).toBeNull();
     expect(bookPublisherFamily(null)).toBeNull();
   });
