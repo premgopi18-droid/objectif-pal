@@ -1,4 +1,5 @@
-# Le plancher VF par édition (#299, suivi de séries §4.17) — chaque nuit.
+# Les séries, chaque nuit (suivi de séries §4.17) : plancher VF par édition
+# (#299), GCD en direct (#308), faits depuis GCD (#301), AniList (#304).
 #
 # Pour chaque série à identifiant d'édition BnF, le plus grand tome déposé
 # (recherche titre + auteur regroupée par notice de série), posé sur
@@ -30,6 +31,13 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run series:bnf-floor -- ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # GCD en direct (#308) : les séries reliées relues par l'API publique
+      # de comics.org — fin, dernier numéro, fascicules nouveaux (ISBN, code-
+      # barres) — sans attendre le dump. 1 requête/s, 200 + 200 appels, 15 min.
+      - run: npm run series:gcd-live -- ${{ inputs.dry_run && '--dry-run' || '' }}
         env:
           NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
           SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

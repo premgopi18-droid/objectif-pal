@@ -336,6 +336,7 @@ export type Database = {
           issue_count: number | null
           language_id: number | null
           last_number: number | null
+          live_checked_at: string | null
           name: string | null
           publisher: string | null
           year_began: number | null
@@ -348,6 +349,7 @@ export type Database = {
           issue_count?: number | null
           language_id?: number | null
           last_number?: number | null
+          live_checked_at?: string | null
           name?: string | null
           publisher?: string | null
           year_began?: number | null
@@ -360,6 +362,7 @@ export type Database = {
           issue_count?: number | null
           language_id?: number | null
           last_number?: number | null
+          live_checked_at?: string | null
           name?: string | null
           publisher?: string | null
           year_began?: number | null
