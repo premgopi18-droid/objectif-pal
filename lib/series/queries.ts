@@ -87,7 +87,9 @@ export async function loadSeriesProgress(
   const [seriesResult, knownMax] = await Promise.all([
     supabase
       .from("series")
-      .select("id, name, category, total_volumes, is_ongoing, fact_declared_by, fact_declared_at, fact_source")
+      .select(
+        "id, name, category, total_volumes, is_ongoing, fact_declared_by, fact_declared_at, fact_source, human_total_volumes, human_is_ongoing, human_declared_by, human_declared_at, fact_locked_at, fact_confirmed_by",
+      )
       .in("id", seriesIds),
     options.withKnownMax ? fetchKnownMaxBySeriesId(supabase, seriesIds) : Promise.resolve(new Map<string, KnownMax[]>()),
   ]);
@@ -102,6 +104,12 @@ export async function loadSeriesProgress(
     factDeclaredBy: row.fact_declared_by,
     factDeclaredAt: row.fact_declared_at,
     factSource: row.fact_source === "gcd" || row.fact_source === "anilist" ? row.fact_source : "human",
+    humanTotalVolumes: row.human_total_volumes,
+    humanIsOngoing: row.human_is_ongoing,
+    humanDeclaredBy: row.human_declared_by,
+    humanDeclaredAt: row.human_declared_at,
+    factLockedAt: row.fact_locked_at,
+    factConfirmedBy: row.fact_confirmed_by === "gcd" || row.fact_confirmed_by === "anilist" ? row.fact_confirmed_by : null,
   }));
 
   return { progress: deriveSeries(seriesList, books, knownMax, { includeHidden: options.includeHidden }), seriesIds };

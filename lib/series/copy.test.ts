@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   approximateWarning,
   declaredByLabel,
+  keepHumanFactLabel,
   knownMaxExceedsLabel,
   knownMaxHint,
   knownMaxSummary,
+  overriddenByLabel,
   matchesSeriesFilter,
   nextCardCopy,
   seriesCountsText,
@@ -47,16 +49,33 @@ describe("les textes du suivi de séries", () => {
   });
 
   it("l'auteur du fait : toi, un ami par son pseudo, sinon « un membre » — rien sans fait", () => {
-    const declared = { totalVolumes: 7, isOngoing: false, factDeclaredBy: "u", factDeclaredAt: "2026-09-14T10:00:00Z", factSource: "human" as const };
+    const declared = { totalVolumes: 7, isOngoing: false, factDeclaredBy: "u", factDeclaredAt: "2026-09-14T10:00:00Z", factSource: "human" as const, factConfirmedBy: null };
     expect(declaredByLabel(declared, "Léna")).toBe("7 tomes, déclaré par Léna le 14/09/2026");
     expect(declaredByLabel(declared, null)).toBe("7 tomes, déclaré par un membre le 14/09/2026");
     expect(declaredByLabel({ ...declared, totalVolumes: null, isOngoing: true }, "toi")).toContain("parution en cours, déclaré par toi");
-    expect(declaredByLabel({ totalVolumes: null, isOngoing: false, factDeclaredBy: null, factDeclaredAt: null, factSource: "human" }, null)).toBeNull();
+    expect(declaredByLabel({ totalVolumes: null, isOngoing: false, factDeclaredBy: null, factDeclaredAt: null, factSource: "human", factConfirmedBy: null }, null)).toBeNull();
+    // La validation visible (#317).
+    expect(declaredByLabel({ ...declared, factConfirmedBy: "gcd" }, "Léna")).toBe("7 tomes, déclaré par Léna le 14/09/2026, confirmé par GCD");
+    expect(declaredByLabel({ ...declared, factConfirmedBy: "anilist" }, "toi")).toContain("confirmé par AniList");
     // Le fait posé par GCD dit sa source, sans pseudo.
     expect(declaredByLabel({ ...declared, totalVolumes: 12, factDeclaredBy: null, factSource: "gcd" }, null)).toBe("12 numéros, série close d'après GCD");
     expect(declaredByLabel({ ...declared, totalVolumes: null, isOngoing: true, factDeclaredBy: null, factSource: "gcd" }, null)).toBe("parution en cours d'après GCD");
     expect(declaredByLabel({ ...declared, totalVolumes: 23, factDeclaredBy: null, factSource: "anilist" }, null)).toBe("23 volumes, série terminée d'après AniList");
     expect(declaredByLabel({ ...declared, totalVolumes: null, isOngoing: true, factDeclaredBy: null, factSource: "anilist" }, null)).toBe("parution en cours d'après AniList");
+  });
+
+  it("overriddenByLabel / keepHumanFactLabel — une source a remplacé une déclaration humaine (#317)", () => {
+    const overridden = { totalVolumes: 15, isOngoing: false, factSource: "gcd" as const, humanTotalVolumes: 12, humanIsOngoing: false, humanDeclaredAt: "2026-09-14T10:00:00Z" };
+    expect(overriddenByLabel(overridden, "Léna")).toBe("Léna avait dit 12 tomes");
+    expect(overriddenByLabel(overridden, "toi")).toBe("tu avais dit 12 tomes");
+    expect(overriddenByLabel(overridden, null)).toBe("un membre avait dit 12 tomes");
+    expect(overriddenByLabel({ ...overridden, humanTotalVolumes: null, humanIsOngoing: true }, "toi")).toBe("tu avais dit parution en cours");
+    // Même valeur, ou fait humain, ou pas de déclaration humaine : rien à dire.
+    expect(overriddenByLabel({ ...overridden, humanTotalVolumes: 15 }, "toi")).toBeNull();
+    expect(overriddenByLabel({ ...overridden, factSource: "human" }, "toi")).toBeNull();
+    expect(overriddenByLabel({ ...overridden, humanDeclaredAt: null }, "toi")).toBeNull();
+    expect(keepHumanFactLabel({ humanTotalVolumes: 12, humanIsOngoing: false })).toBe("Garder 12");
+    expect(keepHumanFactLabel({ humanTotalVolumes: null, humanIsOngoing: true })).toBe("Garder « en cours »");
   });
 
   it("le stepper part du plus grand plancher, sinon du plus grand possédé (10 au moins)", () => {

@@ -1,6 +1,6 @@
 import { formatDateFrench } from "@/lib/dates";
 import type { BookCategory } from "@/lib/scoring/types";
-import type { KnownMax, SeriesNext, SeriesProgress, SeriesStatus } from "@/lib/series/derive-series";
+import type { KnownMax, SeriesFactSource, SeriesNext, SeriesProgress, SeriesStatus } from "@/lib/series/derive-series";
 
 /**
  * Les textes du suivi de séries (lot B de l'epic #289, specs §4.17) — la
@@ -93,8 +93,10 @@ export function approximateWarning(unnumberedRead: number): string {
  * (règle de `get_cover_contributions`) : « toi », un ami par son pseudo, sinon
  * « un membre ».
  */
+const SOURCE_NAMES: Record<Exclude<SeriesFactSource, "human">, string> = { gcd: "GCD", anilist: "AniList" };
+
 export function declaredByLabel(
-  progress: Pick<SeriesProgress, "totalVolumes" | "isOngoing" | "factDeclaredBy" | "factDeclaredAt" | "factSource">,
+  progress: Pick<SeriesProgress, "totalVolumes" | "isOngoing" | "factDeclaredBy" | "factDeclaredAt" | "factSource" | "factConfirmedBy">,
   declarerLabel: string | null,
 ): string | null {
   if (progress.factDeclaredAt === null) return null;
@@ -112,7 +114,31 @@ export function declaredByLabel(
   // Découpage pur de l'ISO (jour UTC) : le même rendu serveur et client, pas
   // de décalage d'hydratation autour de minuit (review #296).
   const when = formatDateFrench(progress.factDeclaredAt.slice(0, 10));
-  return `${what}, déclaré par ${who} le ${when}`;
+  // La validation visible (#317) : une source dit la même chose que l'humain.
+  const confirmed = progress.factConfirmedBy === null ? "" : `, confirmé par ${SOURCE_NAMES[progress.factConfirmedBy]}`;
+  return `${what}, déclaré par ${who} le ${when}${confirmed}`;
+}
+
+/**
+ * Le fait courant vient d'une source et un humain avait dit autre chose (#317) :
+ * « Léna avait dit 12 tomes » — `null` si rien à dire (pas de déclaration
+ * humaine, ou la même valeur, ou le fait courant est humain).
+ */
+export function overriddenByLabel(
+  progress: Pick<SeriesProgress, "totalVolumes" | "isOngoing" | "factSource" | "humanTotalVolumes" | "humanIsOngoing" | "humanDeclaredAt">,
+  humanLabel: string | null,
+): string | null {
+  if (progress.factSource === "human" || progress.humanDeclaredAt === null) return null;
+  const humanOngoing = progress.humanIsOngoing === true;
+  if (humanOngoing === progress.isOngoing && progress.humanTotalVolumes === progress.totalVolumes) return null;
+  const said = humanOngoing ? "parution en cours" : `${progress.humanTotalVolumes ?? "?"} tomes`;
+  const who = humanLabel === "toi" ? "tu avais dit" : `${humanLabel ?? "un membre"} avait dit`;
+  return `${who} ${said}`;
+}
+
+/** Le bouton qui rejoue la déclaration humaine — et la verrouille (#317). */
+export function keepHumanFactLabel(progress: Pick<SeriesProgress, "humanTotalVolumes" | "humanIsOngoing">): string {
+  return progress.humanIsOngoing === true ? "Garder « en cours »" : `Garder ${progress.humanTotalVolumes ?? "?"}`;
 }
 
 /** Le pré-remplissage du stepper : le plus grand plancher s'il existe, sinon le plus grand possédé (au moins 10, comme le proto). */

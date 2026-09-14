@@ -879,9 +879,16 @@ export type Database = {
           category: Database["public"]["Enums"]["book_category"]
           created_at: string
           created_by: string | null
+          fact_confirmed_at: string | null
+          fact_confirmed_by: string | null
           fact_declared_at: string | null
           fact_declared_by: string | null
+          fact_locked_at: string | null
           fact_source: string
+          human_declared_at: string | null
+          human_declared_by: string | null
+          human_is_ongoing: boolean | null
+          human_total_volumes: number | null
           id: string
           is_ongoing: boolean
           name: string
@@ -893,9 +900,16 @@ export type Database = {
           category: Database["public"]["Enums"]["book_category"]
           created_at?: string
           created_by?: string | null
+          fact_confirmed_at?: string | null
+          fact_confirmed_by?: string | null
           fact_declared_at?: string | null
           fact_declared_by?: string | null
+          fact_locked_at?: string | null
           fact_source?: string
+          human_declared_at?: string | null
+          human_declared_by?: string | null
+          human_is_ongoing?: boolean | null
+          human_total_volumes?: number | null
           id?: string
           is_ongoing?: boolean
           name: string
@@ -907,9 +921,16 @@ export type Database = {
           category?: Database["public"]["Enums"]["book_category"]
           created_at?: string
           created_by?: string | null
+          fact_confirmed_at?: string | null
+          fact_confirmed_by?: string | null
           fact_declared_at?: string | null
           fact_declared_by?: string | null
+          fact_locked_at?: string | null
           fact_source?: string
+          human_declared_at?: string | null
+          human_declared_by?: string | null
+          human_is_ongoing?: boolean | null
+          human_total_volumes?: number | null
           id?: string
           is_ongoing?: boolean
           name?: string
@@ -931,6 +952,13 @@ export type Database = {
             referencedRelation: "profiles"
             referencedColumns: ["id"]
           },
+          {
+            foreignKeyName: "series_human_declared_by_fkey"
+            columns: ["human_declared_by"]
+            isOneToOne: false
+            referencedRelation: "profiles"
+            referencedColumns: ["id"]
+          },
         ]
       }
       series_events: {
@@ -942,7 +970,10 @@ export type Database = {
           merged_series_id: string | null
           new_name: string | null
           old_name: string | null
+          previous_is_ongoing: boolean | null
+          previous_total_volumes: number | null
           series_id: string
+          source: string | null
           total_volumes: number | null
           user_id: string | null
         }
@@ -954,7 +985,10 @@ export type Database = {
           merged_series_id?: string | null
           new_name?: string | null
           old_name?: string | null
+          previous_is_ongoing?: boolean | null
+          previous_total_volumes?: number | null
           series_id: string
+          source?: string | null
           total_volumes?: number | null
           user_id?: string | null
         }
@@ -966,7 +1000,10 @@ export type Database = {
           merged_series_id?: string | null
           new_name?: string | null
           old_name?: string | null
+          previous_is_ongoing?: boolean | null
+          previous_total_volumes?: number | null
           series_id?: string
+          source?: string | null
           total_volumes?: number | null
           user_id?: string | null
         }
@@ -1102,7 +1139,7 @@ export type Database = {
           p_source: string
           p_total_volumes?: number
         }
-        Returns: boolean
+        Returns: string
       }
       find_or_create_series: {
         Args: {
@@ -1188,8 +1225,10 @@ export type Database = {
       sync_series_facts_from_gcd: {
         Args: never
         Returns: {
+          confirmed: number
           declared_ongoing: number
           declared_total: number
+          overridden: number
           unchanged: number
         }[]
       }

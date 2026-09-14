@@ -25,6 +25,12 @@ const series = (overrides: Partial<SeriesFact> = {}): SeriesFact => ({
   factDeclaredBy: null,
   factDeclaredAt: null,
   factSource: "human",
+  humanTotalVolumes: null,
+  humanIsOngoing: null,
+  humanDeclaredBy: null,
+  humanDeclaredAt: null,
+  factLockedAt: null,
+  factConfirmedBy: null,
   ...overrides,
 });
 
