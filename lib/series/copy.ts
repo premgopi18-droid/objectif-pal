@@ -20,13 +20,15 @@ export const SERIES_STATUS_LABELS: Record<SeriesStatus, { label: string; badge: 
 };
 
 /**
- * Les chips du segment — « En cours » regroupe ce qui reste à lire OU à
- * renseigner (proto), séries à commencer comprises ; « À commencer » (#323) =
- * rien de lu, des tomes dans la pile. « En cours » est la chip par défaut.
+ * Les chips du segment — EXCLUSIVES (#325) : « À commencer » (rien de lu, des
+ * tomes dans la pile), « En cours » (entamée, reste à lire OU à renseigner :
+ * total à déclarer et ≈ approximatif compris), « À jour », « Complètes » ;
+ * « Toutes » = leur union, chip par défaut — la liste y est ordonnée par
+ * groupe, à commencer d'abord.
  */
 export type SeriesFilter = "all" | "not-started" | "in-progress" | "up-to-date" | "complete";
 
-export const DEFAULT_SERIES_FILTER: SeriesFilter = "in-progress";
+export const DEFAULT_SERIES_FILTER: SeriesFilter = "all";
 
 export const SERIES_FILTER_LABELS: Record<SeriesFilter, string> = {
   all: "Toutes",
@@ -42,6 +44,7 @@ export const NOT_STARTED_BADGE: { label: string; badge: SeriesStatusBadge } = { 
 export const matchesSeriesFilter = (progress: Pick<SeriesProgress, "status" | "isNotStarted">, filter: SeriesFilter): boolean => {
   if (filter === "all") return true;
   if (filter === "not-started") return progress.isNotStarted;
+  if (progress.isNotStarted) return false;
   if (filter === "in-progress") return progress.status === "in-progress" || progress.status === "unknown-total" || progress.status === "approximate";
   return progress.status === filter;
 };

@@ -359,7 +359,15 @@ export function nextInPileBookIds(list: readonly SeriesProgress[]): Set<string> 
   return new Set(list.flatMap((progress) => (progress.next?.kind === "read-next" ? [progress.next.bookId] : [])));
 }
 
-/** Toutes les séries de l'utilisateur, triées par dette décroissante (la plus grosse dette d'abord — c'est elle qu'on vient regarder). */
+/** L'ordre des groupes du segment : à commencer, en cours (à déclarer et approximatif compris), à jour, complètes. */
+const listRank = (progress: Pick<SeriesProgress, "status" | "isNotStarted">): number => {
+  if (progress.isNotStarted) return 0;
+  if (progress.status === "up-to-date") return 2;
+  if (progress.status === "complete") return 3;
+  return 1;
+};
+
+/** Toutes les séries de l'utilisateur, triées par groupe puis par dette décroissante (la plus grosse dette d'abord — c'est elle qu'on vient regarder). */
 export function deriveSeries(
   seriesList: SeriesFact[],
   books: SeriesBookFact[],
@@ -381,8 +389,9 @@ export function deriveSeries(
     .sort(
       (left, right) =>
         Number(right.isVisible) - Number(left.isVisible) ||
-        // Les séries à commencer d'abord (demande de Prem, #323) : c'est là que la pile dort.
-        Number(right.isNotStarted) - Number(left.isNotStarted) ||
+        // Par groupe (#323/#325) : à commencer, en cours, à jour, complètes —
+        // « Toutes » montre d'abord ce qui reste à lire ; puis la dette.
+        listRank(left) - listRank(right) ||
         right.pile - left.pile ||
         right.read - left.read ||
         left.name.localeCompare(right.name, "fr"),

@@ -1131,9 +1131,9 @@ comme prévu), 0 livre nommé sans lien.
    la BnF en connaît 3 → « il te manque le tome 2 » est une information). Seul un tome dont aucune source ne sait
    rien reste replié en bas du segment, avec sa porte vers la fiche pour déclarer (#306).
 7. **Les états** : « En cours », « À jour » (parution en cours, tout ce qui est **paru et connu** est lu — le
-   plancher compte, #307), « **À commencer** » (#323, 14/09/2026 : rien de lu, des tomes dans la pile — un mot
-   sur l'état « en cours », pas un sixième état ; ces séries passent **en tête** du segment, avant la dette, et
-   ont leur chip ; « En cours » les inclut), « Complète »
+   plancher compte, #307), « **À commencer** » (#323/#325, 14/09/2026 : rien de lu, des tomes dans la pile — un
+   badge sur l'état « en cours », pas un sixième état ; ces séries passent **en tête** du segment, avant la dette,
+   et ont leur chip ; **les chips sont exclusives** : « En cours » ne les inclut pas), « Complète »
    (total déclaré atteint — jamais sans total), « Total à déclarer », « ≈ approximatif » (un tome lu sans
    numéro : jauge et suivant restent muets plutôt que faux, un tap sur la case « ? » règle ça).
 8. **Le tome suivant** = le plus petit numéro non lu, règle de #30 conservée : « à lire, il est dans ta
@@ -1162,9 +1162,10 @@ comme prévu), 0 livre nommé sans lien.
     livres de l'utilisateur** (majorité), pas la colonne.
 
 **Les surfaces** : la Biblio gagne un **3ᵉ segment « Séries »** (`?vue=series`, livré au lot B #292 : cartes
-triées par dette décroissante — les séries à commencer d'abord (#323) —, jauge vert = lu / ambre = pile, chips
-Toutes / À commencer / En cours / À jour / Complètes avec effectifs — **« En cours » par défaut** (#323 : on vient
-voir ce qui reste à lire), qui regroupe aussi « Total à déclarer » et « ≈ approximatif » —, bannière de fusion sur la
+triées **par groupe** — à commencer, en cours, à jour, complètes (#323/#325) — puis par dette décroissante, jauge
+vert = lu / ambre = pile, chips EXCLUSIVES Toutes / À commencer / En cours / À jour / Complètes avec effectifs —
+« Toutes » par défaut : ce qui reste à lire vient en premier de lui-même ; « En cours » regroupe « Total à
+déclarer » et « ≈ approximatif », pas les séries à commencer —, bannière de fusion sur la
 première paire de graphies non ignorée ; **#319 / #321, 14/09/2026** : une **recherche par nom** (même
 normalisation que la Biblio, valable aussi sur les séries repliées) et un **sélecteur de type** sur la même rangée
 — les catégories présentes seulement, avec compte, affiché à partir de deux catégories —, puis les chips d'état
