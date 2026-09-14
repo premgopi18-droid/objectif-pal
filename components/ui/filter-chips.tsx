@@ -1,8 +1,10 @@
 "use client";
 
 /**
- * Les chips de filtre (design-specs §4) : rangée pill défilable, chip actif en
- * dégradé. Restyle les filtres du journal. Interactif → "use client".
+ * Les chips de filtre (design-specs §4) : rangée de pills qui PASSE À LA LIGNE
+ * (#319 : la rangée défilable coupait les chips et affichait un scrollbar
+ * horizontal — même patron que la rangée de filtres de la Biblio), chip actif
+ * en dégradé. Interactif → "use client".
  *
  * `aria-pressed` marque le chip actif ; texte du chip actif en `--bg0` (audit #66).
  */
@@ -22,7 +24,7 @@ type FilterChipsProps<T extends string> = {
 
 export function FilterChips<T extends string>({ chips, value, onChange, label }: FilterChipsProps<T>) {
   return (
-    <div role="group" aria-label={label} className="flex gap-2 overflow-x-auto pb-1">
+    <div role="group" aria-label={label} className="flex flex-wrap gap-2">
       {chips.map((chip) => {
         const active = chip.value === value;
         return (

@@ -18,6 +18,7 @@ import {
   type SeriesFilter,
 } from "@/lib/series/copy";
 import { findMergeCandidates, pairKey } from "@/lib/series/merge-candidates";
+import { categoryChips, filterSeriesByQueryAndCategory, type SeriesCategoryFilter } from "@/lib/series/filter";
 import type { SeriesSegmentData } from "@/lib/series/queries";
 
 /**
@@ -80,6 +81,9 @@ function parseIgnoredPairs(raw: string): Set<string> {
 
 export function SeriesView({ data, focusSeriesId = null }: { data: SeriesSegmentData; focusSeriesId?: string | null }) {
   const [filter, setFilter] = useState<SeriesFilter>("all");
+  // Recherche et catégorie (#319) : état local du segment, comme la recherche de la Biblio — rien n'est persisté.
+  const [searchText, setSearchText] = useState("");
+  const [category, setCategory] = useState<SeriesCategoryFilter>("all");
   const [openSeriesId, setOpenSeriesId] = useState<string | null>(() =>
     focusSeriesId !== null && data.progress.some((progress) => progress.seriesId === focusSeriesId) ? focusSeriesId : null,
   );
@@ -94,16 +98,25 @@ export function SeriesView({ data, focusSeriesId = null }: { data: SeriesSegment
   // fait : la porte vers leur fiche, pour déclarer (vécu sur Dungeon Crawler
   // Carl — un tome seul n'était joignable nulle part).
   const shown = useMemo(() => data.progress.filter((progress) => progress.isVisible), [data.progress]);
-  const hidden = useMemo(() => data.progress.filter((progress) => !progress.isVisible), [data.progress]);
-  const visible = useMemo(() => shown.filter((progress) => matchesSeriesFilter(progress.status, filter)), [shown, filter]);
+  // Le bandeau de synthèse et les chips de catégorie décrivent le PARC, pas la vue.
   const debt = useMemo(() => shown.reduce((sum, progress) => sum + progress.pile, 0), [shown]);
+  const categories = useMemo(() => categoryChips(shown), [shown]);
+  // Recherche + catégorie s'appliquent aux visibles ET aux repliées ; l'état, aux visibles seulement.
+  const searched = useMemo(() => filterSeriesByQueryAndCategory(shown, { query: searchText, category }), [shown, searchText, category]);
+  const hidden = useMemo(
+    () => filterSeriesByQueryAndCategory(data.progress.filter((progress) => !progress.isVisible), { query: searchText, category }),
+    [data.progress, searchText, category],
+  );
+  const visible = useMemo(() => searched.filter((progress) => matchesSeriesFilter(progress.status, filter)), [searched, filter]);
+  const isFiltering = searchText.trim() !== "" || category !== "all";
   const counts = useMemo(
     () =>
       FILTER_CHIPS.map((chip) => ({
         ...chip,
-        label: `${chip.label} ${shown.filter((progress) => matchesSeriesFilter(progress.status, chip.value)).length}`,
+        // Les compteurs disent ce qu'il reste après recherche et catégorie.
+        label: `${chip.label} ${searched.filter((progress) => matchesSeriesFilter(progress.status, chip.value)).length}`,
       })),
-    [shown],
+    [searched],
   );
   const mergePair = useMemo(
     () =>
@@ -161,7 +174,20 @@ export function SeriesView({ data, focusSeriesId = null }: { data: SeriesSegment
     <div className="mt-4 flex flex-col gap-4">
       <p className="text-sm text-ink2">{seriesHeadline(shown.length, debt)}</p>
 
-      {shown.length > 0 && <FilterChips chips={counts} value={filter} onChange={setFilter} label="Filtrer les séries" />}
+      {shown.length > 0 && (
+        <>
+          <input
+            type="search"
+            value={searchText}
+            onChange={(event) => setSearchText(event.target.value)}
+            placeholder="Rechercher une série…"
+            aria-label="Rechercher une série"
+            className="w-full rounded-xl border border-line bg-card px-3 py-2.5 text-sm text-ink placeholder:text-ink3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
+          />
+          <FilterChips chips={counts} value={filter} onChange={setFilter} label="Filtrer les séries par état" />
+          {categories.length > 2 && <FilterChips chips={categories} value={category} onChange={setCategory} label="Filtrer les séries par type" />}
+        </>
+      )}
 
       {errorMessage !== null && openProgress === null && <ErrorAlert message={errorMessage} />}
 
@@ -185,7 +211,7 @@ export function SeriesView({ data, focusSeriesId = null }: { data: SeriesSegment
           depuis « Modifier » dans Tous.
         </p>
       ) : shown.length === 0 ? null : visible.length === 0 ? (
-        <p className="py-8 text-center text-sm text-ink2">Aucune série dans cet état.</p>
+        <p className="py-8 text-center text-sm text-ink2">{isFiltering ? "Aucune série ne correspond." : "Aucune série dans cet état."}</p>
       ) : (
         <ul className="flex flex-col gap-3">
           {visible.map((progress) => (
