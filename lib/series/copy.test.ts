@@ -37,7 +37,9 @@ describe("les textes du suivi de séries", () => {
     expect(matchesSeriesFilter({ status: "complete", isNotStarted: false }, "all")).toBe(true);
     // « À commencer » (#323) : rien de lu, des tomes dans la pile — aussi dans « En cours ».
     expect(matchesSeriesFilter({ status: "in-progress", isNotStarted: true }, "not-started")).toBe(true);
-    expect(matchesSeriesFilter({ status: "in-progress", isNotStarted: true }, "in-progress")).toBe(true);
+    // Chips exclusives (#325) : une série à commencer n'est pas « en cours ».
+    expect(matchesSeriesFilter({ status: "in-progress", isNotStarted: true }, "in-progress")).toBe(false);
+    expect(matchesSeriesFilter({ status: "in-progress", isNotStarted: true }, "all")).toBe(true);
     expect(matchesSeriesFilter({ status: "in-progress", isNotStarted: false }, "not-started")).toBe(false);
     expect(seriesBadge({ status: "in-progress", isNotStarted: true })).toEqual({ label: "À commencer", badge: "idle" });
     expect(seriesBadge({ status: "unknown-total", isNotStarted: true }).label).toBe("À commencer");

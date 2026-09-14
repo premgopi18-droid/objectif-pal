@@ -377,6 +377,20 @@ describe("deriveSeries — la liste", () => {
       ["b", true],
       ["a", false],
     ]);
+    // Par groupe (#325) : à jour et complètes ferment la marche, même avec une dette nulle partout.
+    const grouped = deriveSeries(
+      [
+        series({ id: "done", name: "Done", ...declared({ totalVolumes: 2 }) }),
+        series({ id: "upd", name: "Upd", ...declared({ isOngoing: true }) }),
+        series({ id: "run", name: "Run", ...declared({ totalVolumes: 5 }) }),
+      ],
+      [
+        ...volumes([1, 2], "read").map((book) => ({ ...book, seriesId: "done" })),
+        ...volumes([1, 2], "read").map((book) => ({ ...book, seriesId: "upd" })),
+        ...volumes([1], "read").map((book) => ({ ...book, seriesId: "run" })),
+      ],
+    );
+    expect(grouped.map((progress) => progress.seriesId)).toEqual(["run", "upd", "done"]);
     expect(deriveSeriesProgress(series(), volumes([1, 2], "read")).isNotStarted).toBe(false);
     expect(deriveSeriesProgress(series(), [volume("1", "disposed")]).isNotStarted).toBe(false);
   });
