@@ -48,6 +48,12 @@ alter table public.series_events
 comment on column public.series_events.source is 'Pour `source_override` : la source qui a remplacé le fait humain (#317).';
 
 -- 3. La déclaration humaine (même corps que 20260914170000 + human_*, verrou, confirmation).
+--    Le cas que tout le monde redoutera (review #318) : un humain déclare « 12 »
+--    alors que GCD dit « en cours » (souvent périmé chez GCD). Si la fiche
+--    montrait déjà « en cours d’après GCD », la déclaration se fait PAR-DESSUS
+--    une source : verrouillée ici, rien ne bougera. Si la déclaration précède
+--    le savoir de GCD (lien posé plus tard, dump), le run suivant remplacera
+--    par « en cours » — en le disant, « Garder 12 » d’un tap re-verrouille.
 create or replace function public.declare_series_fact(
   p_series_id uuid,
   p_total_volumes integer default null,

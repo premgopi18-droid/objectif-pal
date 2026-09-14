@@ -113,7 +113,9 @@ export function SeriesSheet({
   const next = progress.next !== null && progress.unnumberedRead === 0 ? nextCardCopy(progress.next, progress.totalVolumes) : null;
   const declared = declaredByLabel(progress, declarerLabel);
   // Une source a remplacé une déclaration humaine (#317) : on le dit, et « Garder » verrouille.
-  const overridden = overriddenByLabel(progress, humanDeclarerLabel);
+  // Le bouton « Garder » rejoue une déclaration humaine qui existe : un total, ou « en cours » — jamais un repli inventé (review #318).
+  const keepableHumanFact = progress.humanIsOngoing === true ? { isOngoing: true as const } : progress.humanTotalVolumes !== null ? { totalVolumes: progress.humanTotalVolumes } : null;
+  const overridden = keepableHumanFact === null ? null : overriddenByLabel(progress, humanDeclarerLabel);
   const volumeByNumber = new Map(progress.volumes.filter((volume) => volume.number !== null).map((volume) => [volume.number as number, volume]));
   const unnumbered = progress.volumes.filter((volume) => volume.number === null && volume.state !== "other");
   const nextNumber = progress.next && "number" in progress.next ? progress.next.number : null;
@@ -298,7 +300,7 @@ export function SeriesSheet({
               type="button"
               variant="ghost"
               disabled={isPending}
-              onClick={() => (progress.humanIsOngoing === true ? onDeclareOngoing() : onDeclareTotal(progress.humanTotalVolumes ?? 1))}
+              onClick={() => (keepableHumanFact === null || "isOngoing" in keepableHumanFact ? onDeclareOngoing() : onDeclareTotal(keepableHumanFact.totalVolumes))}
             >
               {keepHumanFactLabel(progress)}
             </Button>
