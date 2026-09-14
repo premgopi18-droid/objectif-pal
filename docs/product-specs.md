@@ -1081,7 +1081,8 @@ comme prévu), 0 livre nommé sans lien.
    faits. Comics VF Urban/Delcourt : GCD, à jour au dump. Comics VF Panini : **aucune source** — Panini n'est pas
    indexé par ISBN dans GCD (0 des 73 séries sans lien GCD n'a un ISBN connu de GCD), les homonymes GCD sont
    ambigus (Spider-Man : 8 séries françaises) ; seul un rattachement nom + éditeur, candidat unique, validé à la
-   main (#309). Manga : AniList (15/20, 0 erreur) et GCD (Ki-oon, Pika). Romans : BnF seule, plancher partiel
+   main (#309 ; l'éditeur stocké est le NOM de la maison, sans lieu d'édition — migration #314 : 646 livres et 629
+   entrées de cache BnF « Urban comics (Paris) » nettoyés, l'ancien parseur Dublin Core collait le lieu). Manga : AniList (15/20, 0 erreur) et GCD (Ki-oon, Pika). Romans : BnF seule, plancher partiel
    (Dungeon Crawler Carl 3/5) et délai de dépôt légal > 5 mois (les tomes d'avril 2026 absents en septembre).
    **Écartés, mesurés** : Google Books (0 résultat pour Absolute Superman chez Urban ; `langRestrict=fr` renvoie
    les volumes DC en anglais), Inventaire et Wikidata (niveau œuvre, donc la VO : Dungeon Crawler Carl y a 8
