@@ -185,6 +185,7 @@ export function SeriesView({ data, focusSeriesId = null }: { data: SeriesSegment
             className="w-full rounded-xl border border-line bg-card px-3 py-2.5 text-sm text-ink placeholder:text-ink3 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan"
           />
           <FilterChips chips={counts} value={filter} onChange={setFilter} label="Filtrer les séries par état" />
+          {/* « Toutes » + au moins deux catégories : une seule catégorie ne se filtre pas. */}
           {categories.length > 2 && <FilterChips chips={categories} value={category} onChange={setCategory} label="Filtrer les séries par type" />}
         </>
       )}
