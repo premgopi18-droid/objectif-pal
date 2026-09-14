@@ -267,9 +267,9 @@ describe("deriveSeries — la liste", () => {
     expect(list.map((progress) => progress.seriesId)).toEqual(["b", "a", "d"]); // 2 lus, 2 lus (nom), puis 1 lu
   });
 
-  it("un tome isolé avec un fait posé par GCD reste sous le seuil — seul un fait humain l'y fait entrer", () => {
+  it("un tome isolé avec un fait — humain ou posé par GCD — passe le seuil (décision du 14/09/2026)", () => {
     const gcdDeclared = series(declared({ id: "g", name: "Ippo", isOngoing: true, factSource: "gcd" }));
-    expect(deriveSeries([gcdDeclared], [{ ...volume("1", "read"), seriesId: "g" }])).toEqual([]);
+    expect(deriveSeries([gcdDeclared], [{ ...volume("1", "read"), seriesId: "g" }]).map((progress) => progress.seriesId)).toEqual(["g"]);
     expect(deriveSeries([singleDeclared], [{ ...volume("1", "read"), seriesId: "d" }]).map((progress) => progress.seriesId)).toEqual(["d"]);
   });
 
