@@ -9,7 +9,9 @@
  * pur `pickGcdCandidate` exige le même nom normalisé, la même famille
  * d'éditeur (table explicite) et un candidat UNIQUE. L'année de parution n'est
  * pas stockée sur le livre : pas de filtre d'année aujourd'hui (le verdict le
- * prévoit, `oldestYear` reste `null`).
+ * prévoit, `oldestYear` reste `null`) ; en revanche le plus grand tome possédé
+ * borne une édition close, et toute édition close est marquée « à vérifier »
+ * (review #312 : Generation X → Panini 1999 n'est pas l'édition de 2024).
  *
  * Jamais automatique : dry-run par défaut, Prem valide la liste, puis
  * `--apply` (au besoin `--only=<seriesId,…>` pour n'en poser qu'une partie).
@@ -25,6 +27,7 @@
  * Env : NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY. One-shot.
  */
 
+import { parseVolumeNumber } from "@/lib/resolution/volume-number";
 import { pickGcdCandidate, type GcdSeriesCandidate } from "@/lib/series/gcd-link-candidates";
 import { fetchAllRows } from "@/lib/supabase/pagination";
 import { createAdminClientFromEnv } from "./lib/env.mjs";
@@ -44,15 +47,20 @@ if (linksError) throw new Error(`series_external_ids : ${linksError.message}`);
 const linked = new Set(gcdLinks.map((link) => link.series_id));
 
 // 2. Leurs livres (tous comptes : le référentiel est partagé) — l'éditeur majoritaire.
-type BookRow = { series_id: string | null; publisher: string | null };
+type BookRow = { series_id: string | null; publisher: string | null; issue_number: string | null };
 const books = await fetchAllRows<BookRow>(async (from, to) => {
-  const { data, error } = await admin.from("books").select("series_id, publisher").not("series_id", "is", null).is("deleted_at", null).order("id").range(from, to);
+  const { data, error } = await admin.from("books").select("series_id, publisher, issue_number").not("series_id", "is", null).is("deleted_at", null).order("id").range(from, to);
   if (error) throw new Error(`books : ${error.message}`);
   return data;
 });
 const publishersBySeries = new Map<string, Map<string, number>>();
+// Le plus grand tome numérique par série : une édition close ne peut pas en avoir moins (review #312).
+const maxNumberBySeries = new Map<string, number>();
 for (const book of books) {
-  if (book.series_id === null || book.publisher === null) continue;
+  if (book.series_id === null) continue;
+  const number = parseVolumeNumber(book.issue_number);
+  if (number !== null) maxNumberBySeries.set(book.series_id, Math.max(maxNumberBySeries.get(book.series_id) ?? 0, Number(number)));
+  if (book.publisher === null) continue;
   const counts = publishersBySeries.get(book.series_id) ?? new Map<string, number>();
   counts.set(book.publisher, (counts.get(book.publisher) ?? 0) + 1);
   publishersBySeries.set(book.series_id, counts);
@@ -67,6 +75,8 @@ const orphans = seriesRows.filter((series) => !linked.has(series.id) && withBook
 console.log(`${seriesRows.length} séries, ${orphans.length} sans lien GCD avec au moins un livre${apply ? "" : " (dry-run)"}`);
 
 // PostgREST : « % » et « _ » sont des jokers d'ilike ; on les échappe pour un égal insensible à la casse.
+// « * » est aussi traduit en joker par PostgREST et ne s'échappe pas : sans conséquence, le verdict
+// recompare ensuite le nom normalisé exact (review #312).
 const escapeLike = (value: string): string => value.replace(/[\\%_]/g, (character) => `\\${character}`);
 
 const counts = { unique: 0, ambiguous: 0, noFamily: 0, noMatch: 0, posed: 0, alreadyHeld: 0, errors: 0 };
@@ -76,7 +86,7 @@ for (const series of orphans.sort((left, right) => left.name.localeCompare(right
   const publisher = majorityPublisher(series.id);
   const { data, error } = await admin
     .from("gcd_series")
-    .select("id, name, publisher, year_began, is_current, last_number")
+    .select("id, name, publisher, year_began, year_ended, is_current, last_number")
     .eq("language_id", FRENCH_LANGUAGE_ID)
     .ilike("name", escapeLike(series.name))
     .limit(CANDIDATE_LIMIT);
@@ -90,16 +100,17 @@ for (const series of orphans.sort((left, right) => left.name.localeCompare(right
     name: row.name,
     publisher: row.publisher,
     yearBegan: row.year_began,
+    yearEnded: row.year_ended,
     isCurrent: row.is_current,
     lastNumber: row.last_number,
   }));
-  const verdict = pickGcdCandidate({ seriesName: series.name, publisher, oldestYear: null, candidates });
+  const verdict = pickGcdCandidate({ seriesName: series.name, publisher, oldestYear: null, maxOwnedNumber: maxNumberBySeries.get(series.id) ?? null, candidates });
   const describe = (candidate: GcdSeriesCandidate) =>
     `GCD #${candidate.id} (${candidate.publisher ?? "?"}, ${candidate.yearBegan ?? "?"}, ${candidate.isCurrent ? "en cours" : `close, dernier ${candidate.lastNumber ?? "?"}`})`;
   const head = `  « ${series.name} » [${series.id.slice(0, 8)}…] | ${publisher ?? "éditeur inconnu"}`;
   if (verdict.kind === "unique") {
     counts.unique += 1;
-    console.log(`${head} → ${describe(verdict.candidate)}`);
+    console.log(`${head} → ${describe(verdict.candidate)}${verdict.closedEdition ? " ⚠ édition close : vérifier que c'est bien la tienne" : ""}`);
     toLink.push({ seriesId: series.id, name: series.name, candidate: verdict.candidate });
   } else if (verdict.kind === "ambiguous") {
     counts.ambiguous += 1;

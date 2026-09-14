@@ -16,13 +16,14 @@ export type GcdSeriesCandidate = {
   name: string | null;
   publisher: string | null;
   yearBegan: number | null;
+  yearEnded: number | null;
   isCurrent: boolean | null;
   lastNumber: number | null;
 };
 
 /** Familles d'éditeur : la clé, ses variantes chez nous (BnF, saisie) et son nom chez GCD — normalisés à la comparaison. */
 export const PUBLISHER_FAMILIES: readonly { key: string; gcdPublisher: string; variants: readonly string[] }[] = [
-  { key: "panini", gcdPublisher: "Panini France", variants: ["panini", "panini comics", "panini france", "panini comics (nice)", "panini france (nice)", "panini family (nice)", "panini books", "panini france (nice)"] },
+  { key: "panini", gcdPublisher: "Panini France", variants: ["panini", "panini comics", "panini france", "panini comics (nice)", "panini france (nice)", "panini family (nice)", "panini books"] },
   { key: "urban", gcdPublisher: "Urban Comics", variants: ["urban comics", "urban comics (paris)", "urban"] },
   { key: "glenat", gcdPublisher: "Glénat", variants: ["glenat", "glenat (grenoble)", "glenat (paris)", "editions glenat"] },
   { key: "lombard", gcdPublisher: "Le Lombard", variants: ["le lombard", "le lombard (bruxelles)", "lombard", "editions du lombard"] },
@@ -63,19 +64,26 @@ export function gcdPublisherFamily(publisher: string | null): string | null {
 }
 
 export type GcdLinkVerdict =
-  | { kind: "unique"; candidate: GcdSeriesCandidate }
+  /** `closedEdition` : la série GCD est close — une ancienne édition homonyme est possible, à vérifier à la main (review #312). */
+  | { kind: "unique"; candidate: GcdSeriesCandidate; closedEdition: boolean }
   | { kind: "ambiguous"; candidates: GcdSeriesCandidate[] }
   | { kind: "none"; reason: "no-family" | "no-match" };
+
+const isClosed = (candidate: GcdSeriesCandidate): boolean => candidate.isCurrent === false || candidate.yearEnded !== null;
 
 /**
  * Le verdict : même nom normalisé, même famille d'éditeur, série GCD commencée
  * au plus tard l'année du plus ancien livre connu (sans année : pas de filtre),
- * et UN seul candidat.
+ * dernier numéro d'une édition CLOSE au moins égal au plus grand tome possédé
+ * (un tome 8 n'est pas d'une édition en 5 tomes — review #312), et UN seul
+ * candidat.
  */
 export function pickGcdCandidate(input: {
   seriesName: string;
   publisher: string | null;
   oldestYear: number | null;
+  /** Le plus grand tome numérique des livres de la série chez nous, ou `null`. */
+  maxOwnedNumber: number | null;
   candidates: readonly GcdSeriesCandidate[];
 }): GcdLinkVerdict {
   const family = bookPublisherFamily(input.publisher);
@@ -86,9 +94,10 @@ export function pickGcdCandidate(input: {
       candidate.name !== null &&
       normalizeSeriesName(candidate.name) === wanted &&
       gcdPublisherFamily(candidate.publisher) === family &&
-      (input.oldestYear === null || candidate.yearBegan === null || candidate.yearBegan <= input.oldestYear),
+      (input.oldestYear === null || candidate.yearBegan === null || candidate.yearBegan <= input.oldestYear) &&
+      (input.maxOwnedNumber === null || !isClosed(candidate) || candidate.lastNumber === null || candidate.lastNumber >= input.maxOwnedNumber),
   );
-  if (matching.length === 1) return { kind: "unique", candidate: matching[0] };
+  if (matching.length === 1) return { kind: "unique", candidate: matching[0], closedEdition: isClosed(matching[0]) };
   if (matching.length > 1) return { kind: "ambiguous", candidates: matching };
   return { kind: "none", reason: "no-match" };
 }
