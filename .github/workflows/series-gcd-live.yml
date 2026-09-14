@@ -1,7 +1,7 @@
 # GCD en direct (#308, suivi de séries §4.17-4) — toutes les heures.
 #
-# L'API publique de comics.org est anonyme et quotée à l'heure (~20 appels,
-# mesuré le 14/09/2026) : le job relit 15 appels par run — les séries reliées
+# L'API publique de comics.org est anonyme et quotée sur une fenêtre glissante
+# d'une heure (~20 appels, mesuré le 14/09/2026) : le job relit 10 appels par run — les séries reliées
 # en cours d'abord, les closes une fois par mois — et s'arrête au premier 429.
 # Puis la synchronisation des faits (une RPC) pour que la fiche suive dans
 # l'heure. Le dump (rechargé à la main, une fois par mois) reste la référence.

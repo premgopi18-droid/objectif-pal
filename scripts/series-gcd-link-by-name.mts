@@ -107,7 +107,8 @@ for (const series of orphans.sort((left, right) => left.name.localeCompare(right
   const verdict = pickGcdCandidate({ seriesName: series.name, publisher, oldestYear: null, maxOwnedNumber: maxNumberBySeries.get(series.id) ?? null, candidates });
   const describe = (candidate: GcdSeriesCandidate) =>
     `GCD #${candidate.id} (${candidate.publisher ?? "?"}, ${candidate.yearBegan ?? "?"}, ${candidate.isCurrent ? "en cours" : `close, dernier ${candidate.lastNumber ?? "?"}`})`;
-  const head = `  « ${series.name} » [${series.id.slice(0, 8)}…] | ${publisher ?? "éditeur inconnu"}`;
+  // L'identifiant complet : c'est lui qu'on recopie dans --only=.
+  const head = `  « ${series.name} » [${series.id}] | ${publisher ?? "éditeur inconnu"}`;
   if (verdict.kind === "unique") {
     counts.unique += 1;
     console.log(`${head} → ${describe(verdict.candidate)}${verdict.closedEdition ? " ⚠ édition close : vérifier que c'est bien la tienne" : ""}`);
