@@ -8,6 +8,7 @@ import {
   knownMaxSummary,
   overriddenByLabel,
   matchesSeriesFilter,
+  seriesBadge,
   nextCardCopy,
   seriesCountsText,
   seriesHeadline,
@@ -30,10 +31,18 @@ describe("les textes du suivi de séries", () => {
   });
 
   it("« En cours » regroupe ce qui reste à lire OU à renseigner", () => {
-    expect(matchesSeriesFilter("unknown-total", "in-progress")).toBe(true);
-    expect(matchesSeriesFilter("approximate", "in-progress")).toBe(true);
-    expect(matchesSeriesFilter("complete", "in-progress")).toBe(false);
-    expect(matchesSeriesFilter("complete", "all")).toBe(true);
+    expect(matchesSeriesFilter({ status: "unknown-total", isNotStarted: false }, "in-progress")).toBe(true);
+    expect(matchesSeriesFilter({ status: "approximate", isNotStarted: false }, "in-progress")).toBe(true);
+    expect(matchesSeriesFilter({ status: "complete", isNotStarted: false }, "in-progress")).toBe(false);
+    expect(matchesSeriesFilter({ status: "complete", isNotStarted: false }, "all")).toBe(true);
+    // « À commencer » (#323) : rien de lu, des tomes dans la pile — aussi dans « En cours ».
+    expect(matchesSeriesFilter({ status: "in-progress", isNotStarted: true }, "not-started")).toBe(true);
+    expect(matchesSeriesFilter({ status: "in-progress", isNotStarted: true }, "in-progress")).toBe(true);
+    expect(matchesSeriesFilter({ status: "in-progress", isNotStarted: false }, "not-started")).toBe(false);
+    expect(seriesBadge({ status: "in-progress", isNotStarted: true })).toEqual({ label: "À commencer", badge: "idle" });
+    expect(seriesBadge({ status: "unknown-total", isNotStarted: true }).label).toBe("À commencer");
+    expect(seriesBadge({ status: "approximate", isNotStarted: true }).label).toBe("≈ approximatif");
+    expect(seriesBadge({ status: "in-progress", isNotStarted: false }).label).toBe("En cours");
   });
 
   it("la carte suivante a ses quatre formes", () => {

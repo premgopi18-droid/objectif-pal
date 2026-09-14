@@ -363,6 +363,24 @@ describe("deriveSeries — la liste", () => {
     ]);
   });
 
+  it("une série à commencer (rien de lu, des tomes en pile) passe en tête, avant la dette (#323)", () => {
+    const list = deriveSeries(
+      [a, b],
+      [
+        ...volumes([1], "read").map((book) => ({ ...book, seriesId: "a" })),
+        ...volumes([2, 3, 4], "pile").map((book) => ({ ...book, seriesId: "a" })),
+        ...volumes([1], "pile").map((book) => ({ ...book, seriesId: "b" })),
+        ...volumes([2], "pile").map((book) => ({ ...book, seriesId: "b" })),
+      ],
+    );
+    expect(list.map((progress) => [progress.seriesId, progress.isNotStarted])).toEqual([
+      ["b", true],
+      ["a", false],
+    ]);
+    expect(deriveSeriesProgress(series(), volumes([1, 2], "read")).isNotStarted).toBe(false);
+    expect(deriveSeriesProgress(series(), [volume("1", "disposed")]).isNotStarted).toBe(false);
+  });
+
   it("trie par dette décroissante, puis lus décroissants, puis nom", () => {
     const list = deriveSeries(
       [a, b],

@@ -10,7 +10,6 @@ import { Button } from "@/components/ui/button";
 import { StatTile } from "@/components/ui/stat-tile";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
 import {
-  SERIES_STATUS_LABELS,
   approximateWarning,
   declaredByLabel,
   keepHumanFactLabel,
@@ -18,6 +17,7 @@ import {
   knownMaxSummary,
   nextCardCopy,
   overriddenByLabel,
+  seriesBadge,
 } from "@/lib/series/copy";
 import type { SeriesProgress, SeriesVolume } from "@/lib/series/derive-series";
 
@@ -105,7 +105,7 @@ export function SeriesSheet({
     setIsDeclaring(false);
   }
 
-  const status = SERIES_STATUS_LABELS[progress.status];
+  const status = seriesBadge(progress);
   // Le plus grand plancher (GCD ou édition BnF) — celui qui peut dépasser un total déclaré.
   const topKnown = progress.knownMax[0] ?? null;
   // D'où vient ce que la grille sait — le plancher borne la grille sans total (#307), on le dit.

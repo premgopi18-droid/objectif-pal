@@ -136,6 +136,8 @@ export type SeriesProgress = {
   status: SeriesStatus;
   /** Le seuil d'apparition (§4.17-6) : deux livres, ou un fait déclaré. */
   isVisible: boolean;
+  /** Rien de lu, des tomes dans la pile (#323) : « à commencer », en tête du segment. */
+  isNotStarted: boolean;
   volumes: SeriesVolume[];
 };
 
@@ -266,6 +268,7 @@ export function deriveSeriesProgress(
     // une information — Dungeon Crawler Carl, 1 lu, BnF en connaît 3). Seul un
     // tome dont personne ne sait rien reste replié.
     isVisible: readVolumes.length + pileVolumes.length >= MIN_BOOKS_TO_SHOW_SERIES || hasFact || floorMax > 0,
+    isNotStarted: readVolumes.length === 0 && pileVolumes.length > 0,
     volumes,
   };
 }
@@ -378,6 +381,8 @@ export function deriveSeries(
     .sort(
       (left, right) =>
         Number(right.isVisible) - Number(left.isVisible) ||
+        // Les séries à commencer d'abord (demande de Prem, #323) : c'est là que la pile dort.
+        Number(right.isNotStarted) - Number(left.isNotStarted) ||
         right.pile - left.pile ||
         right.read - left.read ||
         left.name.localeCompare(right.name, "fr"),
