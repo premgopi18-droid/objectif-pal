@@ -21,7 +21,8 @@
     "series:gcd-live": "node --conditions=react-server --import tsx scripts/series-gcd-live.mts",
     "series:gcd-facts": "node --conditions=react-server --import tsx scripts/series-gcd-facts.mts",
     "series:anilist-facts": "node --conditions=react-server --import tsx scripts/series-anilist-facts.mts",
-    "series:bnf-refs": "node --conditions=react-server --import tsx scripts/series-bnf-refs.mts"
+    "series:bnf-refs": "node --conditions=react-server --import tsx scripts/series-bnf-refs.mts",
+    "series:gcd-link-by-name": "node --conditions=react-server --import tsx scripts/series-gcd-link-by-name.mts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.70.0",
