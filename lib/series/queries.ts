@@ -38,7 +38,7 @@ type LoadFailure = { error: string };
  */
 export async function loadSeriesProgress(
   supabase: SessionSupabaseClient,
-  options: { withKnownMax?: boolean } = {},
+  options: { withKnownMax?: boolean; includeHidden?: boolean } = {},
 ): Promise<{ progress: SeriesProgress[]; seriesIds: string[] } | LoadFailure> {
   const { data: rows, error: booksError } = await supabase
     .from("books")
@@ -103,12 +103,12 @@ export async function loadSeriesProgress(
     factSource: row.fact_source === "gcd" || row.fact_source === "anilist" ? row.fact_source : "human",
   }));
 
-  return { progress: deriveSeries(seriesList, books, knownMax), seriesIds };
+  return { progress: deriveSeries(seriesList, books, knownMax, { includeHidden: options.includeHidden }), seriesIds };
 }
 
 /** Le segment « Séries » : la progression + les pseudos du cercle + les liens GCD (pour la bannière). */
 export async function loadSeriesSegment(supabase: SessionSupabaseClient, userId: string): Promise<SeriesSegmentData | LoadFailure> {
-  const loaded = await loadSeriesProgress(supabase, { withKnownMax: true });
+  const loaded = await loadSeriesProgress(supabase, { withKnownMax: true, includeHidden: true });
   if ("error" in loaded) return loaded;
   if (loaded.seriesIds.length === 0) return { progress: [], declarerLabels: {}, gcdLinkedSeriesIds: [] };
 

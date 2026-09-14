@@ -273,6 +273,19 @@ describe("deriveSeries — la liste", () => {
     expect(deriveSeries([singleDeclared], [{ ...volume("1", "read"), seriesId: "d" }]).map((progress) => progress.seriesId)).toEqual(["d"]);
   });
 
+  it("avec includeHidden, les séries sous le seuil sont rendues APRÈS les visibles", () => {
+    const list = deriveSeries(
+      [a, single],
+      [...volumes([1, 2], "read").map((book) => ({ ...book, seriesId: "a" })), { ...volume("1", "read"), seriesId: "c" }],
+      new Map(),
+      { includeHidden: true },
+    );
+    expect(list.map((progress) => [progress.seriesId, progress.isVisible])).toEqual([
+      ["a", true],
+      ["c", false],
+    ]);
+  });
+
   it("trie par dette décroissante, puis lus décroissants, puis nom", () => {
     const list = deriveSeries(
       [a, b],

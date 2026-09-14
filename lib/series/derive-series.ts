@@ -307,6 +307,7 @@ export function deriveSeries(
   seriesList: SeriesFact[],
   books: SeriesBookFact[],
   knownMaxBySeriesId: ReadonlyMap<string, readonly KnownMax[]> = new Map(),
+  options: { includeHidden?: boolean } = {},
 ): SeriesProgress[] {
   const booksBySeries = new Map<string, SeriesBookFact[]>();
   for (const book of books) booksBySeries.set(book.seriesId, [...(booksBySeries.get(book.seriesId) ?? []), book]);
@@ -315,6 +316,16 @@ export function deriveSeries(
     .map((series) =>
       deriveSeriesProgress(series, booksBySeries.get(series.id) ?? [], knownMaxBySeriesId.get(series.id) ?? []),
     )
-    .filter((progress) => progress.isVisible)
-    .sort((left, right) => right.pile - left.pile || right.read - left.read || left.name.localeCompare(right.name, "fr"));
+    // Les séries sous le seuil (un tome, aucun fait) sortent par défaut ; le
+    // segment les demande pour les replier en bas — sinon un tome isolé n'a
+    // aucune porte vers sa fiche, donc aucun moyen d'être déclaré (vécu sur
+    // Dungeon Crawler Carl, 14/09/2026).
+    .filter((progress) => options.includeHidden || progress.isVisible)
+    .sort(
+      (left, right) =>
+        Number(right.isVisible) - Number(left.isVisible) ||
+        right.pile - left.pile ||
+        right.read - left.read ||
+        left.name.localeCompare(right.name, "fr"),
+    );
 }
