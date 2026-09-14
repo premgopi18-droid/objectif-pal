@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { ProviderUnavailableError } from "@/lib/resolution/types";
-import { createGcdLiveProvider, numericIssueNumber, parseGcdIssue, parseGcdSeries } from "./gcd-live";
+import { createGcdLiveProvider, GcdQuotaError, numericIssueNumber, parseGcdIssue, parseGcdSeries } from "./gcd-live";
 
 /** Réponses réelles de l'API comics.org, capturées le 14/09/2026 (#308). */
 const fixture = (name: string): unknown => JSON.parse(readFileSync(new URL(`./fixtures/gcd/${name}.json`, import.meta.url), "utf8"));
@@ -15,6 +15,11 @@ describe("numericIssueNumber — la règle de l'export et de la RPC (cinq chiffr
     expect(numericIssueNumber("20.1")).toBeNull();
     expect(numericIssueNumber("Annual 1")).toBeNull();
     expect(numericIssueNumber("123456")).toBeNull();
+    // Les intégrales numérotées par année (« 1996 ») : une année n'est pas un tome.
+    expect(numericIssueNumber("1996")).toBeNull();
+    expect(numericIssueNumber("2026")).toBeNull();
+    expect(numericIssueNumber("1899")).toBe(1899);
+    expect(numericIssueNumber("2100")).toBe(2100);
     expect(numericIssueNumber(null)).toBeNull();
     expect(numericIssueNumber(undefined)).toBeNull();
   });
@@ -95,10 +100,20 @@ describe("createGcdLiveProvider — panne ≠ absence", () => {
     await expect(providerAnswering(404).getSeries(1)).resolves.toBeNull();
   });
 
-  it("403 (Cloudflare), 429, 5xx → ProviderUnavailableError, jamais null", async () => {
-    for (const status of [403, 429, 500, 503]) {
+  it("403 (Cloudflare), 5xx → ProviderUnavailableError, jamais null", async () => {
+    for (const status of [403, 500, 503]) {
       await expect(providerAnswering(status).getSeries(1)).rejects.toBeInstanceOf(ProviderUnavailableError);
     }
+  });
+
+  it("429 → GcdQuotaError (une ProviderUnavailableError) qui porte le Retry-After", async () => {
+    const provider = createGcdLiveProvider(async () => new Response("", { status: 429, headers: { "Retry-After": "1493" } }));
+    const error = await provider.getSeries(1).catch((caught: unknown) => caught);
+    expect(error).toBeInstanceOf(GcdQuotaError);
+    expect(error).toBeInstanceOf(ProviderUnavailableError);
+    expect((error as GcdQuotaError).retryAfterSeconds).toBe(1493);
+    const bare = await providerAnswering(429).getSeries(1).catch((caught: unknown) => caught);
+    expect((bare as GcdQuotaError).retryAfterSeconds).toBeNull();
   });
 
   it("200 → la série parsée, avec l'URL JSON et notre User-Agent", async () => {

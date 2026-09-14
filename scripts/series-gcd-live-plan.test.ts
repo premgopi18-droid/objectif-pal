@@ -16,7 +16,7 @@ const target = (gcdId: number, overrides: Partial<LiveTarget> = {}): LiveTarget 
 const now = new Date("2026-09-14T06:30:00Z");
 const daysAgo = (days: number) => new Date(now.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
 
-describe("selectLiveTargets — en cours d'abord, closes une fois par mois, bornées", () => {
+describe("selectLiveTargets — en cours d'abord, closes une fois par mois, bornées au budget d'appels", () => {
   it("les en cours jamais relues, puis les plus anciennes ; une close relue il y a 10 jours attend", () => {
     const picked = selectLiveTargets(
       [
@@ -74,11 +74,13 @@ describe("seriesPatchFrom — ce que l'API change, et rien d'autre", () => {
 });
 
 describe("liveRunExitCode — rouge si rien ne répond, ou sur erreur de notre côté", () => {
-  const counts = { targets: 10, answered: 9, updated: 2, issuesAdded: 1, gone: 1, networkErrors: 1, infraErrors: 0 };
+  const counts = { targets: 10, calls: 12, answered: 9, updated: 2, issuesAdded: 1, gone: 1, quotaHit: false, networkErrors: 1, infraErrors: 0 };
   it("verdicts", () => {
     expect(liveRunExitCode(counts)).toBe(0);
     expect(liveRunExitCode({ ...counts, answered: 0, networkErrors: 10 })).toBe(1);
     expect(liveRunExitCode({ ...counts, infraErrors: 1 })).toBe(1);
     expect(liveRunExitCode({ ...counts, targets: 0, answered: 0 })).toBe(0);
+    // Le quota partagé par IP peut être déjà consommé au premier appel : pas une panne.
+    expect(liveRunExitCode({ ...counts, calls: 1, answered: 0, networkErrors: 0, quotaHit: true })).toBe(0);
   });
 });

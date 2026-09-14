@@ -4,27 +4,29 @@
  *
  *  - la SÉLECTION : les séries GCD reliées à notre référentiel, en cours (ou
  *    sans fin connue) d'abord — jamais relues, puis les plus anciennes —, les
- *    closes seulement une fois par mois ; bornées par run ;
+ *    closes seulement une fois par mois ;
+ *  - le BUDGET : l'API est anonyme et **quotée à l'heure** (mesuré le
+ *    14/09/2026 : ~20 appels, puis 429 avec `Retry-After: 1493`). Le job
+ *    tourne donc toutes les heures avec 15 appels, séries et fascicules
+ *    confondus, et s'arrête net au premier 429 ;
  *  - la MISE À JOUR : ce que l'API change dans `gcd_series`, et rien d'autre
  *    (`is_current` ne passe qu'à `false`, jamais l'inverse : l'API ne l'expose
  *    pas, on ne devine pas une reprise) ;
- *  - le VERDICT : 0 réponse pour au moins une cible = rouge (Cloudflare qui
- *    refuse le runner, panne) ; une série disparue ou une erreur réseau isolée
- *    n'en est pas une.
+ *  - le VERDICT : une erreur de notre côté, ou aucune réponse sans que ce
+ *    soit le quota, rend le run rouge ; le quota atteint n'en est pas une (il
+ *    est partagé par IP : un runner GitHub peut le trouver déjà consommé).
  */
 
 import type { GcdLiveSeries } from "@/lib/resolution/providers/gcd-live";
 
-/** Appels série par nuit — ~145 séries reliées aujourd'hui, le parc passe en une nuit. */
-export const LIVE_RUN_LIMIT = 200;
-/** Appels fascicule par nuit, toutes séries confondues. */
-export const LIVE_ISSUE_LIMIT = 200;
-/** Fascicules nouveaux relus par série et par nuit — une série longue se rattrape en quelques nuits. */
-export const LIVE_ISSUES_PER_SERIES = 10;
+/** Appels (série + fascicule) par run — sous les ~20/heure anonymes mesurés, avec de la marge. */
+export const LIVE_CALLS_PER_RUN = 15;
+/** Fascicules nouveaux relus par série et par run — une série longue se rattrape en quelques runs. */
+export const LIVE_ISSUES_PER_SERIES = 5;
 /** Une requête par seconde, pas plus : un service communautaire. */
 export const LIVE_POLITENESS_DELAY_MS = 1000;
-/** Le budget d'un run : on s'arrête proprement, le bilan sort, le reste repasse demain. */
-export const LIVE_RUN_BUDGET_MS = 15 * 60 * 1000;
+/** Le budget d'un run : quinze appels ne prennent pas cinq minutes ; au-delà, quelque chose cloche. */
+export const LIVE_RUN_BUDGET_MS = 5 * 60 * 1000;
 /** Une série close ne bouge pas : relue une fois par mois, au cas où GCD la complète. */
 export const CLOSED_RECHECK_DAYS = 30;
 
@@ -41,7 +43,7 @@ export type LiveTarget = {
 const isOpen = (target: Pick<LiveTarget, "isCurrent" | "yearEnded">): boolean => target.isCurrent === true || target.yearEnded === null;
 
 /** En cours d'abord (jamais relues, puis les plus anciennes), closes une fois par mois — bornées. */
-export function selectLiveTargets(targets: readonly LiveTarget[], now: Date, limit = LIVE_RUN_LIMIT): LiveTarget[] {
+export function selectLiveTargets(targets: readonly LiveTarget[], now: Date, limit = LIVE_CALLS_PER_RUN): LiveTarget[] {
   const closedCutoff = new Date(now.getTime() - CLOSED_RECHECK_DAYS * 24 * 60 * 60 * 1000).toISOString();
   return targets
     .filter((target) => isOpen(target) || target.liveCheckedAt === null || target.liveCheckedAt < closedCutoff)
@@ -73,17 +75,20 @@ export function seriesPatchFrom(current: Pick<LiveTarget, "isCurrent" | "yearEnd
 
 export type LiveRunCounts = {
   targets: number;
+  calls: number;
   answered: number;
   updated: number;
   issuesAdded: number;
   gone: number;
+  /** Le quota horaire atteint (429) : le run s'arrête, le prochain reprend. */
+  quotaHit: boolean;
   networkErrors: number;
   infraErrors: number;
 };
 
-/** Rouge si rien n'a répondu alors qu'il y avait à relire, ou sur erreur de notre côté. */
+/** Rouge sur erreur de notre côté, ou si rien n'a répondu sans que ce soit le quota. */
 export function liveRunExitCode(counts: LiveRunCounts): 0 | 1 {
   if (counts.infraErrors > 0) return 1;
-  if (counts.targets > 0 && counts.answered === 0) return 1;
+  if (counts.targets > 0 && counts.answered === 0 && !counts.quotaHit) return 1;
   return 0;
 }

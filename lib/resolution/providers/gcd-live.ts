@@ -9,12 +9,22 @@ import { OUTBOUND_USER_AGENT, ProviderUnavailableError } from "@/lib/resolution/
  *
  * Deux parseurs purs (`parseGcdSeries`, `parseGcdIssue`) sur fixtures réelles,
  * et un provider qui ne fait que chercher. Panne ≠ absence : 404 = `null`,
- * 403/429/5xx = `ProviderUnavailableError`, JSON invalide = erreur.
+ * 403/5xx = `ProviderUnavailableError`, 429 = `GcdQuotaError` (l'API est
+ * anonyme et quotée à l'heure — ~20 appels mesurés le 14/09/2026, puis
+ * `Retry-After: 1493`), JSON invalide = erreur.
  * Données CC BY-SA 4.0 — l'attribution GCD de l'app couvre l'API comme le dump.
  */
 
 export const GCD_API_BASE_URL = "https://www.comics.org/api";
 export const GCD_LIVE_TIMEOUT_MS = 10_000;
+
+/** Le quota horaire anonyme est atteint : inutile d'insister, le prochain run reprendra. */
+export class GcdQuotaError extends ProviderUnavailableError {
+  constructor(public readonly retryAfterSeconds: number | null) {
+    super("GCD", `quota atteint (HTTP 429${retryAfterSeconds === null ? "" : `, Retry-After ${retryAfterSeconds} s`})`);
+    this.name = "GcdQuotaError";
+  }
+}
 
 /** Ce que l'API dit d'une série — le strict nécessaire pour `gcd_series`. */
 export type GcdLiveSeries = {
@@ -23,7 +33,7 @@ export type GcdLiveSeries = {
   yearEnded: number | null;
   /** Les fascicules actifs, dans l'ordre de GCD (id en fin d'URL). */
   issueIds: number[];
-  /** Le plus grand numéro numérique des fascicules (même règle que l'export : cinq chiffres au plus), ou `null`. */
+  /** Le plus grand numéro numérique des fascicules (même règle que l'export : cinq chiffres au plus, jamais une année), ou `null`. */
   lastNumber: number | null;
   issueCount: number;
 };
@@ -42,19 +52,27 @@ export type GcdLiveIssue = {
   pageCount: number | null;
 };
 
+/** Un « numéro » dans cette fourchette est une année (intégrales Panini « 1996 », dry-run du 14/09/2026), pas un tome. */
+const YEAR_AS_NUMBER_MIN = 1900;
+const YEAR_AS_NUMBER_MAX = 2099;
+
 /**
  * Le numéro d'un fascicule GCD n'est pas toujours un nombre (« [nn] », « 20.1 »,
  * « Annual 1 ») : n'est retenu qu'un entier de cinq chiffres au plus — la
  * règle de `lastNumberOf` dans `scripts/gcd-export.mjs` et de la RPC
- * `gcd_series_max_issue_numbers` (`^\d{1,5}$`).
+ * `gcd_series_max_issue_numbers` — et jamais une année (« X-Men : l'intégrale »
+ * numérote ses volumes 1996, 1997… : un total de 1996 tomes serait un mensonge).
  */
 export function numericIssueNumber(number: string | null | undefined): number | null {
   if (number === null || number === undefined) return null;
   const trimmed = number.trim();
-  return /^\d{1,5}$/.test(trimmed) ? Number(trimmed) : null;
+  if (!/^\d{1,5}$/.test(trimmed)) return null;
+  const value = Number(trimmed);
+  return value >= YEAR_AS_NUMBER_MIN && value <= YEAR_AS_NUMBER_MAX ? null : value;
 }
 
 const ISSUE_ID_PATTERN = /\/api\/issue\/(\d+)\/?/;
+const SERIES_ID_PATTERN = /\/api\/series\/(\d+)\/?/;
 
 const isRecord = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value);
 const stringOrNull = (value: unknown): string | null => (typeof value === "string" && value.trim() !== "" ? value.trim() : null);
@@ -95,7 +113,7 @@ export function parseGcdIssue(json: unknown): GcdLiveIssue | null {
   if (!isRecord(json)) return null;
   const gcdId = typeof json.api_url === "string" ? json.api_url.match(ISSUE_ID_PATTERN)?.[1] : undefined;
   if (gcdId === undefined) return null;
-  const seriesId = typeof json.series === "string" ? json.series.match(/\/api\/series\/(\d+)\/?/)?.[1] : undefined;
+  const seriesId = typeof json.series === "string" ? json.series.match(SERIES_ID_PATTERN)?.[1] : undefined;
   const isbn = (stringOrNull(json.isbn) ?? "").replace(/[^\dX]/gi, "");
   // Même découpage que l'export : GCD sépare parfois plusieurs codes par « ; » ou espace.
   const barcodes = (stringOrNull(json.barcode) ?? "").split(/[;\s]+/).filter((code) => /^\d{8,}$/.test(code));
@@ -122,8 +140,12 @@ export function createGcdLiveProvider(fetchImplementation: typeof fetch = fetch,
       signal: AbortSignal.timeout(timeoutMs),
     });
     if (response.status === 404) return null;
-    // 403 = Cloudflare qui refuse, 429 = trop vite, 5xx = panne : jamais une absence.
-    if (response.status === 403 || response.status === 429 || response.status >= 500) {
+    if (response.status === 429) {
+      const retryAfter = response.headers.get("Retry-After");
+      throw new GcdQuotaError(retryAfter !== null && /^\d+$/.test(retryAfter) ? Number(retryAfter) : null);
+    }
+    // 403 = Cloudflare qui refuse, 5xx = panne : jamais une absence.
+    if (response.status === 403 || response.status >= 500) {
       throw new ProviderUnavailableError("GCD", `HTTP ${response.status}`);
     }
     if (!response.ok) throw new Error(`GCD : HTTP ${response.status}`);

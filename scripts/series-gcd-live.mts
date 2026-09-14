@@ -1,6 +1,6 @@
 /**
- * GCD en direct (#308, suivi de séries §4.17-4) — chaque nuit, avant la
- * synchronisation des faits (`series:gcd-facts`).
+ * GCD en direct (#308, suivi de séries §4.17-4) — toutes les heures, suivi de
+ * la synchronisation des faits (`series:gcd-facts`).
  *
  * Le dump GCD (3,76 Go, cookie de session exigé) se recharge à la main, une
  * fois par mois. Entre deux, l'API REST publique de comics.org dit pour une
@@ -9,36 +9,38 @@
  * séries (en cours d'abord, closes une fois par mois) et pose :
  *   - dans `gcd_series` : `issue_count`, `last_number` (jamais en baisse),
  *     `year_ended`, `is_current` (vers `false` seulement), `live_checked_at` ;
- *   - dans `gcd_issues` : les fascicules absents (10 par série et par nuit,
- *     200 par nuit), normalisés comme l'export — le tome paru hier chez Urban
- *     se scanne et s'affiche comme manquant la nuit qui suit son indexation.
+ *   - dans `gcd_issues` : les fascicules absents, normalisés comme l'export —
+ *     le tome paru hier chez Urban se scanne et s'affiche comme manquant dans
+ *     les heures qui suivent son indexation sur comics.org.
  * Le rechargement du dump écrase ces lignes par les siennes (qui les
  * contiennent alors) et vide `live_checked_at` : tout se relit, c'est voulu.
  *
- * Politesse : une requête par seconde, `OUTBOUND_USER_AGENT`, 200 appels série
- * + 200 appels fascicule par nuit, budget 15 min. Panne ≠ absence : une série
- * qui ne répond pas n'est pas datée (elle repasse demain) ; une série disparue
- * chez GCD (404) est journalisée, datée, jamais supprimée ; 0 réponse pour au
- * moins une cible = run rouge (Cloudflare qui refuse le runner, panne).
+ * L'API est anonyme et QUOTÉE À L'HEURE (mesuré le 14/09/2026 : ~20 appels,
+ * puis 429 avec `Retry-After: 1493`) : 15 appels par run, séries et fascicules
+ * confondus, une requête par seconde, `OUTBOUND_USER_AGENT`, et le run
+ * s'arrête net au premier 429 — le prochain reprend là où la file en est.
+ * Panne ≠ absence : une série qui ne répond pas n'est pas datée (elle repasse) ;
+ * une série disparue chez GCD (404) est journalisée, datée, jamais supprimée ;
+ * aucune réponse sans que ce soit le quota = run rouge (Cloudflare qui refuse
+ * le runner, panne).
  *
  * Usage :
  *   npm run series:gcd-live              → run réel
  *   npm run series:gcd-live -- --dry-run → compte sans écrire
- * Env : NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY. Quotidien en CI
- * (series.yml) et à la main.
+ * Env : NEXT_PUBLIC_SUPABASE_URL + SUPABASE_SERVICE_ROLE_KEY. Toutes les heures
+ * en CI (series-gcd-live.yml) et à la main.
  */
 
 import { setTimeout as sleep } from "node:timers/promises";
-import { createGcdLiveProvider, type GcdLiveIssue } from "@/lib/resolution/providers/gcd-live";
+import { createGcdLiveProvider, GcdQuotaError, type GcdLiveIssue } from "@/lib/resolution/providers/gcd-live";
 import { fetchAllRows } from "@/lib/supabase/pagination";
 import type { Database } from "@/lib/supabase/database.types";
 import { createAdminClientFromEnv, isDryRun } from "./lib/env.mjs";
 import {
-  LIVE_ISSUE_LIMIT,
+  LIVE_CALLS_PER_RUN,
   LIVE_ISSUES_PER_SERIES,
   LIVE_POLITENESS_DELAY_MS,
   LIVE_RUN_BUDGET_MS,
-  LIVE_RUN_LIMIT,
   liveRunExitCode,
   selectLiveTargets,
   seriesPatchFrom,
@@ -80,12 +82,12 @@ for (let index = 0; index < gcdIds.length; index += 200) {
   }
 }
 
-const targets = selectLiveTargets(known, new Date(), LIVE_RUN_LIMIT);
-console.log(`${known.length} séries GCD reliées, ${targets.length} relues ce run${dryRun ? " (dry-run)" : ""}`);
+// Au plus un appel par série : la file est bornée au budget, les fascicules le partagent.
+const targets = selectLiveTargets(known, new Date(), LIVE_CALLS_PER_RUN);
+console.log(`${known.length} séries GCD reliées, ${targets.length} en file ce run (${LIVE_CALLS_PER_RUN} appels)${dryRun ? " (dry-run)" : ""}`);
 
-const counts: LiveRunCounts = { targets: targets.length, answered: 0, updated: 0, issuesAdded: 0, gone: 0, networkErrors: 0, infraErrors: 0 };
+const counts: LiveRunCounts = { targets: targets.length, calls: 0, answered: 0, updated: 0, issuesAdded: 0, gone: 0, quotaHit: false, networkErrors: 0, infraErrors: 0 };
 const startedAt = Date.now();
-let issueBudget = LIVE_ISSUE_LIMIT;
 let stoppedByBudget = 0;
 
 /** Les lignes `gcd_issues` d'un fascicule : une par code-barres, ou une seule par l'ISBN — rien s'il n'est pas scannable (comme l'export). */
@@ -106,24 +108,36 @@ const issueRows = (issue: GcdLiveIssue, seriesId: number): IssueInsert[] => {
   return issue.barcodes.map((code) => ({ ...shared, barcode: code, barcode_prefix: code.slice(0, 12) }));
 };
 
+/** Un appel à l'API, compté ; `undefined` = pas de réponse (quota, panne) — l'appelant décide. */
+async function call<T>(label: string, request: () => Promise<T>): Promise<T | undefined> {
+  counts.calls += 1;
+  try {
+    return await request();
+  } catch (error) {
+    if (error instanceof GcdQuotaError) {
+      counts.quotaHit = true;
+      console.warn(`  ${label} : quota horaire atteint (429${error.retryAfterSeconds === null ? "" : `, Retry-After ${error.retryAfterSeconds} s`}) — le run s'arrête, le prochain reprend`);
+    } else {
+      counts.networkErrors += 1;
+      console.error(`  ${label} : ${error instanceof Error ? error.message : String(error)}`);
+    }
+    return undefined;
+  } finally {
+    await sleep(LIVE_POLITENESS_DELAY_MS);
+  }
+}
+
 for (const target of targets) {
-  // Le budget : on s'arrête proprement, le bilan sort, le reste repasse demain (déjà en tête de file).
+  if (counts.quotaHit || counts.calls >= LIVE_CALLS_PER_RUN) break;
+  // Le budget de temps : on s'arrête proprement, le bilan sort, le reste repasse (déjà en tête de file).
   if (Date.now() - startedAt > LIVE_RUN_BUDGET_MS) {
     stoppedByBudget += 1;
     continue;
   }
   const label = `« ${target.name ?? "?"} » #${target.gcdId}`;
 
-  let live;
-  try {
-    live = await gcd.getSeries(target.gcdId);
-  } catch (error) {
-    counts.networkErrors += 1;
-    console.error(`  ${label} : ${error instanceof Error ? error.message : String(error)}`);
-    await sleep(LIVE_POLITENESS_DELAY_MS);
-    continue;
-  }
-  await sleep(LIVE_POLITENESS_DELAY_MS);
+  const live = await call(label, () => gcd.getSeries(target.gcdId));
+  if (live === undefined) continue;
   const now = new Date().toISOString();
 
   if (live === null) {
@@ -149,26 +163,17 @@ for (const target of targets) {
 
   const rows: IssueInsert[] = [];
   for (const issueId of missingIds) {
-    if (issueBudget <= 0) break;
-    issueBudget -= 1;
-    let issue;
-    try {
-      issue = await gcd.getIssue(issueId);
-    } catch (error) {
-      counts.networkErrors += 1;
-      console.error(`  ${label} fascicule ${issueId} : ${error instanceof Error ? error.message : String(error)}`);
-      await sleep(LIVE_POLITENESS_DELAY_MS);
-      continue;
-    }
-    await sleep(LIVE_POLITENESS_DELAY_MS);
-    if (issue !== null) rows.push(...issueRows(issue, target.gcdId));
+    if (counts.quotaHit || counts.calls >= LIVE_CALLS_PER_RUN) break;
+    const issue = await call(`${label} fascicule ${issueId}`, () => gcd.getIssue(issueId));
+    if (issue) rows.push(...issueRows(issue, target.gcdId));
   }
 
   const changes = Object.entries(patch).map(([key, value]) => `${key} → ${value}`);
   console.log(
     `  ${label} : ${live.issueCount} fascicules, dernier ${live.lastNumber ?? "?"}, fin ${live.yearEnded ?? "—"}` +
       (changes.length > 0 ? ` | ${changes.join(", ")}` : "") +
-      (rows.length > 0 ? ` | +${rows.length} ligne${rows.length > 1 ? "s" : ""} (${rows.map((row) => row.number ?? "?").join(", ")})` : ""),
+      (rows.length > 0 ? ` | +${rows.length} ligne${rows.length > 1 ? "s" : ""} (${rows.map((row) => row.number ?? "?").join(", ")})` : "") +
+      (missingIds.length > rows.length ? ` | ${missingIds.length - rows.length} fascicule(s) au prochain run` : ""),
   );
   if (dryRun) continue;
 
@@ -190,8 +195,8 @@ for (const target of targets) {
 }
 
 console.log("\nBilan :");
-console.log(`  séries relues : ${counts.answered} sur ${counts.targets} · mises à jour : ${counts.updated} · fascicules ajoutés : ${counts.issuesAdded}`);
-console.log(`  disparues chez GCD : ${counts.gone} · erreurs réseau : ${counts.networkErrors} · erreurs de notre côté : ${counts.infraErrors}`);
-if (stoppedByBudget > 0) console.log(`  budget de run atteint : ${stoppedByBudget} séries repassent demain`);
+console.log(`  appels : ${counts.calls} · séries relues : ${counts.answered} sur ${counts.targets} en file · mises à jour : ${counts.updated} · fascicules ajoutés : ${counts.issuesAdded}`);
+console.log(`  disparues chez GCD : ${counts.gone} · erreurs réseau : ${counts.networkErrors} · erreurs de notre côté : ${counts.infraErrors}${counts.quotaHit ? " · quota horaire atteint" : ""}`);
+if (stoppedByBudget > 0) console.log(`  budget de temps atteint : ${stoppedByBudget} séries repassent au prochain run`);
 console.log(dryRun ? "\nDry-run : rien n'a été écrit." : "\nÉcrit — la synchronisation des faits (series:gcd-facts) suit.");
 process.exit(liveRunExitCode(counts));

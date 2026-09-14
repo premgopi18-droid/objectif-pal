@@ -1091,16 +1091,21 @@ comme prévu), 0 livre nommé sans lien.
    pas les parutions Panini ») plutôt qu'un silence.
    **GCD en direct (#308, 14/09/2026).** Le dump se recharge à la main (cookie de session exigé, 403 sans) et
    celui de prod avait deux mois et demi ; l'**API REST publique de comics.org** (JSON, sans clé, sans recherche —
-   sondée le 14/09) suffit pour tout ce qui est DÉJÀ relié. Chaque nuit, avant `series:gcd-facts`, le job
-   `series:gcd-live` relit les séries GCD reliées au référentiel — en cours (ou sans fin connue) d'abord, closes
-   une fois par mois, 200 appels série + 200 appels fascicule, 1 requête/s, budget 15 min — et pose dans
+   sondée le 14/09) suffit pour tout ce qui est DÉJÀ relié. Elle est **anonyme et quotée à l'heure** (mesuré le
+   14/09 : ~20 appels, puis 429 avec `Retry-After: 1493`) : le job `series:gcd-live` tourne donc **toutes les
+   heures** (`series-gcd-live.yml`, suivi de `series:gcd-facts` pour que la fiche suive dans l'heure), 15 appels
+   par run séries et fascicules confondus, une requête par seconde, arrêt net au premier 429 (le quota est par IP :
+   un runner GitHub peut le trouver consommé — ce n'est pas une panne). Il relit les séries GCD reliées au
+   référentiel — en cours (ou sans fin connue) d'abord, jamais relues puis les plus anciennes, closes une fois par
+   mois (~100 séries en cours relues chaque jour ou deux) — et pose dans
    `gcd_series` le nombre de fascicules, le dernier numéro (jamais en baisse ; le plus grand numéro numérique des
    descripteurs, cinq chiffres au plus), l'année de fin et `is_current` **vers `false` seulement** (l'API ne
    l'expose pas, on ne devine pas une reprise), plus `live_checked_at` ; et dans `gcd_issues` les fascicules
-   absents (10 par série et par nuit), normalisés comme l'export. **Un tome paru chez Urban se scanne et s'affiche
-   comme manquant la nuit qui suit son indexation sur comics.org.** Panne ≠ absence : 404 = série disparue chez
-   GCD (journalisée, datée, jamais supprimée), 403/429/5xx = série non datée, relue demain ; 0 réponse pour au
-   moins une cible = run rouge. Le rechargement du dump écrase ces lignes par les siennes et vide
+   absents (5 par série et par run), normalisés comme l'export — un numéro qui est une année (intégrales « 1996 »)
+   n'est jamais un dernier numéro. **Un tome paru chez Urban se scanne et s'affiche comme manquant dans les heures
+   qui suivent son indexation sur comics.org.** Panne ≠ absence : 404 = série disparue chez GCD (journalisée,
+   datée, jamais supprimée), 403/5xx = série non datée, relue au run suivant ; aucune réponse sans que ce soit le
+   quota = run rouge. Le rechargement du dump écrase ces lignes par les siennes et vide
    `live_checked_at` : tout se relit. Aucun contournement si Cloudflare refuse le runner GitHub : le job tourne
    alors en local, et on le dit.
 5. **La section « Séries en cours » des Stats et son catalogue GCD (§4.5, lot B de #30) sont retirés** :

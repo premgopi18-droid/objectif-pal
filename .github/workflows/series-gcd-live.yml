@@ -1,0 +1,40 @@
+# GCD en direct (#308, suivi de séries §4.17-4) — toutes les heures.
+#
+# L'API publique de comics.org est anonyme et quotée à l'heure (~20 appels,
+# mesuré le 14/09/2026) : le job relit 15 appels par run — les séries reliées
+# en cours d'abord, les closes une fois par mois — et s'arrête au premier 429.
+# Puis la synchronisation des faits (une RPC) pour que la fiche suive dans
+# l'heure. Le dump (rechargé à la main, une fois par mois) reste la référence.
+name: Series GCD live
+
+on:
+  schedule:
+    # Minute 40 : à l'écart de series.yml (06:30) et du contrat prod (07:00).
+    - cron: "40 * * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (compter sans écrire)"
+        type: boolean
+        default: false
+
+jobs:
+  gcd-live:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run series:gcd-live -- ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+      # Le fait de série depuis GCD (#301) — jamais par-dessus une déclaration humaine.
+      - run: npm run series:gcd-facts
+        if: ${{ !inputs.dry_run }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
