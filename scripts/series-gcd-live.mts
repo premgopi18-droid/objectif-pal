@@ -19,10 +19,13 @@
  * puis 429 avec `Retry-After: 1493`) : 15 appels par run, séries et fascicules
  * confondus, une requête par seconde, `OUTBOUND_USER_AGENT`, et le run
  * s'arrête net au premier 429 — le prochain reprend là où la file en est.
- * Panne ≠ absence : une série qui ne répond pas n'est pas datée (elle repasse) ;
- * une série disparue chez GCD (404) est journalisée, datée, jamais supprimée ;
- * aucune réponse sans que ce soit le quota = run rouge (Cloudflare qui refuse
- * le runner, panne).
+ * Panne ≠ absence : une série qui ne répond pas n'est pas datée (elle repasse
+ * en tête de file — un 5xx persistant sur UNE série coûte donc un appel par
+ * run, pas quinze : accepté, review #311) ; une série disparue chez GCD (404)
+ * est journalisée, datée, jamais supprimée ; aucune réponse sans que ce soit
+ * le quota = run rouge (Cloudflare qui refuse le runner, panne). Le quota est
+ * par IP, et les runners GitHub partagent les leurs : un quota consommé avant
+ * toute réponse est annoté (`::warning::`) pour rester visible sans rougir.
  *
  * Usage :
  *   npm run series:gcd-live              → run réel
@@ -33,7 +36,6 @@
 
 import { setTimeout as sleep } from "node:timers/promises";
 import { createGcdLiveProvider, GcdQuotaError, type GcdLiveIssue } from "@/lib/resolution/providers/gcd-live";
-import { fetchAllRows } from "@/lib/supabase/pagination";
 import type { Database } from "@/lib/supabase/database.types";
 import { createAdminClientFromEnv, isDryRun } from "./lib/env.mjs";
 import {
@@ -152,13 +154,16 @@ for (const target of targets) {
   counts.answered += 1;
   const patch = seriesPatchFrom(target, live);
 
-  // 3. Les fascicules que le dump n'a pas — toutes les lignes existantes de la série (une série VO peut en avoir plus de 1 000).
-  const existing = await fetchAllRows<{ gcd_id: number }>(async (from, to) => {
-    const { data, error } = await admin.from("gcd_issues").select("gcd_id").eq("series_id", target.gcdId).order("gcd_id").range(from, to);
+  // 3. Les fascicules que le dump n'a pas — l'existence se vérifie par gcd_id,
+  // jamais par série : un fascicule déplacé côté GCD, ou chez nous sans
+  // series_id, ne doit pas revenir en double (rien en base ne l'interdit —
+  // review #311). Par paquets : une série VO peut compter 1 000 fascicules.
+  const existingIds = new Set<number>();
+  for (let index = 0; index < live.issueIds.length; index += 200) {
+    const { data, error } = await admin.from("gcd_issues").select("gcd_id").in("gcd_id", live.issueIds.slice(index, index + 200));
     if (error) throw new Error(`gcd_issues : ${error.message}`);
-    return data;
-  });
-  const existingIds = new Set(existing.map((row) => row.gcd_id));
+    for (const row of data) existingIds.add(row.gcd_id);
+  }
   const missingIds = live.issueIds.filter((id) => !existingIds.has(id)).slice(0, LIVE_ISSUES_PER_SERIES);
 
   const rows: IssueInsert[] = [];
@@ -198,5 +203,9 @@ console.log("\nBilan :");
 console.log(`  appels : ${counts.calls} · séries relues : ${counts.answered} sur ${counts.targets} en file · mises à jour : ${counts.updated} · fascicules ajoutés : ${counts.issuesAdded}`);
 console.log(`  disparues chez GCD : ${counts.gone} · erreurs réseau : ${counts.networkErrors} · erreurs de notre côté : ${counts.infraErrors}${counts.quotaHit ? " · quota horaire atteint" : ""}`);
 if (stoppedByBudget > 0) console.log(`  budget de temps atteint : ${stoppedByBudget} séries repassent au prochain run`);
+// Famine silencieuse (review #311) : le quota par IP peut être consommé par d'autres sur l'IP du runner.
+if (counts.quotaHit && counts.answered === 0 && counts.targets > 0) {
+  console.warn("::warning title=GCD en direct::Quota horaire de comics.org déjà consommé avant toute réponse — si ça se répète à chaque run, l'IP du runner est saturée (rien n'a été relu).");
+}
 console.log(dryRun ? "\nDry-run : rien n'a été écrit." : "\nÉcrit — la synchronisation des faits (series:gcd-facts) suit.");
 process.exit(liveRunExitCode(counts));

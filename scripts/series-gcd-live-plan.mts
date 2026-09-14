@@ -62,7 +62,10 @@ export type SeriesPatch = { issue_count?: number; last_number?: number | null; y
 /**
  * Ce que l'API change dans `gcd_series` — vide si rien ne bouge. `last_number`
  * ne descend jamais (un fascicule retiré chez GCD n'efface pas un total connu) ;
- * `is_current` ne passe qu'à `false`, quand une fin apparaît.
+ * `is_current` ne passe qu'à `false`, et seulement quand une année de fin
+ * apparaît : l'API n'expose pas `is_current`, donc une série que GCD arrête
+ * SANS date reste « en cours » chez nous jusqu'au prochain dump — voulu, ne
+ * pas « corriger » (review #311).
  */
 export function seriesPatchFrom(current: Pick<LiveTarget, "isCurrent" | "yearEnded" | "issueCount" | "lastNumber">, live: GcdLiveSeries): SeriesPatch {
   const patch: SeriesPatch = {};
