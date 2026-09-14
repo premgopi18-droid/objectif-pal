@@ -25,6 +25,9 @@ import {
 } from "@/lib/pal/derive-pal";
 import { parseVolumeNumber } from "@/lib/resolution/volume-number";
 
+/** Priorité des sources (§4.17-4) : humain > AniList > GCD. */
+export type SeriesFactSource = "human" | "gcd" | "anilist";
+
 /** La ligne du référentiel partagé, telle que la page la lit. */
 export type SeriesFact = {
   id: string;
@@ -34,8 +37,8 @@ export type SeriesFact = {
   isOngoing: boolean;
   factDeclaredBy: string | null;
   factDeclaredAt: string | null;
-  /** Qui a posé le fait : un membre, ou la synchronisation GCD (série close / en cours chez GCD). */
-  factSource: "human" | "gcd";
+  /** Qui a posé le fait : un membre, la synchronisation GCD, ou AniList pour le manga (#304). */
+  factSource: SeriesFactSource;
 };
 
 /** Un livre de l'utilisateur relié à une série, avec ses faits. */
@@ -96,7 +99,7 @@ export type SeriesProgress = {
   isOngoing: boolean;
   factDeclaredBy: string | null;
   factDeclaredAt: string | null;
-  factSource: "human" | "gcd";
+  factSource: SeriesFactSource;
   /** Les planchers vivants (§4.17-4, #299) : GCD et éditions BnF, du plus grand au plus petit. */
   knownMax: KnownMax[];
   /** La grille des tomes va de 1 à là. */

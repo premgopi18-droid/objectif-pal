@@ -100,7 +100,7 @@ export async function loadSeriesProgress(
     isOngoing: row.is_ongoing,
     factDeclaredBy: row.fact_declared_by,
     factDeclaredAt: row.fact_declared_at,
-    factSource: row.fact_source === "gcd" ? "gcd" : "human",
+    factSource: row.fact_source === "gcd" || row.fact_source === "anilist" ? row.fact_source : "human",
   }));
 
   return { progress: deriveSeries(seriesList, books, knownMax), seriesIds };

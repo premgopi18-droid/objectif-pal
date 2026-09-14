@@ -102,6 +102,10 @@ export function declaredByLabel(
   if (progress.factSource === "gcd") {
     return progress.isOngoing ? "parution en cours d'après GCD" : `${progress.totalVolumes} numéros, série close d'après GCD`;
   }
+  // AniList (#304) : l'œuvre japonaise — une édition française normale partage son découpage.
+  if (progress.factSource === "anilist") {
+    return progress.isOngoing ? "parution en cours d'après AniList" : `${progress.totalVolumes} volumes, série terminée d'après AniList`;
+  }
   const what = progress.isOngoing ? "parution en cours" : `${progress.totalVolumes} tomes`;
   const who = declarerLabel ?? "un membre";
   // Découpage pur de l'ISO (jour UTC) : le même rendu serveur et client, pas

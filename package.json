@@ -18,7 +18,8 @@
     "series:backfill-bnf": "node --conditions=react-server --import tsx scripts/series-backfill-bnf.mts",
     "series:link-backfill": "node --conditions=react-server --import tsx scripts/series-link-backfill.mts",
     "series:bnf-floor": "node --conditions=react-server --import tsx scripts/series-bnf-floor.mts",
-    "series:gcd-facts": "node --conditions=react-server --import tsx scripts/series-gcd-facts.mts"
+    "series:gcd-facts": "node --conditions=react-server --import tsx scripts/series-gcd-facts.mts",
+    "series:anilist-facts": "node --conditions=react-server --import tsx scripts/series-anilist-facts.mts"
   },
   "dependencies": {
     "@sentry/nextjs": "^10.70.0",

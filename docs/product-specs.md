@@ -1061,6 +1061,17 @@ comme prévu), 0 livre nommé sans lien.
    GCD »), journalisé, **modifiable d'un tap** : une déclaration humaine n'est jamais touchée, une déclaration GCD
    suit GCD. Ce n'est plus deviner : c'est le fait d'une source qui modélise la fin de série. Les séries BnF et sans
    identifiant restent à déclarer, stepper pré-rempli.
+   **AniList pour le manga (#304, 14/09/2026).** Aucune source ouverte ne décrit les parutions françaises (Électre et
+   Dilicom sont payantes, Bédéthèque et Manga-news sans API, Wikidata trop bruité — sondé). Pour le manga, AniList
+   décrit l'œuvre, et une édition française normale partage son découpage et son statut : mesuré sur les 20 séries
+   manga de la base, **15 reconnues en rapprochement strict, 0 erreur**, les 5 autres étant des éditions spéciales
+   (« Colossale », « Deluxe »), écartées à dessein. Le job `series:anilist-facts` (nuit, après GCD) traite les séries
+   dont la majorité des livres sont des mangas : relecture par id si déjà rapproché, sinon recherche par titre et
+   `matchAniListStrict` (titre normalisé égal à un titre ou synonyme, format MANGA, origine JP/KR/CN/TW — jamais le
+   premier résultat) ; `FINISHED` + volumes → total, `RELEASING` → en cours, le reste rien. **Priorité humain >
+   AniList > GCD** (AniList est plus frais : Jagaaan « en cours » chez GCD, « terminé, 14 volumes » chez AniList).
+   Fiche : « 23 volumes, série terminée d'après AniList ». L'identifiant AniList vit sur `series_external_ids` ; une
+   série non reconnue est retentée après 7 jours (`series.anilist_searched_at`).
 5. **La section « Séries en cours » des Stats et son catalogue GCD (§4.5, lot B de #30) sont retirés** :
    les « trois silences » n'ont plus d'objet, le nouveau modèle marche pour la BnF, donc pour Léna. Perte
    assumée : une série GCD lue jusqu'au 5 sans total déclaré disait « tome 6 à lire », elle dira « total
@@ -1659,7 +1670,8 @@ manuellement OU un mois entier écoulé depuis la clôture.
 miroir SQL de `lib/series/normalize.ts` —, `category`, **le fait** : `total_volumes` OU `is_ongoing`
 (CHECK exclusif), `fact_declared_by`/`fact_declared_at`, `fact_source` human | gcd — un fait posé par la
 synchronisation `sync_series_facts_from_gcd()` (service role, job `series:gcd-facts` chaque nuit et derrière
-`gcd:load`) n'écrase jamais un fait humain, et `merge_series` le recopie avec le reste —, `created_by`) ; `series_external_ids`
+`gcd:load`) ou `anilist` (`declare_series_fact_from_source()`, job `series:anilist-facts`) n'écrase jamais un fait
+humain, et `merge_series` le recopie avec le reste —, `anilist_searched_at`, `created_by`) ; `series_external_ids`
 (`series_id`, `source` bnf/gcd, `external_id`, clé primaire (source, id) — **plusieurs par série**, une
 notice BnF par édition ; depuis #299 le plancher VF par édition : `known_max`, `known_max_label`,
 `known_max_checked_at`, posés par le job de nuit en service role, index partiel sur l'ancienneté) ; `series_events` (historique **en ajout seul** : `kind` declare_total /
