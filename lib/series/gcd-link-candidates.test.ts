@@ -14,18 +14,20 @@ const candidate = (id: number, name: string, publisher: string, overrides: Parti
 
 describe("familles d'éditeur — table explicite, comparée sans accents ni casse", () => {
   it("les variantes des livres (BnF) tombent dans leur famille", () => {
-    expect(bookPublisherFamily("Panini comics (Nice)")).toBe("panini");
-    expect(bookPublisherFamily("Panini France (Nice)")).toBe("panini");
+    expect(bookPublisherFamily("Panini comics")).toBe("panini");
+    expect(bookPublisherFamily("Panini France")).toBe("panini");
     expect(bookPublisherFamily("Panini")).toBe("panini");
-    expect(bookPublisherFamily("Urban comics (Paris)")).toBe("urban");
-    expect(bookPublisherFamily("Glénat (Grenoble)")).toBe("glenat");
-    expect(bookPublisherFamily("le Lombard (Bruxelles)")).toBe("lombard");
+    expect(bookPublisherFamily("Urban comics")).toBe("urban");
+    expect(bookPublisherFamily("Glénat")).toBe("glenat");
+    expect(bookPublisherFamily("le Lombard")).toBe("lombard");
     expect(bookPublisherFamily("Taïfu Comics")).toBe("taifu");
-    expect(bookPublisherFamily("Urban (Paris)")).toBe("urban");
-    expect(bookPublisherFamily("Soleil manga (Paris)")).toBe("soleil");
-    expect(bookPublisherFamily("Dupuis (Marcinelle (Belgique))")).toBe("dupuis");
-    expect(bookPublisherFamily("Pika éditions (Vanves)")).toBe("pika");
-    expect(bookPublisherFamily("Lorestone (Paris)")).toBeNull();
+    expect(bookPublisherFamily("Urban")).toBe("urban");
+    expect(bookPublisherFamily("Soleil manga")).toBe("soleil");
+    expect(bookPublisherFamily("Dupuis")).toBe("dupuis");
+    expect(bookPublisherFamily("Pika éditions")).toBe("pika");
+    // Le lieu d'édition n'existe plus en base (#314) : une valeur qui le porterait encore n'est pas reconnue, à dessein.
+    expect(bookPublisherFamily("Urban comics (Paris)")).toBeNull();
+    expect(bookPublisherFamily("Lorestone")).toBeNull();
     expect(bookPublisherFamily(null)).toBeNull();
   });
 
@@ -42,7 +44,7 @@ describe("pickGcdCandidate — nom + famille + année, candidat unique", () => {
   it("Batwoman chez Urban : un seul candidat français chez Urban → unique", () => {
     const verdict = pickGcdCandidate({
       seriesName: "Batwoman",
-      publisher: "Urban comics (Paris)",
+      publisher: "Urban comics",
       oldestYear: 2013,
       maxOwnedNumber: 2,
       candidates: [candidate(68109, "Batwoman", "Urban Comics", { yearBegan: 2012 }), candidate(1, "Batwoman", "DC", { yearBegan: 2011 })],
@@ -52,7 +54,7 @@ describe("pickGcdCandidate — nom + famille + année, candidat unique", () => {
 
   it("un tome possédé au-delà du dernier numéro d'une édition close : pas cette édition (review #312)", () => {
     const old = candidate(173149, "Generation X", "Panini France", { yearBegan: 1999, yearEnded: 1999, lastNumber: 1 });
-    expect(pickGcdCandidate({ seriesName: "Generation X", publisher: "Panini comics (Nice)", oldestYear: null, maxOwnedNumber: 3, candidates: [old] })).toEqual({
+    expect(pickGcdCandidate({ seriesName: "Generation X", publisher: "Panini comics", oldestYear: null, maxOwnedNumber: 3, candidates: [old] })).toEqual({
       kind: "none",
       reason: "no-match",
     });
@@ -66,7 +68,7 @@ describe("pickGcdCandidate — nom + famille + année, candidat unique", () => {
   it("Spider-Man chez Panini : plusieurs séries françaises homonymes → ambigu, jamais relié", () => {
     const verdict = pickGcdCandidate({
       seriesName: "Spider-Man",
-      publisher: "Panini comics (Nice)",
+      publisher: "Panini comics",
       oldestYear: null,
       maxOwnedNumber: null,
       candidates: [candidate(43275, "Spider-Man", "Panini France"), candidate(67090, "Spider-Man", "Panini France"), candidate(79271, "Spider-Man", "Bethy")],
@@ -78,7 +80,7 @@ describe("pickGcdCandidate — nom + famille + année, candidat unique", () => {
   it("une série GCD plus récente que le plus ancien livre n'est pas la bonne édition", () => {
     const verdict = pickGcdCandidate({
       seriesName: "Witchblade",
-      publisher: "Delcourt (Paris)",
+      publisher: "Delcourt",
       oldestYear: 2005,
       maxOwnedNumber: null,
       candidates: [candidate(70310, "Witchblade", "Delcourt", { yearBegan: 2012 })],
@@ -91,7 +93,7 @@ describe("pickGcdCandidate — nom + famille + année, candidat unique", () => {
   it("la casse et les accents du nom ne comptent pas (« Eye shield 21 » / « Eye Shield 21 »)", () => {
     const verdict = pickGcdCandidate({
       seriesName: "Eye shield 21",
-      publisher: "Glénat (Grenoble)",
+      publisher: "Glénat",
       oldestYear: null,
       maxOwnedNumber: null,
       candidates: [candidate(134247, "Eye Shield 21", "Glénat")],
@@ -100,7 +102,7 @@ describe("pickGcdCandidate — nom + famille + année, candidat unique", () => {
   });
 
   it("éditeur hors table (romans, petites maisons) → rien, raison « no-family »", () => {
-    expect(pickGcdCandidate({ seriesName: "Arcane", publisher: "Mana books (Paris)", oldestYear: null, maxOwnedNumber: null, candidates: [candidate(1, "Arcane", "Mana Books")] })).toEqual({
+    expect(pickGcdCandidate({ seriesName: "Arcane", publisher: "Mana books", oldestYear: null, maxOwnedNumber: null, candidates: [candidate(1, "Arcane", "Mana Books")] })).toEqual({
       kind: "none",
       reason: "no-family",
     });
