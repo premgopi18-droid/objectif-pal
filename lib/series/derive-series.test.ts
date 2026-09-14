@@ -363,7 +363,7 @@ describe("deriveSeries — la liste", () => {
     ]);
   });
 
-  it("une série à commencer (rien de lu, des tomes en pile) passe en tête, avant la dette (#323)", () => {
+  it("une série à commencer (rien de lu, des tomes en pile) vient après les en cours, avant les à jour (#323/#325)", () => {
     const list = deriveSeries(
       [a, b],
       [
@@ -374,23 +374,25 @@ describe("deriveSeries — la liste", () => {
       ],
     );
     expect(list.map((progress) => [progress.seriesId, progress.isNotStarted])).toEqual([
-      ["b", true],
       ["a", false],
+      ["b", true],
     ]);
-    // Par groupe (#325) : à jour et complètes ferment la marche, même avec une dette nulle partout.
+    // Par groupe (#325) : en cours, à commencer, à jour, complètes.
     const grouped = deriveSeries(
       [
         series({ id: "done", name: "Done", ...declared({ totalVolumes: 2 }) }),
         series({ id: "upd", name: "Upd", ...declared({ isOngoing: true }) }),
         series({ id: "run", name: "Run", ...declared({ totalVolumes: 5 }) }),
+        series({ id: "new", name: "New", ...declared({ totalVolumes: 5 }) }),
       ],
       [
         ...volumes([1, 2], "read").map((book) => ({ ...book, seriesId: "done" })),
         ...volumes([1, 2], "read").map((book) => ({ ...book, seriesId: "upd" })),
         ...volumes([1], "read").map((book) => ({ ...book, seriesId: "run" })),
+        ...volumes([1, 2, 3], "pile").map((book) => ({ ...book, seriesId: "new" })),
       ],
     );
-    expect(grouped.map((progress) => progress.seriesId)).toEqual(["run", "upd", "done"]);
+    expect(grouped.map((progress) => progress.seriesId)).toEqual(["run", "new", "upd", "done"]);
     expect(deriveSeriesProgress(series(), volumes([1, 2], "read")).isNotStarted).toBe(false);
     expect(deriveSeriesProgress(series(), [volume("1", "disposed")]).isNotStarted).toBe(false);
   });

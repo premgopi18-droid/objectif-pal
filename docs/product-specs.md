@@ -1132,8 +1132,9 @@ comme prévu), 0 livre nommé sans lien.
    rien reste replié en bas du segment, avec sa porte vers la fiche pour déclarer (#306).
 7. **Les états** : « En cours », « À jour » (parution en cours, tout ce qui est **paru et connu** est lu — le
    plancher compte, #307), « **À commencer** » (#323/#325, 14/09/2026 : rien de lu, des tomes dans la pile — un
-   badge sur l'état « en cours », pas un sixième état ; ces séries passent **en tête** du segment, avant la dette,
-   et ont leur chip ; **les chips sont exclusives** : « En cours » ne les inclut pas), « Complète »
+   badge sur l'état « en cours », pas un sixième état ; ces séries forment leur groupe, après les en cours,
+   et ont leur chip ; **les chips sont exclusives** : « En cours » ne les inclut pas ; ordre du segment : en cours,
+   à commencer, à jour, complètes), « Complète »
    (total déclaré atteint — jamais sans total), « Total à déclarer », « ≈ approximatif » (un tome lu sans
    numéro : jauge et suivant restent muets plutôt que faux, un tap sur la case « ? » règle ça).
 8. **Le tome suivant** = le plus petit numéro non lu, règle de #30 conservée : « à lire, il est dans ta
@@ -1162,7 +1163,7 @@ comme prévu), 0 livre nommé sans lien.
     livres de l'utilisateur** (majorité), pas la colonne.
 
 **Les surfaces** : la Biblio gagne un **3ᵉ segment « Séries »** (`?vue=series`, livré au lot B #292 : cartes
-triées **par groupe** — à commencer, en cours, à jour, complètes (#323/#325) — puis par dette décroissante, jauge
+triées **par groupe** — en cours, à commencer, à jour, complètes (#323/#325, ordre de Prem) — puis par dette décroissante, jauge
 vert = lu / ambre = pile, chips EXCLUSIVES Toutes / À commencer / En cours / À jour / Complètes avec effectifs —
 « Toutes » par défaut : ce qui reste à lire vient en premier de lui-même ; « En cours » regroupe « Total à
 déclarer » et « ≈ approximatif », pas les séries à commencer —, bannière de fusion sur la
