@@ -38,9 +38,11 @@ const plural = (count: number, singular: string, pluralForm = `${singular}s`) =>
   `${count} ${count > 1 ? pluralForm : singular}`;
 
 /** « 8 lus · 2 dans la pile · sur 12 » / « parution en cours » / « total ? ». */
-export function seriesCountsText(progress: Pick<SeriesProgress, "read" | "pile" | "totalVolumes" | "isOngoing">): string {
+export function seriesCountsText(progress: Pick<SeriesProgress, "read" | "pile" | "totalVolumes" | "isOngoing" | "missing">): string {
   const parts = [plural(progress.read, "lu")];
   if (progress.pile > 0) parts.push(`${progress.pile} dans la pile`);
+  // Le troisième état (lu · dans la pile · pas possédé) n'a de sens qu'avec un total.
+  if (progress.missing !== null && progress.missing > 0) parts.push(`${progress.missing} pas possédé${progress.missing > 1 ? "s" : ""}`);
   if (progress.totalVolumes !== null) parts.push(`sur ${progress.totalVolumes}`);
   else if (progress.isOngoing) parts.push("parution en cours");
   else parts.push("total ?");
@@ -91,10 +93,15 @@ export function approximateWarning(unnumberedRead: number): string {
  * « un membre ».
  */
 export function declaredByLabel(
-  progress: Pick<SeriesProgress, "totalVolumes" | "isOngoing" | "factDeclaredBy" | "factDeclaredAt">,
+  progress: Pick<SeriesProgress, "totalVolumes" | "isOngoing" | "factDeclaredBy" | "factDeclaredAt" | "factSource">,
   declarerLabel: string | null,
 ): string | null {
   if (progress.factDeclaredAt === null) return null;
+  // Le fait posé par la synchronisation GCD (série close / en cours chez GCD, décision du 14/09/2026) :
+  // on dit d'où il vient, et il se corrige d'un tap comme les autres.
+  if (progress.factSource === "gcd") {
+    return progress.isOngoing ? "parution en cours d'après GCD" : `${progress.totalVolumes} numéros, série close d'après GCD`;
+  }
   const what = progress.isOngoing ? "parution en cours" : `${progress.totalVolumes} tomes`;
   const who = declarerLabel ?? "un membre";
   // Découpage pur de l'ISO (jour UTC) : le même rendu serveur et client, pas

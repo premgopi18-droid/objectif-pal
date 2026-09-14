@@ -14,7 +14,13 @@
  *
  * Produit dans data/ :
  *   gcd_issues.csv     gcd_id, barcode, barcode_prefix, series_id, number, page_count, key_date, isbn, title
- *   gcd_series.csv     id, name, format, year_began, publisher_name, language_id
+ *   gcd_series.csv     id, name, format, year_began, publisher_name, language_id,
+ *                      is_current, year_ended, issue_count, last_number
+ *
+ * `last_number` (suivi de séries, 14/09/2026) : le `number` du fascicule `last_issue_id`
+ * s'il est purement numérique — le total d'une série close. Les issues précèdent les
+ * séries dans le dump : on mémorise le numéro de CHAQUE issue non supprimée (2,6 M
+ * entrées, ~150 Mo) pour le retrouver quand les séries arrivent.
  *
  * `gcd_id` n'est pas cosmétique : c'est lui qui permettra d'interroger Metron par `?gcd_id=`,
  * le filtre le plus précis pour récupérer LA bonne couverture (bien mieux qu'une recherche
@@ -108,6 +114,8 @@ let currentCreateTable = null;
 const issues = []; // { barcode, prefix, seriesId, number, pageCount, keyDate, isbn, title }
 const seriesById = new Map();
 const publisherNameById = new Map();
+/** id → number de chaque issue (non supprimée, variante comprise) — pour `last_issue_id`. */
+const issueNumberById = new Map();
 
 const stream = createInterface({
   input: createReadStream(dumpPath, { encoding: "utf8" }),
@@ -153,12 +161,17 @@ for await (const line of stream) {
         yearBegan: row[at("year_began")],
         publisherId: row[at("publisher_id")],
         languageId: row[at("language_id")],
+        isCurrent: row[at("is_current")] === "1",
+        yearEnded: row[at("year_ended")] === "NULL" ? "" : row[at("year_ended")],
+        issueCount: row[at("issue_count")] === "NULL" ? "" : row[at("issue_count")],
+        lastIssueId: row[at("last_issue_id")],
       });
       continue;
     }
 
     // gcd_issue
     if (row[at("deleted")] === "1") continue;
+    issueNumberById.set(row[at("id")], row[at("number")]);
 
     const rawBarcode = (row[at("barcode")] ?? "").trim();
     const isbn = (row[at("valid_isbn")] || row[at("isbn")] || "").replace(/[^\dX]/gi, "");
@@ -229,7 +242,13 @@ for (const issue of issues) {
 issuesFile.end();
 
 const seriesFile = createWriteStream(new URL("gcd_series.csv", OUTPUT_DIRECTORY));
-seriesFile.write("id,name,format,year_began,publisher,language_id\n");
+seriesFile.write("id,name,format,year_began,publisher,language_id,is_current,year_ended,issue_count,last_number\n");
+
+/** Le numéro du dernier fascicule s'il est purement numérique (« 12 », pas « [nn] » ni « 41 (842) »), sinon vide. */
+const lastNumberOf = (lastIssueId) => {
+  const number = issueNumberById.get(lastIssueId);
+  return number !== undefined && /^\d{1,5}$/.test(number) ? String(Number(number)) : "";
+};
 
 for (const seriesId of usedSeriesIds) {
   const series = seriesById.get(seriesId);
@@ -242,6 +261,10 @@ for (const seriesId of usedSeriesIds) {
       series.yearBegan,
       publisherNameById.get(series.publisherId) ?? "",
       series.languageId,
+      series.isCurrent ? "true" : "false",
+      series.yearEnded,
+      series.issueCount,
+      lastNumberOf(series.lastIssueId),
     ]),
   );
 }

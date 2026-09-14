@@ -86,7 +86,7 @@ export async function loadSeriesProgress(
   const [seriesResult, knownMax] = await Promise.all([
     supabase
       .from("series")
-      .select("id, name, category, total_volumes, is_ongoing, fact_declared_by, fact_declared_at")
+      .select("id, name, category, total_volumes, is_ongoing, fact_declared_by, fact_declared_at, fact_source")
       .in("id", seriesIds),
     options.withKnownMax ? fetchKnownMaxBySeriesId(supabase, seriesIds) : Promise.resolve(new Map<string, KnownMax[]>()),
   ]);
@@ -100,6 +100,7 @@ export async function loadSeriesProgress(
     isOngoing: row.is_ongoing,
     factDeclaredBy: row.fact_declared_by,
     factDeclaredAt: row.fact_declared_at,
+    factSource: row.fact_source === "gcd" ? "gcd" : "human",
   }));
 
   return { progress: deriveSeries(seriesList, books, knownMax), seriesIds };

@@ -34,6 +34,8 @@ export type SeriesFact = {
   isOngoing: boolean;
   factDeclaredBy: string | null;
   factDeclaredAt: string | null;
+  /** Qui a posé le fait : un membre, ou la synchronisation GCD (série close / en cours chez GCD). */
+  factSource: "human" | "gcd";
 };
 
 /** Un livre de l'utilisateur relié à une série, avec ses faits. */
@@ -94,10 +96,13 @@ export type SeriesProgress = {
   isOngoing: boolean;
   factDeclaredBy: string | null;
   factDeclaredAt: string | null;
+  factSource: "human" | "gcd";
   /** Les planchers vivants (§4.17-4, #299) : GCD et éditions BnF, du plus grand au plus petit. */
   knownMax: KnownMax[];
   /** La grille des tomes va de 1 à là. */
   gridMax: number;
+  /** Les tomes 1..total ni lus ni dans la pile — `null` sans total déclaré (on ne sait pas ce qui manque). */
+  missing: number | null;
   next: SeriesNext | null;
   status: SeriesStatus;
   /** Le seuil d'apparition (§4.17-6) : deux livres, ou un fait déclaré. */
@@ -166,6 +171,11 @@ export function deriveSeriesProgress(
   const ownedMax = Math.max(0, ...readNumbers, ...pileNumbers);
   const gridMax = series.totalVolumes ?? ownedMax;
   const hasFact = series.factDeclaredAt !== null;
+  const owned = new Set([...readNumbers, ...pileNumbers]);
+  const missing =
+    series.totalVolumes === null
+      ? null
+      : Array.from({ length: series.totalVolumes }, (_, index) => index + 1).filter((number) => !owned.has(number)).length;
 
   const next = resolveNext({ series, readNumbers, pileNumbers, pileVolumes, gridMax, unnumberedRead });
 
@@ -189,8 +199,10 @@ export function deriveSeriesProgress(
     isOngoing: series.isOngoing,
     factDeclaredBy: series.factDeclaredBy,
     factDeclaredAt: series.factDeclaredAt,
+    factSource: series.factSource,
     knownMax: [...knownMax].sort((left, right) => right.value - left.value),
     gridMax,
+    missing,
     next,
     status,
     // Ce que la carte affiche (lus + pile) décide de l'apparition — deux tomes

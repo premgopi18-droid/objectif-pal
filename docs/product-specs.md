@@ -1050,6 +1050,17 @@ comme prévu), 0 livre nommé sans lien.
    erreur de notre côté rend le run rouge. La fiche liste les planchers (« 111 tomes déposés à la BnF pour l'édition
    Glénat · 40 numéros parus d'après GCD »), le stepper part du plus grand, et « La BnF en connaît 112 → Mettre à
    jour » signale un total déclaré dépassé — même geste que GCD.
+   **Le fait de série depuis GCD (décision de Prem du 14/09/2026, amendement à « jamais à ta place »).** Un plancher
+   n'est pas un total : après la remise à zéro, 101 séries disaient « Total à déclarer » alors que GCD SAIT, pour
+   77 d'entre elles, si la série est close (`is_current`) et son dernier numéro (`last_issue_id` → `number`). Ces
+   champs entrent dans notre import (`gcd_series.is_current`, `year_ended`, `issue_count`, `last_number` — posés par
+   `gcd-export.mjs` / `gcd-load.mjs`), et la synchronisation `sync_series_facts_from_gcd()` (service role, job
+   `series:gcd-facts` chaque nuit et après chaque dump) **déclare le fait à la place de l'utilisateur** pour toute
+   série reliée à GCD sans déclaration humaine : « parution en cours » si l'une de ses séries GCD est courante, sinon
+   le plus grand dernier numéro connu comme total. Source `gcd`, auteur « GCD » (« 12 numéros, série close d'après
+   GCD »), journalisé, **modifiable d'un tap** : une déclaration humaine n'est jamais touchée, une déclaration GCD
+   suit GCD. Ce n'est plus deviner : c'est le fait d'une source qui modélise la fin de série. Les séries BnF et sans
+   identifiant restent à déclarer, stepper pré-rempli.
 5. **La section « Séries en cours » des Stats et son catalogue GCD (§4.5, lot B de #30) sont retirés** :
    les « trois silences » n'ont plus d'objet, le nouveau modèle marche pour la BnF, donc pour Léna. Perte
    assumée : une série GCD lue jusqu'au 5 sans total déclaré disait « tome 6 à lire », elle dira « total

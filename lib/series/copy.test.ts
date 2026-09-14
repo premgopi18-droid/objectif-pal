@@ -14,9 +14,10 @@ import {
 
 describe("les textes du suivi de séries", () => {
   it("la ligne de compteurs suit le fait : total, parution en cours, ou « total ? »", () => {
-    expect(seriesCountsText({ read: 8, pile: 2, totalVolumes: 12, isOngoing: false })).toBe("8 lus · 2 dans la pile · sur 12");
-    expect(seriesCountsText({ read: 1, pile: 0, totalVolumes: null, isOngoing: true })).toBe("1 lu · parution en cours");
-    expect(seriesCountsText({ read: 3, pile: 0, totalVolumes: null, isOngoing: false })).toBe("3 lus · total ?");
+    expect(seriesCountsText({ read: 8, pile: 2, totalVolumes: 12, isOngoing: false, missing: 2 })).toBe("8 lus · 2 dans la pile · 2 pas possédés · sur 12");
+    expect(seriesCountsText({ read: 12, pile: 0, totalVolumes: 12, isOngoing: false, missing: 0 })).toBe("12 lus · sur 12");
+    expect(seriesCountsText({ read: 1, pile: 0, totalVolumes: null, isOngoing: true, missing: null })).toBe("1 lu · parution en cours");
+    expect(seriesCountsText({ read: 3, pile: 0, totalVolumes: null, isOngoing: false, missing: null })).toBe("3 lus · total ?");
   });
 
   it("le bandeau de synthèse accorde séries et tomes", () => {
@@ -45,11 +46,14 @@ describe("les textes du suivi de séries", () => {
   });
 
   it("l'auteur du fait : toi, un ami par son pseudo, sinon « un membre » — rien sans fait", () => {
-    const declared = { totalVolumes: 7, isOngoing: false, factDeclaredBy: "u", factDeclaredAt: "2026-09-14T10:00:00Z" };
+    const declared = { totalVolumes: 7, isOngoing: false, factDeclaredBy: "u", factDeclaredAt: "2026-09-14T10:00:00Z", factSource: "human" as const };
     expect(declaredByLabel(declared, "Léna")).toBe("7 tomes, déclaré par Léna le 14/09/2026");
     expect(declaredByLabel(declared, null)).toBe("7 tomes, déclaré par un membre le 14/09/2026");
     expect(declaredByLabel({ ...declared, totalVolumes: null, isOngoing: true }, "toi")).toContain("parution en cours, déclaré par toi");
-    expect(declaredByLabel({ totalVolumes: null, isOngoing: false, factDeclaredBy: null, factDeclaredAt: null }, null)).toBeNull();
+    expect(declaredByLabel({ totalVolumes: null, isOngoing: false, factDeclaredBy: null, factDeclaredAt: null, factSource: "human" }, null)).toBeNull();
+    // Le fait posé par GCD dit sa source, sans pseudo.
+    expect(declaredByLabel({ ...declared, totalVolumes: 12, factDeclaredBy: null, factSource: "gcd" }, null)).toBe("12 numéros, série close d'après GCD");
+    expect(declaredByLabel({ ...declared, totalVolumes: null, isOngoing: true, factDeclaredBy: null, factSource: "gcd" }, null)).toBe("parution en cours d'après GCD");
   });
 
   it("le stepper part du plus grand plancher, sinon du plus grand possédé (10 au moins)", () => {

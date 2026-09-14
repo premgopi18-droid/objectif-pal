@@ -54,7 +54,7 @@ const TABLES = [
   {
     name: "gcd_series",
     csv: new URL("../data/gcd_series.csv", import.meta.url),
-    columns: ["id", "name", "format", "year_began", "publisher", "language_id"],
+    columns: ["id", "name", "format", "year_began", "publisher", "language_id", "is_current", "year_ended", "issue_count", "last_number"],
     readPolicy: "gcd_series_read",
   },
 ];
