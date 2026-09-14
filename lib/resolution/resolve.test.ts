@@ -51,7 +51,7 @@ function fakeDeps(overrides: {
       getSeriesByIds: vi.fn(async () => new Map<number, GcdSeries>()),
       ...overrides.gcd,
     },
-    bnf: { resolveIsbn: vi.fn(async () => null), ...overrides.bnf },
+    bnf: { resolveIsbn: vi.fn(async () => null), searchSeriesFloors: vi.fn(async () => new Map()), ...overrides.bnf },
     googleBooks: { resolveIsbn: vi.fn(async () => null), ...overrides.googleBooks },
     openLibrary: { findCoverByIsbn: vi.fn(async () => null), searchEditionCovers: vi.fn(async () => []), ...overrides.openLibrary },
     inventaire: { findCoverByIsbn: vi.fn(async () => null), ...overrides.inventaire },

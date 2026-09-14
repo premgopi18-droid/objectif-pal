@@ -1035,6 +1035,21 @@ comme prévu), 0 livre nommé sans lien.
    à côté. Une série avec total déclaré affiche, quand GCD dépasse, un geste d'un tap « GCD en connaît 15,
    mettre à jour » — **jamais de modification silencieuse**. C'est un plancher (import = codes-barres et
    ISBN seulement) : excellent pour les fascicules VO, correct en BD, faible en manga VF.
+   **Le plancher VF vient de la BnF, par édition (#299, 14/09/2026).** Le total est une propriété de l'édition
+   française, pas de l'œuvre (AniList et Wikidata décrivent l'œuvre ; Bédéthèque et Manga-news n'ont pas d'API et
+   interdisent le scraping) — et la BnF ne clôt pas ses notices de série (mesuré : Fullmetal Alchemist chez
+   Kurokawa, terminé, reste « 2005- » ; 1 notice sur 13 porte un nombre de volumes). Le « terminé » reste donc humain.
+   Mais une recherche titre + auteur regroupée par la **notice de série** (461 `$0`, l'identifiant d'édition qu'on
+   stocke) donne le **plus grand tome déposé pour cette édition** (mesuré : One Piece Glénat 111, Death Note Kana 13,
+   Blacksad Dargaud 7, Dorohedoro Soleil 23 — le compte de notices, lui, est bruité par les rééditions). Trop lent
+   pour la fiche (2 à 20 s par série) : un **job de nuit** (`series.yml`, 06:30 UTC, `series:bnf-floor`) relit 150
+   séries par run — jamais relues d'abord, puis les plus anciennes —, une par une, 250 ms de politesse, pages de 100
+   plafonnées à 5, 60 s par page, et pose `known_max` / `known_max_label` (l'éditeur) / `known_max_checked_at` sur
+   l'identifiant d'édition (`series_external_ids`), jamais sur la série (une série fusionnée a plusieurs éditions).
+   Un plancher introuvable est daté quand même ; un échec réseau n'écrit rien ; seule une panne généralisée ou une
+   erreur de notre côté rend le run rouge. La fiche liste les planchers (« 111 tomes déposés à la BnF pour l'édition
+   Glénat · 40 numéros parus d'après GCD »), le stepper part du plus grand, et « La BnF en connaît 112 → Mettre à
+   jour » signale un total déclaré dépassé — même geste que GCD.
 5. **La section « Séries en cours » des Stats et son catalogue GCD (§4.5, lot B de #30) sont retirés** :
    les « trois silences » n'ont plus d'objet, le nouveau modèle marche pour la BnF, donc pour Léna. Perte
    assumée : une série GCD lue jusqu'au 5 sans total déclaré disait « tome 6 à lire », elle dira « total
@@ -1633,7 +1648,8 @@ manuellement OU un mois entier écoulé depuis la clôture.
 miroir SQL de `lib/series/normalize.ts` —, `category`, **le fait** : `total_volumes` OU `is_ongoing`
 (CHECK exclusif), `fact_declared_by`/`fact_declared_at`, `created_by`) ; `series_external_ids`
 (`series_id`, `source` bnf/gcd, `external_id`, clé primaire (source, id) — **plusieurs par série**, une
-notice BnF par édition) ; `series_events` (historique **en ajout seul** : `kind` declare_total /
+notice BnF par édition ; depuis #299 le plancher VF par édition : `known_max`, `known_max_label`,
+`known_max_checked_at`, posés par le job de nuit en service role, index partiel sur l'ancienneté) ; `series_events` (historique **en ajout seul** : `kind` declare_total /
 declare_ongoing / rename / merge, valeurs, `user_id` en `set null` à la suppression du compte — l'événement
 reste, anonymisé). Les trois tables : SELECT pour tout authentifié, **aucune policy d'écriture** — seules les
 RPC `security definer` écrivent, en vérifiant l'appelant : `find_or_create_series(name, category, bnf?, gcd?)`

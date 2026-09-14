@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { Button } from "@/components/ui/button";
-import { gcdHintText, suggestedTotal } from "@/lib/series/copy";
+import { knownMaxHint, suggestedTotal } from "@/lib/series/copy";
 import type { SeriesProgress } from "@/lib/series/derive-series";
 
 /**
  * « Combien de tomes fait cette série ? » (lot B, §4.17 geste 1) : un stepper
- * pré-rempli par l'indice GCD quand il existe (jamais une vérité — la mention
- * dessous le dit), sinon par le plus grand possédé. Deux sorties : « C'est le
+ * pré-rempli par le plus grand plancher connu — GCD pour la VO, la BnF par
+ * édition pour la VF (#299) — jamais une vérité (la mention dessous le dit),
+ * sinon par le plus grand possédé. Deux sorties : « C'est le
  * total » ou « Parution en cours ». Le fait part dans le référentiel partagé,
  * avec l'auteur.
  */
@@ -33,7 +34,7 @@ export function DeclareTotalBlock({
     <div className="flex flex-col gap-3 rounded-card border border-line bg-card2 p-3">
       <h4 className="text-sm font-bold text-ink">Combien de tomes fait cette série ?</h4>
       <p className="text-xs leading-relaxed text-ink2">
-        Un chiffre suffit pour suivre ta progression — corrigeable à tout moment. {gcdHintText(progress.gcdKnownMax)}
+        Un chiffre suffit pour suivre ta progression — corrigeable à tout moment. {knownMaxHint(progress.knownMax)}
       </p>
       <div className="flex items-center justify-center gap-4">
         <button

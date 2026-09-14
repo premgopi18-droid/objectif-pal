@@ -1,0 +1,35 @@
+# Le plancher VF par édition (#299, suivi de séries §4.17) — chaque nuit.
+#
+# Pour chaque série à identifiant d'édition BnF, le plus grand tome déposé
+# (recherche titre + auteur regroupée par notice de série), posé sur
+# l'identifiant. 150 séries par run, jamais relues d'abord puis les plus
+# anciennes : le parc se rattrape en quelques nuits, puis se rafraîchit de
+# fait chaque semaine. Jamais une vérité : la fiche s'en sert pour pré-remplir.
+name: Series
+
+on:
+  schedule:
+    # 06:30 UTC — après le rapatriement des couvertures (06:00), avant le
+    # contrat prod (07:00).
+    - cron: "30 6 * * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry-run (compter sans écrire)"
+        type: boolean
+        default: false
+
+jobs:
+  bnf-floor:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run series:bnf-floor -- ${{ inputs.dry_run && '--dry-run' || '' }}
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+          SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}

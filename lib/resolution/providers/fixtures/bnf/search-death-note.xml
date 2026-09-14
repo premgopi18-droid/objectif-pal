@@ -1,0 +1,1115 @@
+<?xml version="1.0" encoding="UTF-8"?><srw:searchRetrieveResponse xmlns:srw="http://www.loc.gov/zing/srw/" xmlns="http://catalogue.bnf.fr/namespaces/InterXMarc" xmlns:ixm="http://catalogue.bnf.fr/namespaces/InterXMarc" xmlns:mn="http://catalogue.bnf.fr/namespaces/motsnotices" xmlns:sd="http://www.loc.gov/zing/srw/diagnostic/">
+<srw:version>1.2</srw:version>
+<srw:echoedSearchRetrieveRequest>
+<srw:version>1.2</srw:version>
+<srw:query>bib.title all "Death note" and bib.author all "Ohba"</srw:query>
+</srw:echoedSearchRetrieveRequest>
+<srw:numberOfRecords>36</srw:numberOfRecords>
+<srw:records>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb42660180s" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="b">Images animées</mxc:subfield>
+<mxc:subfield code="e">intégrale</mxc:subfield>
+<mxc:subfield code="f">Tsugumi Ōba, Takeshi Obata, aut. adaptés</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Citel vidéo [éd., distrib.]</mxc:subfield>
+<mxc:subfield code="d">[DL 2012]</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb42660180s</srw:recordIdentifier>
+<srw:recordPosition>1</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20120507</ixm:attr>
+<ixm:attr name="LastModificationDate">20120712</ixm:attr>
+<mn:score>18.963352</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb438267331" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="b">Images animées</mxc:subfield>
+<mxc:subfield code="e">intégrale</mxc:subfield>
+<mxc:subfield code="f">Tsugumi Ōba, Takeshi Obata, aut. adaptés</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Citel vidéo [éd., distrib.]</mxc:subfield>
+<mxc:subfield code="d">[DL 2014]</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb438267331</srw:recordIdentifier>
+<srw:recordPosition>2</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20140522</ixm:attr>
+<ixm:attr name="LastModificationDate">20140929</ixm:attr>
+<mn:score>18.963074</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb426601756" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="b">Images animées</mxc:subfield>
+<mxc:subfield code="e">intégrale</mxc:subfield>
+<mxc:subfield code="f">Tsugumi Ōba, Takeshi Obata, aut. adaptés</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Citel vidéo [éd., distrib.]</mxc:subfield>
+<mxc:subfield code="d">[DL 2012]</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb426601756</srw:recordIdentifier>
+<srw:recordPosition>3</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20120507</ixm:attr>
+<ixm:attr name="LastModificationDate">20120712</ixm:attr>
+<mn:score>18.963074</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb42147783w" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">3 &amp; 4</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessins, Takeshi Obata</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Paris</mxc:subfield>
+<mxc:subfield code="c">Éd. France loisirs</mxc:subfield>
+<mxc:subfield code="d">DL 2009</mxc:subfield>
+<mxc:subfield code="e">impr. en Italie</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">42152423</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb42147783w</srw:recordIdentifier>
+<srw:recordPosition>4</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20100222</ixm:attr>
+<ixm:attr name="LastModificationDate">20100302</ixm:attr>
+<mn:score>18.8762</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb421477680" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">1 &amp; 2</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessins, Takeshi Obata</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Paris</mxc:subfield>
+<mxc:subfield code="c">Éd. France loisirs</mxc:subfield>
+<mxc:subfield code="d">DL 2009</mxc:subfield>
+<mxc:subfield code="e">impr. en Italie</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">42152423</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb421477680</srw:recordIdentifier>
+<srw:recordPosition>5</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20100222</ixm:attr>
+<ixm:attr name="LastModificationDate">20100302</ixm:attr>
+<mn:score>18.8762</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb42083389j" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">13</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessin, Takeshi Obata</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2008</mxc:subfield>
+<mxc:subfield code="e">impr. en Italie</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">41000718</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">13</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb42083389j</srw:recordIdentifier>
+<srw:recordPosition>6</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20091023</ixm:attr>
+<ixm:attr name="LastModificationDate">20201118</ixm:attr>
+<mn:score>18.552387</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb41303292w" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">11</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessin, Takeshi Obata</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2008</mxc:subfield>
+<mxc:subfield code="e">27-Évreux</mxc:subfield>
+<mxc:subfield code="g">Impr. Hérissey</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">41000718</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">11</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb41303292w</srw:recordIdentifier>
+<srw:recordPosition>7</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20080722</ixm:attr>
+<ixm:attr name="LastModificationDate">20170429</ixm:attr>
+<mn:score>18.551441</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb41271006q" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">10</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessin, Takeshi Obata</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2008</mxc:subfield>
+<mxc:subfield code="e">27-Évreux</mxc:subfield>
+<mxc:subfield code="g">Impr. Hérissey</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">41000718</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">10</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb41271006q</srw:recordIdentifier>
+<srw:recordPosition>8</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20080603</ixm:attr>
+<ixm:attr name="LastModificationDate">20170429</ixm:attr>
+<mn:score>18.551441</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb41363596b" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">12</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessin, Takeshi Obata</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2008</mxc:subfield>
+<mxc:subfield code="e">27-Évreux</mxc:subfield>
+<mxc:subfield code="g">Impr. Hérissey</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">41000718</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">12</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb41363596b</srw:recordIdentifier>
+<srw:recordPosition>9</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20081024</ixm:attr>
+<ixm:attr name="LastModificationDate">20170429</ixm:attr>
+<mn:score>18.551441</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb421524236" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessins, Takeshi Obata</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Paris</mxc:subfield>
+<mxc:subfield code="c">Éd. France loisirs</mxc:subfield>
+<mxc:subfield code="d">2009-</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb421524236</srw:recordIdentifier>
+<srw:recordPosition>10</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20100302</ixm:attr>
+<ixm:attr name="LastModificationDate">20100302</ixm:attr>
+<mn:score>18.463116</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb45257908g" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="b">Images animées</mxc:subfield>
+<mxc:subfield code="e">intégrale</mxc:subfield>
+<mxc:subfield code="f">Tsugumi Ohba, Takeshi Obata, aut. adaptés</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kazé [éd., distrib.]</mxc:subfield>
+<mxc:subfield code="d">2017</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb45257908g</srw:recordIdentifier>
+<srw:recordPosition>11</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20170425</ixm:attr>
+<ixm:attr name="LastModificationDate">20170907</ixm:attr>
+<mn:score>18.1634</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb45257759t" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="b">Images animées</mxc:subfield>
+<mxc:subfield code="e">intégrale</mxc:subfield>
+<mxc:subfield code="f">Tsugumi Ohba, Takeshi Obata, aut. adaptés</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kazé [éd., distrib.]</mxc:subfield>
+<mxc:subfield code="d">2017</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb45257759t</srw:recordIdentifier>
+<srw:recordPosition>12</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20170425</ixm:attr>
+<ixm:attr name="LastModificationDate">20170907</ixm:attr>
+<mn:score>18.1634</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb42280537g" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="e">black edition</mxc:subfield>
+<mxc:subfield code="h">2</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessins, Takeshi Obata</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2010</mxc:subfield>
+<mxc:subfield code="e">impr. en Italie</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">42249221</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">2</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb42280537g</srw:recordIdentifier>
+<srw:recordPosition>13</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20100929</ixm:attr>
+<ixm:attr name="LastModificationDate">20210804</ixm:attr>
+<mn:score>18.105108</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb423549718" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="e">black edition</mxc:subfield>
+<mxc:subfield code="h">3</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessins, Takeshi Obata</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2010</mxc:subfield>
+<mxc:subfield code="e">impr. en Italie</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">42249221</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">3</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb423549718</srw:recordIdentifier>
+<srw:recordPosition>14</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20110121</ixm:attr>
+<ixm:attr name="LastModificationDate">20210804</ixm:attr>
+<mn:score>18.104696</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb42238405g" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="e">black edition</mxc:subfield>
+<mxc:subfield code="h">1</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessins, Takeshi Obata</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2010</mxc:subfield>
+<mxc:subfield code="e">impr. en Italie</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">42249221</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">1</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb42238405g</srw:recordIdentifier>
+<srw:recordPosition>15</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20100713</ixm:attr>
+<ixm:attr name="LastModificationDate">20210804</ixm:attr>
+<mn:score>18.104317</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb40984520n" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">2</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessin, Takeshi Obata</mxc:subfield>
+<mxc:subfield code="g">[traduit et adapté du japonais par Myloo Anhmet]</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2007</mxc:subfield>
+<mxc:subfield code="e">27-Évreux</mxc:subfield>
+<mxc:subfield code="g">Impr. Hérissey</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">41000718</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">2</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb40984520n</srw:recordIdentifier>
+<srw:recordPosition>16</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20070219</ixm:attr>
+<ixm:attr name="LastModificationDate">20170429</ixm:attr>
+<mn:score>17.996506</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb41172360d" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">7</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessin, Takeshi Obata</mxc:subfield>
+<mxc:subfield code="g">[traduit et adapté en français par Myloo Anhmet]</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2007</mxc:subfield>
+<mxc:subfield code="e">27-Évreux</mxc:subfield>
+<mxc:subfield code="g">Impr. Hérissey</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">41000718</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">7</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb41172360d</srw:recordIdentifier>
+<srw:recordPosition>17</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20071214</ixm:attr>
+<ixm:attr name="LastModificationDate">20170429</ixm:attr>
+<mn:score>17.995714</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb412016821" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">8</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessin, Takeshi Obata</mxc:subfield>
+<mxc:subfield code="g">[traduit et adapté en français par Shinya Seto]</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2008</mxc:subfield>
+<mxc:subfield code="e">27-Évreux</mxc:subfield>
+<mxc:subfield code="g">Impr. Hérissey</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">41000718</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">8</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb412016821</srw:recordIdentifier>
+<srw:recordPosition>18</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20080213</ixm:attr>
+<ixm:attr name="LastModificationDate">20170429</ixm:attr>
+<mn:score>17.995714</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb41088233q" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">5</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessin, Takeshi Obata</mxc:subfield>
+<mxc:subfield code="g">[traduit et adapté en français par Myloo Anhmet]</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2007</mxc:subfield>
+<mxc:subfield code="e">27-Évreux</mxc:subfield>
+<mxc:subfield code="g">Impr. Hérissey</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">41000718</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">5</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb41088233q</srw:recordIdentifier>
+<srw:recordPosition>19</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20070807</ixm:attr>
+<ixm:attr name="LastModificationDate">20170429</ixm:attr>
+<mn:score>17.995714</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb41248726b" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">9</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessin, Takeshi Obata</mxc:subfield>
+<mxc:subfield code="g">[traduit et adapté en français par Shinya Seto]</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2008</mxc:subfield>
+<mxc:subfield code="e">impr. en Italie</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">41000718</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">9</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb41248726b</srw:recordIdentifier>
+<srw:recordPosition>20</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20080425</ixm:attr>
+<ixm:attr name="LastModificationDate">20170429</ixm:attr>
+<mn:score>17.995714</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb41128567s" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">6</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessin, Takeshi Obata</mxc:subfield>
+<mxc:subfield code="g">[traduit et adapté en français par Myloo Anhmet]</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2007</mxc:subfield>
+<mxc:subfield code="e">27-Évreux</mxc:subfield>
+<mxc:subfield code="g">Impr. Hérissey</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">41000718</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">6</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb41128567s</srw:recordIdentifier>
+<srw:recordPosition>21</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20071010</ixm:attr>
+<ixm:attr name="LastModificationDate">20170429</ixm:attr>
+<mn:score>17.995714</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb41041450b" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">3</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessin, Takeshi Obata</mxc:subfield>
+<mxc:subfield code="g">[traduit et adapté du japonais par Myloo Anhmet]</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2007</mxc:subfield>
+<mxc:subfield code="e">27-Évreux</mxc:subfield>
+<mxc:subfield code="g">Impr. Hérissey</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">41000718</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">3</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb41041450b</srw:recordIdentifier>
+<srw:recordPosition>22</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20070604</ixm:attr>
+<ixm:attr name="LastModificationDate">20170429</ixm:attr>
+<mn:score>17.995363</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb40977483s" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">1</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessin, Takeshi Obata</mxc:subfield>
+<mxc:subfield code="g">[traduit et adapté du japonais par Myloo Anhmet]</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2007</mxc:subfield>
+<mxc:subfield code="e">27-Évreux</mxc:subfield>
+<mxc:subfield code="g">Impr. Hérissey</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">41000718</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">1</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb40977483s</srw:recordIdentifier>
+<srw:recordPosition>23</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20070205</ixm:attr>
+<ixm:attr name="LastModificationDate">20170429</ixm:attr>
+<mn:score>17.995363</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb41064625t" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">4</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessin, Takeshi Obata</mxc:subfield>
+<mxc:subfield code="g">[traduit et adapté en français par Myloo Anhmet]</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2007</mxc:subfield>
+<mxc:subfield code="e">27-Évreux</mxc:subfield>
+<mxc:subfield code="g">Impr. Hérissey</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">41000718</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">4</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb41064625t</srw:recordIdentifier>
+<srw:recordPosition>24</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20070703</ixm:attr>
+<ixm:attr name="LastModificationDate">20170429</ixm:attr>
+<mn:score>17.995363</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb434077246" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">5</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">Takeshi Obata &amp; Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">traduit par Shinya Seto</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="214" ind1=" " ind2="0">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">2011</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">43388403</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">5</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb434077246</srw:recordIdentifier>
+<srw:recordPosition>25</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20140819</ixm:attr>
+<ixm:attr name="LastModificationDate">20210804</ixm:attr>
+<mn:score>17.967728</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb43407350n" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">4</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">illustrations Takeshi Obata</mxc:subfield>
+<mxc:subfield code="g">Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">traduit par Myloo Anhmet et Shinya Seto</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="214" ind1=" " ind2="0">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">2011</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="461" ind1=" " ind2="0">
+<mxc:subfield code="0">43388403</mxc:subfield>
+<mxc:subfield code="t">Death note</mxc:subfield>
+<mxc:subfield code="v">4</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb43407350n</srw:recordIdentifier>
+<srw:recordPosition>26</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20140819</ixm:attr>
+<ixm:attr name="LastModificationDate">20210804</ixm:attr>
+<mn:score>17.833563</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb41000718m" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessins, Takeshi Obata</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2007-2008</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb41000718m</srw:recordIdentifier>
+<srw:recordPosition>27</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20070321</ixm:attr>
+<ixm:attr name="LastModificationDate">20170429</ixm:attr>
+<mn:score>17.37975</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb434081285" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="e">black edition</mxc:subfield>
+<mxc:subfield code="h">6</mxc:subfield>
+<mxc:subfield code="f">Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">illustrations Takeshi Obata</mxc:subfield>
+<mxc:subfield code="g">traduit par Shinya Seto</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">2011</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb434081285</srw:recordIdentifier>
+<srw:recordPosition>28</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20140819</ixm:attr>
+<ixm:attr name="LastModificationDate">20210804</ixm:attr>
+<mn:score>17.006025</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb42249221m" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="e">black edition</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessins, Takeshi Obata</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2010-</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb42249221m</srw:recordIdentifier>
+<srw:recordPosition>29</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20100803</ixm:attr>
+<ixm:attr name="LastModificationDate">20170429</ixm:attr>
+<mn:score>16.926956</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb433884034" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="f">scénario, Tsugumi Ohba</mxc:subfield>
+<mxc:subfield code="g">dessins, Takeshi Obata</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">2011</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb433884034</srw:recordIdentifier>
+<srw:recordPosition>30</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20140724</ixm:attr>
+<ixm:attr name="LastModificationDate">20210625</ixm:attr>
+<mn:score>16.926592</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb42280639f" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="e">another note</mxc:subfield>
+<mxc:subfield code="e">l'affaire B. B. des meurtres en série de Los Angeles</mxc:subfield>
+<mxc:subfield code="f">par Nisiosin</mxc:subfield>
+<mxc:subfield code="g">d'après l'oeuvre de Tsugumi Ohba et Takeshi Obata</mxc:subfield>
+<mxc:subfield code="g">[traduit et adapté en français par Guillaume Abadie]</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2010</mxc:subfield>
+<mxc:subfield code="e">impr. en Chine</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb42280639f</srw:recordIdentifier>
+<srw:recordPosition>31</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20100929</ixm:attr>
+<ixm:attr name="LastModificationDate">20211022</ixm:attr>
+<mn:score>16.495914</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb467210919" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="b">Texte imprimé</mxc:subfield>
+<mxc:subfield code="e">another note</mxc:subfield>
+<mxc:subfield code="e">l'affaire B. B. des meurtres en série de Los Angeles</mxc:subfield>
+<mxc:subfield code="f">par Nisioisin</mxc:subfield>
+<mxc:subfield code="g">d'après l'oeuvre de Tsugumi Ohba et Takeshi Obata</mxc:subfield>
+<mxc:subfield code="g">[traduit et adapté en français par Guillaume Abadie]</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="214" ind1=" " ind2="0">
+<mxc:subfield code="a">Bruxelles</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Kana</mxc:subfield>
+<mxc:subfield code="d">DL 2010</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="214" ind1=" " ind2="3">
+<mxc:subfield code="a">impr. en Chine</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb467210919</srw:recordIdentifier>
+<srw:recordPosition>32</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20210309</ixm:attr>
+<ixm:attr name="LastModificationDate">20211103</ixm:attr>
+<mn:score>16.49559</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb42694623x" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">3</mxc:subfield>
+<mxc:subfield code="h">Épisodes 25 à 37</mxc:subfield>
+<mxc:subfield code="b">Images animées</mxc:subfield>
+<mxc:subfield code="f">Tsugumi Ohba, Takeshi Obata, aut. adaptés</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">[Montreuil]</mxc:subfield>
+<mxc:subfield code="c">Kana home video [éd.]</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Citel vidéo [distrib.]</mxc:subfield>
+<mxc:subfield code="d">[DL 2012]</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb42694623x</srw:recordIdentifier>
+<srw:recordPosition>33</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20120621</ixm:attr>
+<ixm:attr name="LastModificationDate">20120913</ixm:attr>
+<mn:score>15.981027</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb42694616n" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">1</mxc:subfield>
+<mxc:subfield code="h">Épisodes 1 à 12</mxc:subfield>
+<mxc:subfield code="b">Images animées</mxc:subfield>
+<mxc:subfield code="f">Tsugumi Ohba, Takeshi Obata, aut. adaptés</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">[Montreuil]</mxc:subfield>
+<mxc:subfield code="c">Kana home video [éd.]</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Citel vidéo [distrib.]</mxc:subfield>
+<mxc:subfield code="d">[DL 2012]</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb42694616n</srw:recordIdentifier>
+<srw:recordPosition>34</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20120621</ixm:attr>
+<ixm:attr name="LastModificationDate">20120913</ixm:attr>
+<mn:score>15.981027</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb42694619p" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="h">2</mxc:subfield>
+<mxc:subfield code="h">Épisodes 13 à 24</mxc:subfield>
+<mxc:subfield code="b">Images animées</mxc:subfield>
+<mxc:subfield code="f">Tsugumi Ohba, Takeshi Obata, aut. adaptés</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">[Montreuil]</mxc:subfield>
+<mxc:subfield code="c">Kana home video [éd.]</mxc:subfield>
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Citel vidéo [distrib.]</mxc:subfield>
+<mxc:subfield code="d">[DL 2012]</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb42694619p</srw:recordIdentifier>
+<srw:recordPosition>35</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20120621</ixm:attr>
+<ixm:attr name="LastModificationDate">20120913</ixm:attr>
+<mn:score>15.981027</mn:score>
+</srw:extraRecordData>
+</srw:record>
+<srw:record>
+<srw:recordSchema>marcxchange</srw:recordSchema>
+<srw:recordPacking>xml</srw:recordPacking>
+<srw:recordData>
+<mxc:record xmlns:mxc="info:lc/xmlns/marcxchange-v2" format="UNIMARC" id="ark:/12148/cb42652776g" type="Bibliographic">
+<mxc:datafield tag="200" ind1="1" ind2=" ">
+<mxc:subfield code="a">Death note</mxc:subfield>
+<mxc:subfield code="b">Images animées</mxc:subfield>
+<mxc:subfield code="e">relight 2</mxc:subfield>
+<mxc:subfield code="e">la relève de L</mxc:subfield>
+<mxc:subfield code="f">Tsugumi Ōba, Takeshi Obata, aut. adaptés</mxc:subfield>
+</mxc:datafield>
+<mxc:datafield tag="210" ind1=" " ind2=" ">
+<mxc:subfield code="a">[Paris]</mxc:subfield>
+<mxc:subfield code="c">Citel vidéo [éd., distrib.]</mxc:subfield>
+<mxc:subfield code="d">[DL 2012]</mxc:subfield>
+</mxc:datafield>
+</mxc:record>      </srw:recordData>
+<srw:recordIdentifier>ark:/12148/cb42652776g</srw:recordIdentifier>
+<srw:recordPosition>36</srw:recordPosition>
+<srw:extraRecordData>
+<ixm:attr name="CreationDate">20120424</ixm:attr>
+<ixm:attr name="LastModificationDate">20160929</ixm:attr>
+<mn:score>15.832352</mn:score>
+</srw:extraRecordData>
+</srw:record>
+</srw:records>
+</srw:searchRetrieveResponse>
