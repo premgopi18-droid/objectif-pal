@@ -11,6 +11,7 @@ import { NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { setVolumeNumber } from "@/lib/books/library-actions";
 import { declareSeriesFact, mergeSeries, renameSeries } from "@/lib/series/actions";
 import {
+  DEFAULT_SERIES_FILTER,
   SERIES_FILTER_LABELS,
   matchesSeriesFilter,
   seriesHeadline,
@@ -31,7 +32,7 @@ import type { SeriesSegmentData } from "@/lib/series/queries";
  * un fait — comme la dernière série mémorisée du scan (#35).
  */
 
-const FILTER_CHIPS = (["all", "in-progress", "up-to-date", "complete"] as const).map((value) => ({
+const FILTER_CHIPS = (["all", "not-started", "in-progress", "up-to-date", "complete"] as const).map((value) => ({
   value,
   label: SERIES_FILTER_LABELS[value],
 }));
@@ -80,7 +81,7 @@ function parseIgnoredPairs(raw: string): Set<string> {
 }
 
 export function SeriesView({ data, focusSeriesId = null }: { data: SeriesSegmentData; focusSeriesId?: string | null }) {
-  const [filter, setFilter] = useState<SeriesFilter>("all");
+  const [filter, setFilter] = useState<SeriesFilter>(DEFAULT_SERIES_FILTER);
   // Recherche et catégorie (#319) : état local du segment, comme la recherche de la Biblio — rien n'est persisté.
   const [searchText, setSearchText] = useState("");
   const [category, setCategory] = useState<SeriesCategoryFilter>("all");
@@ -107,14 +108,14 @@ export function SeriesView({ data, focusSeriesId = null }: { data: SeriesSegment
     () => filterSeriesByQueryAndCategory(data.progress.filter((progress) => !progress.isVisible), { query: searchText, category }),
     [data.progress, searchText, category],
   );
-  const visible = useMemo(() => searched.filter((progress) => matchesSeriesFilter(progress.status, filter)), [searched, filter]);
+  const visible = useMemo(() => searched.filter((progress) => matchesSeriesFilter(progress, filter)), [searched, filter]);
   const isFiltering = searchText.trim() !== "" || category !== "all";
   const counts = useMemo(
     () =>
       FILTER_CHIPS.map((chip) => ({
         ...chip,
         // Les compteurs disent ce qu'il reste après recherche et catégorie.
-        label: `${chip.label} ${searched.filter((progress) => matchesSeriesFilter(progress.status, chip.value)).length}`,
+        label: `${chip.label} ${searched.filter((progress) => matchesSeriesFilter(progress, chip.value)).length}`,
       })),
     [searched],
   );

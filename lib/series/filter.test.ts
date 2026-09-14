@@ -3,7 +3,7 @@ import type { BookCategory } from "@/lib/scoring/types";
 import type { SeriesStatus } from "@/lib/series/derive-series";
 import { categoryChips, filterSeriesByQueryAndCategory, filterSeriesProgress } from "./filter";
 
-const entry = (name: string, category: BookCategory, status: SeriesStatus = "in-progress") => ({ name, category, status });
+const entry = (name: string, category: BookCategory, status: SeriesStatus = "in-progress") => ({ name, category, status, isNotStarted: false });
 
 const list = [
   entry("Ippo", "manga", "up-to-date"),

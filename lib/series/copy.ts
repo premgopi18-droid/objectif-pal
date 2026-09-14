@@ -19,21 +19,36 @@ export const SERIES_STATUS_LABELS: Record<SeriesStatus, { label: string; badge: 
   approximate: { label: "≈ approximatif", badge: "abandoned" },
 };
 
-/** Les chips du segment — « En cours » regroupe ce qui reste à lire OU à renseigner (proto). */
-export type SeriesFilter = "all" | "in-progress" | "up-to-date" | "complete";
+/**
+ * Les chips du segment — « En cours » regroupe ce qui reste à lire OU à
+ * renseigner (proto), séries à commencer comprises ; « À commencer » (#323) =
+ * rien de lu, des tomes dans la pile. « En cours » est la chip par défaut.
+ */
+export type SeriesFilter = "all" | "not-started" | "in-progress" | "up-to-date" | "complete";
+
+export const DEFAULT_SERIES_FILTER: SeriesFilter = "in-progress";
 
 export const SERIES_FILTER_LABELS: Record<SeriesFilter, string> = {
   all: "Toutes",
+  "not-started": "À commencer",
   "in-progress": "En cours",
   "up-to-date": "À jour",
   complete: "Complètes",
 };
 
-export const matchesSeriesFilter = (status: SeriesStatus, filter: SeriesFilter): boolean => {
+/** Le badge d'une série à commencer — l'état reste « en cours », le mot change (#323). */
+export const NOT_STARTED_BADGE: { label: string; badge: SeriesStatusBadge } = { label: "À commencer", badge: "idle" };
+
+export const matchesSeriesFilter = (progress: Pick<SeriesProgress, "status" | "isNotStarted">, filter: SeriesFilter): boolean => {
   if (filter === "all") return true;
-  if (filter === "in-progress") return status === "in-progress" || status === "unknown-total" || status === "approximate";
-  return status === filter;
+  if (filter === "not-started") return progress.isNotStarted;
+  if (filter === "in-progress") return progress.status === "in-progress" || progress.status === "unknown-total" || progress.status === "approximate";
+  return progress.status === filter;
 };
+
+/** Le badge d'une carte ou d'une fiche : « À commencer » prime sur l'état quand rien n'est lu. */
+export const seriesBadge = (progress: Pick<SeriesProgress, "status" | "isNotStarted">): { label: string; badge: SeriesStatusBadge } =>
+  progress.isNotStarted && progress.status !== "approximate" ? NOT_STARTED_BADGE : SERIES_STATUS_LABELS[progress.status];
 
 const plural = (count: number, singular: string, pluralForm = `${singular}s`) =>
   `${count} ${count > 1 ? pluralForm : singular}`;

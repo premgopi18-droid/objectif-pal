@@ -33,8 +33,8 @@ export function filterSeriesByQueryAndCategory<T extends Pick<SeriesProgress, "n
 }
 
 /** Les trois filtres cumulés. */
-export function filterSeriesProgress<T extends Pick<SeriesProgress, "name" | "category" | "status">>(list: readonly T[], filters: SeriesListFilters): T[] {
-  return filterSeriesByQueryAndCategory(list, filters).filter((progress) => matchesSeriesFilter(progress.status, filters.status));
+export function filterSeriesProgress<T extends Pick<SeriesProgress, "name" | "category" | "status" | "isNotStarted">>(list: readonly T[], filters: SeriesListFilters): T[] {
+  return filterSeriesByQueryAndCategory(list, filters).filter((progress) => matchesSeriesFilter(progress, filters.status));
 }
 
 export type SeriesCategoryChip = { value: SeriesCategoryFilter; label: string };

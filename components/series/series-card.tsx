@@ -1,7 +1,7 @@
 import { BookCover } from "@/components/book-cover";
 import { Badge } from "@/components/ui/badge";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
-import { SERIES_STATUS_LABELS, seriesCountsText } from "@/lib/series/copy";
+import { seriesBadge, seriesCountsText } from "@/lib/series/copy";
 import type { SeriesProgress } from "@/lib/series/derive-series";
 
 /**
@@ -37,7 +37,7 @@ export function SeriesGauge({ progress }: { progress: SeriesProgress }) {
 }
 
 export function SeriesCard({ progress, onOpen }: { progress: SeriesProgress; onOpen: () => void }) {
-  const status = SERIES_STATUS_LABELS[progress.status];
+  const status = seriesBadge(progress);
   const covers = progress.volumes.filter((volume) => volume.state !== "other").slice(0, 3);
   const tomes = progress.read + progress.pile;
 
