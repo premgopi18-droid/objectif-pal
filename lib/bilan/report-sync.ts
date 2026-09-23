@@ -52,7 +52,15 @@ export async function syncMonthlyReports(
   },
 ): Promise<void> {
   try {
-    const { data: storedRows } = await supabase.from("monthly_reports").select("month, fact_version").eq("user_id", userId);
+    const { data: storedRows, error: readError } = await supabase
+      .from("monthly_reports")
+      .select("month, fact_version")
+      .eq("user_id", userId);
+    // Observable (review #339) : la synchro tourne APRÈS la réponse (`after()`,
+    // #331 item 7), plus aucune latence ne trahit un échec. Une lecture en
+    // erreur (dont un refus RLS) rend `data: null` — on le dit, sinon `isFresh`
+    // conclurait « rien à faire » en silence.
+    if (readError) console.warn("[bilan] syncMonthlyReports: lecture des agrégats en échec —", readError.message);
     const currentVersion = factVersion;
 
     const closedMonths = listClosedActivityMonths(facts, currentMonth);
@@ -78,6 +86,9 @@ export async function syncMonthlyReports(
         { onConflict: "user_id,month" },
       );
       if (upsertError) throw new Error(upsertError.message);
+      // La trace qui prouve, dans les logs de la fonction, que l'entretien a
+      // bien tourné après la réponse (review #339).
+      console.info("[bilan] agrégats de mois clos resynchronisés", { userId, months: closedMonths.length, factVersion });
     }
     const staleRows = stored.filter((row) => !closedMonths.includes(row.month.slice(0, 7)));
     if (staleRows.length > 0) {
