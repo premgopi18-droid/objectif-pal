@@ -38,7 +38,15 @@ export default async function BibliothequePage({
   const view: LibraryViewKey = vue === "tous" ? "tous" : vue === "series" ? "series" : "pile";
   const supabase = await createServerSupabaseClient();
 
-  const segments = <SegmentNav label="Vue de la bibliothèque" options={LIBRARY_VIEWS} value={view} />;
+  // Le volet passe EN ENFANT du SegmentNav (#331 item 2) : c'est lui qui
+  // l'atténue pendant la navigation vers le volet suivant.
+  const withSegments = (panel: React.ReactNode) => (
+    <div className="mt-4">
+      <SegmentNav label="Vue de la bibliothèque" options={LIBRARY_VIEWS} value={view}>
+        {panel}
+      </SegmentNav>
+    </div>
+  );
 
   if (view === "series") {
     const session = await getSessionOrError();
@@ -51,9 +59,10 @@ export default async function BibliothequePage({
     return (
       <section className="py-6">
         <h1 className="text-2xl font-bold">Bibliothèque</h1>
-        <div className="mt-4">{segments}</div>
-        {/* `key` : un autre `?serie=` sans remontage rejoue l'ouverture de fiche (même patron que `?livre=`). */}
-        <SeriesView key={serie ?? ""} data={data} focusSeriesId={typeof serie === "string" ? serie : null} />
+        {withSegments(
+          // `key` : un autre `?serie=` sans remontage rejoue l'ouverture de fiche (même patron que `?livre=`).
+          <SeriesView key={serie ?? ""} data={data} focusSeriesId={typeof serie === "string" ? serie : null} />,
+        )}
       </section>
     );
   }
@@ -89,9 +98,10 @@ export default async function BibliothequePage({
     return (
       <section className="py-6">
         <h1 className="text-2xl font-bold">Bibliothèque</h1>
-        <div className="mt-4">{segments}</div>
-        {/* `key` (review #280) : un autre `?livre=` sans remontage rejoue l'ouverture de fiche. */}
-        <LibraryView key={livre ?? ""} entries={entries} focusBookId={typeof livre === "string" ? livre : null} />
+        {withSegments(
+          // `key` (review #280) : un autre `?livre=` sans remontage rejoue l'ouverture de fiche.
+          <LibraryView key={livre ?? ""} entries={entries} focusBookId={typeof livre === "string" ? livre : null} />,
+        )}
       </section>
     );
   }
@@ -135,15 +145,16 @@ export default async function BibliothequePage({
   return (
     <section className="py-6">
       <h1 className="text-2xl font-bold">Bibliothèque</h1>
-      <div className="mt-4">{segments}</div>
-      <PalView
-        entries={entries}
-        entryDates={entryDates}
-        exitDates={exitDates}
-        undatedEntryCount={undatedEntryCount}
-        undatedExitCount={undatedExitCount}
-        seriesNextBookIds={seriesNextBookIds}
-      />
+      {withSegments(
+        <PalView
+          entries={entries}
+          entryDates={entryDates}
+          exitDates={exitDates}
+          undatedEntryCount={undatedEntryCount}
+          undatedExitCount={undatedExitCount}
+          seriesNextBookIds={seriesNextBookIds}
+        />,
+      )}
     </section>
   );
 }

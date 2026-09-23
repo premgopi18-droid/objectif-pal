@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useOptimistic, useRef, useState, useTransition } from "react";
 import {
   abandonReading,
   finishReading,
@@ -174,6 +174,17 @@ export function JournalList({
   // retombe sur la vue exacte. Un filtre qui change repart en page 1.
   const router = useRouter();
   const [isLoadingPage, startPageTransition] = useTransition();
+  /**
+   * Le retour immédiat (fluidité #331, item 2) : la route est la même, seul
+   * le searchParam change — le `loading.tsx` ne se redéclenche pas et, sans
+   * ça, un chip tapé ne s'allumait qu'au retour du serveur. Les contrôles
+   * affichent la valeur OPTIMISTE (posée dans la transition, retombe sur la
+   * prop serveur à sa fin), et la liste s'atténue pendant un re-filtrage —
+   * pas pendant « Charger plus », qui prolonge la liste sans la remplacer.
+   */
+  const [shownFilters, setShownFilters] = useOptimistic(filters);
+  const [shownSort, setShownSort] = useOptimistic(sort);
+  const [isRefiltering, setIsRefiltering] = useOptimistic(false);
 
   /**
    * La recherche (#222) — SERVEUR, car le journal est paginé : une recherche
@@ -219,12 +230,20 @@ export function JournalList({
   ) => {
     cancelPendingSearch();
     const searchString = journalSearchString(nextFilters, nextDepth, nextSort, nextSearch);
-    startPageTransition(() => router.replace(`/journal${searchString ? `?${searchString}` : ""}`, { scroll: false }));
+    startPageTransition(() => {
+      setShownFilters(nextFilters);
+      setShownSort(nextSort);
+      // Repartir en page 1, c'est REMPLACER la liste (filtre, tri, recherche) ;
+      // une profondeur plus grande, c'est la prolonger (« Charger plus »).
+      setIsRefiltering(nextDepth === JOURNAL_PAGE_SIZE);
+      router.replace(`/journal${searchString ? `?${searchString}` : ""}`, { scroll: false });
+    });
   };
   // Filtre ou tri qui change : on repart en page 1 (le tri est conservé à
-  // travers les filtres, et réciproquement — la recherche aussi).
-  const setFilters = (nextFilters: JournalFilters) => navigate(nextFilters);
-  const setSort = (nextSort: JournalSort) => navigate(filters, JOURNAL_PAGE_SIZE, nextSort);
+  // travers les filtres, et réciproquement — la recherche aussi). Les bases
+  // sont les valeurs AFFICHÉES : deux taps rapprochés se composent.
+  const setFilters = (nextFilters: JournalFilters) => navigate(nextFilters, JOURNAL_PAGE_SIZE, shownSort);
+  const setSort = (nextSort: JournalSort) => navigate(shownFilters, JOURNAL_PAGE_SIZE, nextSort);
   const onSearchChange = (value: string) => {
     setSearchInput(value);
     cancelPendingSearch();
@@ -254,8 +273,8 @@ export function JournalList({
     <div className="mt-4 flex flex-col gap-4">
       <FilterChips
         chips={STATUS_FILTERS}
-        value={filters.status}
-        onChange={(status) => setFilters({ ...filters, status })}
+        value={shownFilters.status}
+        onChange={(status) => setFilters({ ...shownFilters, status })}
         label="Filtrer par état"
       />
 
@@ -272,8 +291,8 @@ export function JournalList({
         />
         <select
           aria-label="Catégorie"
-          value={filters.category}
-          onChange={(event) => setFilters({ ...filters, category: event.target.value as JournalFilters["category"] })}
+          value={shownFilters.category}
+          onChange={(event) => setFilters({ ...shownFilters, category: event.target.value as JournalFilters["category"] })}
           className={SELECT_CLASS}
         >
           <option value="all">Catégorie : toutes</option>
@@ -286,8 +305,8 @@ export function JournalList({
         {seriesOptions.length > 0 && (
           <select
             aria-label="Série"
-            value={filters.seriesName}
-            onChange={(event) => setFilters({ ...filters, seriesName: event.target.value })}
+            value={shownFilters.seriesName}
+            onChange={(event) => setFilters({ ...shownFilters, seriesName: event.target.value })}
             className={SELECT_CLASS}
           >
             <option value="all">Série : toutes</option>
@@ -300,8 +319,8 @@ export function JournalList({
         )}
         <select
           aria-label="Mois"
-          value={filters.month}
-          onChange={(event) => setFilters({ ...filters, month: event.target.value })}
+          value={shownFilters.month}
+          onChange={(event) => setFilters({ ...shownFilters, month: event.target.value })}
           className={SELECT_CLASS}
         >
           <option value="all">Mois : tous</option>
@@ -313,7 +332,7 @@ export function JournalList({
         </select>
         {/* Le tri (#217) — dans l'URL comme les filtres : la vue SQL ordonne,
             « Charger plus » prolonge, le retour navigateur retombe juste. */}
-        <SortSelect value={sort} options={JOURNAL_SORT_OPTIONS} onChange={setSort} className="min-w-[9rem] flex-1" />
+        <SortSelect value={shownSort} options={JOURNAL_SORT_OPTIONS} onChange={setSort} className="min-w-[9rem] flex-1" />
       </div>
 
       {error && <ErrorAlert message={error} />}
@@ -326,7 +345,10 @@ export function JournalList({
           </button>
         </div>
       ) : (
-        <>
+        <div
+          aria-busy={isRefiltering || undefined}
+          className={`flex flex-col gap-4 transition-opacity delay-150 duration-200 ${isRefiltering ? "opacity-60" : ""}`}
+        >
           {(hasActiveFilters || hasSearch) && (
             <p className="text-xs text-ink3">
               {totalCount} lecture{totalCount > 1 ? "s" : ""} ·{" "}
@@ -379,7 +401,7 @@ export function JournalList({
                 : `Charger plus (${totalCount - visible.length} restante${totalCount - visible.length > 1 ? "s" : ""})`}
             </Button>
           )}
-        </>
+        </div>
       )}
 
       {/* UN tiroir recyclé pour toutes les lignes (#152) — celui de la rafale.
