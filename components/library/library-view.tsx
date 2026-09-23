@@ -69,7 +69,8 @@ export function LibraryView({ entries: serverEntries, focusBookId = null }: Libr
   const [searchText, setSearchText] = useState("");
   // « Ajout récent » par défaut (#217) : le dernier scan en haut.
   const [sortOrder, setSortOrder] = useState<LibrarySortOrder>("ajout");
-  const { run, isPending, error } = useBookGestures();
+  // Pending PAR LIVRE (#331 item 3) : un geste n'attend que sur sa ligne.
+  const { run, isPendingFor, error } = useBookGestures();
   /** La fiche ouverte en édition — une seule à la fois (#100). Pré-ouverte par `?livre=`. */
   const [editingId, setEditingId] = useState<string | null>(() =>
     focusBookId !== null && serverEntries.some((entry) => entry.bookId === focusBookId) ? focusBookId : null,
@@ -269,10 +270,10 @@ export function LibraryView({ entries: serverEntries, focusBookId = null }: Libr
                     écran au lieu de s'écraser. */}
                 <div className="flex flex-wrap items-center gap-3 pl-0.5">
                   {entry.status !== "reading" ? (
-                    <StartReadingButton bookId={entry.bookId} run={run} isPending={isPending} />
+                    <StartReadingButton bookId={entry.bookId} run={run} isPending={isPendingFor(entry.bookId)} />
                   ) : (
                     // « Terminé ✓ » là où le livre est visible (#144).
-                    <FinishReadingButton bookId={entry.bookId} run={run} isPending={isPending} />
+                    <FinishReadingButton bookId={entry.bookId} run={run} isPending={isPendingFor(entry.bookId)} />
                   )}
                   <button
                     type="button"
@@ -298,9 +299,10 @@ export function LibraryView({ entries: serverEntries, focusBookId = null }: Libr
                       interne — plus aucun bouton ne peut avaler des stats. */}
                   <RemoveButton
                     label="Retirer de ma bibliothèque"
+                    pendingKey={entry.bookId}
                     action={removal.action}
                     run={run}
-                    isPending={isPending}
+                    isPending={isPendingFor(entry.bookId)}
                     confirm={removal.confirmed}
                     tone="muted"
                     className="ml-auto"

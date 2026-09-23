@@ -95,7 +95,8 @@ export function PalView({
   disposalExitDates,
   seriesNextBookIds,
 }: PalViewProps) {
-  const { run, isPending, error, setError } = useBookGestures();
+  // Pending PAR LIVRE (#331 item 3) : un geste n'attend que sur sa ligne.
+  const { run, isPendingFor, error, setError } = useBookGestures();
 
   // « Ajout récent » par défaut (#217) : le dernier scan en haut de la pile.
   const [sortOption, setSortOption] = useState<PalSortOption>("ajout");
@@ -371,18 +372,20 @@ export function PalView({
                           {entry.entrySource.kind === "purchase" ? (
                             <RemoveButton
                               label="Je ne l'ai pas acheté"
+                              pendingKey={entry.bookId}
                               action={softDeletePurchaseAction(entry.entrySource.purchaseId)}
                               run={run}
-                              isPending={isPending}
+                              isPending={isPendingFor(entry.bookId)}
                               tone="muted"
                               className="text-xs"
                             />
                           ) : (
                             <RemoveButton
                               label="Je ne le possède plus"
+                              pendingKey={entry.bookId}
                               action={endOwnershipAction(entry.bookId)}
                               run={run}
-                              isPending={isPending}
+                              isPending={isPendingFor(entry.bookId)}
                               tone="muted"
                               className="text-xs"
                             />
@@ -394,9 +397,9 @@ export function PalView({
                       entry.isInProgress ? (
                         // « Terminé ✓ » LÀ où le livre est visible (#144) — plus
                         // besoin d'aller au Journal pour le geste des points.
-                        <FinishReadingButton bookId={entry.bookId} run={run} isPending={isPending} />
+                        <FinishReadingButton bookId={entry.bookId} run={run} isPending={isPendingFor(entry.bookId)} />
                       ) : (
-                        <StartReadingButton bookId={entry.bookId} run={run} isPending={isPending} />
+                        <StartReadingButton bookId={entry.bookId} run={run} isPending={isPendingFor(entry.bookId)} />
                       )
                     }
                   />

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { Fragment, useEffect, useOptimistic, useRef, useState, useTransition } from "react";
+import { Fragment, useEffect, useMemo, useOptimistic, useRef, useState, useTransition } from "react";
 import {
   abandonReading,
   finishReading,
@@ -9,7 +9,6 @@ import {
   resumeReading,
   softDeleteReading,
   updateReadingDetails,
-  type JournalActionResult,
 } from "@/lib/books/journal-actions";
 import { Badge } from "@/components/ui/badge";
 import { BookRow } from "@/components/ui/book-row";
@@ -23,7 +22,8 @@ import { Toast } from "@/components/ui/toast";
 import Link from "next/link";
 import { CoverChooserSheet, type CoverSheetBook } from "@/components/covers/cover-chooser-sheet";
 import { ErrorAlert } from "@/components/error-alert";
-import { RemoveButton, useBookGestures } from "@/components/library/book-gestures";
+import { buttonCenter, RemoveButton, useBookGestures, type RunGesture } from "@/components/library/book-gestures";
+import { applyReadingPatch, READING_PATCHES, type ReadingPatch } from "./reading-patch";
 import { FUTURE_DATE_MESSAGE } from "@/lib/books/errors";
 import { ALL_CATEGORIES, CATEGORY_LABELS } from "@/lib/books/categories";
 import { formatBookSubtitle } from "@/lib/books/format";
@@ -125,7 +125,7 @@ const SELECT_CLASS =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-cyan";
 
 export function JournalList({
-  entries,
+  entries: serverEntries,
   filters,
   sort,
   search,
@@ -166,7 +166,31 @@ export function JournalList({
    * `journal_entries` ne porte pas `cover_chosen_at`).
    */
   const [coverSheetBook, setCoverSheetBook] = useState<CoverSheetBook | null>(null);
-  const { run, isPending, error, setError } = useBookGestures();
+  // Pending PAR LECTURE (#331 item 3) : un geste n'attend que sur sa ligne.
+  const { run, isPendingFor, error, setError } = useBookGestures();
+
+  /**
+   * Les couvertures changées dans cette session (#275, #331) — appliquées
+   * AVANT le refresh serveur, comme en Biblio : la vignette change sous le
+   * doigt, pas au retour de la revalidation.
+   */
+  const [coverOverrides, setCoverOverrides] = useState<Record<string, string | null>>({});
+  const entriesWithCovers = useMemo(
+    () =>
+      serverEntries.map((entry) =>
+        entry.book.bookId in coverOverrides
+          ? { ...entry, book: { ...entry.book, coverUrl: coverOverrides[entry.book.bookId] } }
+          : entry,
+      ),
+    [serverEntries, coverOverrides],
+  );
+  /**
+   * L'OPTIMISME des gestes de statut (#331 item 3) : « Terminé ✓ », abandon,
+   * reprise changent le badge AU TAP ; le réducteur pur (`reading-patch.ts`)
+   * est appliqué dans la transition du geste, et React retombe sur la vérité
+   * serveur quand elle arrive (ou tout de suite si l'action échoue).
+   */
+  const [entries, applyPatch] = useOptimistic<JournalEntry[], ReadingPatch>(entriesWithCovers, applyReadingPatch);
 
   // Filtres et profondeur vivent dans l'URL (#32 lot C) : changer un filtre
   // NAVIGUE (replace, sans saut de scroll) — le serveur rend la tranche, les
@@ -384,7 +408,8 @@ export function JournalList({
                   <JournalItem
                     entry={entry}
                     run={run}
-                    isPending={isPending}
+                    isPending={isPendingFor(entry.id)}
+                    onPatch={applyPatch}
                     onError={setError}
                     onCelebrate={setToastMessage}
                     onEditCategory={setEditingCategory}
@@ -424,7 +449,11 @@ export function JournalList({
         onChanged={() => setEditingCategory(null)}
       />
       {/* La feuille se rafraîchit elle-même et revalide /journal : la liste suit. */}
-      <CoverChooserSheet book={coverSheetBook} onClose={() => setCoverSheetBook(null)} onChanged={() => {}} />
+      <CoverChooserSheet
+        book={coverSheetBook}
+        onClose={() => setCoverSheetBook(null)}
+        onChanged={(bookId, cover) => setCoverOverrides((previous) => ({ ...previous, [bookId]: cover.coverUrl }))}
+      />
       <Toast message={toastMessage} onDismiss={() => setToastMessage(null)} />
     </div>
   );
@@ -434,14 +463,17 @@ function JournalItem({
   entry,
   run,
   isPending,
+  onPatch,
   onError,
   onCelebrate,
   onEditCategory,
   onEditCover,
 }: {
   entry: JournalEntry;
-  run: (action: () => Promise<JournalActionResult>, onSuccess?: () => void) => void;
+  run: RunGesture;
   isPending: boolean;
+  /** L'état optimiste de la ligne, posé au tap (dans la transition du geste). */
+  onPatch: (patch: ReadingPatch) => void;
   onError: (message: string) => void;
   onCelebrate: (message: string) => void;
   onEditCategory: (target: { bookId: string; category: BookCategory }) => void;
@@ -481,19 +513,24 @@ function JournalItem({
                 variant="done"
                 disabled={isPending}
                 onClick={(event) => {
-                  // On capte le centre du bouton AU TAP : une fois la lecture
-                  // terminée il disparaît, son rect ne vaudrait plus rien.
-                  const rect = event.currentTarget.getBoundingClientRect();
-                  const origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+                  // Le centre du bouton AU TAP : une fois la lecture terminée
+                  // il disparaît, son rect ne vaudrait plus rien.
+                  const origin = buttonCenter(event.currentTarget);
+                  const today = localToday();
                   // N vient du barème réel selon la catégorie — jamais en dur (§3, #73).
                   const points = SCORING_SCALE.pointsByCategory[entry.book.category];
-                  run(
-                    () => finishReading(entry.id, localToday()),
-                    () => {
+                  run(entry.id, () => finishReading(entry.id, today), {
+                    // La célébration appartient au GESTE (#331) : badge,
+                    // confettis et toast au tap, pas à l'aller-retour.
+                    onStart: () => {
+                      onPatch(READING_PATCHES.finish(entry.id, today));
                       burstConfetti(origin);
                       onCelebrate(`Lecture terminée · ${formatPointsLabel(points)} 🎉`);
                     },
-                  );
+                    // Le serveur a dit non : l'optimiste retombe seul, le toast
+                    // le dit près du doigt (l'ErrorAlert, lui, est en haut).
+                    onFailure: (message) => onCelebrate(`⚠️ ${message}`),
+                  });
                 }}
               >
                 Terminé ✓
@@ -505,17 +542,38 @@ function JournalItem({
 
       <div className="flex items-center gap-2 pl-0.5">
         {entry.status === "reading" && (
-          <Button type="button" variant="ghost" disabled={isPending} onClick={() => run(() => abandonReading(entry.id))}>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={isPending}
+            onClick={() =>
+              run(entry.id, () => abandonReading(entry.id), { onStart: () => onPatch(READING_PATCHES.abandon(entry.id)) })
+            }
+          >
             Abandonner
           </Button>
         )}
         {entry.status === "abandoned" && (
-          <Button type="button" variant="ghost" disabled={isPending} onClick={() => run(() => resumeReading(entry.id))}>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={isPending}
+            onClick={() =>
+              run(entry.id, () => resumeReading(entry.id), { onStart: () => onPatch(READING_PATCHES.resume(entry.id)) })
+            }
+          >
             Reprendre
           </Button>
         )}
         {entry.status === "finished" && (
-          <Button type="button" variant="ghost" disabled={isPending} onClick={() => run(() => reopenReading(entry.id))}>
+          <Button
+            type="button"
+            variant="ghost"
+            disabled={isPending}
+            onClick={() =>
+              run(entry.id, () => reopenReading(entry.id), { onStart: () => onPatch(READING_PATCHES.reopen(entry.id)) })
+            }
+          >
             Repasser en cours
           </Button>
         )}
@@ -553,7 +611,7 @@ function EditPanel({
   onDone,
 }: {
   entry: JournalEntry;
-  run: (action: () => Promise<JournalActionResult>) => void;
+  run: RunGesture;
   isPending: boolean;
   onError: (message: string) => void;
   onDone: () => void;
@@ -637,7 +695,7 @@ function EditPanel({
               onError(FUTURE_DATE_MESSAGE);
               return;
             }
-            run(() =>
+            run(entry.id, () =>
               updateReadingDetails(entry.id, {
                 startedAt: editedStartedAt,
                 finishedAt: editedFinishedAt,
@@ -652,6 +710,7 @@ function EditPanel({
         </Button>
         <RemoveButton
           label="Supprimer"
+          pendingKey={entry.id}
           action={() => softDeleteReading(entry.id)}
           run={run}
           isPending={isPending}
