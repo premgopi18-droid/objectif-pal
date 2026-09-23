@@ -3,7 +3,7 @@ import { findBookInLibrary } from "@/lib/books/library-lookup";
 import { withContributionCover } from "@/lib/covers/contributions";
 import { classifyScannedCode } from "@/lib/resolution/barcode-router";
 import { isLookupAllowed, LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
-import { probeResolutionCache, resolveScannedCode } from "@/lib/resolution/resolve";
+import { createDefaultDeps, probeResolutionCache, resolveScannedCode } from "@/lib/resolution/resolve";
 import type { ScanLookupResult } from "@/lib/resolution/types";
 import { getClaimsSession } from "@/lib/supabase/server";
 
@@ -41,10 +41,12 @@ export async function GET(_request: Request, { params }: { params: Promise<{ bar
   // allers-retours en série. Le quota reste consommé AVANT tout travail
   // EXTERNE (issue #32) : la cascade, seule à coûter, attend son verdict ; la
   // bibliothèque et le cache sont chez nous, gratuits.
+  // UN jeu de dépendances par requête (review #344), partagé par la sonde et la cascade.
+  const deps = createDefaultDeps();
   const [allowed, libraryMatch, probe] = await Promise.all([
     isLookupAllowed(session.supabase),
     findBookInLibrary(session.supabase, session.userId, barcode),
-    probeResolutionCache(barcode),
+    probeResolutionCache(barcode, deps),
   ]);
   if (!allowed) {
     return Response.json({ error: LOOKUP_RATE_LIMIT_MESSAGE }, { status: 429 });
@@ -59,7 +61,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ bar
     });
   }
 
-  const result = await resolveScannedCode(barcode, undefined, probe);
+  const result = await resolveScannedCode(barcode, deps, probe);
   // Le pool partagé (#278) : une contribution ne devient couverture par défaut
   // que si la cascade n'a rien — ici, APRÈS elle, sur le résultat rendu ; la
   // cascade seule écrit le cache, une contribution n'y entre jamais (#179).
