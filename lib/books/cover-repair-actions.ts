@@ -1,6 +1,5 @@
 "use server";
 
-import { revalidatePath } from "next/cache";
 import { decideCoverRepair, isKnownCoverImageUrl, isRepairAttemptFresh } from "@/lib/books/cover-repair";
 import { isHouseCoverPhotoUrl, isSharedCoverUrl } from "@/lib/books/cover-photo";
 import { isActionAllowed } from "@/lib/resolution/lookup-rate-limit";
@@ -145,7 +144,10 @@ export async function repairBrokenCover(bookId: string): Promise<CoverRepairResu
   const cacheKey = barcodeType === "isbn" ? book.isbn : book.barcode_raw;
   await repairCacheEntry(cacheKey, book.cover_url, newCoverUrl);
 
-  revalidatePath("/journal");
-  revalidatePath("/bibliotheque");
+  // PAS de `revalidatePath` (fluidité #331, item 11) : chaque couverture morte
+  // faisait re-rendre la page entière (l'arbre RSC de 500 livres), en série
+  // avec la file de réparation — la Biblio saccadait toute seule après s'être
+  // stabilisée. `BookCover` applique l'URL rendue LOCALEMENT (son état
+  // `repair`) ; la base est à jour pour la prochaine navigation.
   return { coverUrl: newCoverUrl };
 }
