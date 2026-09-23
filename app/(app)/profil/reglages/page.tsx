@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { DeleteAccountButton } from "@/components/delete-account-button";
+import { HapticsToggle } from "@/components/haptics-toggle";
 import { InstallSection } from "@/components/install-section";
 import { LogoutButton } from "@/components/logout-button";
 
@@ -64,6 +65,9 @@ export default function ReglagesPage() {
           client porte sa propre <section> (titre compris) pour disparaître
           entièrement une fois l'app installée. */}
       <InstallSection labelClassName={SECTION_LABEL} />
+      {/* « Scan » (#332 item 8) : les vibrations de la rafale — n'apparaît que
+          si l'appareil sait vibrer (le composant décide). */}
+      <HapticsToggle labelClassName={SECTION_LABEL} />
 
       {/* L'outil d'antenne (§4.15) : la carte de bilan d'un invité du live,
           sans compte — le formulaire calcule au même barème et dessine la
