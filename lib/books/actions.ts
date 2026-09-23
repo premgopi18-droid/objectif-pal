@@ -1,7 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { after } from "next/server";
 import { getSessionOrError, type createServerSupabaseClient } from "@/lib/supabase/server";
+import { planOwnedPastReading } from "@/lib/books/owned-past-reading-plan";
 import { isValidIsoDate } from "@/lib/dates";
 import { GENERIC_ERROR_MESSAGE } from "@/lib/books/errors";
 import { getReadingInProgressError } from "@/lib/books/reading-guards";
@@ -132,17 +134,23 @@ async function findOrCreateBook(
   userId: string,
   input: BookInput,
 ): Promise<{ bookId: string; alreadyExisted: boolean } | { error: string }> {
-  // Le lien au référentiel de séries (#291) se résout AVANT : il sert au
-  // rescan (comblement) comme à la création. Jamais bloquant.
-  const seriesId = await findOrCreateSeriesId(supabase, input);
+  // Le lien au référentiel de séries (#291) sert au rescan (comblement) comme
+  // à la création. Jamais bloquant — et EN PARALLÈLE de la recherche du livre
+  // (fluidité #332, item 5) : les deux sont indépendants, un étage au lieu de deux.
+  const [seriesId, lookup] = await Promise.all([
+    findOrCreateSeriesId(supabase, input),
+    input.barcodeRaw
+      ? supabase
+          .from("books")
+          .select("id, deleted_at, series_name, series_id, issue_number, authors, publisher, page_count, isbn, cover_url")
+          .eq("user_id", userId)
+          .eq("barcode_raw", input.barcodeRaw)
+          .maybeSingle()
+      : Promise.resolve(null),
+  ]);
 
-  if (input.barcodeRaw) {
-    const { data: existing, error } = await supabase
-      .from("books")
-      .select("id, deleted_at, series_name, series_id, issue_number, authors, publisher, page_count, isbn, cover_url")
-      .eq("user_id", userId)
-      .eq("barcode_raw", input.barcodeRaw)
-      .maybeSingle();
+  if (lookup) {
+    const { data: existing, error } = lookup;
     if (error) {
       console.error("[books] findOrCreateBook:", error.message);
       return { error: GENERIC_ERROR_MESSAGE };
@@ -203,6 +211,18 @@ async function findOrCreateBook(
  * elle peut exister si la cascade a abouti pendant que l'utilisateur sautait
  * vers la saisie manuelle — la source référencée reste meilleure que la main.
  */
+/**
+ * Le cache partagé d'une saisie manuelle est alimenté APRÈS la réponse
+ * (fluidité #332, item 5) : son `get` puis `set` étaient deux allers-retours
+ * en série sur le chemin critique de CHAQUE geste de scan — pour un service
+ * rendu aux scans suivants, pas à celui-ci. `after()` (next/server) l'exécute
+ * une fois la réponse envoyée ; le client service-role du cache ne dépend
+ * d'aucun cookie.
+ */
+function scheduleManualEntryCache(input: BookInput, userId: string): void {
+  after(() => cacheManualEntry(input, userId));
+}
+
 async function cacheManualEntry(input: BookInput, userId: string): Promise<void> {
   const entry = manualEntryToCacheEntry(input, userId);
   if (!entry) return;
@@ -268,7 +288,7 @@ export async function startReading(input: BookInput, startedAt: string): Promise
 
   const book = await findOrCreateBook(supabase, user.id, input);
   if ("error" in book) return { ok: false, error: book.error };
-  await cacheManualEntry(input, user.id);
+  scheduleManualEntryCache(input, user.id);
 
   // Les deux vérifications sont indépendantes (le garde « déjà en cours » et
   // le décompte « déjà terminé » pour signaler la relecture) : en parallèle,
@@ -319,7 +339,7 @@ export async function recordPurchase(input: BookInput, purchasedAt: string): Pro
 
   const book = await findOrCreateBook(supabase, user.id, input);
   if ("error" in book) return { ok: false, error: book.error };
-  await cacheManualEntry(input, user.id);
+  scheduleManualEntryCache(input, user.id);
 
   // Garde du doublon (specs §4.6, §3.3) : un livre DÉJÀ dans la pile ne se
   // rachète pas — ce serait un −2 silencieux. Racheter un déjà-lu reste permis
@@ -401,7 +421,7 @@ export async function recordOwnership(input: BookInput, ownedSince: string | nul
 
   const book = await findOrCreateBook(supabase, user.id, input);
   if ("error" in book) return { ok: false, error: book.error };
-  await cacheManualEntry(input, user.id);
+  scheduleManualEntryCache(input, user.id);
 
   const facts = await loadPileFacts(supabase, user.id, book.bookId);
   if ("error" in facts) return { ok: false, error: facts.error };
@@ -555,7 +575,7 @@ export async function recordPastReading(
 
   const book = await findOrCreateBook(supabase, user.id, input);
   if ("error" in book) return { ok: false, error: book.error };
-  await cacheManualEntry(input, user.id);
+  scheduleManualEntryCache(input, user.id);
 
   // Refus doux si une lecture est EN COURS : on ne pose pas une lecture
   // terminée par-dessus une lecture active — le geste juste est « Terminer »
@@ -628,17 +648,91 @@ export async function recordOwnedPastReading(
   input: BookInput,
   finishedAt: string | null,
 ): Promise<ScanActionResult> {
-  // La possession part SANS date : la date connue est celle de la LECTURE, pas
-  // de l'acquisition — on ne fabrique pas de donnée (audit post-#101 ; même
-  // principe que partout dans §4.13 : une date inconnue reste inconnue). La
-  // dérivation ne change pas (un livre déjà lu n'entre pas en pile, §3.3),
-  // seule la donnée stockée reste honnête.
-  const ownership = await recordOwnership(input, null);
-  // Le seul échec qu'on absorbe : le livre était déjà déclaré. Tout autre
-  // (auth, validation, base) doit remonter — il empêcherait aussi la lecture.
-  if (!ownership.ok && ownership.error !== ALREADY_OWNED_MESSAGE) return ownership;
+  // UN SEUL parcours (fluidité #332, item 5) — avant, ce geste enchaînait
+  // `recordOwnership` puis `recordPastReading`, deux actions complètes en
+  // série : deux auth, deux `findOrCreateBook`, deux fois les faits (~13
+  // allers-retours). Ici : auth, livre, un étage de lectures (faits de pile,
+  // garde « en cours », doublon), puis la possession et la lecture.
+  const session = await getSessionOrError();
+  if (!session) return { ok: false, error: "Authentification requise." };
+  const { supabase, user } = session;
 
-  return recordPastReading(input, finishedAt);
+  const invalid = validateBook(input);
+  if (invalid) return { ok: false, error: invalid };
+  if (finishedAt !== null && !isValidIsoDate(finishedAt)) {
+    return { ok: false, error: "Date de fin invalide." };
+  }
+
+  const book = await findOrCreateBook(supabase, user.id, input);
+  if ("error" in book) return { ok: false, error: book.error };
+  scheduleManualEntryCache(input, user.id);
+
+  // Les mêmes gardes que les deux actions séparées, en UN étage.
+  const duplicateQuery = supabase
+    .from("readings")
+    .select("id", { count: "exact", head: true })
+    .eq("user_id", user.id)
+    .eq("book_id", book.bookId)
+    .eq("status", "finished")
+    .is("deleted_at", null);
+  const [facts, inProgressError, duplicate] = await Promise.all([
+    loadPileFacts(supabase, user.id, book.bookId),
+    getReadingInProgressError(supabase, user.id, book.bookId),
+    finishedAt === null ? duplicateQuery.is("finished_at", null) : duplicateQuery.eq("finished_at", finishedAt),
+  ]);
+  if ("error" in facts) return { ok: false, error: facts.error };
+  if (duplicate.error) {
+    console.error("[books] recordOwnedPastReading:", duplicate.error.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+
+  // La possession D'ABORD, AVANT les verdicts de lecture (review #348 — l'ordre
+  // exact de l'ancien enchaînement) : un « Lu — emprunt » rescanné « possédé,
+  // déjà lu » devient POSSÉDÉ même si la lecture est refusée en doublon — c'est
+  // la médiathèque puis l'achat, l'information nouvelle est la possession. Et
+  // si la lecture échoue, le livre est au moins dans la bibliothèque, jamais
+  // « lu mais pas possédé » (un faux emprunt). SANS date : la date connue est
+  // celle de la LECTURE, pas de l'acquisition (audit post-#101). Le plan est
+  // pur et testé.
+  const plan = planOwnedPastReading(facts);
+  if (plan.kind === "revive") {
+    const { error } = await supabase
+      .from("ownerships")
+      .update({ owned_since: null, disposed_at: null })
+      .eq("id", plan.ownershipId)
+      .eq("user_id", user.id);
+    if (error) {
+      console.error("[books] recordOwnedPastReading (possession):", error.message);
+      return { ok: false, error: GENERIC_ERROR_MESSAGE };
+    }
+  } else if (plan.kind === "insert") {
+    const { error } = await supabase.from("ownerships").insert({ user_id: user.id, book_id: book.bookId, owned_since: null });
+    if (error) {
+      console.error("[books] recordOwnedPastReading (possession):", error.message);
+      return { ok: false, error: GENERIC_ERROR_MESSAGE };
+    }
+  }
+
+  // Les verdicts de lecture, APRÈS la possession (lus dans le même étage plus haut).
+  if (inProgressError) return { ok: false, error: inProgressError };
+  if ((duplicate.count ?? 0) > 0) return { ok: false, error: "Ce livre est déjà marqué comme lu." };
+
+  // `started_at` reste NULL (lecture rétroactive sans début connu) ; le
+  // trigger en base écrit reading_events tout seul.
+  const { error: readingError } = await supabase.from("readings").insert({
+    user_id: user.id,
+    book_id: book.bookId,
+    status: "finished",
+    started_at: null,
+    finished_at: finishedAt,
+  });
+  if (readingError) {
+    console.error("[books] recordOwnedPastReading (lecture):", readingError.message);
+    return { ok: false, error: GENERIC_ERROR_MESSAGE };
+  }
+
+  revalidateLibrarySurfaces();
+  return { ok: true, bookId: book.bookId, bookAlreadyExisted: book.alreadyExisted };
 }
 
 /**
