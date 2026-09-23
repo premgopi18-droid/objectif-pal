@@ -49,6 +49,12 @@ export default async function BilanPage({
     </div>
   );
 
+  // L'identité, UNE fois pour les deux volets : `getClaims()` vérifie le JWT
+  // localement (#125), zéro aller-retour — le `getUser()` réseau du volet
+  // Stats est parti avec #331 (item 7, nitpick review #339).
+  const { data: claims } = await supabase.auth.getClaims();
+  const userId = claims?.claims.sub;
+
   if (view === "stats") {
     // Les stats essentielles. UNE requête grouped (embeds PostgREST, pas de
     // N+1) ; le calcul vit dans la fonction pure `computeStats`, appelée côté
@@ -56,11 +62,8 @@ export default async function BilanPage({
     // Le journal d'états part EN PARALLÈLE : il porte les abandons et reprises
     // du lot A (#30). Requête bornée (filtrée `user_id` + RLS, index de #27),
     // et son échec n'emporte pas la page — les stats restent lisibles sans lui.
-    // L'identité vient de `getClaims()` (JWT vérifié localement, #125) : le
-    // `getUser()` réseau qui précédait mettait ~100 ms d'auth en amont du
-    // journal d'états, en série (fluidité #331, item 7).
-    const { data: statsClaims } = await supabase.auth.getClaims();
-    const statsUserId = statsClaims?.claims.sub;
+    // Le journal d'états part dans le MÊME étage (fluidité #331, item 7) : il
+    // attendait derrière un `getUser()` réseau, en série.
     const [{ data, error }, readingEvents, loadedSeries] = await Promise.all([
       supabase
         .from("books")
@@ -76,7 +79,7 @@ export default async function BilanPage({
         .is("purchases.deleted_at", null)
         .is("readings.deleted_at", null)
         .is("ownerships.deleted_at", null),
-      statsUserId === undefined ? Promise.resolve(null) : fetchReadingEventFacts(supabase, statsUserId),
+      userId === undefined ? Promise.resolve(null) : fetchReadingEventFacts(supabase, userId),
       // La moisson du suivi de séries (§4.17, lot C) — même dérivation que le
       // segment Séries, sans pseudos ni indice GCD ; en parallèle, son échec
       // n'emporte pas la page (review #297).
@@ -138,9 +141,7 @@ export default async function BilanPage({
   // La VERSION des faits se lit AVANT les faits (review #214) : si une édition
   // se glisse entre les deux, les agrégats seront tamponnés avec l'ancien
   // numéro et la prochaine visite recalculera — l'inverse rendrait l'erreur
-  // permanente. `getClaims` : l'identité sans aller-retour réseau (#125).
-  const { data: claims } = await supabase.auth.getClaims();
-  const userId = claims?.claims.sub;
+  // permanente. L'identité (`userId`) vient du `getClaims()` commun, plus haut.
   const factVersion = userId ? await readFactVersion(supabase, userId) : null;
 
   // Les lectures et achats croissent sans borne : paginés (#178) — un compte
