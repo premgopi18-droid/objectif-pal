@@ -30,6 +30,18 @@ const isValidRating = (rating: number) => rating >= 0.5 && rating <= 5 && rating
 export async function finishReading(readingId: string, finishedAt: string): Promise<JournalActionResult> {
   const session = await getSessionOrError();
   if (!session) return { ok: false, error: "Authentification requise." };
+  return finishReadingWithSession(session, readingId, finishedAt);
+}
+
+type Session = NonNullable<Awaited<ReturnType<typeof getSessionOrError>>>;
+
+/**
+ * Le cœur de « Terminé ✓ », avec une session déjà vérifiée : `finishReading`
+ * (par lecture) et `finishReadingForBook` (par livre) le partagent — avant,
+ * le second RELAYAIT vers le premier, qui refaisait l'auth réseau (fluidité
+ * #333, item 12 : un `getUser()` de moins par tap depuis la Pile ou la Biblio).
+ */
+async function finishReadingWithSession(session: Session, readingId: string, finishedAt: string): Promise<JournalActionResult> {
   if (!isValidIsoDate(finishedAt)) return { ok: false, error: "Date de fin invalide." };
 
   // Fin ≥ début (contrainte en base — le message est plus clair ici) : le cas
@@ -142,7 +154,7 @@ export async function finishReadingForBook(bookId: string, finishedAt: string): 
   }
   if (!reading) return { ok: false, error: "Aucune lecture en cours sur ce livre." };
 
-  return finishReading(reading.id, finishedAt);
+  return finishReadingWithSession(session, reading.id, finishedAt);
 }
 
 /** Abandonner — 0 point, et toujours réversible (specs §4.2). */

@@ -64,11 +64,13 @@ export default async function BilanPage({
     // et son échec n'emporte pas la page — les stats restent lisibles sans lui.
     // Le journal d'états part dans le MÊME étage (fluidité #331, item 7) : il
     // attendait derrière un `getUser()` réseau, en série.
-    const [{ data, error }, readingEvents, loadedSeries] = await Promise.all([
+    const [{ data, error }, readingEvents] = await Promise.all([
       supabase
         .from("books")
         .select(
-          `id, title, category, publisher, series_name, page_count, deleted_at,
+          // `series_id`, `issue_number`, `cover_url` : pour que ces MÊMES lignes servent la
+          // dérivation des séries sans relire la table (fluidité #333, item 3).
+          `id, title, category, publisher, series_name, series_id, page_count, issue_number, cover_url, deleted_at,
          purchases (purchased_at, deleted_at),
          readings (status, started_at, finished_at, rating, deleted_at),
          ownerships (owned_since, disposed_at, deleted_at)`,
@@ -80,15 +82,16 @@ export default async function BilanPage({
         .is("readings.deleted_at", null)
         .is("ownerships.deleted_at", null),
       userId === undefined ? Promise.resolve(null) : fetchReadingEventFacts(supabase, userId),
-      // La moisson du suivi de séries (§4.17, lot C) — même dérivation que le
-      // segment Séries, sans pseudos ni indice GCD ; en parallèle, son échec
-      // n'emporte pas la page (review #297).
-      loadSeriesProgress(supabase),
     ]);
 
     if (error) {
       return <PageLoadError title="Bilan du mois" message="Impossible de charger les statistiques — réessaie." />;
     }
+    // La moisson du suivi de séries (§4.17, lot C) — même dérivation que le
+    // segment Séries, sans pseudos ni indice GCD, à partir des MÊMES lignes
+    // (fluidité #333, item 3 : plus de seconde lecture de `books`) ; son échec
+    // n'emporte pas la page (review #297).
+    const loadedSeries = await loadSeriesProgress(supabase, { rows: data ?? [] });
 
     // Rows → contrat camelCase du moteur (types dérivés des Rows générés).
     const records: StatBookRecord[] = (data ?? []).map((row) => ({

@@ -19,18 +19,29 @@ import type { createServerSupabaseClient } from "@/lib/supabase/server";
  */
 type SupabaseLike = Awaited<ReturnType<typeof createServerSupabaseClient>> | ReturnType<typeof createAdminClient>;
 
-export async function fetchKnownMaxBySeriesId(supabase: SupabaseLike, seriesIds: string[]): Promise<Map<string, KnownMax[]>> {
-  const result = new Map<string, KnownMax[]>();
-  if (seriesIds.length === 0) return result;
-  const push = (seriesId: string, known: KnownMax) => result.set(seriesId, [...(result.get(seriesId) ?? []), known]);
+export type SeriesFloors = {
+  knownMax: Map<string, KnownMax[]>;
+  /** Les séries reliées à GCD — lues dans la MÊME requête que les planchers (fluidité #333, item 2). */
+  gcdLinkedSeriesIds: string[];
+};
+
+/**
+ * Les planchers ET les liens GCD en une seule lecture de `series_external_ids`
+ * (fluidité #333, item 2) : le segment Séries relisait la table avec le même
+ * filtre pour n'en tirer que les liens GCD de la bannière de fusion.
+ */
+export async function fetchSeriesFloors(supabase: SupabaseLike, seriesIds: string[]): Promise<SeriesFloors> {
+  const knownMax = new Map<string, KnownMax[]>();
+  if (seriesIds.length === 0) return { knownMax, gcdLinkedSeriesIds: [] };
+  const push = (seriesId: string, known: KnownMax) => knownMax.set(seriesId, [...(knownMax.get(seriesId) ?? []), known]);
 
   const { data: links, error: linkError } = await supabase
     .from("series_external_ids")
     .select("series_id, source, external_id, known_max, known_max_label")
     .in("series_id", seriesIds);
   if (linkError) {
-    console.error("[series] fetchKnownMaxBySeriesId (liens):", linkError.message);
-    return result;
+    console.error("[series] fetchSeriesFloors (liens):", linkError.message);
+    return { knownMax, gcdLinkedSeriesIds: [] };
   }
 
   // BnF : déjà en base, une édition = un plancher.
@@ -46,7 +57,7 @@ export async function fetchKnownMaxBySeriesId(supabase: SupabaseLike, seriesIds:
   if (gcdIds.length > 0) {
     const { data: maxima, error } = await supabase.rpc("gcd_series_max_issue_numbers", { p_series_ids: gcdIds });
     if (error) {
-      console.error("[series] fetchKnownMaxBySeriesId (GCD):", error.message);
+      console.error("[series] fetchSeriesFloors (GCD):", error.message);
     } else {
       const maxByGcdId = new Map(maxima.map((row) => [row.series_id, row.max_number] as const));
       const bestBySeries = new Map<string, number>();
@@ -58,5 +69,10 @@ export async function fetchKnownMaxBySeriesId(supabase: SupabaseLike, seriesIds:
       for (const [seriesId, value] of bestBySeries) push(seriesId, { source: "gcd", value, label: null });
     }
   }
-  return result;
+  return { knownMax, gcdLinkedSeriesIds: [...new Set(gcdLinks.map((link) => link.series_id))] };
+}
+
+/** Les planchers seuls — pour les appelants qui n'ont pas besoin des liens (scripts). */
+export async function fetchKnownMaxBySeriesId(supabase: SupabaseLike, seriesIds: string[]): Promise<Map<string, KnownMax[]>> {
+  return (await fetchSeriesFloors(supabase, seriesIds)).knownMax;
 }

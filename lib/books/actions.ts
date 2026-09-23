@@ -878,24 +878,31 @@ export async function markBooksAsRead(
       succeeded += toInsert.length;
     }
   }
-  if (finishedAt !== null) {
+  if (finishedAt !== null && toFinish.length > 0) {
     // Le plan ne produit des « finish » qu'en mode daté — ce garde ne filtre
     // rien, il porte le rétrécissement TypeScript de `finishedAt`.
-    for (const { bookId, readingId } of toFinish) {
-      const { error, count } = await supabase
-        .from("readings")
-        .update({ status: "finished", finished_at: finishedAt }, { count: "exact" })
-        .eq("id", readingId)
-        .eq("user_id", user.id)
-        .eq("status", "reading")
-        .is("deleted_at", null);
-      if (error) {
-        console.error("[books] markBooksAsRead finish:", error.message);
-        failures.push({ bookId, error: GENERIC_ERROR_MESSAGE });
-      } else if (!count) {
-        failures.push({ bookId, error: "Lecture introuvable ou déjà terminée." });
-      } else {
-        succeeded += 1;
+    // UN SEUL update pour tout le lot (fluidité #333, item 12) : avant, un
+    // aller-retour par livre, en série — 30 livres = 30 allers-retours. Les ids
+    // rendus disent qui a suivi ; les autres sont introuvables ou déjà terminés.
+    const { data: finished, error } = await supabase
+      .from("readings")
+      .update({ status: "finished", finished_at: finishedAt })
+      .in(
+        "id",
+        toFinish.map(({ readingId }) => readingId),
+      )
+      .eq("user_id", user.id)
+      .eq("status", "reading")
+      .is("deleted_at", null)
+      .select("id");
+    if (error) {
+      console.error("[books] markBooksAsRead finish:", error.message);
+      for (const { bookId } of toFinish) failures.push({ bookId, error: GENERIC_ERROR_MESSAGE });
+    } else {
+      const finishedIds = new Set((finished ?? []).map((row) => row.id));
+      for (const { bookId, readingId } of toFinish) {
+        if (finishedIds.has(readingId)) succeeded += 1;
+        else failures.push({ bookId, error: "Lecture introuvable ou déjà terminée." });
       }
     }
   }

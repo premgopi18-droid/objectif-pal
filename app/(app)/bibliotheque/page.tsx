@@ -6,7 +6,7 @@ import { SegmentNav } from "@/components/ui/segment-nav";
 import { deriveLibrary } from "@/lib/library/derive-library";
 import { derivePal } from "@/lib/pal/derive-pal";
 import { loadSeriesNextInPile, loadSeriesSegment } from "@/lib/series/queries";
-import { createServerSupabaseClient, getSessionOrError } from "@/lib/supabase/server";
+import { createServerSupabaseClient } from "@/lib/supabase/server";
 
 /**
  * La Bibliothèque — trois volets portés par `?vue=` (design-specs §3) :
@@ -49,9 +49,13 @@ export default async function BibliothequePage({
   );
 
   if (view === "series") {
-    const session = await getSessionOrError();
-    if (!session) return <PageLoadError title="Bibliothèque" message="Session expirée — reconnecte-toi." />;
-    const data = await loadSeriesSegment(session.supabase, session.user.id);
+    // L'identité par `getClaims()` (local, #125) sur le client déjà créé — le
+    // `getSessionOrError()` d'avant refaisait un client ET un `getUser()` réseau
+    // (fluidité #333, item 2).
+    const { data: claims } = await supabase.auth.getClaims();
+    const userId = claims?.claims.sub;
+    if (!userId) return <PageLoadError title="Bibliothèque" message="Session expirée — reconnecte-toi." />;
+    const data = await loadSeriesSegment(supabase, userId);
     if ("error" in data) {
       console.error("[bibliotheque] séries:", data.error);
       return <PageLoadError title="Bibliothèque" message="Impossible de charger les séries — réessaie." />;
@@ -108,8 +112,7 @@ export default async function BibliothequePage({
 
   // Volet Pile (l'ancienne PAL). Toute la sémantique de pile (entrées, sorties,
   // rachats de déjà-lus) vit dans la fonction pure `derivePal`, testée.
-  const [{ data, error }, seriesNextBookIds] = await Promise.all([
-    supabase
+  const { data, error } = await supabase
     .from("books")
     .select(
       // La jointure sur `purchases` était `!inner` (issue #32, lot B) : seuls
@@ -121,7 +124,9 @@ export default async function BibliothequePage({
       // lus), que la dérivation jette. À l'échelle actuelle (une bibliothèque
       // personnelle) c'est sans effet ; la pagination #32 lot C reprendra le
       // sujet, et c'est là qu'un filtre serveur « possédé » aura sa place.
-      `id, title, series_name, series_id, issue_number, category, cover_url, created_at, deleted_at,
+      // `publisher` : pour que ces MÊMES lignes servent la dérivation des séries
+      // (le vivier de la roulette) sans relire la table (fluidité #333, item 3).
+      `id, title, series_name, series_id, issue_number, category, cover_url, publisher, created_at, deleted_at,
        purchases (id, purchased_at, deleted_at),
        readings (status, started_at, finished_at, deleted_at),
        ownerships (id, owned_since, disposed_at, deleted_at)`,
@@ -131,10 +136,11 @@ export default async function BibliothequePage({
     // la requête — derivePal refiltre de toute façon (défense en profondeur).
     .is("purchases.deleted_at", null)
     .is("readings.deleted_at", null)
-    .is("ownerships.deleted_at", null),
-    // Le vivier du mode « on continue une série » (§4.16, lot C) — un échec rend vide, jamais bloquant.
-    loadSeriesNextInPile(supabase),
-  ]);
+    .is("ownerships.deleted_at", null);
+  // Le vivier du mode « on continue une série » (§4.16, lot C) — dérivé des
+  // MÊMES lignes (fluidité #333, item 3 : avant, `books` était relu en entier
+  // avec ses trois embeds) ; un échec rend vide, jamais bloquant.
+  const seriesNextBookIds = error ? [] : await loadSeriesNextInPile(supabase, data ?? []);
 
   if (error) {
     return <PageLoadError title="Bibliothèque" message="Impossible de charger la pile — réessaie." />;
