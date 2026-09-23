@@ -8,6 +8,11 @@
  * `localStorage` : donnée d'UX, pas métier (même patron que la série
  * mémorisée, lib/books/last-series.ts). Sans `navigator.vibrate` (iOS Safari
  * ne l'expose pas) : silence, sans erreur.
+ *
+ * Chrome bloque `vibrate` (silencieusement) tant que l'utilisateur n'a pas encore
+ * interagi avec la page : une session de rafale RESTAURÉE au chargement (#131)
+ * peut relire un code avant tout tap — la première secousse est alors perdue,
+ * sans erreur. Bénin, connu (review #347).
  */
 export const HAPTICS_STORAGE_KEY = "scan-haptics";
 
