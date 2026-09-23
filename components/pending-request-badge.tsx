@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import { getPendingRequestCount } from "@/lib/circle/queries";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -18,6 +19,9 @@ export async function PendingRequestBadge() {
     const supabase = await createServerSupabaseClient();
     count = await getPendingRequestCount(supabase);
   } catch (error) {
+    // Les erreurs INTERNES de Next repartent (review #337) : l'exception sur
+    // `cookies()` est le signal « route dynamique » du build, jamais à avaler.
+    unstable_rethrow(error);
     console.error("[shell] pastille des demandes d'ami:", error);
   }
   if (count <= 0) return null;

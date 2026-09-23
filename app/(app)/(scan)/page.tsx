@@ -1,3 +1,4 @@
+import { unstable_rethrow } from "next/navigation";
 import { ScanScreen } from "@/components/scan/scan-screen";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 
@@ -36,6 +37,10 @@ async function loadPendingInboxCount(): Promise<number> {
     if (error) console.error("[scan] compteur de finition:", error.message);
     return count ?? 0;
   } catch (error) {
+    // Les erreurs INTERNES de Next repartent (review #337) : c'est par une
+    // exception sur `cookies()` que le build marque la route dynamique — les
+    // avaler figerait `/` en page statique, compteur à 0 pour tout le monde.
+    unstable_rethrow(error);
     console.error("[scan] compteur de finition:", error);
     return 0;
   }
