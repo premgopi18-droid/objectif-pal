@@ -15,55 +15,105 @@ import { burstConfetti } from "@/components/ui/confetti";
  * `components/scan/`.
  *
  * La plomberie commune (transition + capture d'erreur réseau) est le hook
- * `useBookGestures` : la vue tient l'unique `ErrorAlert` et l'état `isPending`,
+ * `useBookGestures` : la vue tient l'unique `ErrorAlert` et l'état de pending,
  * les composants de geste ne font que déclencher leur action.
+ *
+ * Fluidité #331 (item 3) — deux règles :
+ *  - le pending est INDEXÉ PAR LIGNE (`pendingKey`) : un tap ne grise plus les
+ *    500 boutons de la page, seule la ligne touchée attend ;
+ *  - l'OPTIMISME est la règle : `onStart` s'exécute au tap, DANS la transition
+ *    (les `useOptimistic` de la vue s'y posent, les confettis y partent) ;
+ *    `onFailure` reçoit le message pour annuler la célébration près du geste
+ *    (l'ErrorAlert de la vue, lui, reste rempli — il est loin du doigt).
  */
 
 /** Le résultat d'un geste, ou le message réseau si le serveur est injoignable. */
 type BookActionResult = JournalActionResult;
 
+export type GestureHooks = {
+  /** Au tap, dans la transition : état optimiste, confettis, toast. */
+  onStart?: () => void;
+  /** Le serveur a confirmé. */
+  onSuccess?: () => void;
+  /** Le serveur a refusé (ou est injoignable) : de quoi annuler la célébration. */
+  onFailure?: (message: string) => void;
+};
+
+export type RunGesture = (pendingKey: string, action: () => Promise<BookActionResult>, hooks?: GestureHooks) => void;
+
+/**
+ * Les gestes en vol, COMPTÉS par clé (review #336) : deux gestes sur la même
+ * ligne (relais de la roulette, double tap avant que `disabled` ne soit peint)
+ * ne se libèrent pas l'un l'autre — la ligne n'est rendue qu'au dernier.
+ */
+const NO_PENDING: ReadonlyMap<string, number> = new Map();
+
 export function useBookGestures() {
   const [error, setError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [pendingCounts, setPendingCounts] = useState<ReadonlyMap<string, number>>(NO_PENDING);
+  const [, startTransition] = useTransition();
 
-  // `onSuccess` (optionnel) ne se déclenche QUE si l'action a réussi : c'est là
-  // que le Journal célèbre « Terminé ✓ » (confettis + toast, #73) — jamais sur
-  // un échec, qui, lui, remplit l'ErrorAlert.
-  const run = useCallback((action: () => Promise<BookActionResult>, onSuccess?: () => void) => {
+  const run = useCallback<RunGesture>((pendingKey, action, hooks) => {
     setError(null);
+    setPendingCounts((previous) => new Map(previous).set(pendingKey, (previous.get(pendingKey) ?? 0) + 1));
     startTransition(async () => {
+      // Avant le premier `await` : c'est ici que la vue pose ses états
+      // optimistes (React exige une transition ouverte).
+      hooks?.onStart?.();
       try {
         const result = await action();
-        if (!result.ok) setError(result.error);
-        else onSuccess?.();
+        if (!result.ok) {
+          setError(result.error);
+          hooks?.onFailure?.(result.error);
+        } else {
+          hooks?.onSuccess?.();
+        }
       } catch {
         // Serveur injoignable (réseau coupé) : la promesse de la Server Action
         // rejette — sans ce catch, le geste échouerait en silence.
         setError(NETWORK_ERROR_MESSAGE);
+        hooks?.onFailure?.(NETWORK_ERROR_MESSAGE);
+      } finally {
+        setPendingCounts((previous) => {
+          const next = new Map(previous);
+          const remaining = (next.get(pendingKey) ?? 1) - 1;
+          if (remaining > 0) next.set(pendingKey, remaining);
+          else next.delete(pendingKey);
+          return next;
+        });
       }
     });
   }, []);
 
-  return { run, isPending, error, setError };
+  const isPendingFor = useCallback((pendingKey: string) => pendingCounts.has(pendingKey), [pendingCounts]);
+
+  return { run, isPendingFor, hasPending: pendingCounts.size > 0, error, setError };
 }
 
-type RunGesture = (action: () => Promise<BookActionResult>, onSuccess?: () => void) => void;
+/** Le centre d'un bouton AU TAP — après, il a pu disparaître et son rect ne vaudrait plus rien. */
+export function buttonCenter(button: HTMLElement): { x: number; y: number } {
+  const rect = button.getBoundingClientRect();
+  return { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+}
 
 /**
  * « Terminé ✓ » — LE geste des points, désormais partout où le livre est
  * visible (#144) : Pile et Biblio, plus seulement le Journal. Un tap sec,
  * comme au Journal (la note et l'avis s'ajoutent après, via « Modifier » —
- * le Journal reste la gestion fine). Confettis au succès (#73), jamais sur
- * un échec.
+ * le Journal reste la gestion fine). Confettis AU TAP (#73, puis #331 : la
+ * célébration appartient au geste, pas à l'aller-retour serveur).
  */
 export function FinishReadingButton({
   bookId,
   run,
   isPending,
+  onStart,
 }: {
   bookId: string;
   run: RunGesture;
   isPending: boolean;
+  /** Ce que la vue pose en plus au tap (état optimiste, toast). */
+  onStart?: () => void;
 }) {
   return (
     <Button
@@ -71,14 +121,13 @@ export function FinishReadingButton({
       variant="done"
       disabled={isPending}
       onClick={(event) => {
-        // Le centre du bouton AU TAP : une fois terminé il disparaît, son
-        // rect ne vaudrait plus rien (même piège qu'au Journal).
-        const rect = event.currentTarget.getBoundingClientRect();
-        const origin = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
-        run(
-          () => finishReadingForBook(bookId, localToday()),
-          () => burstConfetti(origin),
-        );
+        const origin = buttonCenter(event.currentTarget);
+        run(bookId, () => finishReadingForBook(bookId, localToday()), {
+          onStart: () => {
+            burstConfetti(origin);
+            onStart?.();
+          },
+        });
       }}
     >
       Terminé ✓
@@ -113,7 +162,7 @@ export function StartReadingButton({
       variant="grad"
       block={block}
       disabled={isPending}
-      onClick={() => run(() => startReadingForBook(bookId, localToday()))}
+      onClick={() => run(bookId, () => startReadingForBook(bookId, localToday()))}
     >
       {label}
     </Button>
@@ -137,6 +186,7 @@ export function StartReadingButton({
  */
 export function RemoveButton({
   label,
+  pendingKey,
   action,
   run,
   isPending,
@@ -145,6 +195,8 @@ export function RemoveButton({
   className = "",
 }: {
   label: string;
+  /** La ligne qui attend (livre ou lecture) — celle-là seule est désactivée. */
+  pendingKey: string;
   action: () => Promise<BookActionResult>;
   run: RunGesture;
   isPending: boolean;
@@ -153,7 +205,7 @@ export function RemoveButton({
   className?: string;
 }) {
   const handleClick = () => {
-    if (!confirm || confirm()) run(action);
+    if (!confirm || confirm()) run(pendingKey, action);
   };
   if (tone === "muted") {
     return (

@@ -86,7 +86,8 @@ export function ReadingRoulette({
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   // La roulette a SA plomberie de geste : son erreur s'affiche dans l'overlay,
   // pas derrière lui dans l'ErrorAlert de la vue.
-  const { run, isPending, error, setError } = useBookGestures();
+  // `hasPending` : l'overlay n'a qu'un geste à la fois, le pending global suffit (#331 item 3).
+  const { run, hasPending: isPending, error, setError } = useBookGestures();
 
   const overlayRef = useRef<HTMLDivElement>(null);
   const reelWrapRef = useRef<HTMLDivElement>(null);
@@ -425,10 +426,13 @@ export function ReadingRoulette({
                     bookId={phase.winner.bookId}
                     block
                     isPending={isPending}
-                    run={(action, onSuccess) =>
-                      run(action, () => {
-                        onSuccess?.();
-                        handleStarted();
+                    run={(pendingKey, action, hooks) =>
+                      run(pendingKey, action, {
+                        ...hooks,
+                        onSuccess: () => {
+                          hooks?.onSuccess?.();
+                          handleStarted();
+                        },
                       })
                     }
                   />

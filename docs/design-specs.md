@@ -160,7 +160,10 @@ la palette, choisis par hash du titre — stable d'un rendu à l'autre).
   saisie manuelle) ne change pas — il est rhabillé.
 - **Journal** : chips de filtre + liste `BookRow`. **Le moment de gloire** : « Terminé ✓ » déclenche
   une **micro-pluie de confettis** aux couleurs de la palette + toast « Lecture terminée · +N pts 🎉 »
-  (respecte `prefers-reduced-motion` ; N vient du barème réel, pas de valeur en dur).
+  (respecte `prefers-reduced-motion` ; N vient du barème réel, pas de valeur en dur). **Au tap, pas au
+  retour serveur** (fluidité #331) : badge, confettis et toast partent avec le geste (`useOptimistic`) ;
+  si le serveur refuse, le badge retombe et un toast « ⚠️ » le dit près du doigt. Le pending est
+  **par ligne** : un geste ne grise jamais le reste de la liste.
 - **Biblio / Pile** : 2 `StatTile` (Dans la pile · Solde du mois, coloré) + liste des achats non lus
   avec « Je commence ». **Biblio / Tous** : recherche + tri existants (#49), badges d'état.
 - **Bilan / Bilan** : nav mois ← → , **score du mois en héros** (52px, italique, dégradé), détail au
