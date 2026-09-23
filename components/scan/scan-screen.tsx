@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { CoverChooserSheet, type CoverSheetBook } from "@/components/covers/cover-chooser-sheet";
 import { ErrorAlert } from "@/components/error-alert";
 import {
@@ -25,6 +25,7 @@ import { BookActionSheet } from "./book-action-sheet";
 import { BurstMode } from "./burst-mode";
 import { hasBurstSession } from "./burst-session";
 import { ManualEntryForm } from "./manual-entry-form";
+import { PendingInboxLink } from "./pending-inbox-link";
 import { GradientWord, ScreenTitle } from "./screen-title";
 
 /**
@@ -78,7 +79,12 @@ const manualInputToBook = (input: BookInput): ResolvedBook => ({
   isbn: input.isbn,
 });
 
-export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: number }) {
+/**
+ * `pendingInboxCount` : le compteur de la boîte de finition, en PROMESSE depuis
+ * le serveur (#331 item 5) — l'écran monte sans l'attendre, la caméra part tout
+ * de suite ; seule la pastille (`PendingInboxLink`, sous Suspense) le lit.
+ */
+export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Promise<number> | number }) {
   const [state, setState] = useState<ScanState>({ step: "scan" });
   const [manualCode, setManualCode] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -488,15 +494,11 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: numb
         Scanner une étagère (rafale)
       </Button>
 
-      {/* La pastille : impossible d'oublier ce qui attend, jamais intrusive. */}
-      {pendingInboxCount > 0 && (
-        <a
-          href="/finition"
-          className="rounded-card border border-amber/40 bg-amber/10 p-3 text-center text-sm text-ink underline underline-offset-2"
-        >
-          {pendingInboxCount} livre{pendingInboxCount > 1 ? "s" : ""} à compléter
-        </a>
-      )}
+      {/* La pastille : impossible d'oublier ce qui attend, jamais intrusive.
+          Sous Suspense : le compte arrive en streaming, rien ne l'attend. */}
+      <Suspense fallback={null}>
+        <PendingInboxLink count={pendingInboxCount} className="text-center" />
+      </Suspense>
     </section>
   );
 }
