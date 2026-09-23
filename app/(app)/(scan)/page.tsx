@@ -19,14 +19,24 @@ export default function ScannerPage() {
   return <ScanScreen pendingInboxCount={loadPendingInboxCount()} />;
 }
 
+/**
+ * Ne REJETTE JAMAIS (review #337) : cette promesse est lue par `use()` côté
+ * client — un rejet traverserait le `<Suspense>` jusqu'à l'error boundary et
+ * ferait tomber la caméra pour un compteur décoratif. Tout échec vaut 0.
+ */
 async function loadPendingInboxCount(): Promise<number> {
-  const supabase = await createServerSupabaseClient();
-  const { count, error } = await supabase
-    .from("scan_inbox")
-    .select("id", { count: "exact", head: true })
-    .eq("status", "pending")
-    .is("deleted_at", null);
+  try {
+    const supabase = await createServerSupabaseClient();
+    const { count, error } = await supabase
+      .from("scan_inbox")
+      .select("id", { count: "exact", head: true })
+      .eq("status", "pending")
+      .is("deleted_at", null);
 
-  if (error) console.error("[scan] compteur de finition:", error.message);
-  return count ?? 0;
+    if (error) console.error("[scan] compteur de finition:", error.message);
+    return count ?? 0;
+  } catch (error) {
+    console.error("[scan] compteur de finition:", error);
+    return 0;
+  }
 }
