@@ -41,16 +41,21 @@ export type GestureHooks = {
 
 export type RunGesture = (pendingKey: string, action: () => Promise<BookActionResult>, hooks?: GestureHooks) => void;
 
-const NO_PENDING: ReadonlySet<string> = new Set();
+/**
+ * Les gestes en vol, COMPTÉS par clé (review #336) : deux gestes sur la même
+ * ligne (relais de la roulette, double tap avant que `disabled` ne soit peint)
+ * ne se libèrent pas l'un l'autre — la ligne n'est rendue qu'au dernier.
+ */
+const NO_PENDING: ReadonlyMap<string, number> = new Map();
 
 export function useBookGestures() {
   const [error, setError] = useState<string | null>(null);
-  const [pendingKeys, setPendingKeys] = useState<ReadonlySet<string>>(NO_PENDING);
+  const [pendingCounts, setPendingCounts] = useState<ReadonlyMap<string, number>>(NO_PENDING);
   const [, startTransition] = useTransition();
 
   const run = useCallback<RunGesture>((pendingKey, action, hooks) => {
     setError(null);
-    setPendingKeys((previous) => new Set(previous).add(pendingKey));
+    setPendingCounts((previous) => new Map(previous).set(pendingKey, (previous.get(pendingKey) ?? 0) + 1));
     startTransition(async () => {
       // Avant le premier `await` : c'est ici que la vue pose ses états
       // optimistes (React exige une transition ouverte).
@@ -69,18 +74,20 @@ export function useBookGestures() {
         setError(NETWORK_ERROR_MESSAGE);
         hooks?.onFailure?.(NETWORK_ERROR_MESSAGE);
       } finally {
-        setPendingKeys((previous) => {
-          const next = new Set(previous);
-          next.delete(pendingKey);
+        setPendingCounts((previous) => {
+          const next = new Map(previous);
+          const remaining = (next.get(pendingKey) ?? 1) - 1;
+          if (remaining > 0) next.set(pendingKey, remaining);
+          else next.delete(pendingKey);
           return next;
         });
       }
     });
   }, []);
 
-  const isPendingFor = useCallback((pendingKey: string) => pendingKeys.has(pendingKey), [pendingKeys]);
+  const isPendingFor = useCallback((pendingKey: string) => pendingCounts.has(pendingKey), [pendingCounts]);
 
-  return { run, isPendingFor, hasPending: pendingKeys.size > 0, error, setError };
+  return { run, isPendingFor, hasPending: pendingCounts.size > 0, error, setError };
 }
 
 /** Le centre d'un bouton AU TAP — après, il a pu disparaître et son rect ne vaudrait plus rien. */

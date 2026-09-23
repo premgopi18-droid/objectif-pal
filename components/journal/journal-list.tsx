@@ -411,7 +411,7 @@ export function JournalList({
                     isPending={isPendingFor(entry.id)}
                     onPatch={applyPatch}
                     onError={setError}
-                    onCelebrate={setToastMessage}
+                    onToast={setToastMessage}
                     onEditCategory={setEditingCategory}
                     onEditCover={setCoverSheetBook}
                   />
@@ -465,7 +465,7 @@ function JournalItem({
   isPending,
   onPatch,
   onError,
-  onCelebrate,
+  onToast,
   onEditCategory,
   onEditCover,
 }: {
@@ -475,7 +475,7 @@ function JournalItem({
   /** L'état optimiste de la ligne, posé au tap (dans la transition du geste). */
   onPatch: (patch: ReadingPatch) => void;
   onError: (message: string) => void;
-  onCelebrate: (message: string) => void;
+  onToast: (message: string) => void;
   onEditCategory: (target: { bookId: string; category: BookCategory }) => void;
   /** Le tap sur la vignette ouvre la feuille « Changer la couverture » (#275). */
   onEditCover: (book: CoverSheetBook) => void;
@@ -525,11 +525,11 @@ function JournalItem({
                     onStart: () => {
                       onPatch(READING_PATCHES.finish(entry.id, today));
                       burstConfetti(origin);
-                      onCelebrate(`Lecture terminée · ${formatPointsLabel(points)} 🎉`);
+                      onToast(`Lecture terminée · ${formatPointsLabel(points)} 🎉`);
                     },
                     // Le serveur a dit non : l'optimiste retombe seul, le toast
                     // le dit près du doigt (l'ErrorAlert, lui, est en haut).
-                    onFailure: (message) => onCelebrate(`⚠️ ${message}`),
+                    onFailure: (message) => onToast(`⚠️ ${message}`),
                   });
                 }}
               >
