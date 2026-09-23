@@ -1,7 +1,8 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { Suspense, useCallback, useEffect, useRef, useState } from "react";
-import { CoverChooserSheet, type CoverSheetBook } from "@/components/covers/cover-chooser-sheet";
+import type { CoverSheetBook } from "@/components/covers/cover-chooser-sheet";
 import { ErrorAlert } from "@/components/error-alert";
 import {
   startReading,
@@ -27,6 +28,18 @@ import { hasBurstSession } from "./burst-session";
 import { ManualEntryForm } from "./manual-entry-form";
 import { PendingInboxLink } from "./pending-inbox-link";
 import { GradientWord, ScreenTitle } from "./screen-title";
+
+/**
+ * La feuille « Changer la couverture » en import DYNAMIQUE (fluidité #332,
+ * item 11) : un geste rare de l'écran « done », dont tout le sous-arbre
+ * (candidates, partage, mutations) pesait sur le premier chargement de `/` —
+ * l'écran le plus pressé de l'app. Le chunk ne part qu'au premier rendu de la
+ * feuille ; `ssr: false` — elle ne s'ouvre qu'après un geste.
+ */
+const CoverChooserSheet = dynamic(
+  () => import("@/components/covers/cover-chooser-sheet").then((module) => module.CoverChooserSheet),
+  { ssr: false },
+);
 
 /**
  * L'écran de scan — specs §5.3, dégradation douce : code complet = zéro

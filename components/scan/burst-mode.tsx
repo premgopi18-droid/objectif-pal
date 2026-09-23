@@ -23,6 +23,23 @@ import type { BookCategory } from "@/lib/scoring/types";
 import type { ScanIntent } from "@/lib/books/scan-inbox";
 import type { Json } from "@/lib/supabase/database.types";
 import { clearBurstSession, loadBurstSession, saveBurstSession } from "./burst-session";
+import { LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
+
+/**
+ * La persistance de la session est DÉBOUNCÉE (fluidité #332, item 10) : chaque
+ * `patch` sérialisait toute la liste (`JSON.stringify`) sur le thread
+ * principal, pendant le décodage — sensible après 50-80 lignes. 300 ms, avec
+ * un flush sur `pagehide` et au démontage : rien ne se perd.
+ */
+const SESSION_SAVE_DEBOUNCE_MS = 300;
+/** Au plus ce temps sans sauvegarde, même sous un flot continu de patches. */
+const SESSION_SAVE_MAX_WAIT_MS = 2_000;
+/**
+ * Le quota du lookup (60/min) en rafale (item 9) : un 429 met la file en pause
+ * ce temps-là puis RÉESSAIE une fois — avant, tout partait « À compléter » sans
+ * dire pourquoi.
+ */
+const RATE_LIMIT_PAUSE_MS = 10_000;
 
 /**
  * Le scan d'étagère en rafale (#101 lot C, specs §4.13).
@@ -166,11 +183,45 @@ export function BurstMode({
 
   const nextKeyRef = useRef(restored?.nextKey ?? 0);
 
-  // Chaque mutation persiste la session (#131) — écriture synchrone minuscule,
-  // et le confort est optionnel : un échec de stockage ne casse jamais la rafale.
+  // Chaque mutation persiste la session (#131), DÉBOUNCÉE (item 10) — le
+  // confort est optionnel : un échec de stockage ne casse jamais la rafale.
+  // `sessionEndedRef` : « Terminer » clôt la session — le flush du démontage
+  // ne doit pas la ressusciter par-dessus le `clearBurstSession`.
+  // `null` jusqu'au premier effet : une ref ne se lit pas pendant le rendu
+  // (règle react-hooks/refs), et `nextKeyRef` est une ref.
+  const latestSessionRef = useRef<Parameters<typeof saveBurstSession>[0] | null>(null);
+  const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const sessionEndedRef = useRef(false);
+  /** Depuis quand une sauvegarde attend — le plafond anti-famine (review #343). */
+  const dirtySinceRef = useRef<number | null>(null);
   useEffect(() => {
-    saveBurstSession({ intent, dateKnown, date, items, nextKey: nextKeyRef.current });
+    latestSessionRef.current = { intent, dateKnown, date, items, nextKey: nextKeyRef.current };
+    if (saveTimerRef.current !== null) clearTimeout(saveTimerRef.current);
+    const now = Date.now();
+    dirtySinceRef.current ??= now;
+    // Des patches serrés remettraient le compteur à zéro indéfiniment : au-delà
+    // du plafond, on sauve tout de suite.
+    const delay = now - dirtySinceRef.current >= SESSION_SAVE_MAX_WAIT_MS ? 0 : SESSION_SAVE_DEBOUNCE_MS;
+    saveTimerRef.current = setTimeout(() => {
+      saveTimerRef.current = null;
+      dirtySinceRef.current = null;
+      if (!sessionEndedRef.current && latestSessionRef.current) saveBurstSession(latestSessionRef.current);
+    }, delay);
   }, [intent, dateKnown, date, items]);
+  useEffect(() => {
+    const flush = () => {
+      if (saveTimerRef.current === null) return;
+      clearTimeout(saveTimerRef.current);
+      saveTimerRef.current = null;
+      dirtySinceRef.current = null;
+      if (!sessionEndedRef.current && latestSessionRef.current) saveBurstSession(latestSessionRef.current);
+    };
+    window.addEventListener("pagehide", flush);
+    return () => {
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+  }, []);
   // Les réglages dans une ref : la callback du scanner est mémoïsée (la
   // remplacer redémarrerait la caméra), elle ne doit donc pas capturer un état
   // périmé — on change d'intention en pleine session. Synchronisée dans un
@@ -183,6 +234,8 @@ export function BurstMode({
   const patch = useCallback((key: number, changes: Partial<BurstItem>) => {
     setItems((current) => current.map((item) => (item.key === key ? { ...item, ...changes } : item)));
   }, []);
+  /** Jusqu'à quand la file attend après un 429 (item 9) — partagé par toutes les résolutions en vol. */
+  const rateLimitPausedUntilRef = useRef(0);
 
   const handleCode = useCallback(
     (code: string) => {
@@ -252,10 +305,33 @@ export function BurstMode({
           });
         };
 
+        /**
+         * Le lookup sous quota (item 9) : un 429 pose une pause partagée par
+         * toute la file (les créneaux de `runResolution` attendent ici, donc la
+         * file marque le pas), le dit dans l'ErrorAlert, et réessaie UNE fois.
+         * Si le second essai est encore un 429, la ligne part « À compléter »
+         * avec la raison — plus jamais « À compléter » sans explication.
+         */
+        const fetchLookup = async (): Promise<Response> => {
+          for (let attempt = 0; ; attempt++) {
+            const wait = rateLimitPausedUntilRef.current - Date.now();
+            if (wait > 0) await new Promise<void>((resolve) => setTimeout(resolve, wait));
+            const response = await fetch(`/api/lookup/${encodeURIComponent(code)}`);
+            if (response.status !== 429) return response;
+            // Chaque 429 REPOSE la pause (review #343) : un second refus après le
+            // réessai étale la reprise des autres créneaux au lieu de les lâcher
+            // tous sur le quota au même instant.
+            rateLimitPausedUntilRef.current = Date.now() + RATE_LIMIT_PAUSE_MS;
+            setError(LOOKUP_RATE_LIMIT_MESSAGE);
+            if (attempt >= 1) return response;
+          }
+        };
+
         try {
-          const response = await fetch(`/api/lookup/${encodeURIComponent(code)}`);
+          const response = await fetchLookup();
           if (!response.ok) {
             await capture(null, null);
+            if (response.status === 429) patch(key, { message: LOOKUP_RATE_LIMIT_MESSAGE });
             return;
           }
           const lookup = (await response.json()) as ScanLookupResult;
@@ -440,6 +516,7 @@ export function BurstMode({
           type="button"
           variant="ghost"
           onClick={() => {
+            sessionEndedRef.current = true;
             clearBurstSession();
             onExit();
           }}
