@@ -22,13 +22,19 @@ import { decideEmission } from "./supplement-grace";
 
 // Le binaire WASM est servi par NOUS (copié dans public/wasm/ par postinstall,
 // cf. scripts/copy-zxing-wasm.mjs), plus par le CDN jsDelivr : un CDN bloqué
-// rendait le scanner muet, sans aucun message. Une seule fois au niveau module —
-// prepareZXingModule ne fetch rien ici, le binaire ne part qu'au premier readBarcodes.
+// rendait le scanner muet, sans aucun message. Une seule fois au niveau module.
+// `fireImmediately` (fluidité #332, item 1) : le fetch + l'instanciation du
+// binaire (1 Mo) partent DÈS le chargement de ce module, en parallèle de
+// `getUserMedia` — avant, ils n'étaient déclenchés que par le premier
+// `readBarcodes`, donc APRÈS la caméra, en série (+0,2 à 2 s avant la première
+// frame décodable). Le rejet est avalé ici : le moteur mort se détecte plus
+// bas, au premier `readBarcodes` (WASM_FAILURE_THRESHOLD), avec un message.
 prepareZXingModule({
   overrides: {
     locateFile: (path: string, prefix: string) => (path.endsWith(".wasm") ? "/wasm/zxing_reader.wasm" : prefix + path),
   },
-});
+  fireImmediately: true,
+}).catch(() => {});
 
 const SUPPLEMENT_GRACE_MILLISECONDS = 1500;
 const DECODE_INTERVAL_MILLISECONDS = 180;
