@@ -681,17 +681,19 @@ export async function recordOwnedPastReading(
     finishedAt === null ? duplicateQuery.is("finished_at", null) : duplicateQuery.eq("finished_at", finishedAt),
   ]);
   if ("error" in facts) return { ok: false, error: facts.error };
-  if (inProgressError) return { ok: false, error: inProgressError };
   if (duplicate.error) {
     console.error("[books] recordOwnedPastReading:", duplicate.error.message);
     return { ok: false, error: GENERIC_ERROR_MESSAGE };
   }
-  if ((duplicate.count ?? 0) > 0) return { ok: false, error: "Ce livre est déjà marqué comme lu." };
 
-  // La possession D'ABORD : si l'enregistrement de la lecture échoue, le livre
-  // est au moins dans la bibliothèque — et jamais « lu mais pas possédé », qui
-  // ressemblerait à un emprunt. SANS date : la date connue est celle de la
-  // LECTURE, pas de l'acquisition (audit post-#101). Le plan est pur et testé.
+  // La possession D'ABORD, AVANT les verdicts de lecture (review #348 — l'ordre
+  // exact de l'ancien enchaînement) : un « Lu — emprunt » rescanné « possédé,
+  // déjà lu » devient POSSÉDÉ même si la lecture est refusée en doublon — c'est
+  // la médiathèque puis l'achat, l'information nouvelle est la possession. Et
+  // si la lecture échoue, le livre est au moins dans la bibliothèque, jamais
+  // « lu mais pas possédé » (un faux emprunt). SANS date : la date connue est
+  // celle de la LECTURE, pas de l'acquisition (audit post-#101). Le plan est
+  // pur et testé.
   const plan = planOwnedPastReading(facts);
   if (plan.kind === "revive") {
     const { error } = await supabase
@@ -710,6 +712,10 @@ export async function recordOwnedPastReading(
       return { ok: false, error: GENERIC_ERROR_MESSAGE };
     }
   }
+
+  // Les verdicts de lecture, APRÈS la possession (lus dans le même étage plus haut).
+  if (inProgressError) return { ok: false, error: inProgressError };
+  if ((duplicate.count ?? 0) > 0) return { ok: false, error: "Ce livre est déjà marqué comme lu." };
 
   // `started_at` reste NULL (lecture rétroactive sans début connu) ; le
   // trigger en base écrit reading_events tout seul.
