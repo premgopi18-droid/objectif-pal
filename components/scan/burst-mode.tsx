@@ -32,6 +32,8 @@ import { LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
  * un flush sur `pagehide` et au démontage : rien ne se perd.
  */
 const SESSION_SAVE_DEBOUNCE_MS = 300;
+/** Au plus ce temps sans sauvegarde, même sous un flot continu de patches. */
+const SESSION_SAVE_MAX_WAIT_MS = 2_000;
 /**
  * Le quota du lookup (60/min) en rafale (item 9) : un 429 met la file en pause
  * ce temps-là puis RÉESSAIE une fois — avant, tout partait « À compléter » sans
@@ -190,19 +192,28 @@ export function BurstMode({
   const latestSessionRef = useRef<Parameters<typeof saveBurstSession>[0] | null>(null);
   const saveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const sessionEndedRef = useRef(false);
+  /** Depuis quand une sauvegarde attend — le plafond anti-famine (review #343). */
+  const dirtySinceRef = useRef<number | null>(null);
   useEffect(() => {
     latestSessionRef.current = { intent, dateKnown, date, items, nextKey: nextKeyRef.current };
     if (saveTimerRef.current !== null) clearTimeout(saveTimerRef.current);
+    const now = Date.now();
+    dirtySinceRef.current ??= now;
+    // Des patches serrés remettraient le compteur à zéro indéfiniment : au-delà
+    // du plafond, on sauve tout de suite.
+    const delay = now - dirtySinceRef.current >= SESSION_SAVE_MAX_WAIT_MS ? 0 : SESSION_SAVE_DEBOUNCE_MS;
     saveTimerRef.current = setTimeout(() => {
       saveTimerRef.current = null;
+      dirtySinceRef.current = null;
       if (!sessionEndedRef.current && latestSessionRef.current) saveBurstSession(latestSessionRef.current);
-    }, SESSION_SAVE_DEBOUNCE_MS);
+    }, delay);
   }, [intent, dateKnown, date, items]);
   useEffect(() => {
     const flush = () => {
       if (saveTimerRef.current === null) return;
       clearTimeout(saveTimerRef.current);
       saveTimerRef.current = null;
+      dirtySinceRef.current = null;
       if (!sessionEndedRef.current && latestSessionRef.current) saveBurstSession(latestSessionRef.current);
     };
     window.addEventListener("pagehide", flush);
@@ -306,9 +317,13 @@ export function BurstMode({
             const wait = rateLimitPausedUntilRef.current - Date.now();
             if (wait > 0) await new Promise<void>((resolve) => setTimeout(resolve, wait));
             const response = await fetch(`/api/lookup/${encodeURIComponent(code)}`);
-            if (response.status !== 429 || attempt >= 1) return response;
+            if (response.status !== 429) return response;
+            // Chaque 429 REPOSE la pause (review #343) : un second refus après le
+            // réessai étale la reprise des autres créneaux au lieu de les lâcher
+            // tous sur le quota au même instant.
             rateLimitPausedUntilRef.current = Date.now() + RATE_LIMIT_PAUSE_MS;
             setError(LOOKUP_RATE_LIMIT_MESSAGE);
+            if (attempt >= 1) return response;
           }
         };
 

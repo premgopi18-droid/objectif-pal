@@ -29,12 +29,16 @@ import { decideEmission } from "./supplement-grace";
 // `readBarcodes`, donc APRÈS la caméra, en série (+0,2 à 2 s avant la première
 // frame décodable). Le rejet est avalé ici : le moteur mort se détecte plus
 // bas, au premier `readBarcodes` (WASM_FAILURE_THRESHOLD), avec un message.
-prepareZXingModule({
-  overrides: {
-    locateFile: (path: string, prefix: string) => (path.endsWith(".wasm") ? "/wasm/zxing_reader.wasm" : prefix + path),
-  },
-  fireImmediately: true,
-}).catch(() => {});
+// NAVIGATEUR SEULEMENT (review #343) : ce module est aussi évalué côté serveur
+// (SSR du composant client, build) — sans cette garde, chaque rendu de `/`
+// tentait un fetch d'URL relative dans Node (« Failed to parse URL »).
+const ZXING_OVERRIDES = {
+  locateFile: (path: string, prefix: string) => (path.endsWith(".wasm") ? "/wasm/zxing_reader.wasm" : prefix + path),
+};
+prepareZXingModule({ overrides: ZXING_OVERRIDES });
+if (typeof window !== "undefined") {
+  prepareZXingModule({ overrides: ZXING_OVERRIDES, fireImmediately: true }).catch(() => {});
+}
 
 const SUPPLEMENT_GRACE_MILLISECONDS = 1500;
 const DECODE_INTERVAL_MILLISECONDS = 180;
