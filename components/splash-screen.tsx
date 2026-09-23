@@ -15,8 +15,9 @@ import { useEffect, useState } from "react";
  * recouvrait même les squelettes (double transition). Maintenant : le logo
  * reste visible au moins MIN_VISIBLE_MS depuis le premier paint (le temps de
  * le lire — s'il est déjà là depuis plus longtemps, il part tout de suite),
- * puis fond en FADE_MS. Un lancement rapide voit ~700 ms de splash en tout ;
- * un lancement lent n'en rajoute aucune.
+ * puis fond en FADE_MS. Au plus ~700 ms au-delà du premier paint (hold plein
+ * + fondu) quand l'hydratation est rapide ; quand elle est lente, le hold
+ * tombe à 0 et il ne reste que les 300 ms de fondu — rien d'ajouté.
  */
 const BRAND_BG = "#2e2357"; // le fond de l'affiche (échantillonné, cf. scripts/gen-brand.mjs)
 /** Le logo reste lisible au moins ce temps depuis le premier paint, jamais plus longtemps que nécessaire. */
@@ -26,10 +27,18 @@ const FADE_MS = 300; // durée du fondu
 const LOGO_WIDTH = 920;
 const LOGO_HEIGHT = 523;
 
-/** Depuis quand la splash est à l'écran : le premier paint si le navigateur le donne, sinon la navigation. */
+/**
+ * Depuis quand la splash est à l'écran. `first-contentful-paint` d'abord : la
+ * splash EST le premier contenu peint (le logo), et c'est la seule entrée de
+ * paint timing que WebKit expose (`first-paint` est propre à Chromium — sur
+ * iPhone, la cible de la PWA, il n'existe pas ; review #338). Sans aucune
+ * entrée, on considère qu'elle vient d'apparaître : le repli penche vers
+ * « lisible », jamais vers « déjà vue ».
+ */
 function millisecondsVisible(): number {
-  const firstPaint = performance.getEntriesByName("first-paint")[0]?.startTime ?? 0;
-  return Math.max(0, performance.now() - firstPaint);
+  const paint =
+    performance.getEntriesByName("first-contentful-paint")[0] ?? performance.getEntriesByName("first-paint")[0];
+  return paint ? Math.max(0, performance.now() - paint.startTime) : 0;
 }
 
 export function SplashScreen() {
