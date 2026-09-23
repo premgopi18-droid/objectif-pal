@@ -24,6 +24,7 @@ import type { ScanIntent } from "@/lib/books/scan-inbox";
 import type { Json } from "@/lib/supabase/database.types";
 import { clearBurstSession, loadBurstSession, saveBurstSession } from "./burst-session";
 import { LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
+import { vibrate } from "@/lib/scan/haptics";
 
 /**
  * La persistance de la session est DÉBOUNCÉE (fluidité #332, item 10) : chaque
@@ -233,12 +234,17 @@ export function BurstMode({
 
   const patch = useCallback((key: number, changes: Partial<BurstItem>) => {
     setItems((current) => current.map((item) => (item.key === key ? { ...item, ...changes } : item)));
+    // L'haptique (#332 item 8) : le statut TERMINAL d'une ligne se sent au
+    // poignet — les yeux sont sur l'étagère, pas sur la liste.
+    if (changes.status && changes.status !== "resolving") vibrate(changes.status);
   }, []);
   /** Jusqu'à quand la file attend après un 429 (item 9) — partagé par toutes les résolutions en vol. */
   const rateLimitPausedUntilRef = useRef(0);
 
   const handleCode = useCallback(
     (code: string) => {
+      // « Lu » (#332 item 8) : la secousse courte qui dit que le code est pris.
+      vibrate("read");
       const key = nextKeyRef.current++;
       const { intent: capturedIntent, dateKnown: capturedDateKnown, date: capturedDate } = settingsRef.current;
       const shelfDate = capturedDateKnown ? capturedDate : null;
@@ -267,7 +273,10 @@ export function BurstMode({
           ...current,
         ];
       });
-      if (isDuplicateOfVisibleLine) return;
+      if (isDuplicateOfVisibleLine) {
+        vibrate("duplicate"); // le même livre relu plus tard dans la session (#332 item 8)
+        return;
+      }
 
       // Volontairement NON attendu : la chaîne continue pendant que ça tourne.
       // Mais EN FILE (#193) : 3 résolutions en vol max — chaque lookup tient
