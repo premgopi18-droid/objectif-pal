@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { MonthlyReportView } from "@/components/bilan/monthly-report-view";
 import type { BilanReading, MonthlyPickRecord } from "@/components/bilan/monthly-report-view";
 import { PageLoadError } from "@/components/page-load-error";
@@ -55,7 +56,12 @@ export default async function BilanPage({
     // Le journal d'états part EN PARALLÈLE : il porte les abandons et reprises
     // du lot A (#30). Requête bornée (filtrée `user_id` + RLS, index de #27),
     // et son échec n'emporte pas la page — les stats restent lisibles sans lui.
-    const [{ data, error }, sessionResult, loadedSeries] = await Promise.all([
+    // L'identité vient de `getClaims()` (JWT vérifié localement, #125) : le
+    // `getUser()` réseau qui précédait mettait ~100 ms d'auth en amont du
+    // journal d'états, en série (fluidité #331, item 7).
+    const { data: statsClaims } = await supabase.auth.getClaims();
+    const statsUserId = statsClaims?.claims.sub;
+    const [{ data, error }, readingEvents, loadedSeries] = await Promise.all([
       supabase
         .from("books")
         .select(
@@ -70,7 +76,7 @@ export default async function BilanPage({
         .is("purchases.deleted_at", null)
         .is("readings.deleted_at", null)
         .is("ownerships.deleted_at", null),
-      supabase.auth.getUser(),
+      statsUserId === undefined ? Promise.resolve(null) : fetchReadingEventFacts(supabase, statsUserId),
       // La moisson du suivi de séries (§4.17, lot C) — même dérivation que le
       // segment Séries, sans pseudos ni indice GCD ; en parallèle, son échec
       // n'emporte pas la page (review #297).
@@ -80,9 +86,6 @@ export default async function BilanPage({
     if (error) {
       return <PageLoadError title="Bilan du mois" message="Impossible de charger les statistiques — réessaie." />;
     }
-
-    const userId = sessionResult.data.user?.id;
-    const readingEvents = userId === undefined ? null : await fetchReadingEventFacts(supabase, userId);
 
     // Rows → contrat camelCase du moteur (types dérivés des Rows générés).
     const records: StatBookRecord[] = (data ?? []).map((row) => ({
@@ -142,10 +145,17 @@ export default async function BilanPage({
 
   // Les lectures et achats croissent sans borne : paginés (#178) — un compte
   // qui franchira 1 000 lignes ne verra jamais un bilan silencieusement faux.
+  // UN SEUL étage (fluidité #331, item 7) : objectifs, distinctions, reveals
+  // et profil partent AVEC les faits, dont ils ne dépendent pas — ils
+  // attendaient derrière, un aller-retour de plus en série.
   let readingsRows;
   let purchasesRows;
+  let objectivesResult;
+  let picksResult;
+  let revealsResult;
+  let profileResult;
   try {
-    [readingsRows, purchasesRows] = await Promise.all([
+    [readingsRows, purchasesRows, objectivesResult, picksResult, revealsResult, profileResult] = await Promise.all([
       // L'inner join sur books élague les livres supprimés en douceur : sans lui,
       // les lectures/achats d'un livre effacé pèseraient au bilan tout en ayant
       // disparu de la PAL. book_id est NOT NULL → l'inner join ne perd rien.
@@ -177,21 +187,18 @@ export default async function BilanPage({
         if (error) throw new Error(error.message);
         return data ?? [];
       }),
+      supabase.from("monthly_objectives").select("month, objective_targets (category, target_count)"),
+      supabase.from("monthly_picks").select("month, kind, reading_id, comment"),
+      // Le reveal au cercle (#243) : mes reveals manuels + suis-je entré au
+      // cercle (sans cercle, la section reveal n'a rien à raconter).
+      supabase.from("monthly_reveals").select("month"),
+      userId
+        ? supabase.from("profiles").select("circle_joined_at, display_name, avatar_url").eq("id", userId).single()
+        : Promise.resolve({ data: null, error: null }),
     ]);
   } catch {
     return <PageLoadError title="Bilan du mois" message="Impossible de charger le bilan — réessaie." />;
   }
-
-  const [objectivesResult, picksResult, revealsResult, profileResult] = await Promise.all([
-    supabase.from("monthly_objectives").select("month, objective_targets (category, target_count)"),
-    supabase.from("monthly_picks").select("month, kind, reading_id, comment"),
-    // Le reveal au cercle (#243) : mes reveals manuels + suis-je entré au
-    // cercle (sans cercle, la section reveal n'a rien à raconter).
-    supabase.from("monthly_reveals").select("month"),
-    userId
-      ? supabase.from("profiles").select("circle_joined_at, display_name, avatar_url").eq("id", userId).single()
-      : Promise.resolve({ data: null, error: null }),
-  ]);
 
   if (objectivesResult.error || picksResult.error) {
     return <PageLoadError title="Bilan du mois" message="Impossible de charger le bilan — réessaie." />;
@@ -247,16 +254,16 @@ export default async function BilanPage({
   // L'entretien des agrégats de mois clos (epic #182 — le socle de §4.14) :
   // les faits sont déjà en main, la synchro ne recalcule que si leur version
   // (lue AVANT les faits, cf. plus haut) a bougé, et n'est JAMAIS bloquante
-  // (le bilan affiché reste le calcul en direct). Le « mois courant » est
-  // celui du serveur (UTC) — à la frontière du mois, un mois peut se clore
-  // jusqu'à 2 h avant l'heure de Paris : sans enjeu pour un cache que la
-  // prochaine visite rafraîchit.
+  // — ni pour la correction (elle avale ses erreurs, le bilan affiché reste le
+  // calcul en direct), ni pour la LATENCE (fluidité #331, item 7) : `after()`
+  // l'exécute une fois la réponse envoyée. Avant, l'`await` mettait jusqu'à
+  // trois allers-retours d'ÉCRITURE (select, upsert, delete) devant le rendu
+  // d'une page de lecture. Le « mois courant » est celui du serveur (UTC) — à
+  // la frontière du mois, un mois peut se clore jusqu'à 2 h avant l'heure de
+  // Paris : sans enjeu pour un cache que la prochaine visite rafraîchit.
   if (userId && factVersion !== null) {
-    await syncMonthlyReports(supabase, userId, new Date().toISOString().slice(0, 7), factVersion, {
-      readings,
-      purchases,
-      objectivesByMonth,
-    });
+    const currentMonth = new Date().toISOString().slice(0, 7);
+    after(() => syncMonthlyReports(supabase, userId, currentMonth, factVersion, { readings, purchases, objectivesByMonth }));
   }
 
   return (
