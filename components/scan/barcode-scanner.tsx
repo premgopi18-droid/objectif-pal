@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { prepareZXingModule, readBarcodes } from "zxing-wasm/reader";
+import { createBarcodeDecoder } from "./barcode-decoder-client";
 import { decideEmission } from "./supplement-grace";
 
 /**
@@ -20,30 +20,21 @@ import { decideEmission } from "./supplement-grace";
  * (décision pure et testée dans supplement-grace.ts — fluidité #331).
  */
 
-// Le binaire WASM est servi par NOUS (copié dans public/wasm/ par postinstall,
-// cf. scripts/copy-zxing-wasm.mjs), plus par le CDN jsDelivr : un CDN bloqué
-// rendait le scanner muet, sans aucun message. Une seule fois au niveau module.
-// `fireImmediately` (fluidité #332, item 1) : le fetch + l'instanciation du
-// binaire (1 Mo) partent DÈS le chargement de ce module, en parallèle de
-// `getUserMedia` — avant, ils n'étaient déclenchés que par le premier
-// `readBarcodes`, donc APRÈS la caméra, en série (+0,2 à 2 s avant la première
-// frame décodable). Le rejet est avalé ici : le moteur mort se détecte plus
-// bas, au premier `readBarcodes` (WASM_FAILURE_THRESHOLD), avec un message.
-// NAVIGATEUR SEULEMENT (review #343) : ce module est aussi évalué côté serveur
-// (SSR du composant client, build) — sans cette garde, chaque rendu de `/`
-// tentait un fetch d'URL relative dans Node (« Failed to parse URL »).
-const ZXING_OVERRIDES = {
-  locateFile: (path: string, prefix: string) => (path.endsWith(".wasm") ? "/wasm/zxing_reader.wasm" : prefix + path),
-};
-prepareZXingModule({ overrides: ZXING_OVERRIDES });
-if (typeof window !== "undefined") {
-  prepareZXingModule({ overrides: ZXING_OVERRIDES, fireImmediately: true }).catch(() => {});
-}
+// Le décodage vit dans un WORKER (fluidité #332, item 2 — barcode-decoder.worker.ts) :
+// le binaire WASM y est préchargé dès le démarrage, en parallèle de la caméra
+// (item 1), et le thread principal ne fait plus que copier la bande centrale.
+// L'URL du binaire et les options sont dans zxing-runtime.ts (contrat #60).
 
 const SUPPLEMENT_GRACE_MILLISECONDS = 1500;
 const DECODE_INTERVAL_MILLISECONDS = 180;
-/** Autant de rejets de readBarcodes SANS jamais un succès = le module WASM ne se charge pas. */
+/** Autant de rejets du décodeur SANS jamais un succès = le module WASM ne se charge pas. */
 const WASM_FAILURE_THRESHOLD = 3;
+/**
+ * `tryHarder` (~2× de CPU) reste demandé tant qu'aucun code VALIDE (checksum
+ * bon) n'a été lu depuis ce délai : une visée qui vient de réussir décode vite
+ * le livre suivant, une visée qui peine retrouve toute la puissance du décodeur.
+ */
+const TRY_HARDER_RELAX_MILLISECONDS = 10_000;
 
 /**
  * Le temps pendant lequel le scanner reste sourd après une lecture, en mode
@@ -142,6 +133,10 @@ export function BarcodeScanner({ onCode, continuous = false, paused = false }: B
     let intervalId: ReturnType<typeof setInterval> | undefined;
     let isDecoding = false;
     let isUnmounted = false;
+    // Le décodeur (Worker, repli thread principal) — créé au montage : son
+    // binaire part tout de suite, en parallèle de getUserMedia.
+    const decoder = createBarcodeDecoder();
+    let lastValidDecodeAt = 0;
     // Détection d'un moteur mort : readBarcodes qui REJETTE dès les premières
     // frames, sans jamais avoir réussi (une frame sans code-barres, elle,
     // résout normalement avec un tableau vide).
@@ -214,16 +209,13 @@ export function BarcodeScanner({ onCode, continuous = false, paused = false }: B
         context.drawImage(video, 0, bandTop, video.videoWidth, bandHeight, 0, 0, video.videoWidth, bandHeight);
         const imageData = context.getImageData(0, 0, canvas.width, canvas.height);
 
-        const results = await readBarcodes(imageData, {
-          formats: ["EAN-13", "UPC-A", "EAN-8", "UPC-E"],
-          // « Read » : le supplément est lu quand il est là, jamais exigé.
-          eanAddOnSymbol: "Read",
-          tryHarder: true,
-          maxNumberOfSymbols: 1,
-        });
+        // Hors du thread principal (item 2) ; les pixels sont transférés.
+        const tryHarder = Date.now() - lastValidDecodeAt > TRY_HARDER_RELAX_MILLISECONDS;
+        const codes = await decoder.decode(imageData, tryHarder);
         hasEverDecoded = true;
-        const result = results[0];
+        const result = codes[0];
         if (!result?.isValid) return;
+        lastValidDecodeAt = Date.now();
 
         // zxing-cpp renvoie « principal<sep>supplément » : on ne garde que les chiffres.
         const digits = result.text.replace(/\D/g, "");
@@ -307,6 +299,7 @@ export function BarcodeScanner({ onCode, continuous = false, paused = false }: B
       isUnmounted = true;
       document.removeEventListener("visibilitychange", onVisibilityChange);
       stopCamera();
+      decoder.dispose();
       if (pendingRef.current) clearTimeout(pendingRef.current.timer);
       pendingRef.current = null;
       // Le timer de réarmement survivrait au démontage et rallumerait un
