@@ -163,6 +163,10 @@ export async function loadSeriesProgress(
  * requête sur `series_external_ids`.
  */
 export async function loadSeriesSegment(supabase: SessionSupabaseClient, userId: string): Promise<SeriesSegmentData | LoadFailure> {
+  // Compromis assumé (review #350) : un compte SANS série paie ici deux
+  // requêtes légères pour rien (amitiés, pseudos) — le retour anticipé
+  // d'avant les évitait, mais mettait le cercle en série derrière la
+  // progression pour tous les autres. Ne pas le remettre.
   const [loaded, linksResult, profilesResult] = await Promise.all([
     loadSeriesProgress(supabase, { withKnownMax: true, includeHidden: true }),
     supabase.from("friendships").select("user_low, user_high, requester_id, status"),
