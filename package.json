@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "bundle:budget": "node scripts/check-bundle-budget.mjs",
+    "share:thumbs": "node scripts/gen-share-thumbs.mjs",
     "start": "next start",
     "lint": "eslint",
     "test": "vitest run",

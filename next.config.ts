@@ -44,6 +44,20 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
         ],
       },
+      {
+        // Les statiques de public/ (fluidité #331, item 10) : 24 polices de
+        // partage, fonds et vignettes de thème, logo de la splash et icônes
+        // héritaient du défaut Vercel (`max-age=0, must-revalidate`) — un
+        // aller-retour conditionnel par fichier à chaque session. 7 jours de
+        // cache, 30 jours de stale-while-revalidate. PAS `immutable` : un fond
+        // de thème peut être recalibré en place.
+        // PAS `/wasm/` (review #341) : le SW re-fetche le binaire à chaque bump
+        // de CACHE_NAME et ce fetch passe par le cache HTTP — un max-age long
+        // lui servirait l'ANCIEN binaire face au JS neuf (le scénario #60). Il
+        // n'y gagnerait rien de toute façon : le SW le sert cache-first.
+        source: "/(share|brand|icons)/(.*)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=2592000" }],
+      },
     ];
   },
   images: {
