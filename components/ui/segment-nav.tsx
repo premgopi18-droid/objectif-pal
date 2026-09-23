@@ -21,10 +21,13 @@ import { SegmentedControl } from "@/components/ui/segmented-control";
  * l'aller-retour serveur — l'utilisateur retapait. La pill se déplace AU TAP
  * (`useOptimistic`, qui retombe sur la valeur serveur à la fin de la
  * transition), et le contenu du volet quitté s'atténue après 150 ms
- * (`delay-150` : une réponse rapide ne fait rien clignoter — le patron du voile
- * temporisé de `card-composer`). Pas de `<Link>` : sur une route dynamique, le
- * prefetch ne rapporterait que le squelette, inutile au même segment (doc
- * locale « linking-and-navigating », Dynamic Route).
+ * (délai à l'entrée seulement : une réponse rapide ne fait rien clignoter, et
+ * le volet frais n'arrive jamais atténué — le patron du voile temporisé de
+ * `card-composer`). Le volet quitté RESTE cliquable pendant la bascule
+ * (200-800 ms) : bloquer les taps coûterait plus que le cas rare d'un geste
+ * sur une ligne qu'on ne regarde plus (review #335). Pas de `<Link>` : sur une
+ * route dynamique, le prefetch ne rapporterait que le squelette, inutile au
+ * même segment (doc locale « linking-and-navigating », Dynamic Route).
  */
 type SegmentNavProps<T extends string> = {
   options: readonly { value: T; label: string }[];
@@ -54,7 +57,10 @@ export function SegmentNav<T extends string>({ options, value, label, children }
       <SegmentedControl options={options} value={shownValue} label={label} onChange={change} />
       <div
         aria-busy={isPending || undefined}
-        className={`transition-opacity delay-150 duration-200 ${isPending ? "opacity-60" : ""}`}
+        // Le délai vit dans l'état ATTÉNUÉ seulement (review #335) : une
+        // transition CSS prend les réglages de sa destination — à l'entrée le
+        // dim attend 150 ms, à la sortie le volet frais remonte tout de suite.
+        className={`transition-opacity duration-200 ${isPending ? "opacity-60 delay-150" : ""}`}
       >
         {children}
       </div>

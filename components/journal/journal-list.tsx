@@ -225,7 +225,9 @@ export function JournalList({
   const navigate = (
     nextFilters: JournalFilters,
     nextDepth: number = JOURNAL_PAGE_SIZE,
-    nextSort: JournalSort = sort,
+    // Défaut = la valeur AFFICHÉE (review #335) : une navigation ne doit jamais
+    // rembobiner un tri ou un filtre optimiste encore en transition.
+    nextSort: JournalSort = shownSort,
     nextSearch: string = searchInput.trim(),
   ) => {
     cancelPendingSearch();
@@ -249,12 +251,18 @@ export function JournalList({
     cancelPendingSearch();
     if (value.trim() === search) return;
     // Une recherche qui change repart en page 1, comme un filtre.
-    searchTimer.current = setTimeout(() => navigate(filters, JOURNAL_PAGE_SIZE, sort, value.trim()), SEARCH_DEBOUNCE_MS);
+    // Filtres et tri AFFICHÉS au moment de la frappe (review #335) : la
+    // recherche se compose sur ce que l'utilisateur voit, pas sur des props
+    // serveur qu'une transition en cours va remplacer.
+    searchTimer.current = setTimeout(
+      () => navigate(shownFilters, JOURNAL_PAGE_SIZE, shownSort, value.trim()),
+      SEARCH_DEBOUNCE_MS,
+    );
   };
   /** Le bouton « Réinitialiser » efface filtres ET recherche, d'un coup. */
   const resetAll = () => {
     setSearchInput("");
-    navigate(NO_JOURNAL_FILTERS, JOURNAL_PAGE_SIZE, sort, "");
+    navigate(NO_JOURNAL_FILTERS, JOURNAL_PAGE_SIZE, shownSort, "");
   };
 
   const hasActiveFilters = hasActiveJournalFilters(filters);
@@ -347,7 +355,8 @@ export function JournalList({
       ) : (
         <div
           aria-busy={isRefiltering || undefined}
-          className={`flex flex-col gap-4 transition-opacity delay-150 duration-200 ${isRefiltering ? "opacity-60" : ""}`}
+          // Délai dans l'état atténué seulement (review #335) : la liste re-filtrée remonte sans attendre.
+          className={`flex flex-col gap-4 transition-opacity duration-200 ${isRefiltering ? "opacity-60 delay-150" : ""}`}
         >
           {(hasActiveFilters || hasSearch) && (
             <p className="text-xs text-ink3">
