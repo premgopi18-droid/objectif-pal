@@ -30,6 +30,16 @@ import { createTaskQueue } from "@/lib/books/repair-queue";
 const attemptedRepairs = new Set<string>();
 
 /**
+ * Les réparations DE LA SESSION (review #342) : URL morte → remplaçante (null =
+ * emoji). Depuis #331 (item 11), l'action ne revalide plus les pages ; or un
+ * retour arrière ressert l'arbre du Router Cache avec l'URL morte, et
+ * `attemptedRepairs` refuserait de la re-réparer — emoji définitif. Toute
+ * vignette qui reçoit une URL déjà réparée part directement de la remplaçante,
+ * sans `onError` ni action. Mémoire de module, comme `attemptedRepairs`.
+ */
+const sessionRepairs = new Map<string, string | null>();
+
+/**
  * Au plus 2 réparations en vol (#177) : si un hôte de couvertures tombe, une
  * bibliothèque entière de vignettes mortes s'égrène au lieu de partir en
  * salve — chaque réparation coûte jusqu'à ~8 appels externes côté serveur.
@@ -99,7 +109,13 @@ export function BookCover({ coverUrl, size, placeholderEmoji = "📚", title = n
   const [repair, setRepair] = useState<{ failedUrl: string; replacementUrl: string | null } | null>(null);
 
   const variant = COVER_SIZES[size];
-  const effectiveUrl = repair && repair.failedUrl === coverUrl ? repair.replacementUrl : coverUrl;
+  const sessionReplacement = coverUrl !== null && sessionRepairs.has(coverUrl) ? (sessionRepairs.get(coverUrl) ?? null) : undefined;
+  const effectiveUrl =
+    repair && repair.failedUrl === coverUrl
+      ? repair.replacementUrl
+      : sessionReplacement !== undefined
+        ? sessionReplacement
+        : coverUrl;
 
   async function handleImageError() {
     if (!coverUrl) return;
@@ -110,6 +126,9 @@ export function BookCover({ coverUrl, size, placeholderEmoji = "📚", title = n
     attemptedRepairs.add(repairKey);
     try {
       const result = await runRepair(() => repairBrokenCover(bookId));
+      // Le verdict vaut pour toute la session : remplaçante, ou emoji si le
+      // serveur a gardé (l'URL a échoué ICI) ou vidé (`null`).
+      sessionRepairs.set(coverUrl, result.coverUrl === coverUrl ? null : result.coverUrl);
       if (result.coverUrl && result.coverUrl !== coverUrl) {
         setRepair({ failedUrl: coverUrl, replacementUrl: result.coverUrl });
       }

@@ -5,10 +5,28 @@ import Image from "next/image";
 import { useEffect, useRef, useState } from "react";
 import { Toast } from "@/components/ui/toast";
 import { CATEGORY_LABELS } from "@/lib/books/categories";
+import { isHouseCoverPhotoUrl } from "@/lib/books/cover-photo";
+import { isKnownCoverImageUrl } from "@/lib/books/cover-repair";
 import { FINISHED_COVERS_CAP, coverGridSlice } from "@/lib/circle/cover-grid";
 import { formatMonthFrench } from "@/lib/dates";
 import type { StoredFinishedReading } from "@/lib/scoring/closed-months";
 import type { Month } from "@/lib/scoring/types";
+
+/**
+ * Une couverture d'AMI passe-t-elle à côté de l'optimiseur `next/image` ?
+ * (fluidité #331, item 12 — avant, `unoptimized` était inconditionnel : les
+ * originaux Google Books / epagine / Metron, 400 à 800 px, partaient tels quels
+ * dans une grille de 64×96.)
+ *  - « chez nous » (bucket `covers`) : déjà des WebP à la bonne taille, même
+ *    règle que `BookCover` ;
+ *  - hôte INCONNU : l'optimiseur refuserait (hôte absent de `remotePatterns`,
+ *    erreur à l'exécution) — la donnée vient d'un autre compte, on ne présume
+ *    rien. Les hôtes connus (`isKnownCoverImageUrl`) sont exactement ceux de
+ *    `next.config.ts`.
+ */
+function bypassesImageOptimizer(coverUrl: string): boolean {
+  return isHouseCoverPhotoUrl(coverUrl) || !isKnownCoverImageUrl(coverUrl);
+}
 
 /**
  * Les terminés du mois en COUVERTURES (#236, maquette interactive validée le
@@ -80,7 +98,7 @@ export function FinishedCovers({ readings, ownerDisplayName, month }: FinishedCo
                 alt=""
                 width={64}
                 height={96}
-                unoptimized
+                unoptimized={bypassesImageOptimizer(reading.coverUrl)}
                 loading="lazy"
                 className="aspect-[2/3] w-full object-cover"
               />
@@ -145,7 +163,7 @@ export function FinishedCovers({ readings, ownerDisplayName, month }: FinishedCo
                   alt=""
                   width={104}
                   height={156}
-                  unoptimized
+                  unoptimized={bypassesImageOptimizer(selected.coverUrl)}
                   className="aspect-[2/3] w-[104px] shrink-0 rounded-xl border border-line object-cover"
                 />
               ) : (
