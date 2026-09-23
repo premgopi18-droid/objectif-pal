@@ -37,9 +37,13 @@ export function Toast({ message, onDismiss, duration = 2200, action }: ToastProp
     <div
       role="status"
       aria-live="polite"
-      className="fixed bottom-24 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 rounded-full border border-line bg-card2 px-4.5 py-2.5 text-sm font-semibold text-ink shadow-float"
+      className={`fixed bottom-24 left-1/2 z-50 flex max-w-[calc(100vw-2rem)] -translate-x-1/2 items-center gap-3 border border-line bg-card2 px-4.5 py-2.5 text-sm font-semibold text-ink shadow-float ${
+        // Avec une action, le toast porte une phrase : deux lignes valent mieux
+        // qu'une coupure (review #346). Sans, la pill d'une ligne historique.
+        action ? "rounded-2xl" : "whitespace-nowrap rounded-full"
+      }`}
     >
-      <span className="truncate">{message}</span>
+      <span className={action ? "min-w-0" : "truncate"}>{message}</span>
       {action && (
         <button
           type="button"

@@ -122,6 +122,11 @@ export function BarcodeScanner({ onCode, continuous = false, paused = false }: B
     if (paused) return;
     hasEmittedRef.current = false;
     lastEmittedRef.current = null;
+    // WebKit met en PAUSE un <video> sorti du rendu (`display: none` pendant
+    // la feuille — review #346) : sans ce play(), le viseur revenait figé sur
+    // la dernière frame et la boucle décodait la même image. Le flux, lui,
+    // est resté ouvert : play() repart sans nouvelle permission.
+    videoRef.current?.play().catch(() => {});
     // Le hint du code en grâce meurt avec elle — via un timer, jamais un
     // setState synchrone dans l'effet (règle react-hooks/set-state-in-effect).
     const clearHint = setTimeout(() => setPendingDisplay(null), 0);
@@ -187,7 +192,14 @@ export function BarcodeScanner({ onCode, continuous = false, paused = false }: B
     };
 
     const decodeFrame = async () => {
-      if (pausedRef.current || isDecoding || hasEmittedRef.current || video.readyState < video.HAVE_CURRENT_DATA || !context) return;
+      if (pausedRef.current || isDecoding || hasEmittedRef.current || !context) return;
+      // Le filet (review #346) : une vidéo mise en pause par le navigateur
+      // (arrière-plan, masquage) est relancée plutôt que décodée figée.
+      if (video.paused && stream) {
+        video.play().catch(() => {});
+        return;
+      }
+      if (video.readyState < video.HAVE_CURRENT_DATA) return;
       isDecoding = true;
       try {
         // La bande centrale seulement (#122) — cf. DECODE_BAND_HEIGHT_FRACTION.

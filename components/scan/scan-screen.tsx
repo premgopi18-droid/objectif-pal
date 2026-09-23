@@ -112,7 +112,7 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
    * seconde phase (#345) peut arriver après le retour au viseur, voire après un
    * NOUVEAU scan — elle est adoptée par code, pas par requête.
    */
-  const savedBookRef = useRef<{ code: string | null; bookId: string; coverUrl: string | null } | null>(null);
+  const savedBooksRef = useRef(new Map<string, { bookId: string; coverUrl: string | null }>());
 
   // Une session de rafale interrompue par une navigation (aller compléter la
   // boîte de finition) REPREND toute seule (#131) — en effet, pas dans
@@ -163,8 +163,8 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
     // Le livre déjà enregistré depuis CE code (item 6 : l'utilisateur est
     // reparti au viseur, peut-être vers un autre livre) : adopté par code,
     // quelle que soit la requête courante.
-    const saved = savedBookRef.current;
-    if (saved && saved.code === code && saved.coverUrl === null) {
+    const saved = savedBooksRef.current.get(code);
+    if (saved && saved.coverUrl === null) {
       saved.coverUrl = resolvedCoverUrl;
       void adoptResolvedCover(saved.bookId, resolvedCoverUrl);
     }
@@ -325,7 +325,9 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
     const lateCoverUrl = input.coverUrl === null && deferred && deferred.code === input.barcodeRaw ? deferred.coverUrl : null;
     if (lateCoverUrl !== null) void adoptResolvedCover(result.bookId, lateCoverUrl);
     const coverUrl = input.coverUrl ?? lateCoverUrl;
-    savedBookRef.current = { code: input.barcodeRaw, bookId: result.bookId, coverUrl };
+    // Par CODE (review #346) : deux livres enregistrés vite l'un après l'autre
+    // reçoivent chacun leur image, même arrivée après le scan suivant.
+    if (input.barcodeRaw !== null) savedBooksRef.current.set(input.barcodeRaw, { bookId: result.bookId, coverUrl });
 
     const detail = result.isRereading
       ? "Tu l'avais déjà terminé — relecture !"
