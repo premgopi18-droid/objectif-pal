@@ -45,18 +45,20 @@ export type EmissionDecision =
  * Que faire d'un code fraîchement décodé, sachant le code éventuellement en
  * grâce (`pendingCode`) et le mode (rafale ou unitaire) ?
  *
- * Rafale (#249) : un code DIFFÉRENT de celui en grâce, c'est que le livre
- * précédent est déjà rangé — son supplément ne viendra jamais. Il part TOUT DE
- * SUITE, que le nouveau code soit prêt ou non (review #334 : le raccourci ISBN
- * passait devant cette règle et perdait le fascicule en silence). Le nouveau
- * code sera relu par les frames après le réarmement — la sourdine ne mute que
- * le code émis, pas lui.
+ * Rafale (#249) : un code d'un AUTRE livre que celui en grâce, c'est que le
+ * livre précédent est déjà rangé — son supplément ne viendra jamais. Il part
+ * TOUT DE SUITE, que le nouveau code soit prêt ou non (review #334 : le
+ * raccourci ISBN passait devant cette règle et perdait le fascicule en
+ * silence). Le nouveau code sera relu par les frames après le réarmement — la
+ * sourdine ne mute que le code émis, pas lui. « Même livre » tolère le
+ * supplément : le code complet COMMENCE par le code nu en grâce — c'est le
+ * chemin heureux, celui où le supplément arrive pendant la grâce.
  *
  * Scan unitaire : le dernier code vu gagne (l'utilisateur a pu changer de
  * bouquin avant de valider quoi que ce soit).
  */
 export function decideEmission(digits: string, pendingCode: string | null, continuous: boolean): EmissionDecision {
-  if (continuous && pendingCode !== null && pendingCode !== digits) {
+  if (continuous && pendingCode !== null && !digits.startsWith(pendingCode)) {
     return { kind: "emit", code: pendingCode };
   }
   if (isReadyToEmit(digits)) return { kind: "emit", code: digits };
