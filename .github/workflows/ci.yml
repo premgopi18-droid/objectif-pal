@@ -35,6 +35,11 @@ jobs:
         env:
           NEXT_PUBLIC_SUPABASE_URL: https://reqtckmawllprisvrzlb.supabase.co
           NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder
+      # Le budget de bundle (fluidité #331, item 13) : le JS du premier
+      # chargement par route, lu dans les diagnostics du build. Une dépendance
+      # qui fait grossir le socle devient un échec ici, pas une découverte en
+      # prod six mois plus tard (le socle avait atteint 691 Ko sans alerte).
+      - run: node scripts/check-bundle-budget.mjs
 
   contrat-prod:
     name: Contrats prod (#60 + cloisonnement RLS)
