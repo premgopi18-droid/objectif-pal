@@ -44,6 +44,18 @@ const nextConfig: NextConfig = {
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
         ],
       },
+      {
+        // Les statiques de public/ (fluidité #331, item 10) : 24 polices de
+        // partage, fonds et vignettes de thème, logo de la splash, icônes et le
+        // WASM du scanner héritaient du défaut Vercel (`max-age=0,
+        // must-revalidate`) — un aller-retour conditionnel par fichier à
+        // chaque session. 7 jours de cache, 30 jours de stale-while-revalidate.
+        // PAS `immutable` : `zxing_reader.wasm` garde son nom à chaque version
+        // du paquet (scripts/copy-zxing-wasm.mjs) et un fond de thème peut être
+        // recalibré en place ; le SW versionne déjà le WASM par CACHE_NAME.
+        source: "/(share|wasm|brand|icons)/(.*)",
+        headers: [{ key: "Cache-Control", value: "public, max-age=604800, stale-while-revalidate=2592000" }],
+      },
     ];
   },
   images: {

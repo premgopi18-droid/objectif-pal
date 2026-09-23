@@ -5,6 +5,7 @@ import { Share2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { renderShareCard, shareCardBlob } from "@/lib/share/render-card";
 import { SHARE_THEMES, type ShareTheme } from "@/lib/share/themes";
+import { themeThumbnailUrl } from "@/lib/share/theme-thumbnail";
 import type { ShareCardData } from "@/lib/share/card-data";
 
 /**
@@ -136,8 +137,18 @@ export function CardComposer({ data, avatarUrl, fileName, onToast, onShared }: C
               candidate.id === theme.id ? "border-cyan ring-2 ring-cyan" : "border-line opacity-70"
             }`}
           >
+            {/* La VIGNETTE (128 px, quelques Ko — #331 item 9), pas le fond pleine
+                taille : celui-ci n'est chargé que par le rendu canvas du thème choisi. */}
             {/* eslint-disable-next-line @next/next/no-img-element -- vignette locale, pas d'optimisation utile */}
-            <img src={candidate.background} alt="" loading="lazy" className="h-24 w-16 object-cover" />
+            <img
+              src={themeThumbnailUrl(candidate.background)}
+              alt=""
+              width={64}
+              height={96}
+              loading="lazy"
+              decoding="async"
+              className="h-24 w-16 object-cover"
+            />
           </button>
         ))}
       </div>
