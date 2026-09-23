@@ -143,8 +143,8 @@ une petite famille, stylée une fois sur les tokens :
 | `Button` | `grad` (CTA, dégradé + ombre violette) · `ghost` (surface `--card2`) · `done` (vert, « Terminé ✓ ») · bloc/inline |
 | `Card` | Surface `--card`, bordure `--line`, rayon 20px |
 | `Badge` | `reading` (cyan) · `done` (vert) · `pile` (magenta) · `abandoned` (muet) · `idle` (ambre) — mêmes priorités qu'en §4.12 des specs produit |
-| `SegmentedControl` | Pill, segment actif en dégradé — porte les vues Biblio et Bilan |
-| `FilterChips` | Les filtres du journal, restylés (pill, actif dégradé) |
+| `SegmentedControl` | Pill, segment actif en dégradé — porte les vues Biblio et Bilan. Via `SegmentNav`, la pill se déplace **au tap** (valeur optimiste) et le volet quitté s'atténue à 60 % après 150 ms si le serveur tarde (fluidité #331) |
+| `FilterChips` | Les filtres du journal, restylés (pill, actif dégradé). Chip allumé **au tap**, liste atténuée après 150 ms pendant le re-filtrage — jamais pendant « Charger plus » (#331) |
 | `StatTile` | Label majuscule + grande valeur `tabular-nums` + hint ; valeur colorable (sémantique) |
 | `Toast` | Pill flottante bas d'écran (confirmation copie, lecture terminée) |
 | `BookRow` | Vignette 46×64 + titre + méta + zone d'action à droite — LA ligne partagée Journal/Biblio |

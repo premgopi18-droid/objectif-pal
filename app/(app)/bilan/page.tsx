@@ -38,7 +38,15 @@ export default async function BilanPage({
   const view: ReportViewKey = vue === "stats" ? "stats" : "bilan";
   const supabase = await createServerSupabaseClient();
 
-  const segments = <SegmentNav label="Bilan ou statistiques" options={REPORT_VIEWS} value={view} />;
+  // Le volet passe EN ENFANT du SegmentNav (#331 item 2) : c'est lui qui
+  // l'atténue pendant la navigation vers le volet suivant.
+  const withSegments = (panel: React.ReactNode) => (
+    <div className="mt-4">
+      <SegmentNav label="Bilan ou statistiques" options={REPORT_VIEWS} value={view}>
+        {panel}
+      </SegmentNav>
+    </div>
+  );
 
   if (view === "stats") {
     // Les stats essentielles. UNE requête grouped (embeds PostgREST, pas de
@@ -114,8 +122,7 @@ export default async function BilanPage({
     return (
       <section className="py-6">
         <h1 className="text-2xl font-bold">Bilan du mois</h1>
-        <div className="mt-4">{segments}</div>
-        <StatsView records={records} readingEvents={readingEvents ?? []} seriesSummary={seriesSummary} />
+        {withSegments(<StatsView records={records} readingEvents={readingEvents ?? []} seriesSummary={seriesSummary} />)}
       </section>
     );
   }
@@ -255,17 +262,18 @@ export default async function BilanPage({
   return (
     <section className="py-6">
       <h1 className="text-2xl font-bold">Bilan du mois</h1>
-      <div className="mt-4">{segments}</div>
-      <MonthlyReportView
-        readings={readings}
-        purchases={purchases}
-        objectivesByMonth={objectivesByMonth}
-        picks={picks}
-        revealedMonths={revealedMonths}
-        inCircle={inCircle}
-        displayName={displayName}
-        avatarUrl={avatarUrl}
-      />
+      {withSegments(
+        <MonthlyReportView
+          readings={readings}
+          purchases={purchases}
+          objectivesByMonth={objectivesByMonth}
+          picks={picks}
+          revealedMonths={revealedMonths}
+          inCircle={inCircle}
+          displayName={displayName}
+          avatarUrl={avatarUrl}
+        />,
+      )}
     </section>
   );
 }
