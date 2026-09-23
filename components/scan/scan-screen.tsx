@@ -10,12 +10,11 @@ import {
   recordOwnership,
   recordOwnedPastReading,
   recordPastReading,
-  softDeletePurchase,
   type BookInput,
   type ScanActionResult,
 } from "@/lib/books/actions";
-import type { JournalActionResult } from "@/lib/books/journal-actions";
 import { adoptResolvedCover } from "@/lib/books/cover-adopt-actions";
+import { Toast } from "@/components/ui/toast";
 import { FUTURE_DATE_MESSAGE, NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { localToday } from "@/lib/dates";
 import { LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
@@ -62,14 +61,15 @@ type ScanState =
   // suggestedCoverUrl : la chaîne couverture a abouti malgré l'identification
   // ratée (#55) — le formulaire l'affiche et explique le « image oui, infos non ».
   | { step: "manual"; scannedCode: string | null; suggestedCoverUrl?: string | null }
-  // purchaseId n'est porté que par un achat (pas une lecture) : c'est lui qui
-  // arme le bouton « Annuler ». error : l'échec d'une annulation, affiché sur
-  // place. book : le livre qui vient d'être enregistré — la porte « Changer la
-  // couverture » (#275), que la cascade ait trouvé ou non : le livre est dans
-  // la main, c'est le moment de la photo. coverSheetOpen : la feuille.
-  | { step: "done"; message: string; detail: string | null; purchaseId?: string; error?: string; book?: CoverSheetBook; coverSheetOpen?: boolean }
+  // Plus d'étape « done » (fluidité #332, item 6) : un geste enregistré ramène
+  // AU VISEUR tout de suite, le toast porte la confirmation et « Changer la
+  // couverture » (#275) ; « Annuler » un achat vit à la Pile (« Je ne l'ai pas
+  // acheté »), où il était déjà.
   // Le scan d'étagère (#101 lot C) : un mode plein écran, sa propre boucle.
   | { step: "burst" };
+
+/** Le toast du scan : la confirmation d'un geste, avec son action (#332 item 6). */
+type ScanToast = { message: string; action?: { label: string; onClick: () => void } };
 
 /** Le malus affiché vient du barème — jamais recopié en dur (CLAUDE.md). */
 const PENALTY_POINTS = Math.abs(SCORING_SCALE.unreadPurchasePenalty);
@@ -103,7 +103,16 @@ const manualInputToBook = (input: BookInput): ResolvedBook => ({
 export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Promise<number> | number }) {
   const [state, setState] = useState<ScanState>({ step: "scan" });
   const [manualCode, setManualCode] = useState("");
-  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [toast, setToast] = useState<ScanToast | null>(null);
+  const dismissToast = useCallback(() => setToast(null), []);
+  /** La feuille « Changer la couverture », ouverte depuis le toast — le scanner est DÉMONTÉ tant qu'elle est là (photo). */
+  const [coverSheetBook, setCoverSheetBook] = useState<CoverSheetBook | null>(null);
+  /**
+   * Le dernier livre enregistré depuis ce scan (item 6) : l'image de la
+   * seconde phase (#345) peut arriver après le retour au viseur, voire après un
+   * NOUVEAU scan — elle est adoptée par code, pas par requête.
+   */
+  const savedBooksRef = useRef(new Map<string, { bookId: string; coverUrl: string | null }>());
 
   // Une session de rafale interrompue par une navigation (aller compléter la
   // boîte de finition) REPREND toute seule (#131) — en effet, pas dans
@@ -128,7 +137,7 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
    * pendant que l'image voyageait, elle est posée après coup. Remise à zéro à
    * chaque nouveau lookup.
    */
-  const deferredCoverRef = useRef<string | null>(null);
+  const deferredCoverRef = useRef<{ code: string; coverUrl: string } | null>(null);
 
   /**
    * La SECONDE phase du scan (#332, item 3) : l'identité est affichée, l'image
@@ -149,10 +158,18 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
     } catch {
       return; // réseau coupé : même repli
     }
-    if (requestId !== lookupIdRef.current || coverUrl === null) return;
+    if (coverUrl === null) return;
     const resolvedCoverUrl = coverUrl;
-    deferredCoverRef.current = resolvedCoverUrl;
-    let bookToAdopt: string | null = null;
+    // Le livre déjà enregistré depuis CE code (item 6 : l'utilisateur est
+    // reparti au viseur, peut-être vers un autre livre) : adopté par code,
+    // quelle que soit la requête courante.
+    const saved = savedBooksRef.current.get(code);
+    if (saved && saved.coverUrl === null) {
+      saved.coverUrl = resolvedCoverUrl;
+      void adoptResolvedCover(saved.bookId, resolvedCoverUrl);
+    }
+    if (requestId !== lookupIdRef.current) return; // un autre scan a pris la main : rien à afficher
+    deferredCoverRef.current = { code, coverUrl: resolvedCoverUrl };
     setState((previous) => {
       if (previous.step === "sheet" && previous.coverPending) {
         return { ...previous, book: { ...previous.book, coverUrl: resolvedCoverUrl }, coverPending: false };
@@ -160,13 +177,8 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
       if (previous.step === "manual" && previous.scannedCode === code && !previous.suggestedCoverUrl) {
         return { ...previous, suggestedCoverUrl: resolvedCoverUrl };
       }
-      if (previous.step === "done" && previous.book && previous.book.coverUrl === null) {
-        bookToAdopt = previous.book.bookId;
-        return { ...previous, book: { ...previous.book, coverUrl: resolvedCoverUrl } };
-      }
       return previous;
     });
-    if (bookToAdopt !== null) void adoptResolvedCover(bookToAdopt, resolvedCoverUrl);
   }, []);
 
   const lookup = useCallback(async (code: string) => {
@@ -275,7 +287,14 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
       setState((previous) => (previous.step === "sheet" ? { ...previous, error: FUTURE_DATE_MESSAGE } : previous));
       return;
     }
-    setIsSubmitting(true);
+    // OPTIMISTE (fluidité #332, item 6) : retour AU VISEUR au tap, le toast
+    // confirme — le scanner, resté monté en veille (item 7), reprend sans
+    // rejouer la caméra. La feuille est gardée sous la main pour se rouvrir
+    // avec l'erreur si le serveur refuse.
+    const sheetToReopen = state.step === "sheet" ? state : null;
+    setState({ step: "scan" });
+    setToast({ message: doneMessage });
+
     let result: ScanActionResult;
     try {
       result = await action(input, date);
@@ -283,63 +302,55 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
       // La promesse d'une Server Action rejette quand le serveur est injoignable
       // (réseau coupé) : sans ce catch, le geste échouerait en silence.
       result = { ok: false, error: NETWORK_ERROR_MESSAGE };
-    } finally {
-      setIsSubmitting(false);
     }
 
     if (!result.ok) {
-      setState((previous) => (previous.step === "sheet" ? { ...previous, error: result.error } : previous));
+      const failure = result.error;
+      // Le serveur a dit non : la feuille se rouvre avec l'erreur si
+      // l'utilisateur est encore au viseur — s'il a déjà relancé un scan, le
+      // toast le dit, sans lui voler l'écran.
+      let reopened = false;
+      setState((previous) => {
+        if (previous.step !== "scan" || sheetToReopen === null) return previous;
+        reopened = true;
+        return { ...sheetToReopen, error: failure };
+      });
+      setToast(reopened ? null : { message: `⚠️ ${failure}` });
       return;
     }
     // L'image arrivée PENDANT l'enregistrement (review #345) : l'input a été
     // construit au tap, sans elle — on l'adopte maintenant (le serveur ne pose
-    // que sur `cover_url IS NULL`) et on l'affiche sur l'écran « done ».
-    const lateCoverUrl = input.coverUrl === null ? deferredCoverRef.current : null;
+    // que sur `cover_url IS NULL`).
+    const deferred = deferredCoverRef.current;
+    const lateCoverUrl = input.coverUrl === null && deferred && deferred.code === input.barcodeRaw ? deferred.coverUrl : null;
     if (lateCoverUrl !== null) void adoptResolvedCover(result.bookId, lateCoverUrl);
-    setState({
-      step: "done",
-      message: doneMessage,
-      detail: result.isRereading
-        ? "Tu l'avais déjà terminé — c'est reparti pour une relecture !"
-        : result.bookAlreadyExisted
-          ? "Ce livre était déjà dans ta bibliothèque."
-          : null,
-      // Seul un achat remonte un purchaseId : lui seul peut s'annuler ici.
-      purchaseId: result.purchaseId,
-      // La couverture se change ici aussi (#275) — le livre est dans la main.
-      // Un livre déjà connu a pu recevoir un choix avant : la feuille le
-      // relira ; à la création, elle est ce que la cascade a posé.
-      book: { bookId: result.bookId, title: input.title, coverUrl: input.coverUrl ?? lateCoverUrl, coverChosenAt: null },
+    const coverUrl = input.coverUrl ?? lateCoverUrl;
+    // Par CODE (review #346) : deux livres enregistrés vite l'un après l'autre
+    // reçoivent chacun leur image, même arrivée après le scan suivant.
+    if (input.barcodeRaw !== null) savedBooksRef.current.set(input.barcodeRaw, { bookId: result.bookId, coverUrl });
+
+    const detail = result.isRereading
+      ? "Tu l'avais déjà terminé — relecture !"
+      : result.bookAlreadyExisted
+        ? "Il était déjà dans ta bibliothèque."
+        : null;
+    // La couverture se change depuis le toast (#275) — le livre est dans la
+    // main, c'est le moment de la photo. Un livre déjà connu a pu recevoir un
+    // choix avant : la feuille le relira.
+    const book: CoverSheetBook = { bookId: result.bookId, title: input.title, coverUrl, coverChosenAt: null };
+    setToast({
+      message: detail ? `${doneMessage} ${detail}` : doneMessage,
+      action: { label: coverUrl === null ? "📷 Couverture" : "Changer la couverture", onClick: () => setCoverSheetBook(book) },
     });
-  }
-
-  /** « Annuler » juste après un achat — la suppression douce, effet immédiat. */
-  async function cancelPurchase(purchaseId: string) {
-    setIsSubmitting(true);
-    let result: JournalActionResult;
-    try {
-      result = await softDeletePurchase(purchaseId);
-    } catch {
-      // Serveur injoignable : la promesse rejette — sans ce catch, échec muet.
-      result = { ok: false, error: NETWORK_ERROR_MESSAGE };
-    } finally {
-      setIsSubmitting(false);
-    }
-
-    if (!result.ok) {
-      setState((previous) => (previous.step === "done" ? { ...previous, error: result.error } : previous));
-      return;
-    }
-    // L'achat annulé : plus de purchaseId, le bouton « Annuler » disparaît.
-    setState({ step: "done", message: "Achat annulé.", detail: null });
   }
 
   if (state.step === "burst") {
     return <BurstMode pendingInboxCount={pendingInboxCount} onExit={() => setState({ step: "scan" })} />;
   }
 
-  if (state.step === "loading") {
-    return (
+  // Les étapes rendent SOUS la section du scanner, toujours montée (item 7) :
+  // le flux caméra survit à la feuille d'actions, en veille, caché.
+  const loadingContent = state.step === "loading" && (
       <div className="py-24 text-center">
         <p className="text-sm text-ink2">Résolution en cours…</p>
         <p className="mt-2 font-mono text-sm text-ink3">
@@ -351,11 +362,9 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
           </Button>
         </div>
       </div>
-    );
-  }
+  );
 
-  if (state.step === "sheet") {
-    return (
+  const sheetContent = state.step === "sheet" && (
       <div className="flex flex-col gap-3">
         {state.error && <ErrorAlert message={state.error} />}
         {/* La bannière ne dit que du VRAI (#160) : « ta bibliothèque » =
@@ -374,7 +383,7 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
           book={state.book}
           scannedCode={state.scannedCode}
           isRereadingPrompt={state.wasFinished ?? false}
-          isSubmitting={isSubmitting}
+          isSubmitting={false}
           onStartReading={(input, date) => performAction(startReading, input, date, "Lecture commencée !")}
           onPurchase={(input, date) =>
             performAction(recordPurchase, input, date, `Achat enregistré (−${PENALTY_POINTS}, effaçable).`)
@@ -404,11 +413,9 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
           onCancel={() => setState({ step: "scan" })}
         />
       </div>
-    );
-  }
+  );
 
-  if (state.step === "pick-issue") {
-    return (
+  const pickIssueContent = state.step === "pick-issue" && (
       <section className="flex flex-col gap-3">
         <ScreenTitle subtitle="Quel numéro ?">{state.seriesName}</ScreenTitle>
         <ul className="flex flex-col gap-2">
@@ -429,11 +436,9 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
           Aucun de ceux-là — saisie manuelle
         </button>
       </section>
-    );
-  }
+  );
 
-  if (state.step === "pick-series") {
-    return (
+  const pickSeriesContent = state.step === "pick-series" && (
       <section className="flex flex-col gap-3">
         <ScreenTitle>Plusieurs séries partagent ce code</ScreenTitle>
         <ul className="flex flex-col gap-4">
@@ -462,74 +467,35 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
           Aucun de ceux-là — saisie manuelle
         </button>
       </section>
-    );
-  }
+  );
 
-  if (state.step === "manual") {
-    return (
+  const manualContent = state.step === "manual" && (
       <ManualEntryForm
         scannedCode={state.scannedCode}
         suggestedCoverUrl={state.suggestedCoverUrl}
         onSubmit={(input) => setState({ step: "sheet", book: manualInputToBook(input), scannedCode: input.barcodeRaw })}
         onCancel={() => setState({ step: "scan" })}
       />
-    );
-  }
+  );
 
-  if (state.step === "done") {
-    return (
-      <section className="flex flex-col items-center gap-4 py-16 text-center">
-        <p className="text-4xl" aria-hidden>
-          ✅
-        </p>
-        <h2 className="text-xl font-black uppercase italic tracking-tight text-ink">{state.message}</h2>
-        {state.detail && <p className="text-sm text-ink2">{state.detail}</p>}
-        {state.error && <ErrorAlert message={state.error} />}
-        {state.book && (
-          <>
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => setState({ ...state, coverSheetOpen: true })}
-            >
-              {state.book.coverUrl === null ? "📷 Ajouter une couverture" : "Changer la couverture"}
-            </Button>
-            <CoverChooserSheet
-              book={state.coverSheetOpen ? state.book : null}
-              onClose={() => setState({ ...state, coverSheetOpen: false })}
-              onChanged={(_bookId, cover) => setState({ ...state, book: { ...state.book!, ...cover } })}
-            />
-          </>
-        )}
-        {state.purchaseId && (
-          <button
-            type="button"
-            disabled={isSubmitting}
-            onClick={() => cancelPurchase(state.purchaseId!)}
-            className="text-sm text-ink3 underline disabled:opacity-50"
-          >
-            Annuler
-          </button>
-        )}
-        <Button type="button" variant="grad" onClick={() => setState({ step: "scan" })} className="mt-4">
-          Scanner un autre bouquin
-        </Button>
-      </section>
-    );
-  }
-
-  // step === "scan"
+  // La section du scanner est TOUJOURS montée (item 7), cachée hors de l'étape
+  // « scan » : le flux caméra reste ouvert en veille pendant la feuille, la
+  // reprise ne rejoue ni getUserMedia ni l'autofocus. Elle est DÉMONTÉE quand
+  // la feuille couverture est ouverte (photo : deux flux ne cohabitent pas) et
+  // en rafale (son propre scanner).
+  const isScanStep = state.step === "scan";
   return (
-    <section className="flex flex-col gap-4">
+    <>
+    <section className={`flex flex-col gap-4 ${isScanStep ? "" : "hidden"}`} aria-hidden={!isScanStep}>
       <ScreenTitle subtitle="Vise le code-barres, le reste suit.">
         Scanner <GradientWord>un bouquin</GradientWord>
       </ScreenTitle>
-      {state.notice && (
+      {state.step === "scan" && state.notice && (
         <p role="alert" className="rounded-card border border-amber/40 bg-amber/10 p-3 text-sm text-ink">
           {state.notice}
         </p>
       )}
-      <BarcodeScanner onCode={lookup} />
+      {coverSheetBook === null && <BarcodeScanner onCode={lookup} paused={!isScanStep} />}
 
       {/* Le champ « search » du proto (§5) : surface --card, une pill. */}
       <form
@@ -572,5 +538,24 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
         <PendingInboxLink count={pendingInboxCount} className="text-center" />
       </Suspense>
     </section>
+    {loadingContent}
+    {sheetContent}
+    {pickIssueContent}
+    {pickSeriesContent}
+    {manualContent}
+    {/* La feuille couverture, ouverte depuis le toast (item 6) ; la vignette
+        changée reste dans la feuille elle-même (elle relit l'état réel). */}
+    <CoverChooserSheet
+      book={coverSheetBook}
+      onClose={() => setCoverSheetBook(null)}
+      onChanged={(_bookId, cover) => setCoverSheetBook((previous) => (previous ? { ...previous, ...cover } : previous))}
+    />
+    <Toast
+      message={toast?.message ?? null}
+      action={toast?.action}
+      duration={toast?.action ? 5000 : 2600}
+      onDismiss={dismissToast}
+    />
+    </>
   );
 }
