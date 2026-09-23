@@ -17,7 +17,9 @@ const nextConfig: NextConfig = {
      * mêmes constantes que `withSentryConfig({ bundleSizeOptimizations })`
      * pose… en webpack seulement (`@sentry/nextjs/build/cjs/config/webpack.js`) :
      * sous Turbopack, c'est `compiler.define` qui les remplace à la compilation,
-     * client ET serveur (aucune des trois configs ne trace).
+     * client ET serveur (aucune des trois configs ne trace). ⚠️ Le jour où le
+     * serveur devra tracer (latence des server actions), retirer
+     * `__SENTRY_TRACING__` d'ici — ou le poser côté client seulement.
      */
     define: {
       __SENTRY_DEBUG__: false,

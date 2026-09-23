@@ -27,7 +27,31 @@ let stats;
 try {
   stats = JSON.parse(readFileSync(STATS_PATH, "utf8"));
 } catch (error) {
-  console.error(`[bundle-budget] impossible de lire ${STATS_PATH} — lancer \`next build\` d'abord.`, error.message);
+  console.error(
+    `[bundle-budget] ${STATS_PATH} illisible : le build n'a pas produit les diagnostics Turbopack ` +
+      "(en local, lancer `next build` d'abord ; en CI, vérifier la version de Next).",
+    error.message,
+  );
+  process.exit(1);
+}
+
+// La forme du fichier est un DIAGNOSTIC de Turbopack, pas une API (review
+// #340) : si un champ change de nom, `undefined > budget` serait `false` et
+// le garde-fou se désarmerait en silence. On exige la forme attendue.
+const isWellFormed =
+  Array.isArray(stats) &&
+  stats.length > 0 &&
+  stats.every(
+    (route) =>
+      typeof route?.route === "string" &&
+      typeof route.firstLoadUncompressedJsBytes === "number" &&
+      Number.isFinite(route.firstLoadUncompressedJsBytes),
+  );
+if (!isWellFormed) {
+  console.error(
+    `[bundle-budget] ${STATS_PATH} n'a pas la forme attendue : un tableau non vide d'entrées ` +
+      "{ route: string, firstLoadUncompressedJsBytes: number }. Adapter ce script à la nouvelle forme.",
+  );
   process.exit(1);
 }
 
