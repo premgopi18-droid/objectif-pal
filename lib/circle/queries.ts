@@ -22,13 +22,24 @@ export type CircleView = {
 };
 
 export async function getCircleView(supabase: SessionSupabaseClient, userId: string): Promise<CircleView> {
-  const [{ data: profile }, { data: links }, { data: linkedProfiles }] = await Promise.all([
+  const [{ data: profile }, links] = await Promise.all([
     supabase.from("profiles").select("circle_joined_at").eq("id", userId).single(),
+    loadCircleLinks(supabase, userId),
+  ]);
+  return { joined: profile?.circle_joined_at != null, ...links };
+}
+
+/**
+ * Le cercle SANS la porte (fluidité #333, item 13) : pour la page Profil, qui
+ * lit déjà `profiles` (pseudo, photo) et y prend `circle_joined_at` — la même
+ * ligne était lue deux fois, en parallèle.
+ */
+export async function loadCircleLinks(supabase: SessionSupabaseClient, userId: string): Promise<Omit<CircleView, "joined">> {
+  const [{ data: links }, { data: linkedProfiles }] = await Promise.all([
     supabase.from("friendships").select("user_low, user_high, requester_id, status"),
     supabase.rpc("get_circle_profiles"),
   ]);
 
-  const joined = profile?.circle_joined_at != null;
   const profileById = new Map<string, CircleProfile>(
     (linkedProfiles ?? []).map((row) => [
       row.id,
@@ -46,7 +57,6 @@ export async function getCircleView(supabase: SessionSupabaseClient, userId: str
     a.displayName.localeCompare(b.displayName, "fr", { sensitivity: "base" });
 
   return {
-    joined,
     friends: resolve(friendIds).sort(byName),
     received: resolve(receivedIds).sort(byName),
     sent: resolve(sentIds).sort(byName),

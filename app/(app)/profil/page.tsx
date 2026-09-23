@@ -3,7 +3,7 @@ import Link from "next/link";
 import { CircleSection } from "@/components/circle/circle-section";
 import { PalisteCard } from "@/components/profile/paliste-card";
 import { ProfileEditor } from "@/components/profile/profile-editor";
-import { getCircleView, type CircleView } from "@/lib/circle/queries";
+import { loadCircleLinks, type CircleView } from "@/lib/circle/queries";
 import { parseStoredMonthlyReport } from "@/lib/circle/stored-report";
 import { derivePalisteCard } from "@/lib/profile/paliste-card";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
@@ -30,15 +30,18 @@ export default async function ProfilPage() {
   const userId = claims?.claims.sub;
   const email = typeof claims?.claims.email === "string" ? claims.claims.email : null;
 
-  const emptyCircle: CircleView = { joined: false, friends: [], received: [], sent: [] };
-  const [{ data: profile }, circle, { data: reportRows }, { data: pickRows }] = userId
+  const emptyLinks: Omit<CircleView, "joined"> = { friends: [], received: [], sent: [] };
+  // `profiles` lu UNE fois (fluidité #333, item 13) : pseudo, photo ET la porte
+  // du cercle dans la même ligne — `getCircleView` la relisait en parallèle.
+  const [{ data: profile }, links, { data: reportRows }, { data: pickRows }] = userId
     ? await Promise.all([
-        supabase.from("profiles").select("display_name, avatar_url").eq("id", userId).single(),
-        getCircleView(supabase, userId),
+        supabase.from("profiles").select("display_name, avatar_url, circle_joined_at").eq("id", userId).single(),
+        loadCircleLinks(supabase, userId),
         supabase.from("monthly_reports").select("month, report"),
         supabase.from("monthly_picks").select("month, kind"),
       ])
-    : [{ data: null }, emptyCircle, { data: null }, { data: null }];
+    : [{ data: null }, emptyLinks, { data: null }, { data: null }];
+  const circle: CircleView = { joined: profile?.circle_joined_at != null, ...links };
 
   const displayName = profile?.display_name ?? email ?? "lecteur";
   const initial = displayName.charAt(0).toUpperCase();
