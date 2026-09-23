@@ -379,6 +379,10 @@ async function resolveIsbn(
   //    mémorisée pré-remplit la saisie manuelle, comme au premier scan (#55).
   const recentMiss = probe ? probe.recentMiss : await attempt(() => deps.cache.getMiss(ean13));
   if (recentMiss && isTimestampFresh(recentMiss.lastCheckedAt, NOT_FOUND_RETRY_DAYS)) {
+    // Différé et sans image (review #345) : une phase 1 dont la seconde phase
+    // n'a jamais été demandée (onglet fermé) a laissé le miss sans image — on
+    // laisse la seconde phase la retenter, plutôt qu'une semaine sans image.
+    if (deferCover && recentMiss.coverUrl === null) return { kind: "not-found", coverUrl: null, coverPending: true };
     return { kind: "not-found", coverUrl: recentMiss.coverUrl };
   }
 

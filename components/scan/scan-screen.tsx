@@ -122,6 +122,13 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
   // incrémente le compteur, et la réponse d'une requête périmée est IGNORÉE
   // quand elle revient — sinon elle écraserait la saisie en cours (course).
   const lookupIdRef = useRef(0);
+  /**
+   * L'image arrivée en seconde phase pour le scan COURANT (review #345) : lue
+   * par `performAction` au succès — si l'utilisateur a enregistré le livre
+   * pendant que l'image voyageait, elle est posée après coup. Remise à zéro à
+   * chaque nouveau lookup.
+   */
+  const deferredCoverRef = useRef<string | null>(null);
 
   /**
    * La SECONDE phase du scan (#332, item 3) : l'identité est affichée, l'image
@@ -135,13 +142,16 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
     let coverUrl: string | null = null;
     try {
       const response = await fetch(`/api/lookup/${encodeURIComponent(code)}/cover`);
+      // Un 429 (le quota partagé avec le lookup) ou un 5xx : pas d'image — la
+      // feuille garde son placeholder, la photo (#33) reste le filet.
       if (!response.ok) return;
       coverUrl = ((await response.json()) as { coverUrl: string | null }).coverUrl;
     } catch {
-      return; // sans image, la feuille garde son placeholder — la photo (#33) reste le filet
+      return; // réseau coupé : même repli
     }
     if (requestId !== lookupIdRef.current || coverUrl === null) return;
     const resolvedCoverUrl = coverUrl;
+    deferredCoverRef.current = resolvedCoverUrl;
     let bookToAdopt: string | null = null;
     setState((previous) => {
       if (previous.step === "sheet" && previous.coverPending) {
@@ -161,6 +171,7 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
 
   const lookup = useCallback(async (code: string) => {
     const requestId = ++lookupIdRef.current;
+    deferredCoverRef.current = null;
     setState({ step: "loading", code });
     try {
       // `?defer=cover` (#332 item 3) : l'identité d'abord, l'image ensuite.
@@ -280,6 +291,11 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
       setState((previous) => (previous.step === "sheet" ? { ...previous, error: result.error } : previous));
       return;
     }
+    // L'image arrivée PENDANT l'enregistrement (review #345) : l'input a été
+    // construit au tap, sans elle — on l'adopte maintenant (le serveur ne pose
+    // que sur `cover_url IS NULL`) et on l'affiche sur l'écran « done ».
+    const lateCoverUrl = input.coverUrl === null ? deferredCoverRef.current : null;
+    if (lateCoverUrl !== null) void adoptResolvedCover(result.bookId, lateCoverUrl);
     setState({
       step: "done",
       message: doneMessage,
@@ -293,7 +309,7 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
       // La couverture se change ici aussi (#275) — le livre est dans la main.
       // Un livre déjà connu a pu recevoir un choix avant : la feuille le
       // relira ; à la création, elle est ce que la cascade a posé.
-      book: { bookId: result.bookId, title: input.title, coverUrl: input.coverUrl, coverChosenAt: null },
+      book: { bookId: result.bookId, title: input.title, coverUrl: input.coverUrl ?? lateCoverUrl, coverChosenAt: null },
     });
   }
 

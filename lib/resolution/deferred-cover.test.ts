@@ -77,6 +77,21 @@ describe("resolveScannedCode avec deferCover — l'identité d'abord", () => {
     expect(d.cache.setMiss).toHaveBeenCalledWith(ISBN, null);
     expect(d.openLibrary.findCoverByIsbn).not.toHaveBeenCalled();
   });
+
+  it("un miss frais SANS image, différé : coverPending pour que la seconde phase retente l'image (review #345)", async () => {
+    const d = deps({ cache: { getMiss: vi.fn(async () => ({ lastCheckedAt: new Date().toISOString(), coverUrl: null })) } });
+    const result = await resolveScannedCode(ISBN, d, null, { deferCover: true });
+    expect(result).toEqual({ kind: "not-found", coverUrl: null, coverPending: true });
+    expect(d.gcd.findIssuesByIsbn).not.toHaveBeenCalled();
+  });
+
+  it("un miss frais AVEC image : l'image tout de suite, rien à différer", async () => {
+    const d = deps({
+      cache: { getMiss: vi.fn(async () => ({ lastCheckedAt: new Date().toISOString(), coverUrl: "https://covers.openlibrary.org/b/id/3-L.jpg" })) },
+    });
+    const result = await resolveScannedCode(ISBN, d, null, { deferCover: true });
+    expect(result).toEqual({ kind: "not-found", coverUrl: "https://covers.openlibrary.org/b/id/3-L.jpg" });
+  });
 });
 
 describe("resolveDeferredCover — la seconde phase", () => {
