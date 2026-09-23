@@ -334,13 +334,15 @@ async function resolveIsbn(
   isbnCandidates: string[],
   deps: ResolutionDeps,
   startedAtMs: number,
+  probe: CacheProbe | null = null,
 ): Promise<ScanLookupResult> {
   const health: CascadeHealth = { degraded: false };
 
   // 1. Notre cache — un bouquin n'est jamais résolu deux fois. La clé est
   //    l'EAN-13, PAS le code brut : scanné avec puis sans le supplément prix
-  //    (18 vs 13 chiffres), c'est le même livre — une seule entrée.
-  const cached = await attempt(() => deps.cache.get(ean13));
+  //    (18 vs 13 chiffres), c'est le même livre — une seule entrée. Déjà lu
+  //    par la sonde de la route quand elle est là (#332, item 4).
+  const cached = probe ? probe.cached : await attempt(() => deps.cache.get(ean13));
   if (cached) {
     let book = fromCache(cached, "isbn");
     // Une entrée SANS couverture n'est pas figée pour autant : les crans de
@@ -363,7 +365,7 @@ async function resolveIsbn(
   // 1 bis. Le cache NÉGATIF (#176) : un code qu'aucune base ne connaissait ne
   //    repart pas en cascade complète avant NOT_FOUND_RETRY_DAYS — l'image
   //    mémorisée pré-remplit la saisie manuelle, comme au premier scan (#55).
-  const recentMiss = await attempt(() => deps.cache.getMiss(ean13));
+  const recentMiss = probe ? probe.recentMiss : await attempt(() => deps.cache.getMiss(ean13));
   if (recentMiss && isTimestampFresh(recentMiss.lastCheckedAt, NOT_FOUND_RETRY_DAYS)) {
     return { kind: "not-found", coverUrl: recentMiss.coverUrl };
   }
@@ -445,17 +447,24 @@ async function resolveIsbn(
 }
 
 /** La résolution d'un UPC : GCD exact → préfixe → Metron (nouveautés). */
-async function resolveUpc(raw: string, base: string, deps: ResolutionDeps, startedAtMs: number): Promise<ScanLookupResult> {
+async function resolveUpc(
+  raw: string,
+  base: string,
+  deps: ResolutionDeps,
+  startedAtMs: number,
+  probe: CacheProbe | null = null,
+): Promise<ScanLookupResult> {
   const health: CascadeHealth = { degraded: false };
 
   // La clé de cache d'un UPC est le code BRUT : ici le supplément est
-  // signifiant (numéro d'issue, couverture, tirage — specs §5.1).
-  const cached = await attempt(() => deps.cache.get(raw));
+  // signifiant (numéro d'issue, couverture, tirage — specs §5.1). Déjà lu par
+  // la sonde de la route quand elle est là (#332, item 4).
+  const cached = probe ? probe.cached : await attempt(() => deps.cache.get(raw));
   if (cached) return { kind: "resolved", book: fromCache(cached, "upc") };
 
   // Le cache négatif (#176) : seul Metron coûte sur ce chemin (GCD est en
   // base), mais un compte partagé à 20 req/min n'a pas de marge à perdre.
-  const recentMiss = await attempt(() => deps.cache.getMiss(raw));
+  const recentMiss = probe ? probe.recentMiss : await attempt(() => deps.cache.getMiss(raw));
   if (recentMiss && isTimestampFresh(recentMiss.lastCheckedAt, NOT_FOUND_RETRY_DAYS)) {
     return { kind: "not-found", coverUrl: null };
   }
@@ -612,12 +621,40 @@ const sortIssueCandidates = (issues: GcdIssue[]) =>
     });
 
 /** Le point d'entrée : un code scanné, un résultat — jamais d'exception. */
-export async function resolveScannedCode(input: string, deps: ResolutionDeps = createDefaultDeps()): Promise<ScanLookupResult> {
+/**
+ * La lecture ANTICIPÉE du cache (fluidité #332, item 4) : entrée positive et
+ * cache négatif en UN étage parallèle, que la route lance EN MÊME TEMPS que la
+ * recherche en bibliothèque et le quota — avant, un hit de cache coûtait
+ * quatre à cinq allers-retours Supabase en série. Passée à
+ * `resolveScannedCode`, la sonde évite de relire le cache. `null` pour un code
+ * invalide (la cascade tranchera).
+ */
+export type CacheProbe = {
+  cached: Awaited<ReturnType<ResolutionDeps["cache"]["get"]>> | null;
+  recentMiss: Awaited<ReturnType<ResolutionDeps["cache"]["getMiss"]>> | null;
+};
+
+export async function probeResolutionCache(input: string, deps: ResolutionDeps = createDefaultDeps()): Promise<CacheProbe | null> {
+  const code = classifyScannedCode(input);
+  if (code.type === "invalid") return null;
+  // La clé : l'EAN-13 pour un ISBN (le supplément prix ne compte pas), le code
+  // BRUT pour un UPC (le supplément y est signifiant) — cf. resolveIsbn/resolveUpc.
+  const key = code.type === "isbn" ? code.ean13 : code.raw;
+  const [cached, recentMiss] = await Promise.all([attempt(() => deps.cache.get(key)), attempt(() => deps.cache.getMiss(key))]);
+  return { cached, recentMiss };
+}
+
+export async function resolveScannedCode(
+  input: string,
+  deps: ResolutionDeps = createDefaultDeps(),
+  /** Le cache déjà lu par `probeResolutionCache` — sans lui, la cascade le lit elle-même. */
+  probe: CacheProbe | null = null,
+): Promise<ScanLookupResult> {
   const startedAtMs = Date.now(); // le budget global court dès l'entrée dans la cascade
   const code = classifyScannedCode(input);
   if (code.type === "invalid") return { kind: "invalid" };
-  if (code.type === "isbn") return resolveIsbn(code.raw, code.ean13, code.isbnCandidates, deps, startedAtMs);
-  return resolveUpc(code.raw, code.base, deps, startedAtMs);
+  if (code.type === "isbn") return resolveIsbn(code.raw, code.ean13, code.isbnCandidates, deps, startedAtMs, probe);
+  return resolveUpc(code.raw, code.base, deps, startedAtMs, probe);
 }
 
 /**
