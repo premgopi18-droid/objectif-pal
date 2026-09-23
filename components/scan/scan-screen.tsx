@@ -15,6 +15,7 @@ import {
   type ScanActionResult,
 } from "@/lib/books/actions";
 import type { JournalActionResult } from "@/lib/books/journal-actions";
+import { adoptResolvedCover } from "@/lib/books/cover-adopt-actions";
 import { FUTURE_DATE_MESSAGE, NETWORK_ERROR_MESSAGE } from "@/lib/books/errors";
 import { localToday } from "@/lib/dates";
 import { LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
@@ -53,7 +54,9 @@ type ScanState =
   // isInLibrary : le livre vient de la bibliothèque de l'utilisateur (issue
   // #10) — la feuille l'annonce, « tu l'as déjà ». wasFinished : il a déjà été
   // TERMINÉ — la question « tu le relis ? » se pose AVANT de créer (§4.2, #35).
-  | { step: "sheet"; book: ResolvedBook; scannedCode: string | null; error?: string; isInLibrary?: boolean; wasFinished?: boolean; isOwned?: boolean }
+  // coverPending (#332 item 3) : l'identité est là, l'image arrive — la feuille
+  // s'affiche avec le placeholder, la vignette se pose quand la seconde phase répond.
+  | { step: "sheet"; book: ResolvedBook; scannedCode: string | null; error?: string; isInLibrary?: boolean; wasFinished?: boolean; isOwned?: boolean; coverPending?: boolean }
   | { step: "pick-issue"; seriesName: string; issues: IssueCandidate[]; scannedCode: string }
   | { step: "pick-series"; candidates: SeriesCandidate[]; scannedCode: string }
   // suggestedCoverUrl : la chaîne couverture a abouti malgré l'identification
@@ -120,11 +123,48 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
   // quand elle revient — sinon elle écraserait la saisie en cours (course).
   const lookupIdRef = useRef(0);
 
+  /**
+   * La SECONDE phase du scan (#332, item 3) : l'identité est affichée, l'image
+   * arrive ensuite. Elle se pose là où en est l'utilisateur — sur la feuille
+   * (vignette), sur la saisie manuelle (image pré-remplie, #55), ou sur
+   * l'écran « done » s'il a déjà enregistré le livre sans attendre : alors le
+   * serveur l'adopte (`adoptResolvedCover`, jamais par-dessus une image ni un
+   * choix). Une requête périmée (autre scan entre-temps) est ignorée.
+   */
+  const fetchDeferredCover = useCallback(async (code: string, requestId: number) => {
+    let coverUrl: string | null = null;
+    try {
+      const response = await fetch(`/api/lookup/${encodeURIComponent(code)}/cover`);
+      if (!response.ok) return;
+      coverUrl = ((await response.json()) as { coverUrl: string | null }).coverUrl;
+    } catch {
+      return; // sans image, la feuille garde son placeholder — la photo (#33) reste le filet
+    }
+    if (requestId !== lookupIdRef.current || coverUrl === null) return;
+    const resolvedCoverUrl = coverUrl;
+    let bookToAdopt: string | null = null;
+    setState((previous) => {
+      if (previous.step === "sheet" && previous.coverPending) {
+        return { ...previous, book: { ...previous.book, coverUrl: resolvedCoverUrl }, coverPending: false };
+      }
+      if (previous.step === "manual" && previous.scannedCode === code && !previous.suggestedCoverUrl) {
+        return { ...previous, suggestedCoverUrl: resolvedCoverUrl };
+      }
+      if (previous.step === "done" && previous.book && previous.book.coverUrl === null) {
+        bookToAdopt = previous.book.bookId;
+        return { ...previous, book: { ...previous.book, coverUrl: resolvedCoverUrl } };
+      }
+      return previous;
+    });
+    if (bookToAdopt !== null) void adoptResolvedCover(bookToAdopt, resolvedCoverUrl);
+  }, []);
+
   const lookup = useCallback(async (code: string) => {
     const requestId = ++lookupIdRef.current;
     setState({ step: "loading", code });
     try {
-      const response = await fetch(`/api/lookup/${encodeURIComponent(code)}`);
+      // `?defer=cover` (#332 item 3) : l'identité d'abord, l'image ensuite.
+      const response = await fetch(`/api/lookup/${encodeURIComponent(code)}?defer=cover`);
       if (requestId !== lookupIdRef.current) return; // l'utilisateur est déjà passé en saisie manuelle
       if (response.status === 401) {
         setState({ step: "scan", notice: "Session expirée — reconnecte-toi." });
@@ -138,7 +178,8 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
       if (requestId !== lookupIdRef.current) return;
 
       if (result.kind === "resolved") {
-        setState({ step: "sheet", book: result.book, scannedCode: code });
+        setState({ step: "sheet", book: result.book, scannedCode: code, coverPending: result.coverPending === true });
+        if (result.coverPending) void fetchDeferredCover(code, requestId);
       } else if (result.kind === "in-library") {
         // scannedCode: null — la feuille retombe sur book.barcode (le
         // barcode_raw STOCKÉ) : la dédup d'écriture matche à coup sûr. Passer
@@ -157,8 +198,10 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
       } else if (result.kind === "pick-series") {
         setState({ step: "pick-series", candidates: result.candidates, scannedCode: code });
       } else if (result.kind === "not-found") {
-        // Le filet ultime — avec, parfois, la couverture quand même (#55).
+        // Le filet ultime — avec, parfois, la couverture quand même (#55),
+        // qui arrive en seconde phase quand elle est différée.
         setState({ step: "manual", scannedCode: code, suggestedCoverUrl: result.coverUrl });
+        if (result.coverPending) void fetchDeferredCover(code, requestId);
       } else {
         // invalid : un code inexploitable ne mérite pas d'être gardé.
         setState({ step: "manual", scannedCode: null });
@@ -167,7 +210,7 @@ export function ScanScreen({ pendingInboxCount = 0 }: { pendingInboxCount?: Prom
       if (requestId !== lookupIdRef.current) return;
       setState({ step: "scan", notice: "La recherche a échoué — réessaie ou saisis à la main." });
     }
-  }, []);
+  }, [fetchDeferredCover]);
 
   const resolvePickedIssue = useCallback(async (gcdId: number, scannedCode: string) => {
     const requestId = ++lookupIdRef.current;

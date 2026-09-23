@@ -316,7 +316,17 @@ async function notFoundForIsbn(
   ean13: string,
   startedAtMs: number,
   health: CascadeHealth,
+  options: ResolveOptions = {},
 ): Promise<ScanLookupResult> {
+  if (options.deferCover) {
+    // Différé (item 3) : le verdict « introuvable » part tout de suite ; le
+    // cache négatif se pose SANS image sur verdict propre des sources
+    // d'identité, la seconde phase y ajoutera l'image de la saisie manuelle.
+    if (!health.degraded && !isBudgetExhausted(startedAtMs)) {
+      await attempt(() => deps.cache.setMiss(ean13, null));
+    }
+    return { kind: "not-found", coverUrl: null, coverPending: true };
+  }
   const coverUrl = await findFallbackCoverByIsbn(deps, ean13, startedAtMs, health);
   // Le cache NÉGATIF (#176) — seulement sur un verdict PROPRE : cascade
   // complète, aucune source en panne, budget non épuisé. Un 429 Google Books
@@ -335,8 +345,10 @@ async function resolveIsbn(
   deps: ResolutionDeps,
   startedAtMs: number,
   probe: CacheProbe | null = null,
+  options: ResolveOptions = {},
 ): Promise<ScanLookupResult> {
   const health: CascadeHealth = { degraded: false };
+  const deferCover = options.deferCover === true;
 
   // 1. Notre cache — un bouquin n'est jamais résolu deux fois. La clé est
   //    l'EAN-13, PAS le code brut : scanné avec puis sans le supplément prix
@@ -383,13 +395,19 @@ async function resolveIsbn(
     // ce qui reste sans image — BD comprise.
     let enriched =
       book.suggestedCategory === "bd" ? book : await enrichWithMetron(book, deps, null, startedAtMs, health);
+    if (deferCover && !enriched.coverUrl) {
+      // Identité d'abord (item 3) : la ligne GCD est cachée SANS tampon, la
+      // seconde phase (`resolveDeferredCover`) y posera l'image ou le tampon.
+      await attempt(() => deps.cache.set(toCacheEntry(ean13, enriched, "gcd")));
+      return { kind: "resolved", book: enriched, coverPending: true };
+    }
     enriched = await enrichCoverForIsbn(enriched, deps, ean13, startedAtMs, health);
     await cacheEnrichedGcdBook(ean13, book, enriched, deps, { health, startedAtMs, stampWhenCleanlyBare: true });
     return { kind: "resolved", book: enriched };
   }
 
   // 3. BnF : le dépôt légal identifie la VF (manga, roman, BD absente de GCD).
-  if (isBudgetExhausted(startedAtMs)) return notFoundForIsbn(deps, ean13, startedAtMs, health);
+  if (isBudgetExhausted(startedAtMs)) return notFoundForIsbn(deps, ean13, startedAtMs, health, options);
   const bnfRecord = await attempt(() => deps.bnf.resolveIsbn(ean13), health);
   if (bnfRecord) {
     let book: ResolvedBook = {
@@ -408,18 +426,27 @@ async function resolveIsbn(
       barcode: raw,
       isbn: ean13,
     };
+    if (deferCover) {
+      // Identité d'abord (item 3) : l'entrée part sans image ni tampon, la
+      // seconde phase la complète.
+      await attempt(() => deps.cache.set(toCacheEntry(ean13, book, "bnf")));
+      return { kind: "resolved", book, coverPending: true };
+    }
     book = await enrichCoverForIsbn(book, deps, ean13, startedAtMs, health);
     await attempt(() => deps.cache.set(toCacheEntry(ean13, book, "bnf")));
     return { kind: "resolved", book };
   }
 
   // 4. Google Books : les romans étrangers, dernier identifiant.
-  if (isBudgetExhausted(startedAtMs)) return notFoundForIsbn(deps, ean13, startedAtMs, health);
+  if (isBudgetExhausted(startedAtMs)) return notFoundForIsbn(deps, ean13, startedAtMs, health, options);
   const googleRecord = await attempt(() => deps.googleBooks.resolveIsbn(ean13), health);
   if (googleRecord) {
     // La fiche sans image est le cas VF courant (mesuré §5.4) : les replis
     // OpenLibrary → Inventaire comblent avant de renoncer.
-    const coverUrl = googleRecord.coverUrl ?? (await findFallbackCoverByIsbn(deps, ean13, startedAtMs, health));
+    // Différé (item 3) : la fiche sans image rend l'identité tout de suite, les
+    // replis viennent en seconde phase.
+    const coverUrl =
+      googleRecord.coverUrl ?? (deferCover ? null : await findFallbackCoverByIsbn(deps, ean13, startedAtMs, health));
     const book: ResolvedBook = {
       title: googleRecord.title,
       seriesName: null,
@@ -440,10 +467,10 @@ async function resolveIsbn(
       isbn: ean13,
     };
     await attempt(() => deps.cache.set(toCacheEntry(ean13, book, "google_books")));
-    return { kind: "resolved", book };
+    return deferCover && !coverUrl ? { kind: "resolved", book, coverPending: true } : { kind: "resolved", book };
   }
 
-  return notFoundForIsbn(deps, ean13, startedAtMs, health);
+  return notFoundForIsbn(deps, ean13, startedAtMs, health, options);
 }
 
 /** La résolution d'un UPC : GCD exact → préfixe → Metron (nouveautés). */
@@ -644,17 +671,60 @@ export async function probeResolutionCache(input: string, deps: ResolutionDeps =
   return { cached, recentMiss };
 }
 
+/**
+ * `deferCover` (fluidité #332, item 3) : rendre l'IDENTITÉ dès qu'elle est
+ * connue, sans dérouler la chaîne couverture (Google Books → OpenLibrary →
+ * Inventaire → BnF Couvertures → epagine, en série, jusqu'à 7 s). Le résultat
+ * porte `coverPending`, le client demande l'image ensuite via
+ * `resolveDeferredCover`. ISBN seulement : sur un UPC, Metron est UN appel qui
+ * porte aussi l'identité (series_type), il reste dans la cascade.
+ */
+export type ResolveOptions = { deferCover?: boolean };
+
 export async function resolveScannedCode(
   input: string,
   deps: ResolutionDeps = createDefaultDeps(),
   /** Le cache déjà lu par `probeResolutionCache` — sans lui, la cascade le lit elle-même. */
   probe: CacheProbe | null = null,
+  options: ResolveOptions = {},
 ): Promise<ScanLookupResult> {
   const startedAtMs = Date.now(); // le budget global court dès l'entrée dans la cascade
   const code = classifyScannedCode(input);
   if (code.type === "invalid") return { kind: "invalid" };
-  if (code.type === "isbn") return resolveIsbn(code.raw, code.ean13, code.isbnCandidates, deps, startedAtMs, probe);
+  if (code.type === "isbn") return resolveIsbn(code.raw, code.ean13, code.isbnCandidates, deps, startedAtMs, probe, options);
   return resolveUpc(code.raw, code.base, deps, startedAtMs, probe);
+}
+
+/**
+ * La SECONDE phase d'un scan différé (item 3) : la chaîne couverture d'un ISBN
+ * dont l'identité a déjà été rendue — puis le cache mis à jour comme si la
+ * cascade avait tout fait d'un coup : l'entrée reçoit l'image (ou le tampon
+ * « vérifié sans image » sur verdict propre, #176), le cache négatif reçoit
+ * l'image de la saisie manuelle (#55). Un UPC n'est jamais différé : `null`.
+ */
+export async function resolveDeferredCover(input: string, deps: ResolutionDeps = createDefaultDeps()): Promise<string | null> {
+  const code = classifyScannedCode(input);
+  if (code.type !== "isbn") return null;
+  const startedAtMs = Date.now();
+  const health: CascadeHealth = { degraded: false };
+  const key = code.ean13;
+
+  const [entry, miss] = await Promise.all([attempt(() => deps.cache.get(key)), attempt(() => deps.cache.getMiss(key))]);
+  // Un autre scan (ou un rescan) a pu combler entre-temps : gratuit.
+  if (entry?.coverUrl) return entry.coverUrl;
+  if (miss?.coverUrl) return miss.coverUrl;
+
+  const googleRecord = await attempt(() => deps.googleBooks.resolveIsbn(key), health);
+  const coverUrl = googleRecord?.coverUrl ?? (await findFallbackCoverByIsbn(deps, key, startedAtMs, health));
+
+  const isCleanVerdict = !health.degraded && !isBudgetExhausted(startedAtMs);
+  if (entry) {
+    if (coverUrl) await attempt(() => deps.cache.set({ ...entry, coverUrl }));
+    else if (isCleanVerdict) await attempt(() => deps.cache.stampCoverChecked(key));
+  } else if (miss && coverUrl && isCleanVerdict) {
+    await attempt(() => deps.cache.setMiss(key, coverUrl));
+  }
+  return coverUrl;
 }
 
 /**
