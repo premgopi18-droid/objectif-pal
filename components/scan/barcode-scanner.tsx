@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { prepareZXingModule, readBarcodes } from "zxing-wasm/reader";
-import { isReadyToEmit } from "./supplement-grace";
+import { decideEmission } from "./supplement-grace";
 
 /**
  * La caméra qui lit les codes-barres — zxing-wasm (le ZXing C++ compilé en
@@ -177,28 +177,19 @@ export function BarcodeScanner({ onCode, continuous = false }: BarcodeScannerPro
         // zxing-cpp renvoie « principal<sep>supplément » : on ne garde que les chiffres.
         const digits = result.text.replace(/\D/g, "");
 
-        // Complet tel quel (supplément déjà lu, ou ISBN dont le supplément ne
-        // sert à rien) : il part sans fenêtre de grâce.
-        if (isReadyToEmit(digits)) {
-          emit(digits);
-        } else if (!pendingRef.current) {
+        // Émettre, ouvrir la grâce, ou suivre : la décision est pure et testée
+        // (supplement-grace.ts — règle de rafale #249, raccourci ISBN #331).
+        const decision = decideEmission(digits, pendingRef.current?.code ?? null, continuousRef.current);
+        if (decision.kind === "emit") {
+          emit(decision.code);
+        } else if (decision.kind === "wait") {
           setPendingDisplay(digits);
           pendingRef.current = {
             code: digits,
             timer: setTimeout(() => pendingRef.current && emit(pendingRef.current.code), SUPPLEMENT_GRACE_MILLISECONDS),
           };
-        } else if (continuousRef.current && pendingRef.current.code !== digits) {
-          // EN RAFALE (#249) : un code DIFFÉRENT pendant la grâce, c'est que le
-          // livre précédent est déjà rangé — son supplément ne viendra jamais.
-          // On l'émet TOUT DE SUITE (sinon il serait silencieusement perdu,
-          // écrasé par le suivant), et le nouveau livre suit son cours normal :
-          // les frames le reliront après le réarmement — la sourdine ne mute
-          // que le code émis, pas lui.
-          emit(pendingRef.current.code);
-        } else {
-          // Scan UNITAIRE : on suit le dernier code vu (l'utilisateur a pu
-          // changer de bouquin avant de valider quoi que ce soit).
-          pendingRef.current.code = digits;
+        } else if (pendingRef.current) {
+          pendingRef.current.code = decision.code;
         }
       } catch (error) {
         // Une frame sans code-barres RÉSOUT (tableau vide) : un rejet ici, c'est
