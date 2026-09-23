@@ -46,6 +46,21 @@ export async function getAuthenticatedUser() {
   return user;
 }
 
+/**
+ * Client + identité de la session courante VÉRIFIÉE LOCALEMENT (`getClaims`,
+ * JWT contre la clé publique — #125), ou null. Pour les chemins de LECTURE
+ * chauds (fluidité #332, item 4 : le lookup du scan), où les ~100-200 ms du
+ * `getUser()` réseau étaient en série devant tout le reste. Les écritures
+ * gardent `getSessionOrError` : sur une action, la révocation immédiate vaut
+ * l'aller-retour.
+ */
+export async function getClaimsSession() {
+  const supabase = await createServerSupabaseClient();
+  const { data } = await supabase.auth.getClaims();
+  const userId = data?.claims.sub;
+  return userId ? ({ supabase, userId } as const) : null;
+}
+
 /** Client + utilisateur de la session courante, ou null — le garde des Server Actions. */
 export async function getSessionOrError() {
   const supabase = await createServerSupabaseClient();

@@ -3,9 +3,9 @@ import { findBookInLibrary } from "@/lib/books/library-lookup";
 import { withContributionCover } from "@/lib/covers/contributions";
 import { classifyScannedCode } from "@/lib/resolution/barcode-router";
 import { isLookupAllowed, LOOKUP_RATE_LIMIT_MESSAGE } from "@/lib/resolution/lookup-rate-limit";
-import { resolveScannedCode } from "@/lib/resolution/resolve";
+import { createDefaultDeps, probeResolutionCache, resolveScannedCode } from "@/lib/resolution/resolve";
 import type { ScanLookupResult } from "@/lib/resolution/types";
-import { getSessionOrError } from "@/lib/supabase/server";
+import { getClaimsSession } from "@/lib/supabase/server";
 
 /**
  * GET /api/lookup/[barcode] — le point d'entrée unique du scan (specs §5.1) :
@@ -21,24 +21,37 @@ import { getSessionOrError } from "@/lib/supabase/server";
  * revient directement, sans appel externe, avec la mention « déjà là ».
  */
 
-// La cascade a un budget de 10 s (resolve.ts) : la durée par défaut de la
+// La cascade a un budget de 7 s (RESOLUTION_BUDGET_MILLISECONDS, resolve.ts) : la durée par défaut de la
 // plateforme pouvait tuer la fonction AVANT sa propre limite (#191) — le
 // timeout applicatif doit toujours être plus court que celui de l'infra.
 export const maxDuration = 20;
 
 export async function GET(_request: Request, { params }: { params: Promise<{ barcode: string }> }) {
-  const session = await getSessionOrError();
+  // Identité vérifiée LOCALEMENT (fluidité #332, item 4) : le `getUser()`
+  // réseau mettait ~100-200 ms d'auth en série devant tout le reste, sur une
+  // route de LECTURE que le proxy a déjà gardée.
+  const session = await getClaimsSession();
   if (!session) {
     return Response.json({ error: "authentification requise" }, { status: 401 });
   }
-  // Le quota se consomme AVANT tout travail (issue #32) : le lookup
-  // bibliothèque est gratuit, mais la cascade derrière ne l'est pas.
-  if (!(await isLookupAllowed(session.supabase))) {
-    return Response.json({ error: LOOKUP_RATE_LIMIT_MESSAGE }, { status: 429 });
-  }
   const { barcode } = await params;
 
-  const libraryMatch = await findBookInLibrary(session.supabase, session.user.id, barcode);
+  // UN SEUL étage (item 4) : le quota, la bibliothèque et la sonde du cache
+  // partent ensemble — un hit de cache ou un livre déjà là ne coûte plus quatre
+  // allers-retours en série. Le quota reste consommé AVANT tout travail
+  // EXTERNE (issue #32) : la cascade, seule à coûter, attend son verdict ; la
+  // bibliothèque et le cache sont chez nous, gratuits.
+  // UN jeu de dépendances par requête (review #344), partagé par la sonde et la cascade.
+  const deps = createDefaultDeps();
+  const [allowed, libraryMatch, probe] = await Promise.all([
+    isLookupAllowed(session.supabase),
+    findBookInLibrary(session.supabase, session.userId, barcode),
+    probeResolutionCache(barcode, deps),
+  ]);
+  if (!allowed) {
+    return Response.json({ error: LOOKUP_RATE_LIMIT_MESSAGE }, { status: 429 });
+  }
+
   if (libraryMatch) {
     return Response.json({
       kind: "in-library",
@@ -48,7 +61,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ bar
     });
   }
 
-  const result = await resolveScannedCode(barcode);
+  const result = await resolveScannedCode(barcode, deps, probe);
   // Le pool partagé (#278) : une contribution ne devient couverture par défaut
   // que si la cascade n'a rien — ici, APRÈS elle, sur le résultat rendu ; la
   // cascade seule écrit le cache, une contribution n'y entre jamais (#179).
@@ -57,7 +70,7 @@ export async function GET(_request: Request, { params }: { params: Promise<{ bar
 }
 
 async function applyContributionCover(
-  supabase: NonNullable<Awaited<ReturnType<typeof getSessionOrError>>>["supabase"],
+  supabase: NonNullable<Awaited<ReturnType<typeof getClaimsSession>>>["supabase"],
   raw: string,
   result: ScanLookupResult,
 ): Promise<ScanLookupResult> {
