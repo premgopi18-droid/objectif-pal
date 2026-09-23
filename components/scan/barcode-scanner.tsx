@@ -69,12 +69,20 @@ type BarcodeScannerProps = {
    * Mode rafale (#101 lot C) : le scanner se RÉARME après chaque lecture au
    * lieu de s'arrêter, pour enchaîner une étagère entière sans retoucher
    * l'écran. Sans lui, le comportement historique est inchangé — un scan, une
-   * émission, puis plus rien jusqu'au démontage.
+   * émission, puis plus rien jusqu'à la reprise (`paused` → false) ou au démontage.
    */
   continuous?: boolean;
+  /**
+   * En veille (fluidité #332, item 7) : le FLUX caméra reste ouvert, seule la
+   * boucle de décodage s'arrête. L'écran de scan garde le scanner monté (et
+   * caché) pendant la feuille d'actions : revenir au viseur ne rejoue plus
+   * `getUserMedia` + autofocus (0,4 à 1,2 s par livre). La reprise réarme le
+   * scanner comme un montage neuf.
+   */
+  paused?: boolean;
 };
 
-export function BarcodeScanner({ onCode, continuous = false }: BarcodeScannerProps) {
+export function BarcodeScanner({ onCode, continuous = false, paused = false }: BarcodeScannerProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [cameraError, setCameraError] = useState(false);
   /** Le moteur WASM n'a pas pu s'initialiser — l'utilisateur doit le SAVOIR, pas fixer une caméra muette. */
@@ -100,6 +108,26 @@ export function BarcodeScanner({ onCode, continuous = false }: BarcodeScannerPro
   const rearmTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastEmittedRef = useRef<{ code: string; at: number } | null>(null);
 
+  // La veille (item 7) dans une ref : la boucle la lit à chaque frame sans
+  // redémarrer la caméra. La REPRISE réarme tout comme un montage neuf.
+  const pausedRef = useRef(paused);
+  useEffect(() => {
+    pausedRef.current = paused;
+    // Dans les deux sens, aucun timer ne survit : une grâce qui tirerait en
+    // veille émettrait un code que personne n'attend.
+    if (rearmTimerRef.current) clearTimeout(rearmTimerRef.current);
+    rearmTimerRef.current = null;
+    if (pendingRef.current) clearTimeout(pendingRef.current.timer);
+    pendingRef.current = null;
+    if (paused) return;
+    hasEmittedRef.current = false;
+    lastEmittedRef.current = null;
+    // Le hint du code en grâce meurt avec elle — via un timer, jamais un
+    // setState synchrone dans l'effet (règle react-hooks/set-state-in-effect).
+    const clearHint = setTimeout(() => setPendingDisplay(null), 0);
+    return () => clearTimeout(clearHint);
+  }, [paused]);
+
   useEffect(() => {
     const video = videoRef.current;
     if (!video) return;
@@ -108,6 +136,7 @@ export function BarcodeScanner({ onCode, continuous = false }: BarcodeScannerPro
     let stream: MediaStream | undefined;
     let intervalId: ReturnType<typeof setInterval> | undefined;
     let isDecoding = false;
+    let isUnmounted = false;
     // Détection d'un moteur mort : readBarcodes qui REJETTE dès les premières
     // frames, sans jamais avoir réussi (une frame sans code-barres, elle,
     // résout normalement avec un tableau vide).
@@ -121,7 +150,7 @@ export function BarcodeScanner({ onCode, continuous = false }: BarcodeScannerPro
     const context = canvas.getContext("2d", { willReadFrequently: true });
 
     const emit = (code: string) => {
-      if (hasEmittedRef.current) return;
+      if (hasEmittedRef.current || pausedRef.current) return;
 
       // En rafale, le livre qu'on vient de scanner reste souvent dans le cadre
       // une seconde de trop : sans cette garde, il partirait deux ou trois fois
@@ -158,7 +187,7 @@ export function BarcodeScanner({ onCode, continuous = false }: BarcodeScannerPro
     };
 
     const decodeFrame = async () => {
-      if (isDecoding || hasEmittedRef.current || video.readyState < video.HAVE_CURRENT_DATA || !context) return;
+      if (pausedRef.current || isDecoding || hasEmittedRef.current || video.readyState < video.HAVE_CURRENT_DATA || !context) return;
       isDecoding = true;
       try {
         // La bande centrale seulement (#122) — cf. DECODE_BAND_HEIGHT_FRACTION.
@@ -220,30 +249,58 @@ export function BarcodeScanner({ onCode, continuous = false }: BarcodeScannerPro
       }
     };
 
-    navigator.mediaDevices
-      .getUserMedia({
-        // Résolution élevée exigée : les barres du supplément sont minuscules.
-        video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
-      })
-      .then((mediaStream) => {
-        stream = mediaStream;
-        video.srcObject = mediaStream;
-        return video.play();
-      })
-      .then(() => {
-        intervalId = setInterval(decodeFrame, DECODE_INTERVAL_MILLISECONDS);
-      })
-      .catch(() => setCameraError(true));
+    const stopCamera = () => {
+      if (intervalId) clearInterval(intervalId);
+      intervalId = undefined;
+      stream?.getTracks().forEach((track) => track.stop());
+      stream = undefined;
+    };
+    let isStarting = false;
+    const startCamera = () => {
+      if (stream || isStarting) return;
+      isStarting = true;
+      navigator.mediaDevices
+        .getUserMedia({
+          // Résolution élevée exigée : les barres du supplément sont minuscules.
+          video: { facingMode: "environment", width: { ideal: 1920 }, height: { ideal: 1080 } },
+        })
+        .then((mediaStream) => {
+          if (isUnmounted || document.hidden) {
+            // Démonté ou repassé en arrière-plan pendant la demande : on relâche.
+            mediaStream.getTracks().forEach((track) => track.stop());
+            return;
+          }
+          stream = mediaStream;
+          video.srcObject = mediaStream;
+          return video.play().then(() => {
+            intervalId = setInterval(decodeFrame, DECODE_INTERVAL_MILLISECONDS);
+          });
+        })
+        .catch(() => setCameraError(true))
+        .finally(() => {
+          isStarting = false;
+        });
+    };
+    // L'app en arrière-plan (item 7) : le flux est COUPÉ (LED, batterie) et
+    // repart au retour — indispensable maintenant que le scanner reste monté
+    // pendant la feuille d'actions.
+    const onVisibilityChange = () => {
+      if (document.hidden) stopCamera();
+      else startCamera();
+    };
+    document.addEventListener("visibilitychange", onVisibilityChange);
+    startCamera();
 
     return () => {
-      if (intervalId) clearInterval(intervalId);
+      isUnmounted = true;
+      document.removeEventListener("visibilitychange", onVisibilityChange);
+      stopCamera();
       if (pendingRef.current) clearTimeout(pendingRef.current.timer);
       pendingRef.current = null;
       // Le timer de réarmement survivrait au démontage et rallumerait un
       // scanner qui n'existe plus.
       if (rearmTimerRef.current) clearTimeout(rearmTimerRef.current);
       rearmTimerRef.current = null;
-      stream?.getTracks().forEach((track) => track.stop());
     };
   }, []);
 

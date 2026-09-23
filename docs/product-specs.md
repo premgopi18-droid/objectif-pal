@@ -158,6 +158,15 @@ le geste quotidien reste à un tap.
 | **Possédé, déjà lu** | Possession + lecture passée (§4.13) — date de fin facultative. |
 | **Lu — emprunt** | Lecture seule, aucune possession (§4.13, #113) — **l'ancienne case à cocher est devenue une intention à part entière**. |
 
+**Après le geste — retour immédiat au viseur** *(fluidité #332, 23/09/2026)* : plus d'écran de confirmation.
+Le tap ramène au scanner tout de suite (le flux caméra est resté ouvert **en veille** pendant la feuille — la
+reprise ne rejoue ni la permission ni l'autofocus), et un **toast** porte la confirmation (« Lecture
+commencée ! », « Achat enregistré (−1, effaçable). », la mention de relecture) avec **une action** :
+« Changer la couverture » — ou « 📷 Couverture » quand la cascade n'a rien trouvé — qui ouvre la feuille de
+#275. Si le serveur refuse, la feuille se rouvre avec l'erreur (ou un toast ⚠️ si un autre scan a déjà pris
+la main). **« Annuler » un achat n'est plus proposé au scan** : il vit à la Pile (« Je ne l'ai pas acheté »),
+où il était déjà. L'app en arrière-plan coupe le flux caméra et le rouvre au retour.
+
 Les règles d'ergonomie qui fondent la refonte : les cinq gestes sont **des égaux visibles d'un coup d'œil**
 (plus de section secondaire, plus de case à effet de bord, plus de bouton au sens variable) ; le vocabulaire
 est **celui de la rafale** (mêmes clés `ScanIntent` + `start`, verrouillé par test) ; « Je ne sais plus quand »
