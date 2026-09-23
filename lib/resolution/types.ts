@@ -93,8 +93,13 @@ export type SeriesCandidate = {
 };
 
 export type ScanLookupResult =
-  /** Code complet ou source directe : zéro question. */
-  | { kind: "resolved"; book: ResolvedBook }
+  /**
+   * Code complet ou source directe : zéro question. `coverPending` (fluidité
+   * #332, item 3) : l'identité est rendue AVANT la chaîne couverture — le
+   * client affiche la feuille tout de suite et demande l'image ensuite
+   * (`GET /api/lookup/[barcode]/cover`).
+   */
+  | { kind: "resolved"; book: ResolvedBook; coverPending?: boolean }
   /**
    * Déjà dans la bibliothèque de l'utilisateur (issue #10) : zéro appel
    * externe. `hasFinishedReading` permet de poser « tu le relis ? » AVANT de
@@ -111,7 +116,7 @@ export type ScanLookupResult =
    * distribuent des livres qu'aucune base bibliographique ne connaît) :
    * `coverUrl` pré-remplit la saisie, l'utilisateur fournit le reste.
    */
-  | { kind: "not-found"; coverUrl: string | null }
+  | { kind: "not-found"; coverUrl: string | null; coverPending?: boolean }
   /** Pas un code exploitable (trop court, illisible). */
   | { kind: "invalid" };
 
