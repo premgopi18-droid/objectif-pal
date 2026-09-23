@@ -7,6 +7,28 @@ const supabaseHostname = process.env.NEXT_PUBLIC_SUPABASE_URL
   : undefined;
 
 const nextConfig: NextConfig = {
+  compiler: {
+    /**
+     * Les drapeaux de tree-shaking du SDK Sentry (fluidité #331, item 8).
+     * L'app ne remonte que des erreurs (`tracesSampleRate: 0`, pas de Replay,
+     * cf. instrumentation-client.ts et sentry.*.config.ts), mais le SDK
+     * navigateur partait ENTIER dans le chunk racine de toutes les routes —
+     * tracing compris (~410 Ko non gzip pour react-dom + Sentry). Ce sont les
+     * mêmes constantes que `withSentryConfig({ bundleSizeOptimizations })`
+     * pose… en webpack seulement (`@sentry/nextjs/build/cjs/config/webpack.js`) :
+     * sous Turbopack, c'est `compiler.define` qui les remplace à la compilation,
+     * client ET serveur (aucune des trois configs ne trace). ⚠️ Le jour où le
+     * serveur devra tracer (latence des server actions), retirer
+     * `__SENTRY_TRACING__` d'ici — ou le poser côté client seulement.
+     */
+    define: {
+      __SENTRY_DEBUG__: false,
+      __SENTRY_TRACING__: false,
+      __RRWEB_EXCLUDE_IFRAME__: true,
+      __RRWEB_EXCLUDE_SHADOW_DOM__: true,
+      __SENTRY_EXCLUDE_REPLAY_WORKER__: true,
+    },
+  },
   // Les en-têtes de sécurité de base : anti-clickjacking (l'app n'a aucune
   // raison d'être embarquée dans une iframe), anti-sniffing de type MIME, et
   // un referrer sobre. La CSP complète est un ticket séparé (risque de casser
