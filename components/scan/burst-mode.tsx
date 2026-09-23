@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
-import Link from "next/link";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { ErrorAlert } from "@/components/error-alert";
 import { CategoryDrawer } from "./category-drawer";
 import { BarcodeScanner } from "./barcode-scanner";
 import { BurstPhotoCapture } from "./burst-photo-capture";
+import { PendingInboxLink } from "./pending-inbox-link";
 import { recordOwnership, recordOwnedPastReading, recordPastReading, recordPurchase, type BookInput } from "@/lib/books/actions";
 import { createTaskQueue } from "@/lib/books/repair-queue";
 import { SCORING_SCALE } from "@/lib/scoring/scale";
@@ -135,7 +135,14 @@ const resolvedToInput = (book: ResolvedBook, scannedCode: string | null): BookIn
   seriesRef: book.seriesRef,
 });
 
-export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; pendingInboxCount: number }) {
+export function BurstMode({
+  onExit,
+  pendingInboxCount,
+}: {
+  onExit: () => void;
+  /** La boîte d'AVANT la session — promesse serveur ou nombre (#331 item 5), lue par la pastille seule. */
+  pendingInboxCount: Promise<number> | number;
+}) {
   // La session survit à la navigation (#131) : aller compléter la boîte de
   // finition puis revenir retrouve la liste et les réglages tels quels.
   // Initialisation PARESSEUSE (une seule lecture) — BurstMode ne monte que
@@ -379,7 +386,6 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
    * PLUS du stock : les captures neuves de CETTE session.
    */
   const sessionBoxCount = items.filter((item) => item.status === "inbox" && !item.restored).length;
-  const boxTotal = pendingInboxCount + sessionBoxCount;
 
   /**
    * « Je me suis trompé de livre » — on défait ce que le scan vient de créer.
@@ -505,20 +511,11 @@ export function BurstMode({ onExit, pendingInboxCount }: { onExit: () => void; p
         {toCompleteCount > 0 && ` · ${toCompleteCount} à compléter`}
       </p>
 
-      {/* `Link` et non `<a>` (#131) : un ancre brut rechargeait TOUTE l'app
-          (splash comprise). La phrase vit dans UNE expression : le découpage
-          JSX mangeait l'espace avant « à » (#130). Le total inclut la boîte
-          d'AVANT la session — on le dit, sinon il a l'air doublé (#130). */}
-      {boxTotal > 0 && (
-        <Link
-          href="/finition"
-          className="rounded-card border border-amber/40 bg-amber/10 p-3 text-sm text-ink underline underline-offset-2"
-        >
-          {`${boxTotal} livre${boxTotal > 1 ? "s" : ""} à compléter${
-            pendingInboxCount > 0 && sessionBoxCount > 0 ? ` (dont ${pendingInboxCount} d'avant cette session)` : ""
-          } — à faire quand tu veux, rien n'est perdu.`}
-        </Link>
-      )}
+      {/* La pastille de la boîte (#130, #131) — la feuille partagée avec le scan
+          unitaire ; le compte d'avant la session arrive en streaming. */}
+      <Suspense fallback={null}>
+        <PendingInboxLink count={pendingInboxCount} sessionBoxCount={sessionBoxCount} />
+      </Suspense>
 
       {items.length > 0 && (
         <ul className="flex flex-col gap-2">
