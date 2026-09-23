@@ -30,9 +30,9 @@ const DECODE_INTERVAL_MILLISECONDS = 180;
 /** Autant de rejets du décodeur SANS jamais un succès = le module WASM ne se charge pas. */
 const WASM_FAILURE_THRESHOLD = 3;
 /**
- * `tryHarder` (~2× de CPU) reste demandé tant qu'aucun code n'a été lu depuis
- * ce délai : une visée qui vient de réussir décode vite le livre suivant, une
- * visée qui peine retrouve toute la puissance du décodeur.
+ * `tryHarder` (~2× de CPU) reste demandé tant qu'aucun code VALIDE (checksum
+ * bon) n'a été lu depuis ce délai : une visée qui vient de réussir décode vite
+ * le livre suivant, une visée qui peine retrouve toute la puissance du décodeur.
  */
 const TRY_HARDER_RELAX_MILLISECONDS = 10_000;
 

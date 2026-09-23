@@ -13,15 +13,41 @@ export type BarcodeDecoder = {
   dispose(): void;
 };
 
+/**
+ * Un décodage qui dépasse ce délai est mort (review #349) : un `tryHarder` sur
+ * une frame 1080p prend ~100 ms. Un Worker tué par le navigateur (mémoire,
+ * arrière-plan) ne déclenche PAS `onerror` — sans délai, la promesse resterait
+ * en suspens et le scanner figé en silence. Au second délai consécutif, le
+ * Worker est abandonné pour le thread principal.
+ */
+const DECODE_TIMEOUT_MILLISECONDS = 1500;
+const CONSECUTIVE_TIMEOUTS_BEFORE_FALLBACK = 2;
+
 export function createBarcodeDecoder(): BarcodeDecoder {
   let worker: Worker | null = null;
   let mainThread: Promise<typeof import("zxing-wasm/reader")> | null = null;
   let nextId = 0;
-  const pending = new Map<number, { resolve: (codes: DecodedCode[]) => void; reject: (error: Error) => void }>();
+  let consecutiveTimeouts = 0;
+  const pending = new Map<
+    number,
+    { resolve: (codes: DecodedCode[]) => void; reject: (error: Error) => void; timer: ReturnType<typeof setTimeout> }
+  >();
 
+  const settle = (id: number) => {
+    const entry = pending.get(id);
+    if (!entry) return null;
+    clearTimeout(entry.timer);
+    pending.delete(id);
+    return entry;
+  };
   const rejectAllPending = (error: Error) => {
-    for (const entry of pending.values()) entry.reject(error);
-    pending.clear();
+    for (const id of [...pending.keys()]) settle(id)?.reject(error);
+  };
+  const abandonWorker = (reason: string) => {
+    console.error(`[scan] Worker de décodage abandonné (${reason}), décodage sur le thread principal.`);
+    worker?.terminate();
+    worker = null;
+    rejectAllPending(new Error(reason));
   };
 
   const loadMainThread = () => {
@@ -36,20 +62,15 @@ export function createBarcodeDecoder(): BarcodeDecoder {
     try {
       worker = new Worker(new URL("./barcode-decoder.worker.ts", import.meta.url), { type: "module" });
       worker.onmessage = (event: MessageEvent<DecodeResponse>) => {
-        const entry = pending.get(event.data.id);
-        if (!entry) return;
-        pending.delete(event.data.id);
+        const entry = settle(event.data.id);
+        if (!entry) return; // réponse en retard d'une frame déjà abandonnée
+        consecutiveTimeouts = 0;
         if (event.data.ok) entry.resolve(event.data.codes);
         else entry.reject(new Error(event.data.error));
       };
       // Le Worker ne démarre pas (script, CSP, réseau) : on bascule sur le
       // thread principal pour la suite — le décodage continue, plus lent.
-      worker.onerror = (event) => {
-        console.error("[scan] le Worker de décodage a échoué, repli sur le thread principal :", event.message);
-        worker?.terminate();
-        worker = null;
-        rejectAllPending(new Error(event.message || "worker"));
-      };
+      worker.onerror = (event) => abandonWorker(event.message || "erreur du Worker");
     } catch (error) {
       console.error("[scan] Worker de décodage indisponible, décodage sur le thread principal :", error);
       worker = null;
@@ -76,7 +97,14 @@ export function createBarcodeDecoder(): BarcodeDecoder {
       const pixels = imageData.data.buffer as ArrayBuffer;
       const request: DecodeRequest = { id, width: imageData.width, height: imageData.height, pixels, tryHarder };
       return new Promise<DecodedCode[]>((resolve, reject) => {
-        pending.set(id, { resolve, reject });
+        const timer = setTimeout(() => {
+          const entry = settle(id);
+          if (!entry) return;
+          consecutiveTimeouts += 1;
+          entry.reject(new Error("décodage sans réponse"));
+          if (consecutiveTimeouts >= CONSECUTIVE_TIMEOUTS_BEFORE_FALLBACK) abandonWorker("sans réponse");
+        }, DECODE_TIMEOUT_MILLISECONDS);
+        pending.set(id, { resolve, reject, timer });
         worker?.postMessage(request, [pixels]);
       });
     },
