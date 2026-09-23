@@ -1279,7 +1279,7 @@ Rappel technique : **`BarcodeDetector` natif ne renvoie pas le supplément de 5 
 avec deux particularités mesurées : il rend l'UPC-A sous forme EAN-13 (zéro de tête, retiré par le routeur) et
 ne cherche le supplément que dans une fenêtre d'écart stricte (~9-10 modules — les codes réels sont conformes).
 Un test de non-régression sur codes synthétiques verrouille tout ça. Le supplément reste une lecture
-opportuniste (fenêtre de grâce d'1,5 s au scan) : on ne peut jamais compter dessus — d'où cette cascade.
+opportuniste : on ne peut jamais compter dessus — d'où cette cascade. La fenêtre de grâce d'1,5 s du scanner ne vaut que pour les **UPC** (fascicules), où le supplément porte le numéro d'issue ; un **ISBN part au premier décodage**, son supplément étant le prix (fluidité #331, 23/09/2026).
 
 ### 5.4 Les couvertures — la photo est la vraie réponse
 

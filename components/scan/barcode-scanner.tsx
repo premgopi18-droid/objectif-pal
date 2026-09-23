@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { prepareZXingModule, readBarcodes } from "zxing-wasm/reader";
+import { isReadyToEmit } from "./supplement-grace";
 
 /**
  * La caméra qui lit les codes-barres — zxing-wasm (le ZXing C++ compilé en
@@ -12,9 +13,11 @@ import { prepareZXingModule, readBarcodes } from "zxing-wasm/reader";
  * numéro d'issue (specs §5.3).
  *
  * Le supplément reste rarement lisible sur la même frame que le code
- * principal : quand un code arrive SANS supplément, on n'émet pas tout de
+ * principal : quand un UPC arrive SANS supplément, on n'émet pas tout de
  * suite — fenêtre de grâce, puis les 12 chiffres partent seuls et la cascade
- * par préfixe prend le relais.
+ * par préfixe prend le relais. Un ISBN (978/979), lui, part au premier
+ * décodage : son supplément est le prix, que le routeur jette de toute façon
+ * (décision pure et testée dans supplement-grace.ts — fluidité #331).
  */
 
 // Le binaire WASM est servi par NOUS (copié dans public/wasm/ par postinstall,
@@ -173,9 +176,10 @@ export function BarcodeScanner({ onCode, continuous = false }: BarcodeScannerPro
 
         // zxing-cpp renvoie « principal<sep>supplément » : on ne garde que les chiffres.
         const digits = result.text.replace(/\D/g, "");
-        const hasSupplement = digits.length >= 14;
 
-        if (hasSupplement) {
+        // Complet tel quel (supplément déjà lu, ou ISBN dont le supplément ne
+        // sert à rien) : il part sans fenêtre de grâce.
+        if (isReadyToEmit(digits)) {
           emit(digits);
         } else if (!pendingRef.current) {
           setPendingDisplay(digits);
