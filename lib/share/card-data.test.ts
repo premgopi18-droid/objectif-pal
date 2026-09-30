@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deriveShareCardData, formatObjectiveCell } from "@/lib/share/card-data";
+import { computeMonthlyReport } from "@/lib/scoring/monthly-report";
 import type { MonthlyReport } from "@/lib/scoring/types";
 
 /**
@@ -77,9 +78,16 @@ describe("deriveShareCardData", () => {
     expect(sum(deriveShareCardData(achieved, "Premou").points) + 3).toBe(achieved.total);
   });
 
-  it("sans achat non lu, la ligne du malus vaut 0 — jamais −0", () => {
-    const card = deriveShareCardData({ ...augustReport, unreadPurchaseCount: 0, purchasePenalty: 0, total: 49.5 }, "x");
-    expect(Object.is(card.points[6], 0)).toBe(true);
+  it("les zéros du vrai moteur sont des +0 — jamais « −0 » sur la carte", () => {
+    // Un mois réel sans achat : la garde −0 vit dans computeMonthlyReport,
+    // les catégories vides donnent 0 × barème.
+    const report = computeMonthlyReport("2026-08", {
+      readings: [{ bookId: "a", category: "issue", status: "finished", startedAt: null, finishedAt: "2026-08-10" }],
+      purchases: [],
+    });
+    const card = deriveShareCardData(report, "x");
+    expect(card.points).toEqual([0.5, 0, 0, 0, 0, 0, 0]);
+    for (const points of card.points.slice(1)) expect(Object.is(points, 0)).toBe(true);
   });
 
   it("sans objectif déclaré, les 6 cellules sont « — »", () => {

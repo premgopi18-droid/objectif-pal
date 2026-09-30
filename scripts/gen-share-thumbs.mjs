@@ -10,7 +10,8 @@
  * pleine taille n'est chargé que par le rendu canvas du thème choisi.
  *
  * Régénérable : `node scripts/gen-share-thumbs.mjs` (à relancer si un fond
- * est recalibré). Les vignettes sont committées comme les fonds.
+ * est recalibré). Les vignettes sont committées comme les fonds, et partagent
+ * leur version (SHARE_BACKGROUND_VERSION, lib/share/themes.ts) — à bumper.
  */
 
 import { readdirSync } from "node:fs";

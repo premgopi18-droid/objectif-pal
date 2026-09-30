@@ -23,6 +23,18 @@
 export const CARD_WIDTH = 1024;
 export const CARD_HEIGHT = 1536;
 
+/**
+ * La version des fonds de thème — à bumper à CHAQUE régénération de
+ * `public/share/themes/` (fonds et vignettes). Ils sont servis 7 j + 30 j de
+ * stale-while-revalidate (`next.config.ts`) sous la même URL : sans version,
+ * un appareil dessinerait les données neuves sur l'ancien fond (review #352 :
+ * les points par-dessus le barème qui y était incrusté).
+ */
+export const SHARE_BACKGROUND_VERSION = 2;
+
+/** L'URL servie d'un fichier de fond (fond ou vignette), versionnée. */
+export const versionedBackgroundUrl = (path: string): string => `${path}?v=${SHARE_BACKGROUND_VERSION}`;
+
 /** Les polices auto-hébergées (woff2 latin, public/share/fonts/ — RGPD : jamais de hotlink Google). */
 export const SHARE_FONTS = {
   "alfa-slab-one": { family: "Alfa Slab One", weight: 400, italic: false, file: "alfa-slab-one-400.woff2" },
@@ -130,8 +142,8 @@ export type ShareTheme = {
     points: {
       /** Centre x de la colonne PTS. */
       x: number;
-      /** Corps FIXE ; `color` est l'encre des gains. */
-      style: ShareTextStyle;
+      /** Corps FIXE ; `color` est l'encre des gains — pleine, jamais un dégradé (l'encre se choisit au signe). */
+      style: ShareTextStyle & { color: string; gradient?: never };
       /** L'encre du malus. */
       penaltyColor: string;
       /** L'encre du zéro — par défaut celle des compteurs. */

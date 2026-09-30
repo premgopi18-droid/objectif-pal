@@ -10,7 +10,9 @@
 //    1024×1536 inchangées — le fichier de coordonnées en dépend.
 //
 // À relancer à chaque nouveau thème ou nouvelle police, puis committer les
-// sorties (public/ est servi statique).
+// sorties (public/ est servi statique). Fond modifié en place → bumper
+// SHARE_BACKGROUND_VERSION (lib/share/themes.ts) : le cache HTTP garde sinon
+// l'ancien fond jusqu'à 37 jours (review #352).
 import { mkdirSync, writeFileSync } from "node:fs";
 import pkg from "../package.json" with { type: "json" };
 import sharp from "sharp";

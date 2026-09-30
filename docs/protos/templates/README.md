@@ -36,7 +36,8 @@ affiche désormais ce que chaque ligne RAPPORTE, dessiné par l'app (specs
 
 Première passe de vierges livrée : pseudo, date, score, compteurs et jauges
 vidés sur les 10 — la cartographie du proto (calée sur les originaux)
-transfère telle quelle. **Reste à nettoyer à la prochaine passe** :
+transfère telle quelle. **Reste à nettoyer à la prochaine passe** (✅ fait le
+01/10/2026, voir la passe plus bas) :
 
 1. Les six valeurs d'objectif « 0 / 0 » (à droite de Issue/Manga/BD/Comics/
    Omnibus/Roman) — sur les 10 thèmes. Libellés et jauges vides restent.

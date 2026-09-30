@@ -8,6 +8,7 @@ import {
   type ShareGradient,
   type ShareTextStyle,
   type ShareTheme,
+  versionedBackgroundUrl,
 } from "@/lib/share/themes";
 
 /**
@@ -301,7 +302,7 @@ export async function renderShareCard(
   avatarUrl: string | null,
 ): Promise<void> {
   const [background, avatar] = await Promise.all([
-    loadCardImage(theme.background),
+    loadCardImage(versionedBackgroundUrl(theme.background)),
     avatarUrl === null ? Promise.resolve(null) : loadCardImage(avatarUrl).catch(() => null),
     loadThemeFonts(theme),
   ]);
