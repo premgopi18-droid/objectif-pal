@@ -23,6 +23,18 @@
 export const CARD_WIDTH = 1024;
 export const CARD_HEIGHT = 1536;
 
+/**
+ * La version des fonds de thème — à bumper à CHAQUE régénération de
+ * `public/share/themes/` (fonds et vignettes). Ils sont servis 7 j + 30 j de
+ * stale-while-revalidate (`next.config.ts`) sous la même URL : sans version,
+ * un appareil dessinerait les données neuves sur l'ancien fond (review #352 :
+ * les points par-dessus le barème qui y était incrusté).
+ */
+export const SHARE_BACKGROUND_VERSION = 2;
+
+/** L'URL servie d'un fichier de fond (fond ou vignette), versionnée. */
+export const versionedBackgroundUrl = (path: string): string => `${path}?v=${SHARE_BACKGROUND_VERSION}`;
+
 /** Les polices auto-hébergées (woff2 latin, public/share/fonts/ — RGPD : jamais de hotlink Google). */
 export const SHARE_FONTS = {
   "alfa-slab-one": { family: "Alfa Slab One", weight: 400, italic: false, file: "alfa-slab-one-400.woff2" },
@@ -119,6 +131,24 @@ export type ShareTheme = {
     x: number;
     /** Corps FIXE des compteurs. */
     countStyle: ShareTextStyle;
+    /**
+     * La colonne PTS : les points GAGNÉS par ligne (lectures × barème, malus
+     * des achats), sur les mêmes lignes `rows` que les compteurs. Police,
+     * corps, interlettrage et encres relevés par superposition sur le barème
+     * que les fonds portaient avant (fonds de prod − fonds vierges). Le zéro
+     * prend une encre neutre : un « 0 » rouge sur « Titre acheté non lu »
+     * annoncerait un malus qui n'existe pas.
+     */
+    points: {
+      /** Centre x de la colonne PTS. */
+      x: number;
+      /** Corps FIXE ; `color` est l'encre des gains — pleine, jamais un dégradé (l'encre se choisit au signe). */
+      style: ShareTextStyle & { color: string; gradient?: never };
+      /** L'encre du malus. */
+      penaltyColor: string;
+      /** L'encre du zéro — par défaut celle des compteurs. */
+      zeroColor?: string;
+    };
   };
 };
 
@@ -154,6 +184,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     table: {
       rows: [1043, 1103, 1163, 1223, 1283, 1341, 1401], x: 565,
       countStyle: { font: "exo-2-600", size: 34, color: "#eae6f8" },
+      points: { x: 806, style: { font: "exo-2-600", size: 38, color: "#34d5a4", letterSpacing: 0.05 }, penaltyColor: "#d53761" },
     },
   },
   {
@@ -184,6 +215,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     table: {
       rows: [1130, 1178, 1222, 1268, 1312, 1358, 1404], x: 595,
       countStyle: { font: "special-elite", size: 38, color: "#3a332a" },
+      points: { x: 801, style: { font: "special-elite", size: 30, color: "#3c2c14", letterSpacing: 0.15 }, penaltyColor: "#763b28" },
     },
   },
   {
@@ -223,6 +255,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     table: {
       rows: [1068, 1123, 1178, 1235, 1290, 1346, 1402], x: 567,
       countStyle: { font: "oswald-600", size: 36, color: "#0b0907" },
+      points: { x: 812, style: { font: "oswald-600", size: 36, color: "#0b0806", letterSpacing: 0.05 }, penaltyColor: "#9a1613" },
     },
   },
   {
@@ -259,6 +292,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     table: {
       rows: [1068, 1120, 1171, 1223, 1275, 1326, 1377], x: 575,
       countStyle: { font: "eb-garamond-600", size: 37, color: "#d8c9a4" },
+      points: { x: 807, style: { font: "eb-garamond-600", size: 37, color: "#a78552", letterSpacing: 0.02 }, penaltyColor: "#8f3e30" },
     },
   },
   {
@@ -289,6 +323,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     table: {
       rows: [1067, 1120, 1173, 1227, 1281, 1335, 1390], x: 560,
       countStyle: { font: "special-elite", size: 38, color: "#362a17" },
+      points: { x: 790, style: { font: "special-elite", size: 36, color: "#261706", letterSpacing: 0.14 }, penaltyColor: "#4b290e" },
     },
   },
   {
@@ -319,6 +354,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     table: {
       rows: [1084, 1134, 1183, 1232, 1281, 1331, 1380], x: 565,
       countStyle: { font: "oswald-500", size: 35, color: "#d6d0c0" },
+      points: { x: 798, style: { font: "oswald-500", size: 29.5, color: "#b2aca4", letterSpacing: 0.15 }, penaltyColor: "#813538" },
     },
   },
   {
@@ -351,6 +387,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     table: {
       rows: [1073, 1127, 1180, 1234, 1288, 1342, 1396], x: 567,
       countStyle: { font: "eb-garamond-500", size: 37, color: "#5f4a44" },
+      points: { x: 801, style: { font: "eb-garamond-500", size: 34, color: "#604c44", letterSpacing: 0.03 }, penaltyColor: "#a07d7c" },
     },
   },
   {
@@ -394,6 +431,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     table: {
       rows: [995, 1036, 1077, 1118, 1159, 1200, 1241], x: 570,
       countStyle: { font: "rajdhani-700", size: 34, color: "#8ecfec" },
+      points: { x: 778, style: { font: "rajdhani-700", size: 34, color: "#86d1ef", letterSpacing: 0.05 }, penaltyColor: "#c06364" },
     },
   },
   {
@@ -439,6 +477,20 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     table: {
       rows: [1043, 1096, 1149, 1201, 1254, 1306, 1360], x: 572,
       countStyle: { font: "archivo-black", size: 34, color: "#16120e" },
+      points: {
+        // Le seul qui quitte la police des compteurs : le barème du fond était
+        // en capitales grasses penchées, cerclées de noir (contour centré sur le
+        // tracé → 7 px pour ~3,5 px visibles autour du remplissage).
+        x: 808,
+        style: {
+          font: "archivo-black", size: 40, color: "#1f4a8f", letterSpacing: 0.02, skewDeg: -10,
+          stroke: { width: 7, color: "#15100c" },
+        },
+        penaltyColor: "#c42e25",
+        // L'encre des compteurs sous ce contour noir ferait une tache : le zéro
+        // prend le crème du pseudo, cerclé comme lui.
+        zeroColor: "#f2e5c8",
+      },
     },
   },
   {
@@ -469,6 +521,7 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     table: {
       rows: [1075, 1123, 1170, 1219, 1267, 1315, 1364], x: 590,
       countStyle: { font: "graduate", size: 38, color: "#46301a" },
+      points: { x: 792, style: { font: "graduate", size: 32, color: "#4b2f0d", letterSpacing: 0.04 }, penaltyColor: "#783210" },
     },
   },
 ];

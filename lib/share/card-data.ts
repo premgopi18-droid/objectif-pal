@@ -1,5 +1,6 @@
 import { formatMonthFrench } from "@/lib/dates";
 import { formatPoints } from "@/lib/scoring/report-text";
+import { SCORING_SCALE } from "@/lib/scoring/scale";
 import { ALL_CATEGORIES, type MonthlyReport } from "@/lib/scoring/types";
 
 /**
@@ -32,6 +33,12 @@ export type ShareCardData = {
   objectives: ShareObjectiveCell[];
   /** 7 compteurs : les 6 catégories puis « Titre acheté non lu ». */
   counts: number[];
+  /**
+   * 7 points, alignés sur les compteurs : ce que chaque ligne RAPPORTE au mois
+   * (lectures × barème, puis le malus des achats non lus). Le bonus d'objectif
+   * n'a pas de ligne au tableau : colonne + bonus = score.
+   */
+  points: number[];
 };
 
 export function deriveShareCardData(report: MonthlyReport, displayName: string): ShareCardData {
@@ -47,6 +54,10 @@ export function deriveShareCardData(report: MonthlyReport, displayName: string):
       return { finished: line.finished, target: line.target, ratio: Math.min(1, line.finished / line.target) };
     }),
     counts: [...ALL_CATEGORIES.map((category) => report.finishedByCategory[category]), report.unreadPurchaseCount],
+    points: [
+      ...ALL_CATEGORIES.map((category) => report.finishedByCategory[category] * SCORING_SCALE.pointsByCategory[category]),
+      report.purchasePenalty,
+    ],
   };
 }
 

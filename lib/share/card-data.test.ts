@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { deriveShareCardData, formatObjectiveCell } from "@/lib/share/card-data";
+import { computeMonthlyReport } from "@/lib/scoring/monthly-report";
 import type { MonthlyReport } from "@/lib/scoring/types";
 
 /**
@@ -56,6 +57,37 @@ describe("deriveShareCardData", () => {
   it("les 7 compteurs : les 6 catégories puis l'achat non lu", () => {
     const card = deriveShareCardData(augustReport, "Premou");
     expect(card.counts).toEqual([37, 0, 0, 7, 0, 2, 1]);
+  });
+
+  it("la colonne PTS : ce que chaque ligne rapporte, pas le barème", () => {
+    const card = deriveShareCardData(augustReport, "Premou");
+    // 37 issues × 0,5 · 7 comics × 3 · 2 romans × 5 · 1 achat non lu × −1.
+    expect(card.points).toEqual([18.5, 0, 0, 21, 0, 10, -1]);
+  });
+
+  it("colonne PTS + bonus d'objectif = score du mois", () => {
+    const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
+    const august = deriveShareCardData(augustReport, "Premou");
+    expect(sum(august.points)).toBe(augustReport.total);
+
+    const achieved: MonthlyReport = {
+      ...augustReport,
+      objective: { progress: [{ category: "comics", target: 6, finished: 7 }], achieved: true, bonus: 3 },
+      total: 51.5,
+    };
+    expect(sum(deriveShareCardData(achieved, "Premou").points) + 3).toBe(achieved.total);
+  });
+
+  it("les zéros du vrai moteur sont des +0 — jamais « −0 » sur la carte", () => {
+    // Un mois réel sans achat : la garde −0 vit dans computeMonthlyReport,
+    // les catégories vides donnent 0 × barème.
+    const report = computeMonthlyReport("2026-08", {
+      readings: [{ bookId: "a", category: "issue", status: "finished", startedAt: null, finishedAt: "2026-08-10" }],
+      purchases: [],
+    });
+    const card = deriveShareCardData(report, "x");
+    expect(card.points).toEqual([0.5, 0, 0, 0, 0, 0, 0]);
+    for (const points of card.points.slice(1)) expect(Object.is(points, 0)).toBe(true);
   });
 
   it("sans objectif déclaré, les 6 cellules sont « — »", () => {
