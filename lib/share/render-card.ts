@@ -1,3 +1,4 @@
+import { formatPoints } from "@/lib/scoring/report-text";
 import { formatObjectiveCell, type ShareCardData } from "@/lib/share/card-data";
 import {
   CARD_HEIGHT,
@@ -44,6 +45,7 @@ function themeFontKeys(theme: ShareTheme): ShareFontKey[] {
       theme.score.style.font,
       theme.objectives.valueStyle.font,
       theme.table.countStyle.font,
+      theme.table.points.style.font,
     ]),
   ];
 }
@@ -273,6 +275,18 @@ function drawCounts(ctx: Ctx, theme: ShareTheme, data: ShareCardData): void {
   });
 }
 
+/**
+ * La colonne PTS : ce que chaque ligne rapporte, à l'encre du signe — gain,
+ * malus, ou l'encre neutre du zéro (§4.15).
+ */
+function drawPoints(ctx: Ctx, theme: ShareTheme, data: ShareCardData): void {
+  const { x, style, penaltyColor, zeroColor = theme.table.countStyle.color } = theme.table.points;
+  data.points.forEach((points, index) => {
+    const color = points > 0 ? style.color : points < 0 ? penaltyColor : zeroColor;
+    drawText(ctx, formatPoints(points), x, theme.table.rows[index], { ...style, color });
+  });
+}
+
 // --- L'entrée du moteur ------------------------------------------------------
 
 /**
@@ -304,6 +318,7 @@ export async function renderShareCard(
   drawText(ctx, data.score, theme.score.x, theme.score.y, theme.score.style, { maxWidth: theme.score.maxWidth });
   drawObjectives(ctx, theme, data);
   drawCounts(ctx, theme, data);
+  drawPoints(ctx, theme, data);
 }
 
 /** L'image à partager — JPEG qualité 0,9 (~300 Ko), parfait pour une feuille native. */

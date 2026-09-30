@@ -68,11 +68,26 @@ describe("SHARE_THEMES", () => {
     }
   });
 
+  it("la colonne PTS : à droite des compteurs, dans le cadre, trois encres pleines", () => {
+    for (const theme of SHARE_THEMES) {
+      const { points, countStyle } = theme.table;
+      expect(points.x).toBeGreaterThan(theme.table.x);
+      expect(points.x).toBeLessThan(CARD_WIDTH);
+      expect(points.style.size).toBeGreaterThan(0);
+      // Gain, malus, zéro (encre des compteurs) : l'encre se choisit au signe,
+      // un dégradé n'aurait pas de sens ici.
+      expect(points.style.gradient).toBeUndefined();
+      for (const color of [points.style.color, points.penaltyColor, points.zeroColor ?? countStyle.color]) {
+        expect(color).toMatch(/^#[0-9a-f]{6}$/i);
+      }
+    }
+  });
+
   it("chaque police référencée existe dans le registre auto-hébergé", () => {
     for (const theme of SHARE_THEMES) {
       const keys = [
         theme.name.style.font, theme.month.style.font, theme.score.style.font,
-        theme.objectives.valueStyle.font, theme.table.countStyle.font,
+        theme.objectives.valueStyle.font, theme.table.countStyle.font, theme.table.points.style.font,
       ];
       for (const key of keys) expect(SHARE_FONTS[key]).toBeDefined();
     }

@@ -58,6 +58,30 @@ describe("deriveShareCardData", () => {
     expect(card.counts).toEqual([37, 0, 0, 7, 0, 2, 1]);
   });
 
+  it("la colonne PTS : ce que chaque ligne rapporte, pas le barème", () => {
+    const card = deriveShareCardData(augustReport, "Premou");
+    // 37 issues × 0,5 · 7 comics × 3 · 2 romans × 5 · 1 achat non lu × −1.
+    expect(card.points).toEqual([18.5, 0, 0, 21, 0, 10, -1]);
+  });
+
+  it("colonne PTS + bonus d'objectif = score du mois", () => {
+    const sum = (values: number[]) => values.reduce((total, value) => total + value, 0);
+    const august = deriveShareCardData(augustReport, "Premou");
+    expect(sum(august.points)).toBe(augustReport.total);
+
+    const achieved: MonthlyReport = {
+      ...augustReport,
+      objective: { progress: [{ category: "comics", target: 6, finished: 7 }], achieved: true, bonus: 3 },
+      total: 51.5,
+    };
+    expect(sum(deriveShareCardData(achieved, "Premou").points) + 3).toBe(achieved.total);
+  });
+
+  it("sans achat non lu, la ligne du malus vaut 0 — jamais −0", () => {
+    const card = deriveShareCardData({ ...augustReport, unreadPurchaseCount: 0, purchasePenalty: 0, total: 49.5 }, "x");
+    expect(Object.is(card.points[6], 0)).toBe(true);
+  });
+
   it("sans objectif déclaré, les 6 cellules sont « — »", () => {
     const card = deriveShareCardData({ ...augustReport, objective: null }, "Premou");
     expect(card.objectives).toEqual([null, null, null, null, null, null]);

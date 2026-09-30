@@ -91,6 +91,8 @@ describe("buildGuestReport", () => {
     expect(card.name).toBe("LÉNA");
     expect(card.monthLabel).toBe("SEPTEMBRE 2026");
     expect(card.counts).toEqual([4, 2, 1, 3, 0, 1, 2]);
+    // Le vrai barème, jamais recopié : 4 × 0,5 · 2 × 1 · 1 × 2 · 3 × 3 · 0 · 1 × 5 · 2 × −1.
+    expect(card.points).toEqual([2, 2, 2, 9, 0, 5, -2]);
     expect(card.objectives[0]).toEqual({ finished: 4, target: 5, ratio: 4 / 5 });
   });
 });
