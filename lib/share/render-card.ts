@@ -1,5 +1,5 @@
 import { formatPoints } from "@/lib/scoring/report-text";
-import { arcGlyphPlacements } from "@/lib/share/arc-layout";
+import { arcGlyphPlacements, splitGraphemes } from "@/lib/share/arc-layout";
 import { formatObjectiveCell, type ShareCardData } from "@/lib/share/card-data";
 import {
   CARD_HEIGHT,
@@ -228,7 +228,7 @@ function drawText(
     // centre du mot. Le rayon est en px de la carte : un pseudo rétréci garde la
     // courbure de son cartouche. Les ombres restent verticales (le canvas les
     // décale dans l'espace de l'écran, pas dans celui du glyphe).
-    const characters = [...text];
+    const characters = splitGraphemes(text);
     const prefixWidths = characters.map((_, index) => ctx.measureText(characters.slice(0, index).join("")).width);
     prefixWidths.push(ctx.measureText(text).width);
     const spacing = letterSpacingSupported() ? (style.letterSpacing ?? 0) * style.size : 0;

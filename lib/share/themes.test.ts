@@ -1,3 +1,5 @@
+import { existsSync } from "node:fs";
+import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   CARD_HEIGHT,
@@ -112,6 +114,13 @@ describe("SHARE_THEMES", () => {
         expect(style.arcRadius).toBeGreaterThan(0);
         expect(style.gradient).toBeUndefined();
       }
+    }
+  });
+
+  it("chaque police du registre a son fichier sous public/share/fonts/ — sans lui, tout le thème échoue au rendu", () => {
+    for (const font of Object.values(SHARE_FONTS)) {
+      const file = join(process.cwd(), "public", "share", "fonts", font.file);
+      expect(existsSync(file), `police absente : ${font.file}`).toBe(true);
     }
   });
 

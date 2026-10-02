@@ -1,5 +1,19 @@
 import { describe, expect, it } from "vitest";
-import { arcGlyphPlacements } from "@/lib/share/arc-layout";
+import { arcGlyphPlacements, splitGraphemes } from "@/lib/share/arc-layout";
+
+describe("splitGraphemes", () => {
+  it("un emoji composé, un drapeau et un accent décomposé restent d'un seul tenant (review #354)", () => {
+    expect(splitGraphemes("LÉNA 👩‍🚀")).toEqual(["L", "É", "N", "A", " ", "👩‍🚀"]);
+    expect(splitGraphemes("🇫🇷")).toEqual(["🇫🇷"]);
+    // « É » saisi en forme décomposée : E + accent aigu combinant.
+    expect(splitGraphemes("ÉTÉ")).toEqual(["É", "T", "É"]);
+  });
+
+  it("le texte se recompose à l'identique", () => {
+    const text = "Capitaine 🏴‍☠️ Barbe-Rousse";
+    expect(splitGraphemes(text).join("")).toBe(text);
+  });
+});
 
 /**
  * Le texte cintré (§4.15) : la géométrie seule, sans canvas. Un mot de six

@@ -10,6 +10,21 @@
  * conservé, ce qu'un mesurage lettre par lettre perdrait.
  */
 
+/**
+ * Les GRAPHÈMES du texte — l'unité que l'œil lit comme un caractère, donc
+ * celle que l'arc doit poser d'un bloc (review #354). Un découpage en points
+ * de code éclaterait un emoji composé (👩‍🚀 = 👩 + ZWJ + 🚀), un drapeau (deux
+ * lettres régionales) ou un accent décomposé (E + ◌́, fréquent au copier-coller)
+ * — et rien n'interdit ces caractères dans un pseudo ou un nom d'invité.
+ * Locale non posée : le découpage en graphèmes ne dépend pas de la langue.
+ */
+export function splitGraphemes(text: string): string[] {
+  if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+    return [...new Intl.Segmenter(undefined, { granularity: "grapheme" }).segment(text)].map((part) => part.segment);
+  }
+  return [...text];
+}
+
 export type ArcGlyphPlacement = {
   /** Décalage horizontal du centre du glyphe, depuis le centre du mot. */
   x: number;
