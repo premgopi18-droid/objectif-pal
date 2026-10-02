@@ -1,4 +1,5 @@
 import { formatPoints } from "@/lib/scoring/report-text";
+import { arcGlyphPlacements } from "@/lib/share/arc-layout";
 import { formatObjectiveCell, type ShareCardData } from "@/lib/share/card-data";
 import {
   CARD_HEIGHT,
@@ -188,29 +189,58 @@ function drawText(
   // Échelle et penché autour du point d'ancrage — comme le span du proto.
   ctx.translate(anchorX, baseline);
   if (scale !== 1) ctx.scale(scale, scale);
-  if (style.skewDeg) ctx.transform(1, 0, Math.tan((style.skewDeg * Math.PI) / 180), 1, 0, 0);
+  // Étirement vertical autour de la ligne de base : le pied des glyphes reste en place.
+  if (style.scaleY !== undefined) ctx.scale(1, style.scaleY);
+  const applySkew = () => {
+    if (style.skewDeg) ctx.transform(1, 0, Math.tan((style.skewDeg * Math.PI) / 180), 1, 0, 0);
+  };
 
   const paint = textPaint(ctx, style, width / 2, width, 0);
 
-  // CSS peint la première ombre AU-DESSUS des suivantes → ordre inverse ici.
-  for (const shadow of [...(style.shadows ?? [])].reverse()) {
-    ctx.save();
-    ctx.shadowColor = shadow.color;
-    ctx.shadowOffsetX = shadow.dx;
-    ctx.shadowOffsetY = shadow.dy;
-    ctx.shadowBlur = shadow.blur;
+  // Les trois couches d'un texte, à l'origine courante.
+  const paintRun = (run: string, left: number) => {
+    // CSS peint la première ombre AU-DESSUS des suivantes → ordre inverse ici.
+    for (const shadow of [...(style.shadows ?? [])].reverse()) {
+      ctx.save();
+      ctx.shadowColor = shadow.color;
+      ctx.shadowOffsetX = shadow.dx;
+      ctx.shadowOffsetY = shadow.dy;
+      ctx.shadowBlur = shadow.blur;
+      ctx.fillStyle = paint;
+      ctx.fillText(run, left, 0);
+      ctx.restore();
+    }
+    if (style.stroke) {
+      ctx.lineWidth = style.stroke.width;
+      ctx.lineJoin = "round";
+      ctx.strokeStyle = style.stroke.color;
+      ctx.strokeText(run, left, 0);
+    }
     ctx.fillStyle = paint;
-    ctx.fillText(text, 0, 0);
-    ctx.restore();
+    ctx.fillText(run, left, 0);
+  };
+
+  if (style.arcRadius === undefined) {
+    applySkew();
+    paintRun(text, 0);
+  } else {
+    // Texte cintré : chaque glyphe sur l'arc, incliné sur sa tangente, autour du
+    // centre du mot. Le rayon est en px de la carte : un pseudo rétréci garde la
+    // courbure de son cartouche. Les ombres restent verticales (le canvas les
+    // décale dans l'espace de l'écran, pas dans celui du glyphe).
+    const characters = [...text];
+    const prefixWidths = characters.map((_, index) => ctx.measureText(characters.slice(0, index).join("")).width);
+    prefixWidths.push(ctx.measureText(text).width);
+    const spacing = letterSpacingSupported() ? (style.letterSpacing ?? 0) * style.size : 0;
+    arcGlyphPlacements(prefixWidths, spacing, style.arcRadius / scale).forEach((glyph, index) => {
+      ctx.save();
+      ctx.translate(width / 2 + glyph.x, glyph.y);
+      ctx.rotate(glyph.angle);
+      applySkew();
+      paintRun(characters[index], -glyph.width / 2);
+      ctx.restore();
+    });
   }
-  if (style.stroke) {
-    ctx.lineWidth = style.stroke.width;
-    ctx.lineJoin = "round";
-    ctx.strokeStyle = style.stroke.color;
-    ctx.strokeText(text, 0, 0);
-  }
-  ctx.fillStyle = paint;
-  ctx.fillText(text, 0, 0);
   ctx.restore();
 }
 

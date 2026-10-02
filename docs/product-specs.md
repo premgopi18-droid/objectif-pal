@@ -917,7 +917,7 @@ décisions tranchées en discussion (août 2026, protos `docs/protos/`) :
   tableau des catégories — **sans les distinctions** (le suspense des révélations appartient à
   l'antenne). La version « classique » (distinctions 🏆🎉💀 en couvertures — la carte d'archive)
   est **remise à plus tard** : elle exigera sa propre déclinaison de fonds, avec une zone dédiée.
-- **Des fonds fixes, l'app ne dessine que les données.** Les 10 thèmes (`docs/protos/templates/`,
+- **Des fonds fixes, l'app ne dessine que les données.** Les 11 thèmes (`docs/protos/templates/`,
   2:3, 1024×1536) partagent la **même grille** : UN fichier de coordonnées les sert tous, un thème
   de plus = une image de plus, zéro code. Seul le « Bonus +3 » reste incrusté dans les fonds →
   **à revérifier contre `lib/scoring/scale.ts` à chaque fond ajouté** (un barème divergent
@@ -929,6 +929,11 @@ décisions tranchées en discussion (août 2026, protos `docs/protos/`) :
   corps, interlettrage et encres relevés par superposition (fond de prod − fond vierge), sur les
   lignes des compteurs (le centre réel des cellules, mesuré). Encre au signe : gain, malus, et un
   zéro neutre — un « 0 » rouge annoncerait un malus qui n'existe pas.
+- **« Carte au trésor », le 11ᵉ thème (03/10/2026)** — fourni en modèle rempli + vierge, calé par
+  superposition au vrai moteur (méthode : README des templates). La fidélité au modèle prime : le
+  moteur gagne deux réglages optionnels, nés de ce fond — `arcRadius` (le pseudo suit l'arc de la
+  bannière) et `scaleY` (le « +21 » du modèle, plus haut que la police la plus proche, retombe au
+  pixel sur sa boîte). Les 10 autres thèmes n'en utilisent aucun.
 - **Rendu côté client, au canvas** : tout est déjà dans le navigateur au moment du Bilan (rapport,
   avatar) — zéro coût serveur. Partage via `navigator.share({ files })` (feuille native mobile),
   repli téléchargement sur desktop. L'option **texte** existante reste : deux formats, deux usages

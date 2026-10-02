@@ -20,6 +20,7 @@ import sharp from "sharp";
 void pkg; // (import racine : garde le script ancré au projet)
 
 const FONTS = [
+  { family: "Alegreya", weights: [900] },
   { family: "Alfa Slab One", weights: [400] },
   { family: "Anton", weights: [400] },
   { family: "Archivo Black", weights: [400] },
@@ -31,6 +32,7 @@ const FONTS = [
   { family: "Graduate", weights: [400] },
   { family: "Grenze Gotisch", weights: [700] },
   { family: "Knewave", weights: [400] },
+  { family: "Literata", weights: [700, 800] },
   { family: "Orbitron", weights: [800] },
   { family: "Oswald", weights: [500, 600] },
   { family: "Playfair Display", weights: [600, 700] },
@@ -69,7 +71,7 @@ for (const font of FONTS) {
 }
 
 console.log("Fonds :");
-for (let i = 0; i <= 9; i++) {
+for (let i = 0; i <= 10; i++) {
   const source = new URL(`../docs/protos/templates/theme_${i}_virgin.jpeg`, import.meta.url);
   const target = new URL(`../public/share/themes/theme_${i}.webp`, import.meta.url);
   const buffer = await sharp(source.pathname.replace(/^\/(?=[A-Za-z]:)/, "")).webp({ quality: 80, effort: 6 }).toBuffer();

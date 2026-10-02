@@ -16,10 +16,10 @@ import {
  */
 
 describe("SHARE_THEMES", () => {
-  it("dix thèmes, identifiants uniques, fonds sous /share/themes/", () => {
-    expect(SHARE_THEMES).toHaveLength(10);
+  it("onze thèmes, identifiants uniques, fonds sous /share/themes/", () => {
+    expect(SHARE_THEMES).toHaveLength(11);
     const ids = SHARE_THEMES.map((theme) => theme.id);
-    expect(new Set(ids).size).toBe(10);
+    expect(new Set(ids).size).toBe(SHARE_THEMES.length);
     for (const theme of SHARE_THEMES) {
       expect(theme.background).toBe(`/share/themes/${theme.id}.webp`);
       expect(theme.label.length).toBeGreaterThan(0);
@@ -92,6 +92,25 @@ describe("SHARE_THEMES", () => {
       expect(points.style.gradient).toBeUndefined();
       for (const color of [points.style.color, points.penaltyColor, points.zeroColor ?? countStyle.color]) {
         expect(color).toMatch(/^#[0-9a-f]{6}$/i);
+      }
+    }
+  });
+
+  it("un texte cintré a un rayon positif et une encre pleine, un étirement reste modeste", () => {
+    for (const theme of SHARE_THEMES) {
+      const styles = [
+        theme.name.style, theme.month.style, theme.score.style,
+        theme.objectives.valueStyle, theme.table.countStyle, theme.table.points.style,
+      ];
+      for (const style of styles) {
+        // Un étirement vertical reste modeste : c'est une correction de proportion, pas un effet.
+        if (style.scaleY !== undefined) {
+          expect(style.scaleY).toBeGreaterThan(0.8);
+          expect(style.scaleY).toBeLessThan(1.25);
+        }
+        if (style.arcRadius === undefined) continue;
+        expect(style.arcRadius).toBeGreaterThan(0);
+        expect(style.gradient).toBeUndefined();
       }
     }
   });
