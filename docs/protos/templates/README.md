@@ -1,7 +1,7 @@
 # Templates des cartes de partage (discussion août 2026)
 
-Les 10 fonds candidats pour le partage du bilan en image (format 2:3, 1024×1536,
-générés le 21/08/2026). **Ils partagent tous la même grille** — pseudo, rond
+Les fonds du partage du bilan en image (format 2:3, 1024×1536 — les 10 premiers
+générés le 21/08/2026, `theme_10` le 03/10/2026). **Ils partagent tous la même grille** — pseudo, rond
 photo, bloc score du mois, jauges d'objectif (6 catégories), tableau des
 catégories avec le barème incrusté et la colonne du milieu vide pour les
 compteurs — donc un seul fichier de coordonnées pourra servir tous les thèmes.
@@ -18,6 +18,7 @@ compteurs — donc un seul fichier de coordonnées pourra servir tous les thème
 | `theme_7` | Sci-fi industriel (métal, hologramme, interrupteurs) |
 | `theme_8` | Comics rétro pop (halftone, bulles, étoiles) |
 | `theme_9` | Avis de recherche western (bois, corde, étoile de shérif) |
+| `theme_10` | Carte au trésor (parchemin, boussole, bannière) |
 
 ⚠️ **Pas encore vierges** : `PSEUDO`, `AOÛT 2026`, `+21` et les `0 / 0` des
 jauges sont incrustés dans l'image — des valeurs d'exemple, pas des zones
@@ -77,3 +78,25 @@ texturés), puis échantillonne les encres au cœur des glyphes. Vérifié ensui
 avec le vrai moteur : centre x exact (0-1 px) sur les 10. En y, les points
 suivent les lignes des compteurs, qui tombent au centre mesuré des cellules
 (0-3 px) — l'ancien barème, lui, dérivait jusqu'à 7 px (t1, t4).
+
+## `theme_10` « Carte au trésor » — 03/10/2026
+
+**Le vierge du repo n'est pas le vierge brut** : `theme_10_virgin.jpeg` est COMPOSÉ —
+le modèle (`theme_10.jpeg`) partout, le vierge fourni dans les seules zones de texte
+(bannière du pseudo, cartouche mois/score, valeurs d'objectif, colonne PTS), raccords
+fondus sur 8 px. Le vierge fourni gardait des résidus des « 0 / 0 » (dont une tache à
+côté de Manga), nettoyés par clonage du parchemin voisin (même ligne, à gauche), et sa
+retouche avait bavé sur le bout des jauges — le modèle, lui, les a intactes. Contrôle :
+zéro pixel différent du modèle hors des zones de texte.
+
+**Calage par superposition** (le banc remplace le proto pour ce thème) : l'encre
+d'exemple = |modèle − fond|, ou la clarté seule pour le pseudo (texte crème sur une
+bannière dont la texture a été régénérée). Polices criblées sur le catalogue Google
+(~1 600 faces), puis départagées au **calque rouge/cyan** — les mesures automatiques
+(corrélation, Dice) favorisent les graisses lourdes sur les petits corps flous, l'œil
+tranche : Alegreya 900 (pseudo), Literata 800 (score), Literata 700 (le reste).
+
+**Deux réglages nés de ce modèle**, optionnels dans le moteur : `arcRadius` (le pseudo
+suit l'arc de la bannière, R ≈ 2 000 px — les extrémités descendent de ~10 px) et
+`scaleY` (le « +21 » du modèle est plus haut que Literata à largeur égale : ×1,087,
+boîte 609→818 × 389→500 tombée au pixel au vrai moteur).

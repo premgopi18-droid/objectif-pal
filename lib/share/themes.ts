@@ -4,7 +4,9 @@
  * vierges dans le labo de calage `docs/protos/proto-share-cards.html`
  * (superpositions, mode ?iso=1, planches-spécimens pour les polices).
  *
- * Tout nouveau thème se calibre D'ABORD dans le proto, puis se porte ici.
+ * Tout nouveau thème se calibre D'ABORD (le proto pour les 10 premiers, le banc de
+ * superposition depuis « Carte au trésor » — méthode dans le README des templates),
+ * puis se porte ici.
  * L'espace de coordonnées est celui des fonds : 1024×1536 (2:3). Les corps
  * sont en px de cet espace (le proto parlait en cqw : 1 cqw = 10,24 px).
  *
@@ -37,6 +39,7 @@ export const versionedBackgroundUrl = (path: string): string => `${path}?v=${SHA
 
 /** Les polices auto-hébergées (woff2 latin, public/share/fonts/ — RGPD : jamais de hotlink Google). */
 export const SHARE_FONTS = {
+  "alegreya-900": { family: "Alegreya", weight: 900, italic: false, file: "alegreya-900.woff2" },
   "alfa-slab-one": { family: "Alfa Slab One", weight: 400, italic: false, file: "alfa-slab-one-400.woff2" },
   anton: { family: "Anton", weight: 400, italic: false, file: "anton-400.woff2" },
   "archivo-black": { family: "Archivo Black", weight: 400, italic: false, file: "archivo-black-400.woff2" },
@@ -51,6 +54,8 @@ export const SHARE_FONTS = {
   graduate: { family: "Graduate", weight: 400, italic: false, file: "graduate-400.woff2" },
   "grenze-gotisch-700": { family: "Grenze Gotisch", weight: 700, italic: false, file: "grenze-gotisch-700.woff2" },
   knewave: { family: "Knewave", weight: 400, italic: false, file: "knewave-400.woff2" },
+  "literata-700": { family: "Literata", weight: 700, italic: false, file: "literata-700.woff2" },
+  "literata-800": { family: "Literata", weight: 800, italic: false, file: "literata-800.woff2" },
   "orbitron-800": { family: "Orbitron", weight: 800, italic: false, file: "orbitron-800.woff2" },
   "oswald-500": { family: "Oswald", weight: 500, italic: false, file: "oswald-500.woff2" },
   "oswald-600": { family: "Oswald", weight: 600, italic: false, file: "oswald-600.woff2" },
@@ -86,6 +91,18 @@ export type ShareTextStyle = {
   stroke?: { width: number; color: string };
   /** Ombres portées/halos, en px, dessinées dans l'ordre (la première au fond). */
   shadows?: { dx: number; dy: number; blur: number; color: string }[];
+  /**
+   * Texte CINTRÉ : rayon en px du cercle (centre sous le texte, arc en dôme)
+   * que suivent les glyphes, chacun incliné sur sa tangente — pour un cartouche
+   * courbe (la bannière de « Carte au trésor »). Omis = texte droit.
+   */
+  arcRadius?: number;
+  /**
+   * Étirement vertical autour de la ligne de base (1 = aucun) — quand les
+   * chiffres du fond sont plus hauts que la police la plus proche, à largeur
+   * égale (le « +21 » de « Carte au trésor » : 112 px de haut contre 103).
+   */
+  scaleY?: number;
 };
 
 type UniqueTextZone = {
@@ -522,6 +539,51 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
       rows: [1075, 1123, 1170, 1219, 1267, 1315, 1364], x: 590,
       countStyle: { font: "graduate", size: 38, color: "#46301a" },
       points: { x: 792, style: { font: "graduate", size: 32, color: "#4b2f0d", letterSpacing: 0.04 }, penaltyColor: "#783210" },
+    },
+  },
+  {
+    // Calé par superposition sur le modèle rempli (theme_10.jpeg) : polices
+    // criblées sur le catalogue Google, départagées au calque rouge/cyan —
+    // Alegreya 900 (pseudo, en arc sur la bannière, R ≈ 2 000 px), Literata 800
+    // (score, étiré à la hauteur du modèle : boîte 609→818 × 389→500 au pixel),
+    // Literata 700 (tout le reste). Géométrie (jauges, lignes du tableau, cercle)
+    // mesurée au pixel sur le fond.
+    id: "theme_10",
+    label: "Carte au trésor",
+    background: "/share/themes/theme_10.webp",
+    name: {
+      x: 520, y: 121, maxWidth: 470,
+      style: {
+        font: "alegreya-900", size: 110, color: "#eecd9c", letterSpacing: 0.02, arcRadius: 2000,
+        // L'embossage du modèle : la lettre crème posée sur la bannière.
+        shadows: [{ dx: 1, dy: 3, blur: 2, color: "rgba(10,24,26,.75)" }],
+      },
+    },
+    month: {
+      x: 716, y: 316, maxWidth: 300,
+      style: { font: "literata-700", size: 31, color: "#1c342b", letterSpacing: 0.24 },
+    },
+    score: {
+      x: 709, y: 438, maxWidth: 300,
+      style: { font: "literata-800", size: 144, color: "#18383c", scaleY: 1.087 },
+    },
+    avatar: { cx: 315, cy: 405, rx: 134 },
+    objectives: {
+      textRows: [747, 838, 929], barRows: [785, 876, 967],
+      leftBar: [154, 467], rightBar: [557, 870], barHeight: 21,
+      leftValueRight: 465, rightValueRight: 869,
+      valueStyle: { font: "literata-700", size: 22, color: "#223228", letterSpacing: 0.07 },
+      gaugeFill: "#1f4b4fd9",
+      gaugeRadius: 99,
+    },
+    table: {
+      rows: [1172, 1217, 1262, 1308, 1353, 1399, 1448], x: 575,
+      countStyle: { font: "literata-700", size: 30, color: "#192d24" },
+      points: {
+        x: 809,
+        style: { font: "literata-700", size: 30, color: "#203428" },
+        penaltyColor: "#841506",
+      },
     },
   },
 ];
