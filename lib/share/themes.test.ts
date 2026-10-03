@@ -117,6 +117,14 @@ describe("SHARE_THEMES", () => {
     }
   });
 
+  it("le décalage vertical de la colonne PTS garde chaque valeur sur sa ligne", () => {
+    for (const theme of SHARE_THEMES) {
+      const { rows, points } = theme.table;
+      const smallestGap = Math.min(...rows.slice(1).map((y, i) => y - rows[i]));
+      expect(Math.abs(points.dy ?? 0)).toBeLessThan(smallestGap / 2);
+    }
+  });
+
   it("chaque police du registre a son fichier sous public/share/fonts/ — sans lui, tout le thème échoue au rendu", () => {
     for (const font of Object.values(SHARE_FONTS)) {
       const file = join(process.cwd(), "public", "share", "fonts", font.file);

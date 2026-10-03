@@ -52,8 +52,16 @@ function themeFontKeys(theme: ShareTheme): ShareFontKey[] {
   ];
 }
 
-/** Charge les polices du thème (woff2 auto-hébergés) — une seule fois chacune. */
-export async function loadThemeFonts(theme: ShareTheme): Promise<void> {
+/**
+ * Charge les polices du thème (woff2 auto-hébergés) — une seule fois chacune.
+ * Une police introuvable DÉGRADE le rendu (le canvas retombe sur une police
+ * système) mais ne le bloque jamais : un client resté sur un ancien bundle peut
+ * demander une police retirée depuis (review #356), et la carte doit partir
+ * quand même. L'échec n'est pas mémorisé : un rendu suivant retentera.
+ * Renvoie les clés qui n'ont pas pu être chargées.
+ */
+export async function loadThemeFonts(theme: ShareTheme): Promise<ShareFontKey[]> {
+  const failed: ShareFontKey[] = [];
   await Promise.all(
     themeFontKeys(theme).map(async (key) => {
       if (loadedFontKeys.has(key)) return;
@@ -62,11 +70,17 @@ export async function loadThemeFonts(theme: ShareTheme): Promise<void> {
         weight: String(font.weight),
         style: font.italic ? "italic" : "normal",
       });
-      await face.load();
+      try {
+        await face.load();
+      } catch {
+        failed.push(key);
+        return;
+      }
       document.fonts.add(face);
       loadedFontKeys.add(key);
     }),
   );
+  return failed;
 }
 
 const imageCache = new Map<string, Promise<HTMLImageElement>>();
