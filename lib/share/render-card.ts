@@ -52,8 +52,16 @@ function themeFontKeys(theme: ShareTheme): ShareFontKey[] {
   ];
 }
 
-/** Charge les polices du thème (woff2 auto-hébergés) — une seule fois chacune. */
-export async function loadThemeFonts(theme: ShareTheme): Promise<void> {
+/**
+ * Charge les polices du thème (woff2 auto-hébergés) — une seule fois chacune.
+ * Une police introuvable DÉGRADE le rendu (le canvas retombe sur une police
+ * système) mais ne le bloque jamais : un client resté sur un ancien bundle peut
+ * demander une police retirée depuis (review #356), et la carte doit partir
+ * quand même. L'échec n'est pas mémorisé : un rendu suivant retentera.
+ * Renvoie les clés qui n'ont pas pu être chargées.
+ */
+export async function loadThemeFonts(theme: ShareTheme): Promise<ShareFontKey[]> {
+  const failed: ShareFontKey[] = [];
   await Promise.all(
     themeFontKeys(theme).map(async (key) => {
       if (loadedFontKeys.has(key)) return;
@@ -62,11 +70,17 @@ export async function loadThemeFonts(theme: ShareTheme): Promise<void> {
         weight: String(font.weight),
         style: font.italic ? "italic" : "normal",
       });
-      await face.load();
+      try {
+        await face.load();
+      } catch {
+        failed.push(key);
+        return;
+      }
       document.fonts.add(face);
       loadedFontKeys.add(key);
     }),
   );
+  return failed;
 }
 
 const imageCache = new Map<string, Promise<HTMLImageElement>>();
@@ -161,7 +175,7 @@ function cssGradient(ctx: Ctx, gradient: ShareGradient, x: number, y: number, wi
   return paint;
 }
 
-type Align = "center" | "right";
+type Align = "center" | "left" | "right";
 
 /**
  * Dessine un texte : ombres (ordre CSS), contour, remplissage — avec
@@ -184,7 +198,8 @@ function drawText(
   const width = usefulWidth(ctx, text, style);
   const scale = options.maxWidth !== undefined ? Math.min(1, options.maxWidth / width) : 1;
   const baseline = lineBoxBaseline(ctx, y);
-  const anchorX = options.align === "right" ? x - width * scale : x - (width * scale) / 2;
+  const anchorX =
+    options.align === "right" ? x - width * scale : options.align === "left" ? x : x - (width * scale) / 2;
 
   // Échelle et penché autour du point d'ancrage — comme le span du proto.
   ctx.translate(anchorX, baseline);
@@ -311,10 +326,10 @@ function drawCounts(ctx: Ctx, theme: ShareTheme, data: ShareCardData): void {
  * malus, ou l'encre neutre du zéro (§4.15).
  */
 function drawPoints(ctx: Ctx, theme: ShareTheme, data: ShareCardData): void {
-  const { x, style, penaltyColor, zeroColor = theme.table.countStyle.color } = theme.table.points;
+  const { x, style, penaltyColor, zeroColor = theme.table.countStyle.color, align = "center", dy = 0 } = theme.table.points;
   data.points.forEach((points, index) => {
     const color = points > 0 ? style.color : points < 0 ? penaltyColor : zeroColor;
-    drawText(ctx, formatPoints(points), x, theme.table.rows[index], { ...style, color });
+    drawText(ctx, formatPoints(points), x, theme.table.rows[index] + dy, { ...style, color }, { align });
   });
 }
 

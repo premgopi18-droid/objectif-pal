@@ -934,6 +934,11 @@ décisions tranchées en discussion (août 2026, protos `docs/protos/`) :
   moteur gagne deux réglages optionnels, nés de ce fond — `arcRadius` (le pseudo suit l'arc de la
   bannière) et `scaleY` (le « +21 » du modèle, plus haut que la police la plus proche, retombe au
   pixel sur sa boîte). Les 10 autres thèmes n'en utilisent aucun.
+- **Les 10 premiers thèmes recalés sur leurs modèles (03/10/2026)** — même méthode que « Carte au
+  trésor » : polices criblées sur tout le catalogue Google, choisies à l'œil sur planches, calées
+  au pixel au vrai moteur (README des templates). La fidélité au modèle prime sur la continuité :
+  une police change dès qu'une autre colle mieux. Les compteurs, sans exemple au modèle, suivent
+  la police de la colonne PTS ; les effets (dégradé, halo, contours) restent ceux d'origine.
 - **Rendu côté client, au canvas** : tout est déjà dans le navigateur au moment du Bilan (rapport,
   avatar) — zéro coût serveur. Partage via `navigator.share({ files })` (feuille native mobile),
   repli téléchargement sur desktop. L'option **texte** existante reste : deux formats, deux usages

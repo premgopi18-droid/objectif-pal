@@ -100,3 +100,28 @@ tranche : Alegreya 900 (pseudo), Literata 800 (score), Literata 700 (le reste).
 suit l'arc de la bannière, R ≈ 2 000 px — les extrémités descendent de ~10 px) et
 `scaleY` (le « +21 » du modèle est plus haut que Literata à largeur égale : ×1,087,
 boîte 609→818 × 389→500 tombée au pixel au vrai moteur).
+
+## Recalage des thèmes 0-9 sur leurs modèles — 03/10/2026
+
+Même méthode que `theme_10`, généralisée : les modèles remplis (`theme_N.jpeg`) et les
+vierges sont alignés au pixel (vérifié : hors zones de texte, quelques pixels de grain
+seulement), donc l'encre d'exemple de chaque zone = (modèle − vierge).
+
+1. **Encre lue sur le modèle**, jamais sur la calibration en place (parfois fausse :
+   Sci-fi et Comics pop avaient l'encre de l'effet, pas celle de la lettre). Couverture
+   réelle = projection de (modèle − vierge) sur (encre − vierge), le grain hors de l'axe
+   de l'encre ne compte pas ; dégradé de Néon = plusieurs encres relevées par tiers.
+2. **Criblage** de tout le catalogue Google (~6 600 faces, italiques comprises) : corps,
+   interlettrage et position CALCULÉS par police depuis la boîte d'encre du modèle
+   (lettres seules : filets et grain écartés par composantes connexes), puis affinés ;
+   mesure = intersection sur union des formes, chaque valeur répétée recalée de ±2 px
+   (le modèle généré ne pose pas ses valeurs sur une grille parfaite).
+3. **Choix à l'œil** sur planches (modèle + 15 candidates dans l'encre du modèle) : la
+   mesure départage les proportions, l'œil la forme (empattements, angles, arrondis).
+4. **Vérification au vrai moteur**, carte entière, puis cas lourd (pseudo long, +172,5).
+
+Les compteurs n'ont aucun exemple dans les modèles (colonne vide) : ils suivent la
+police de la colonne PTS. Deux réglages de la colonne PTS en naissent : `align`
+(Dossier aligne à gauche) et `dy`. Arbitrages assumés : Carnet garde Special Elite
+pour ses points (les taches faussent la mesure) ; le mois de Dossier est en Courier
+Prime normal (le modèle est une machine à écrire fine).
