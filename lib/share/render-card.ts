@@ -161,7 +161,7 @@ function cssGradient(ctx: Ctx, gradient: ShareGradient, x: number, y: number, wi
   return paint;
 }
 
-type Align = "center" | "right";
+type Align = "center" | "left" | "right";
 
 /**
  * Dessine un texte : ombres (ordre CSS), contour, remplissage — avec
@@ -184,7 +184,8 @@ function drawText(
   const width = usefulWidth(ctx, text, style);
   const scale = options.maxWidth !== undefined ? Math.min(1, options.maxWidth / width) : 1;
   const baseline = lineBoxBaseline(ctx, y);
-  const anchorX = options.align === "right" ? x - width * scale : x - (width * scale) / 2;
+  const anchorX =
+    options.align === "right" ? x - width * scale : options.align === "left" ? x : x - (width * scale) / 2;
 
   // Échelle et penché autour du point d'ancrage — comme le span du proto.
   ctx.translate(anchorX, baseline);
@@ -311,10 +312,10 @@ function drawCounts(ctx: Ctx, theme: ShareTheme, data: ShareCardData): void {
  * malus, ou l'encre neutre du zéro (§4.15).
  */
 function drawPoints(ctx: Ctx, theme: ShareTheme, data: ShareCardData): void {
-  const { x, style, penaltyColor, zeroColor = theme.table.countStyle.color } = theme.table.points;
+  const { x, style, penaltyColor, zeroColor = theme.table.countStyle.color, align = "center", dy = 0 } = theme.table.points;
   data.points.forEach((points, index) => {
     const color = points > 0 ? style.color : points < 0 ? penaltyColor : zeroColor;
-    drawText(ctx, formatPoints(points), x, theme.table.rows[index], { ...style, color });
+    drawText(ctx, formatPoints(points), x, theme.table.rows[index] + dy, { ...style, color }, { align });
   });
 }
 

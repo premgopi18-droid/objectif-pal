@@ -4,9 +4,9 @@
  * vierges dans le labo de calage `docs/protos/proto-share-cards.html`
  * (superpositions, mode ?iso=1, planches-spécimens pour les polices).
  *
- * Tout nouveau thème se calibre D'ABORD (le proto pour les 10 premiers, le banc de
- * superposition depuis « Carte au trésor » — méthode dans le README des templates),
- * puis se porte ici.
+ * Tout nouveau thème se calibre D'ABORD au banc de superposition sur son modèle
+ * rempli (méthode dans le README des templates), puis se porte ici. Les 11 thèmes
+ * y sont passés (03/10/2026).
  * L'espace de coordonnées est celui des fonds : 1024×1536 (2:3). Les corps
  * sont en px de cet espace (le proto parlait en cqw : 1 cqw = 10,24 px).
  *
@@ -39,33 +39,53 @@ export const versionedBackgroundUrl = (path: string): string => `${path}?v=${SHA
 
 /** Les polices auto-hébergées (woff2 latin, public/share/fonts/ — RGPD : jamais de hotlink Google). */
 export const SHARE_FONTS = {
+  "abhaya-libre-400": { family: "Abhaya Libre", weight: 400, italic: false, file: "abhaya-libre-400.woff2" },
   "alegreya-900": { family: "Alegreya", weight: 900, italic: false, file: "alegreya-900.woff2" },
+  "aleo-900": { family: "Aleo", weight: 900, italic: false, file: "aleo-900.woff2" },
   "alfa-slab-one": { family: "Alfa Slab One", weight: 400, italic: false, file: "alfa-slab-one-400.woff2" },
-  anton: { family: "Anton", weight: 400, italic: false, file: "anton-400.woff2" },
-  "archivo-black": { family: "Archivo Black", weight: 400, italic: false, file: "archivo-black-400.woff2" },
-  bangers: { family: "Bangers", weight: 400, italic: false, file: "bangers-400.woff2" },
-  cinzel: { family: "Cinzel", weight: 400, italic: false, file: "cinzel-400.woff2" },
-  "cormorant-500": { family: "Cormorant Garamond", weight: 500, italic: false, file: "cormorant-garamond-500.woff2" },
+  "amaranth-700-italic": { family: "Amaranth", weight: 700, italic: true, file: "amaranth-700-italic.woff2" },
+  "anybody-600": { family: "Anybody", weight: 600, italic: false, file: "anybody-600.woff2" },
+  "asap-condensed-700": { family: "Asap Condensed", weight: 700, italic: false, file: "asap-condensed-700.woff2" },
+  "barlow-800-italic": { family: "Barlow", weight: 800, italic: true, file: "barlow-800-italic.woff2" },
+  "barlow-condensed-800": { family: "Barlow Condensed", weight: 800, italic: false, file: "barlow-condensed-800.woff2" },
+  "barlow-condensed-800-italic": { family: "Barlow Condensed", weight: 800, italic: true, file: "barlow-condensed-800-italic.woff2" },
+  "barlow-condensed-900-italic": { family: "Barlow Condensed", weight: 900, italic: true, file: "barlow-condensed-900-italic.woff2" },
+  "bebas-neue-400": { family: "Bebas Neue", weight: 400, italic: false, file: "bebas-neue-400.woff2" },
+  "big-shoulders-stencil-900": { family: "Big Shoulders Stencil", weight: 900, italic: false, file: "big-shoulders-stencil-900.woff2" },
+  "caudex-700": { family: "Caudex", weight: 700, italic: false, file: "caudex-700.woff2" },
   "cormorant-700": { family: "Cormorant Garamond", weight: 700, italic: false, file: "cormorant-garamond-700.woff2" },
+  "courier-prime-400": { family: "Courier Prime", weight: 400, italic: false, file: "courier-prime-400.woff2" },
   "eb-garamond-500": { family: "EB Garamond", weight: 500, italic: false, file: "eb-garamond-500.woff2" },
   "eb-garamond-600": { family: "EB Garamond", weight: 600, italic: false, file: "eb-garamond-600.woff2" },
-  "exo-2-600": { family: "Exo 2", weight: 600, italic: false, file: "exo-2-600.woff2" },
+  "eb-garamond-800": { family: "EB Garamond", weight: 800, italic: false, file: "eb-garamond-800.woff2" },
   "exo-2-800-italic": { family: "Exo 2", weight: 800, italic: true, file: "exo-2-800-italic.woff2" },
-  graduate: { family: "Graduate", weight: 400, italic: false, file: "graduate-400.woff2" },
-  "grenze-gotisch-700": { family: "Grenze Gotisch", weight: 700, italic: false, file: "grenze-gotisch-700.woff2" },
+  "exo-2-900": { family: "Exo 2", weight: 900, italic: false, file: "exo-2-900.woff2" },
+  "finlandica-headline-900-italic": { family: "Finlandica Headline", weight: 900, italic: true, file: "finlandica-headline-900-italic.woff2" },
+  "gentium-plus-400": { family: "Gentium Plus", weight: 400, italic: false, file: "gentium-plus-400.woff2" },
+  "heebo-600": { family: "Heebo", weight: 600, italic: false, file: "heebo-600.woff2" },
+  "heebo-800": { family: "Heebo", weight: 800, italic: false, file: "heebo-800.woff2" },
   knewave: { family: "Knewave", weight: 400, italic: false, file: "knewave-400.woff2" },
+  "libre-caslon-text-400": { family: "Libre Caslon Text", weight: 400, italic: false, file: "libre-caslon-text-400.woff2" },
   "literata-700": { family: "Literata", weight: 700, italic: false, file: "literata-700.woff2" },
   "literata-800": { family: "Literata", weight: 800, italic: false, file: "literata-800.woff2" },
-  "orbitron-800": { family: "Orbitron", weight: 800, italic: false, file: "orbitron-800.woff2" },
+  "lora-700": { family: "Lora", weight: 700, italic: false, file: "lora-700.woff2" },
+  "mona-sans-800": { family: "Mona Sans", weight: 800, italic: false, file: "mona-sans-800.woff2" },
+  "new-rocker-400": { family: "New Rocker", weight: 400, italic: false, file: "new-rocker-400.woff2" },
+  "noto-sans-800-italic": { family: "Noto Sans", weight: 800, italic: true, file: "noto-sans-800-italic.woff2" },
   "oswald-500": { family: "Oswald", weight: 500, italic: false, file: "oswald-500.woff2" },
   "oswald-600": { family: "Oswald", weight: 600, italic: false, file: "oswald-600.woff2" },
-  "playfair-600": { family: "Playfair Display", weight: 600, italic: false, file: "playfair-display-600.woff2" },
-  "playfair-700": { family: "Playfair Display", weight: 700, italic: false, file: "playfair-display-700.woff2" },
-  "rajdhani-600": { family: "Rajdhani", weight: 600, italic: false, file: "rajdhani-600.woff2" },
   "rajdhani-700": { family: "Rajdhani", weight: 700, italic: false, file: "rajdhani-700.woff2" },
-  rye: { family: "Rye", weight: 400, italic: false, file: "rye-400.woff2" },
+  "roboto-700": { family: "Roboto", weight: 700, italic: false, file: "roboto-700.woff2" },
+  "roboto-900": { family: "Roboto", weight: 900, italic: false, file: "roboto-900.woff2" },
+  "roboto-condensed-900": { family: "Roboto Condensed", weight: 900, italic: false, file: "roboto-condensed-900.woff2" },
+  "roboto-slab-700": { family: "Roboto Slab", weight: 700, italic: false, file: "roboto-slab-700.woff2" },
+  "saira-condensed-700": { family: "Saira Condensed", weight: 700, italic: false, file: "saira-condensed-700.woff2" },
+  "saira-condensed-800": { family: "Saira Condensed", weight: 800, italic: false, file: "saira-condensed-800.woff2" },
+  "saira-extra-condensed-800": { family: "Saira Extra Condensed", weight: 800, italic: false, file: "saira-extra-condensed-800.woff2" },
+  "sofia-sans-extra-condensed-900-italic": { family: "Sofia Sans Extra Condensed", weight: 900, italic: true, file: "sofia-sans-extra-condensed-900-italic.woff2" },
   "special-elite": { family: "Special Elite", weight: 400, italic: false, file: "special-elite-400.woff2" },
-  "stardos-stencil-700": { family: "Stardos Stencil", weight: 700, italic: false, file: "stardos-stencil-700.woff2" },
+  "tomorrow-700": { family: "Tomorrow", weight: 700, italic: false, file: "tomorrow-700.woff2" },
+  "tomorrow-700-italic": { family: "Tomorrow", weight: 700, italic: true, file: "tomorrow-700-italic.woff2" },
 } as const;
 
 export type ShareFontKey = keyof typeof SHARE_FONTS;
@@ -163,6 +183,13 @@ export type ShareTheme = {
       style: ShareTextStyle & { color: string; gradient?: never };
       /** L'encre du malus. */
       penaltyColor: string;
+      /**
+       * L'alignement des valeurs sur `x` — centré par défaut ; certains modèles
+       * alignent la colonne à gauche (« +0,5 » et « +1 » partent du même bord).
+       */
+      align?: "center" | "left" | "right";
+      /** Décalage vertical des valeurs PTS sur les lignes `rows` (px) — le modèle les pose parfois hors du centre des compteurs. */
+      dy?: number;
       /** L'encre du zéro — par défaut celle des compteurs. */
       zeroColor?: string;
     };
@@ -170,38 +197,44 @@ export type ShareTheme = {
 };
 
 export const SHARE_THEMES: readonly ShareTheme[] = [
+  // Thèmes 0-9 recalés le 03/10/2026 sur leurs modèles remplis (theme_N.jpeg) :
+  // polices criblées sur le catalogue Google, départagées au calque, corps,
+  // interlettrage, inclinaison et position mesurés à l'encre du modèle
+  // (méthode : README des templates). Les compteurs, sans exemple au modèle,
+  // suivent la police de la colonne PTS.
   {
     id: "theme_0",
     label: "Néon",
     background: "/share/themes/theme_0.webp",
     name: {
-      x: 525, y: 140, maxWidth: 340,
-      style: { font: "exo-2-800-italic", size: 81, color: "#ffffff", letterSpacing: 0.04 },
+      x: 524, y: 144, maxWidth: 340,
+      style: { font: "exo-2-900", size: 75.5, color: "#ffffff", letterSpacing: 0.07, skewDeg: -13 },
     },
     month: {
-      x: 700, y: 308, maxWidth: 310,
-      style: { font: "exo-2-600", size: 33, color: "#a99cf0", letterSpacing: 0.42 },
+      x: 706.5, y: 305, maxWidth: 310,
+      style: { font: "roboto-900", size: 21.5, color: "#8f6ac6", letterSpacing: 0.52 },
     },
     score: {
-      x: 700, y: 414, maxWidth: 350,
-      style: {
-        font: "exo-2-800-italic", size: 160,
-        gradient: { angleDeg: 105, stops: [{ at: 0.05, color: "#ff45c8" }, { at: 0.45, color: "#7a58f2" }, { at: 0.9, color: "#2bd8d8" }] },
-      },
+      x: 687.5, y: 403.5, maxWidth: 350,
+      style: { font: "exo-2-800-italic", size: 148, gradient: { angleDeg: 105, stops: [{ at: 0.05, color: "#ff45c8" }, { at: 0.45, color: "#7a58f2" }, { at: 0.9, color: "#2bd8d8" }] }, skewDeg: -7 },
     },
     avatar: { cx: 272, cy: 400, rx: 120 },
     objectives: {
-      textRows: [667, 744, 821], barRows: [702, 776, 853],
+      textRows: [668.5, 745.5, 822.5], barRows: [702, 776, 853],
       leftBar: [112, 476], rightBar: [545, 915], barHeight: 16,
-      leftValueRight: 477, rightValueRight: 913,
-      valueStyle: { font: "exo-2-600", size: 31, color: "#a99cf0" },
+      leftValueRight: 476, rightValueRight: 912,
+      valueStyle: { font: "heebo-600", size: 24.4, color: "#8f68cc", letterSpacing: 0.05 },
       gaugeFill: { angleDeg: 90, stops: [{ at: 0, color: "#ff4fa8" }, { at: 1, color: "#2ee6a8" }] },
       gaugeRadius: 99,
     },
     table: {
       rows: [1043, 1103, 1163, 1223, 1283, 1341, 1401], x: 565,
-      countStyle: { font: "exo-2-600", size: 34, color: "#eae6f8" },
-      points: { x: 806, style: { font: "exo-2-600", size: 38, color: "#34d5a4", letterSpacing: 0.05 }, penaltyColor: "#d53761" },
+      countStyle: { font: "heebo-800", size: 37.3, color: "#eae6f8", letterSpacing: 0.04 },
+      points: {
+        x: 806.5,
+        style: { font: "heebo-800", size: 37.3, color: "#34d5a4", letterSpacing: 0.04 },
+        penaltyColor: "#d53761",
+      },
     },
   },
   {
@@ -209,30 +242,34 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     label: "Dossier confidentiel",
     background: "/share/themes/theme_1.webp",
     name: {
-      x: 527, y: 205, maxWidth: 475,
-      style: { font: "stardos-stencil-700", size: 119, color: "#4a4124", letterSpacing: 0.08 },
+      x: 557, y: 205, maxWidth: 475,
+      style: { font: "big-shoulders-stencil-900", size: 86.7, color: "#4a4124", letterSpacing: 0.27 },
     },
     month: {
-      x: 735, y: 335, maxWidth: 310,
-      style: { font: "special-elite", size: 43, color: "#4d412d", letterSpacing: 0.3 },
+      x: 735, y: 334.5, maxWidth: 310,
+      style: { font: "courier-prime-400", size: 33, color: "#4d412d", letterSpacing: 0.15 },
     },
     score: {
-      x: 742, y: 458, maxWidth: 330,
-      style: { font: "alfa-slab-one", size: 195, color: "#2a2419" },
+      x: 741, y: 453.5, maxWidth: 330,
+      style: { font: "roboto-slab-700", size: 182, color: "#2a2419", letterSpacing: 0.03 },
     },
     avatar: { cx: 306, cy: 452, rx: 154 },
     objectives: {
-      textRows: [760, 845, 928], barRows: [800, 884, 966],
+      textRows: [763.5, 848.5, 931.5], barRows: [800, 884, 966],
       leftBar: [162, 484], rightBar: [556, 893], barHeight: 26,
-      leftValueRight: 480, rightValueRight: 890,
-      valueStyle: { font: "special-elite", size: 35, color: "#4a4236" },
+      leftValueRight: 483, rightValueRight: 893,
+      valueStyle: { font: "courier-prime-400", size: 28.7, color: "#4a4236", letterSpacing: -0.19 },
       gaugeFill: "#3f3524d9",
       gaugeRadius: 3,
     },
     table: {
       rows: [1130, 1178, 1222, 1268, 1312, 1358, 1404], x: 595,
-      countStyle: { font: "special-elite", size: 38, color: "#3a332a" },
-      points: { x: 801, style: { font: "special-elite", size: 30, color: "#3c2c14", letterSpacing: 0.15 }, penaltyColor: "#763b28" },
+      countStyle: { font: "special-elite", size: 25.3, color: "#3a332a", letterSpacing: 0.2 },
+      points: {
+        x: 784.5, align: "left", dy: 3,
+        style: { font: "special-elite", size: 25.3, color: "#3c2c14", letterSpacing: 0.2 },
+        penaltyColor: "#763b28",
+      },
     },
   },
   {
@@ -240,39 +277,34 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     label: "Manga",
     background: "/share/themes/theme_2.webp",
     name: {
-      x: 525, y: 145, maxWidth: 510,
-      style: { font: "knewave", size: 113, color: "#131110", letterSpacing: 0.02, skewDeg: -6 },
+      x: 529.5, y: 140.5, maxWidth: 510,
+      style: { font: "knewave", size: 118.4, color: "#131110", letterSpacing: 0.06, skewDeg: -3 },
     },
     month: {
-      x: 715, y: 295, maxWidth: 310,
-      style: { font: "oswald-600", size: 38, color: "#0e0c0a", letterSpacing: 0.4 },
+      x: 716.5, y: 302, maxWidth: 310,
+      style: { font: "bebas-neue-400", size: 33.1, color: "#0e0c0a", letterSpacing: 0.39 },
     },
     score: {
-      x: 720, y: 422, maxWidth: 368,
-      style: {
-        font: "archivo-black", size: 210, color: "#131110", skewDeg: -8,
-        shadows: [
-          { dx: 0, dy: 0, blur: 4, color: "#ffffff" }, { dx: 0, dy: 0, blur: 8, color: "#ffffff" },
-          { dx: 0, dy: 0, blur: 14, color: "#ffffff" }, { dx: 4, dy: 4, blur: 6, color: "#ffffff" },
-          { dx: -4, dy: 4, blur: 6, color: "#ffffff" }, { dx: 4, dy: -4, blur: 6, color: "#ffffff" },
-          { dx: -4, dy: -4, blur: 6, color: "#ffffff" }, { dx: 0, dy: 6, blur: 8, color: "#ffffff" },
-          { dx: 0, dy: -6, blur: 8, color: "#ffffff" },
-        ],
-      },
+      x: 686, y: 401, maxWidth: 368,
+      style: { font: "barlow-condensed-800-italic", size: 234.7, color: "#131110", letterSpacing: 0.03, skewDeg: -9, shadows: [{ dx: 0, dy: 0, blur: 4, color: "#ffffff" }, { dx: 0, dy: 0, blur: 8, color: "#ffffff" }, { dx: 0, dy: 0, blur: 14, color: "#ffffff" }, { dx: 4, dy: 4, blur: 6, color: "#ffffff" }, { dx: -4, dy: 4, blur: 6, color: "#ffffff" }, { dx: 4, dy: -4, blur: 6, color: "#ffffff" }, { dx: -4, dy: -4, blur: 6, color: "#ffffff" }, { dx: 0, dy: 6, blur: 8, color: "#ffffff" }, { dx: 0, dy: -6, blur: 8, color: "#ffffff" }] },
     },
     avatar: { cx: 297, cy: 417, rx: 132, ry: 135 },
     objectives: {
-      textRows: [700, 777, 855], barRows: [735, 810, 888],
+      textRows: [698, 775, 853], barRows: [735, 810, 888],
       leftBar: [112, 478], rightBar: [540, 912], barHeight: 18,
-      leftValueRight: 477, rightValueRight: 910,
-      valueStyle: { font: "oswald-600", size: 33, color: "#0d0b09" },
+      leftValueRight: 476.5, rightValueRight: 909.5,
+      valueStyle: { font: "asap-condensed-700", size: 32.3, color: "#0d0b09", letterSpacing: 0.03 },
       gaugeFill: "#131110e0",
       gaugeRadius: 99,
     },
     table: {
       rows: [1068, 1123, 1178, 1235, 1290, 1346, 1402], x: 567,
-      countStyle: { font: "oswald-600", size: 36, color: "#0b0907" },
-      points: { x: 812, style: { font: "oswald-600", size: 36, color: "#0b0806", letterSpacing: 0.05 }, penaltyColor: "#9a1613" },
+      countStyle: { font: "oswald-600", size: 35.9, color: "#0b0907", letterSpacing: 0.06 },
+      points: {
+        x: 811, dy: -0.5,
+        style: { font: "oswald-600", size: 35.9, color: "#0b0806", letterSpacing: 0.06 },
+        penaltyColor: "#9a1613",
+      },
     },
   },
   {
@@ -280,36 +312,34 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     label: "Grimoire",
     background: "/share/themes/theme_3.webp",
     name: {
-      x: 510, y: 170, maxWidth: 390,
-      style: {
-        font: "grenze-gotisch-700", size: 106, color: "#d5b26f", letterSpacing: 0.12,
-        shadows: [{ dx: 0, dy: 2, blur: 4, color: "rgba(0,0,0,.65)" }],
-      },
+      x: 517.5, y: 174.5, maxWidth: 390,
+      style: { font: "new-rocker-400", size: 90.6, color: "#d5b26f", letterSpacing: 0.04, shadows: [{ dx: 0, dy: 2, blur: 4, color: "rgba(0,0,0,.65)" }] },
     },
     month: {
-      x: 720, y: 320, maxWidth: 310,
-      style: { font: "cinzel", size: 37, color: "#cfc0a0", letterSpacing: 0.42 },
+      x: 720.5, y: 322.5, maxWidth: 310,
+      style: { font: "lora-700", size: 26.3, color: "#cfc0a0", letterSpacing: 0.32 },
     },
     score: {
-      x: 720, y: 432, maxWidth: 335,
-      style: {
-        font: "cormorant-700", size: 213, color: "#cfa54f",
-        shadows: [{ dx: 0, dy: 2, blur: 5, color: "rgba(0,0,0,.6)" }],
-      },
+      x: 716, y: 438.5, maxWidth: 335,
+      style: { font: "caudex-700", size: 201.8, color: "#cfa54f", letterSpacing: -0.05, shadows: [{ dx: 0, dy: 2, blur: 5, color: "rgba(0,0,0,.6)" }] },
     },
     avatar: { cx: 305, cy: 420, rx: 125, ry: 126 },
     objectives: {
-      textRows: [706, 779, 852], barRows: [739, 812, 884],
+      textRows: [703, 776, 849], barRows: [739, 812, 884],
       leftBar: [128, 470], rightBar: [548, 888], barHeight: 10,
-      leftValueRight: 472, rightValueRight: 890,
-      valueStyle: { font: "eb-garamond-600", size: 36, color: "#c9a25c" },
+      leftValueRight: 475.5, rightValueRight: 893.5,
+      valueStyle: { font: "eb-garamond-500", size: 29.6, color: "#c9a25c", letterSpacing: -0.01 },
       gaugeFill: "#cfa54fd9",
       gaugeRadius: 5,
     },
     table: {
       rows: [1068, 1120, 1171, 1223, 1275, 1326, 1377], x: 575,
-      countStyle: { font: "eb-garamond-600", size: 37, color: "#d8c9a4" },
-      points: { x: 807, style: { font: "eb-garamond-600", size: 37, color: "#a78552", letterSpacing: 0.02 }, penaltyColor: "#8f3e30" },
+      countStyle: { font: "eb-garamond-600", size: 38.4, color: "#d8c9a4", letterSpacing: 0.01 },
+      points: {
+        x: 808.5, dy: -5.5,
+        style: { font: "eb-garamond-600", size: 38.4, color: "#a78552", letterSpacing: 0.01 },
+        penaltyColor: "#8f3e30",
+      },
     },
   },
   {
@@ -317,30 +347,34 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     label: "Carnet maudit",
     background: "/share/themes/theme_4.webp",
     name: {
-      x: 520, y: 145, maxWidth: 370,
-      style: { font: "anton", size: 102, color: "#221b10", letterSpacing: 0.1 },
+      x: 524, y: 147.5, maxWidth: 370,
+      style: { font: "saira-condensed-800", size: 137.3, color: "#221b10", letterSpacing: -0.05 },
     },
     month: {
-      x: 711, y: 310, maxWidth: 310,
-      style: { font: "special-elite", size: 40, color: "#3a2f1e", letterSpacing: 0.3 },
+      x: 705.5, y: 314.5, maxWidth: 310,
+      style: { font: "special-elite", size: 30.7, color: "#3a2f1e", letterSpacing: 0.22 },
     },
     score: {
-      x: 718, y: 408, maxWidth: 330,
-      style: { font: "anton", size: 190, color: "#332a1c" },
+      x: 696, y: 413.5, maxWidth: 330,
+      style: { font: "mona-sans-800", size: 174.4, color: "#332a1c", letterSpacing: -0.03 },
     },
     avatar: { cx: 298, cy: 400, rx: 129, ry: 134 },
     objectives: {
       textRows: [696, 774, 851], barRows: [730, 808, 885],
       leftBar: [115, 470], rightBar: [535, 888], barHeight: 20,
-      leftValueRight: 470, rightValueRight: 885,
-      valueStyle: { font: "special-elite", size: 33, color: "#453827" },
+      leftValueRight: 471, rightValueRight: 886,
+      valueStyle: { font: "gentium-plus-400", size: 28.4, color: "#453827", letterSpacing: 0.04 },
       gaugeFill: "#3a2d1ad9",
       gaugeRadius: 3,
     },
     table: {
       rows: [1067, 1120, 1173, 1227, 1281, 1335, 1390], x: 560,
-      countStyle: { font: "special-elite", size: 38, color: "#362a17" },
-      points: { x: 790, style: { font: "special-elite", size: 36, color: "#261706", letterSpacing: 0.14 }, penaltyColor: "#4b290e" },
+      countStyle: { font: "special-elite", size: 36, color: "#362a17", letterSpacing: 0.14 },
+      points: {
+        x: 786,
+        style: { font: "special-elite", size: 36, color: "#261706", letterSpacing: 0.14 },
+        penaltyColor: "#4b290e",
+      },
     },
   },
   {
@@ -348,30 +382,34 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     label: "Film noir",
     background: "/share/themes/theme_5.webp",
     name: {
-      x: 515, y: 142, maxWidth: 335,
-      style: { font: "oswald-600", size: 95, color: "#efe8d8", letterSpacing: 0.16 },
+      x: 514.5, y: 148, maxWidth: 335,
+      style: { font: "saira-extra-condensed-800", size: 107, color: "#efe8d8", letterSpacing: 0.11 },
     },
     month: {
-      x: 711, y: 290, maxWidth: 310,
-      style: { font: "special-elite", size: 37, color: "#8a8478", letterSpacing: 0.32 },
+      x: 709.5, y: 287, maxWidth: 310,
+      style: { font: "special-elite", size: 25.1, color: "#8a8478", letterSpacing: 0.24 },
     },
     score: {
-      x: 708, y: 400, maxWidth: 360,
-      style: { font: "anton", size: 200, color: "#b02c22", skewDeg: -10 },
+      x: 691.5, y: 407.5, maxWidth: 360,
+      style: { font: "sofia-sans-extra-condensed-900-italic", size: 256.6, color: "#b02c22", skewDeg: -5 },
     },
     avatar: { cx: 300, cy: 396, rx: 124 },
     objectives: {
       textRows: [694, 779, 867], barRows: [731, 816, 905],
       leftBar: [120, 485], rightBar: [535, 905], barHeight: 20,
-      leftValueRight: 476, rightValueRight: 888,
-      valueStyle: { font: "oswald-500", size: 34, color: "#d6d0c0" },
+      leftValueRight: 471.5, rightValueRight: 883.5,
+      valueStyle: { font: "oswald-500", size: 23.2, color: "#76736c", letterSpacing: 0.11 },
       gaugeFill: "#d8d2c2cc",
       gaugeRadius: 2,
     },
     table: {
       rows: [1084, 1134, 1183, 1232, 1281, 1331, 1380], x: 565,
-      countStyle: { font: "oswald-500", size: 35, color: "#d6d0c0" },
-      points: { x: 798, style: { font: "oswald-500", size: 29.5, color: "#b2aca4", letterSpacing: 0.15 }, penaltyColor: "#813538" },
+      countStyle: { font: "roboto-700", size: 30.3, color: "#d6d0c0", letterSpacing: 0.08 },
+      points: {
+        x: 795.5,
+        style: { font: "roboto-700", size: 30.3, color: "#b2aca4", letterSpacing: 0.08 },
+        penaltyColor: "#813538",
+      },
     },
   },
   {
@@ -379,32 +417,34 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     label: "Romance",
     background: "/share/themes/theme_6.webp",
     name: {
-      x: 535, y: 142, maxWidth: 380,
-      style: { font: "playfair-600", size: 82, color: "#5a2928", letterSpacing: 0.2 },
+      x: 535, y: 144.5, maxWidth: 380,
+      style: { font: "abhaya-libre-400", size: 84, color: "#5a2928", letterSpacing: 0.13 },
     },
     month: {
-      x: 727, y: 293, maxWidth: 310,
-      style: { font: "cormorant-500", size: 37, color: "#9a9288", letterSpacing: 0.4 },
+      x: 730, y: 295.5, maxWidth: 310,
+      style: { font: "cormorant-700", size: 22.2, color: "#7e746a", letterSpacing: 0.53 },
     },
     score: {
-      // Posé sur la fioriture (ancrage revu au calage : la virgule effleure
-      // l'ornement sans le couvrir — centre recalculé en conséquence).
-      x: 727, y: 401, maxWidth: 355,
-      style: { font: "playfair-700", size: 174, color: "#5c1f1f" },
+      x: 719.5, y: 407.5, maxWidth: 355,
+      style: { font: "libre-caslon-text-400", size: 165, color: "#5c1f1f", letterSpacing: 0.05 },
     },
     avatar: { cx: 308, cy: 411, rx: 123, ry: 128 },
     objectives: {
-      textRows: [703, 782, 860], barRows: [737, 817, 895],
+      textRows: [702, 781, 859], barRows: [737, 817, 895],
       leftBar: [140, 488], rightBar: [558, 905], barHeight: 22,
-      leftValueRight: 490, rightValueRight: 900,
-      valueStyle: { font: "eb-garamond-500", size: 37, color: "#918a7e" },
+      leftValueRight: 488.5, rightValueRight: 898.5,
+      valueStyle: { font: "eb-garamond-800", size: 25.5, color: "#918a7e", letterSpacing: 0.01 },
       gaugeFill: "#5c1f1fb3",
       gaugeRadius: 99,
     },
     table: {
       rows: [1073, 1127, 1180, 1234, 1288, 1342, 1396], x: 567,
-      countStyle: { font: "eb-garamond-500", size: 37, color: "#5f4a44" },
-      points: { x: 801, style: { font: "eb-garamond-500", size: 34, color: "#604c44", letterSpacing: 0.03 }, penaltyColor: "#a07d7c" },
+      countStyle: { font: "eb-garamond-600", size: 32.9, color: "#5f4a44", letterSpacing: 0.05 },
+      points: {
+        x: 800.5, dy: -1.5,
+        style: { font: "eb-garamond-600", size: 32.9, color: "#604c44", letterSpacing: 0.05 },
+        penaltyColor: "#a07d7c",
+      },
     },
   },
   {
@@ -412,43 +452,34 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     label: "Sci-fi",
     background: "/share/themes/theme_7.webp",
     name: {
-      x: 525, y: 150, maxWidth: 325,
-      style: {
-        font: "orbitron-800", size: 75, color: "#9fdcff", letterSpacing: 0.1,
-        shadows: [
-          { dx: 0, dy: 0, blur: 14, color: "rgba(90,200,255,.9)" },
-          { dx: 0, dy: 0, blur: 30, color: "rgba(60,170,255,.5)" },
-        ],
-      },
+      x: 527.5, y: 145, maxWidth: 325,
+      style: { font: "tomorrow-700", size: 67.9, color: "#9fdcff", letterSpacing: 0.02, shadows: [{ dx: 0, dy: 0, blur: 14, color: "rgba(90,200,255,.9)" }, { dx: 0, dy: 0, blur: 30, color: "rgba(60,170,255,.5)" }] },
     },
     month: {
-      x: 700, y: 285, maxWidth: 310,
-      style: { font: "rajdhani-600", size: 34, color: "#7fc9e8", letterSpacing: 0.44 },
+      x: 706, y: 287, maxWidth: 310,
+      style: { font: "anybody-600", size: 22.3, color: "#7fc9e8", letterSpacing: 0.5 },
     },
     score: {
-      x: 690, y: 390, maxWidth: 318,
-      style: {
-        font: "exo-2-800-italic", size: 150, color: "#eaf7ff",
-        shadows: [
-          { dx: 0, dy: 0, blur: 10, color: "rgba(140,220,255,1)" },
-          { dx: 0, dy: 0, blur: 24, color: "rgba(80,190,255,.9)" },
-          { dx: 0, dy: 0, blur: 48, color: "rgba(50,160,255,.6)" },
-        ],
-      },
+      x: 683.5, y: 388.5, maxWidth: 318,
+      style: { font: "tomorrow-700-italic", size: 160.5, color: "#eaf7ff", letterSpacing: -0.02, shadows: [{ dx: 0, dy: 0, blur: 10, color: "rgba(140,220,255,1)" }, { dx: 0, dy: 0, blur: 24, color: "rgba(80,190,255,.9)" }, { dx: 0, dy: 0, blur: 48, color: "rgba(50,160,255,.6)" }] },
     },
     avatar: { cx: 311, cy: 393, rx: 128, ry: 131 },
     objectives: {
-      textRows: [660, 732, 804], barRows: [691, 763, 835],
+      textRows: [661, 733, 805], barRows: [691, 763, 835],
       leftBar: [162, 478], rightBar: [545, 855], barHeight: 16,
-      leftValueRight: 476, rightValueRight: 858,
-      valueStyle: { font: "rajdhani-700", size: 33, color: "#8ecfec" },
+      leftValueRight: 475, rightValueRight: 857,
+      valueStyle: { font: "saira-condensed-700", size: 22.3, color: "#8ecfec", letterSpacing: 0.12 },
       gaugeFill: "#7fd4ff99",
       gaugeRadius: 2,
     },
     table: {
       rows: [995, 1036, 1077, 1118, 1159, 1200, 1241], x: 570,
-      countStyle: { font: "rajdhani-700", size: 34, color: "#8ecfec" },
-      points: { x: 778, style: { font: "rajdhani-700", size: 34, color: "#86d1ef", letterSpacing: 0.05 }, penaltyColor: "#c06364" },
+      countStyle: { font: "rajdhani-700", size: 31.2, color: "#8ecfec", letterSpacing: 0.08 },
+      points: {
+        x: 780, dy: 3,
+        style: { font: "rajdhani-700", size: 31.2, color: "#86d1ef", letterSpacing: 0.08 },
+        penaltyColor: "#c06364",
+      },
     },
   },
   {
@@ -456,57 +487,33 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     label: "Comics pop",
     background: "/share/themes/theme_8.webp",
     name: {
-      // Ombres en px, calées sur le corps mesuré (le proto parlait en em).
-      x: 520, y: 178, maxWidth: 520,
-      style: {
-        font: "bangers", size: 104, color: "#f2e5c8", letterSpacing: 0.05,
-        stroke: { width: 3.6, color: "#15100c" },
-        shadows: [
-          { dx: 5.2, dy: 5.2, blur: 0, color: "#c62a1e" },
-          { dx: 8.3, dy: 8.3, blur: 0, color: "#15100c" },
-        ],
-      },
+      x: 518, y: 174, maxWidth: 520,
+      style: { font: "finlandica-headline-900-italic", size: 132.4, color: "#f2e5c8", letterSpacing: -0.01, skewDeg: -5, stroke: { width: 3.6, color: "#15100c" }, shadows: [{ dx: 5.2, dy: 5.2, blur: 0, color: "#c62a1e" }, { dx: 8.3, dy: 8.3, blur: 0, color: "#15100c" }] },
     },
     month: {
-      x: 756, y: 320, maxWidth: 310,
-      style: { font: "archivo-black", size: 43, color: "#191512", letterSpacing: 0.3 },
+      x: 740.5, y: 325, maxWidth: 310,
+      style: { font: "roboto-condensed-900", size: 39.5, color: "#191512", letterSpacing: 0.25 },
     },
     score: {
-      x: 735, y: 455, maxWidth: 375,
-      style: {
-        font: "bangers", size: 170, color: "#d0281c",
-        stroke: { width: 5.1, color: "#15100c" },
-        shadows: [
-          { dx: 8.5, dy: 8.5, blur: 0, color: "#15100c" },
-          { dx: 17, dy: 13.6, blur: 0, color: "#58c33a" },
-        ],
-      },
+      x: 716.5, y: 432.5, maxWidth: 375,
+      style: { font: "amaranth-700-italic", size: 242.2, color: "#d0281c", letterSpacing: -0.04, skewDeg: -5, stroke: { width: 5.1, color: "#15100c" }, shadows: [{ dx: 8.5, dy: 8.5, blur: 0, color: "#15100c" }, { dx: 17, dy: 13.6, blur: 0, color: "#58c33a" }] },
     },
     avatar: { cx: 288, cy: 436, rx: 130 },
     objectives: {
-      textRows: [700, 774, 852], barRows: [733, 806, 885],
+      textRows: [698.5, 772.5, 850.5], barRows: [733, 806, 885],
       leftBar: [105, 478], rightBar: [540, 918], barHeight: 20,
-      leftValueRight: 465, rightValueRight: 915,
-      valueStyle: { font: "archivo-black", size: 33, color: "#16120e" },
+      leftValueRight: 469, rightValueRight: 919,
+      valueStyle: { font: "barlow-800-italic", size: 33, color: "#16120e" },
       gaugeFill: "#d0281ccc",
       gaugeRadius: 3,
     },
     table: {
       rows: [1043, 1096, 1149, 1201, 1254, 1306, 1360], x: 572,
-      countStyle: { font: "archivo-black", size: 34, color: "#16120e" },
+      countStyle: { font: "noto-sans-800-italic", size: 42.4, color: "#16120e", letterSpacing: 0.09 },
       points: {
-        // Le seul qui quitte la police des compteurs : le barème du fond était
-        // en capitales grasses penchées, cerclées de noir (contour centré sur le
-        // tracé → 7 px pour ~3,5 px visibles autour du remplissage).
-        x: 808,
-        style: {
-          font: "archivo-black", size: 40, color: "#1f4a8f", letterSpacing: 0.02, skewDeg: -10,
-          stroke: { width: 7, color: "#15100c" },
-        },
-        penaltyColor: "#c42e25",
-        // L'encre des compteurs sous ce contour noir ferait une tache : le zéro
-        // prend le crème du pseudo, cerclé comme lui.
-        zeroColor: "#f2e5c8",
+        x: 810, dy: -5.5,
+        style: { font: "noto-sans-800-italic", size: 42.4, color: "#1f4a8f", letterSpacing: 0.09, skewDeg: -1, stroke: { width: 7, color: "#15100c" } },
+        penaltyColor: "#c42e25", zeroColor: "#f2e5c8",
       },
     },
   },
@@ -515,30 +522,34 @@ export const SHARE_THEMES: readonly ShareTheme[] = [
     label: "Western",
     background: "/share/themes/theme_9.webp",
     name: {
-      x: 520, y: 180, maxWidth: 580,
-      style: { font: "alfa-slab-one", size: 133, color: "#3a2812", letterSpacing: 0.06 },
+      x: 525.5, y: 191, maxWidth: 580,
+      style: { font: "alfa-slab-one", size: 124.2, color: "#3a2812" },
     },
     month: {
-      x: 709, y: 338, maxWidth: 310,
-      style: { font: "graduate", size: 45, color: "#46301a", letterSpacing: 0.3 },
+      x: 711, y: 337.5, maxWidth: 310,
+      style: { font: "barlow-condensed-800", size: 38, color: "#46301a", letterSpacing: 0.25 },
     },
     score: {
-      x: 712, y: 452, maxWidth: 342,
-      style: { font: "rye", size: 215, color: "#7a3a10" },
+      x: 705.5, y: 430, maxWidth: 342,
+      style: { font: "barlow-condensed-900-italic", size: 227.6, color: "#7a3a10", letterSpacing: 0.01 },
     },
     avatar: { cx: 323, cy: 437, rx: 128, ry: 132 },
     objectives: {
-      textRows: [728, 802, 880], barRows: [762, 836, 913],
+      textRows: [730, 804, 882], barRows: [762, 836, 913],
       leftBar: [145, 482], rightBar: [525, 890], barHeight: 22,
-      leftValueRight: 490, rightValueRight: 900,
-      valueStyle: { font: "graduate", size: 33, color: "#46301a" },
+      leftValueRight: 478, rightValueRight: 888,
+      valueStyle: { font: "saira-condensed-800", size: 31.2, color: "#46301a", letterSpacing: 0.01 },
       gaugeFill: "#5c422acc",
       gaugeRadius: 3,
     },
     table: {
       rows: [1075, 1123, 1170, 1219, 1267, 1315, 1364], x: 590,
-      countStyle: { font: "graduate", size: 38, color: "#46301a" },
-      points: { x: 792, style: { font: "graduate", size: 32, color: "#4b2f0d", letterSpacing: 0.04 }, penaltyColor: "#783210" },
+      countStyle: { font: "aleo-900", size: 35.7, color: "#46301a", letterSpacing: 0.02 },
+      points: {
+        x: 790, dy: 4.5,
+        style: { font: "aleo-900", size: 35.7, color: "#4b2f0d", letterSpacing: 0.02 },
+        penaltyColor: "#783210",
+      },
     },
   },
   {
